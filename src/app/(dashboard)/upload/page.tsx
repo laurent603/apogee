@@ -905,6 +905,7 @@ export default function UploadPage() {
           adsetTemplate,
           adTemplate,
           treeNodes: enrichedNodes,
+          testStructure,
           launchStatus,
           launchDate,
           launchTime,

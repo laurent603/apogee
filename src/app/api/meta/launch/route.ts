@@ -42,6 +42,7 @@ interface LaunchBody {
   adsetTemplate: LaunchAdset | null
   adTemplate: LaunchAd | null
   treeNodes: LaunchTreeNode[]
+  testStructure: string
   launchStatus: string
   launchDate: string
   launchTime: string
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
     return new Response('data: ❌ Payload invalide\n\n', { status: 400, headers: { 'Content-Type': 'text/event-stream' } })
   }
 
-  const { accountId, campaign, adsetTemplate, adTemplate, treeNodes, launchStatus, launchDate, launchTime, budget } = body
+  const { accountId, campaign, adsetTemplate, adTemplate, treeNodes, testStructure, launchStatus, launchDate, launchTime, budget } = body
 
   if (!accountId) {
     return new Response('data: ❌ accountId manquant\n\n', { status: 400, headers: { 'Content-Type': 'text/event-stream' } })
@@ -165,57 +166,69 @@ export async function POST(req: NextRequest) {
         const budgetCents = Math.round(Number(budget || 50) * 100)
 
         /* ── 3. For each tree node: adset + ads ────────────────────────────── */
+
+        // In "insert-in-adset" mode with an existing adset template, reuse the
+        // existing adset ID for every node instead of creating new ones.
+        const useExistingAdset =
+          testStructure === 'insert-in-adset' &&
+          !adsetTemplate?._isNew &&
+          !!adsetTemplate?.id
+
         for (const node of treeNodes) {
-          /* Create adset */
-          send(`Création de l'adset "${node.adsetName}"...`)
+          let adsetId: string
 
-          const rawOptGoal = adsetTemplate?.optimization_goal || 'OFFSITE_CONVERSIONS'
-          const optimizationGoal = OPT_GOAL_MAP[rawOptGoal] ?? rawOptGoal
+          if (useExistingAdset) {
+            // ── Reuse existing adset ──────────────────────────────────────────
+            adsetId = adsetTemplate!.id
+            send(`✓ Insertion dans l'adset existant : "${adsetTemplate!.name}" (id: ${adsetId})`)
+          } else {
+            // ── Create new adset ──────────────────────────────────────────────
+            send(`Création de l'adset "${node.adsetName}"...`)
 
-          // billing_event: reuse from existing adset if available, else IMPRESSIONS
-          const adsetRaw = adsetTemplate as (LaunchAdset & Record<string, unknown>) | null
-          const billingEvent = (!adsetTemplate?._isNew && adsetRaw?.billing_event)
-            ? String(adsetRaw.billing_event)
-            : 'IMPRESSIONS'
+            const rawOptGoal = adsetTemplate?.optimization_goal || 'OFFSITE_CONVERSIONS'
+            const optimizationGoal = OPT_GOAL_MAP[rawOptGoal] ?? rawOptGoal
 
-          const adsetBody: Record<string, unknown> = {
-            name: node.adsetName,
-            campaign_id: campaignId,
-            status: adsetStatus,
-            optimization_goal: optimizationGoal,
-            billing_event: billingEvent,
-            targeting: cleanTargeting(adsetTemplate?.targeting),
-          }
+            const adsetRaw = adsetTemplate as (LaunchAdset & Record<string, unknown>) | null
+            const billingEvent = (!adsetTemplate?._isNew && adsetRaw?.billing_event)
+              ? String(adsetRaw.billing_event)
+              : 'IMPRESSIONS'
 
-          if (!isCBO) {
-            // _isNew → user entered euros → convert to cents
-            // from Meta → already in cents → use directly
-            const rawBudget = adsetTemplate?.daily_budget
-            const adsetBudgetCents = rawBudget
-              ? (adsetTemplate?._isNew
-                  ? Math.round(Number(rawBudget) * 100)
-                  : Number(rawBudget))
-              : budgetCents
-            adsetBody.daily_budget = String(adsetBudgetCents)
-          }
-
-          // Only add promoted_object when the optimization goal requires it
-          if (NEEDS_PIXEL.has(optimizationGoal) && adsetTemplate?.promoted_object?.pixel_id) {
-            adsetBody.promoted_object = {
-              pixel_id: adsetTemplate.promoted_object.pixel_id,
-              custom_event_type: adsetTemplate.promoted_object.custom_event_type || 'PURCHASE',
+            const adsetBody: Record<string, unknown> = {
+              name: node.adsetName,
+              campaign_id: campaignId,
+              status: adsetStatus,
+              optimization_goal: optimizationGoal,
+              billing_event: billingEvent,
+              targeting: cleanTargeting(adsetTemplate?.targeting),
             }
-          } else if (NEEDS_PAGE.has(optimizationGoal) && adTemplate?._pageId) {
-            adsetBody.promoted_object = { page_id: adTemplate._pageId }
+
+            if (!isCBO) {
+              const rawBudget = adsetTemplate?.daily_budget
+              const adsetBudgetCents = rawBudget
+                ? (adsetTemplate?._isNew
+                    ? Math.round(Number(rawBudget) * 100)
+                    : Number(rawBudget))
+                : budgetCents
+              adsetBody.daily_budget = String(adsetBudgetCents)
+            }
+
+            if (NEEDS_PIXEL.has(optimizationGoal) && adsetTemplate?.promoted_object?.pixel_id) {
+              adsetBody.promoted_object = {
+                pixel_id: adsetTemplate.promoted_object.pixel_id,
+                custom_event_type: adsetTemplate.promoted_object.custom_event_type || 'PURCHASE',
+              }
+            } else if (NEEDS_PAGE.has(optimizationGoal) && adTemplate?._pageId) {
+              adsetBody.promoted_object = { page_id: adTemplate._pageId }
+            }
+
+            if (startTime) adsetBody.start_time = startTime
+
+            console.log('[launch] adset body:', JSON.stringify(adsetBody))
+            const adsetData = await metaPost(`/${accountId}/adsets`, token, adsetBody)
+            if (adsetData.error) throw new Error(`Adset : ${metaError(adsetData)}`)
+            adsetId = adsetData.id as string
+            send(`✓ Adset créé : "${node.adsetName}" (id: ${adsetId})`)
           }
-
-          if (startTime) adsetBody.start_time = startTime
-
-          console.log('[launch] adset body:', JSON.stringify(adsetBody))
-          const adsetData = await metaPost(`/${accountId}/adsets`, token, adsetBody)
-          if (adsetData.error) throw new Error(`Adset : ${metaError(adsetData)}`)
-          const adsetId = adsetData.id as string
-          send(`✓ Adset créé : "${node.adsetName}" (id: ${adsetId})`)
 
           /* Create ads in this adset */
           for (const ag of node.adGroups) {
