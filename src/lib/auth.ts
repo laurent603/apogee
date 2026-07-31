@@ -1,10 +1,8 @@
 import { NextAuthOptions } from 'next-auth'
 import FacebookProvider from 'next-auth/providers/facebook'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
-import { prisma } from '@/lib/db'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  session: { strategy: 'jwt' },
   providers: [
     FacebookProvider({
       clientId: process.env.FACEBOOK_CLIENT_ID!,
@@ -22,15 +20,17 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
+    async jwt({ token, account }) {
+      if (account) {
+        token.accessToken = account.access_token
+        token.facebookId = account.providerAccountId
+      }
+      return token
+    },
+    async session({ session, token }) {
       if (session.user) {
-        session.user.id = user.id
-        const account = await prisma.account.findFirst({
-          where: { userId: user.id, provider: 'facebook' },
-        })
-        if (account?.access_token) {
-          session.accessToken = account.access_token
-        }
+        session.user.id = token.sub!
+        session.accessToken = token.accessToken as string
       }
       return session
     },
