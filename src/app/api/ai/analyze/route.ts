@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -40,8 +40,11 @@ export async function POST(req: NextRequest) {
           getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
         ])
 
-        const systemPrompt = getPrompt(category as PromptCategory, analysisType)
-        const userMessage = `
+        const systemPrompt = customPrompt
+          ? `Tu es un expert Meta Ads et consultant en marketing digital. Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la question de l'utilisateur. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes pour structurer tes réponses.`
+          : getPrompt(category as PromptCategory, analysisType)
+
+        const dataContext = `
 # Données du compte Meta Ads
 
 ## Brand Settings
@@ -61,10 +64,11 @@ ${JSON.stringify(ads, null, 2)}
 
 ## Données journalières
 ${JSON.stringify(daily, null, 2)}
-
----
-Lance maintenant l'analyse demandée avec ces données réelles.
 `
+
+        const userMessage = customPrompt
+          ? `${dataContext}\n\n---\n\nQuestion de l'utilisateur : ${customPrompt}`
+          : `${dataContext}\n\n---\nLance maintenant l'analyse demandée avec ces données réelles.`
 
         let fullResult = ''
         const claudeStream = anthropic.messages.stream({

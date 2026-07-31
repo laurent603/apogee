@@ -7,6 +7,129 @@ import type { AutopilotAgent } from '@/types'
 
 type Tab = 'session' | 'agent' | 'history' | 'settings'
 
+// --- Markdown renderer ---
+function inlineMd(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/→/g, '→')
+}
+
+function markdownToHtml(md: string): string {
+  if (!md) return ''
+
+  // Pre-process: code blocks (protect content)
+  const codeBlocks: string[] = []
+  let html = md.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => {
+    codeBlocks.push(code)
+    return `%%CODE${codeBlocks.length - 1}%%`
+  })
+
+  // Tables
+  html = html.replace(
+    /\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|[ \t]*\n?)+)/g,
+    (_, header, body) => {
+      const ths = header.split('|').map((s: string) => s.trim()).filter(Boolean)
+      const rows = body.trim().split('\n').filter((r: string) => r.trim().startsWith('|'))
+        .map((row: string) => row.split('|').map((s: string) => s.trim()).filter(Boolean))
+      const thead = `<thead><tr>${ths.map((h: string) => `<th>${inlineMd(h)}</th>`).join('')}</tr></thead>`
+      const tbody = `<tbody>${rows.map((r: string[]) => `<tr>${r.map((c: string) => `<td>${inlineMd(c)}</td>`).join('')}</tr>`).join('')}</tbody>`
+      return `<table>${thead}${tbody}</table>\n`
+    }
+  )
+
+  // Process line by line
+  const lines = html.split('\n')
+  const out: string[] = []
+  let inUl = false, inOl = false, paragraph: string[] = []
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      const txt = paragraph.join('<br>')
+      if (txt.trim()) out.push(`<p>${txt}</p>`)
+      paragraph = []
+    }
+  }
+
+  const closeList = () => {
+    if (inUl) { out.push('</ul>'); inUl = false }
+    if (inOl) { out.push('</ol>'); inOl = false }
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine
+
+    // Code block restore
+    const codeMatch = line.match(/^%%CODE(\d+)%%$/)
+    if (codeMatch) {
+      flushParagraph(); closeList()
+      out.push(`<pre><code>${codeBlocks[parseInt(codeMatch[1])]}</code></pre>`)
+      continue
+    }
+
+    // Table rows (already converted)
+    if (line.startsWith('<table>') || line.startsWith('<thead>') || line.startsWith('<tbody>')) {
+      flushParagraph(); closeList()
+      out.push(line)
+      continue
+    }
+
+    // H1 / H2 / H3
+    const h3 = line.match(/^###\s+(.+)/)
+    if (h3) { flushParagraph(); closeList(); out.push(`<h3>${inlineMd(h3[1])}</h3>`); continue }
+    const h2 = line.match(/^##\s+(.+)/)
+    if (h2) { flushParagraph(); closeList(); out.push(`<h2>${inlineMd(h2[1])}</h2>`); continue }
+    const h1 = line.match(/^#\s+(.+)/)
+    if (h1) { flushParagraph(); closeList(); out.push(`<h1>${inlineMd(h1[1])}</h1>`); continue }
+
+    // HR
+    if (/^---+$/.test(line.trim())) {
+      flushParagraph(); closeList(); out.push('<hr>'); continue
+    }
+
+    // Blockquote
+    const bq = line.match(/^>\s*(.+)/)
+    if (bq) { flushParagraph(); closeList(); out.push(`<blockquote>${inlineMd(bq[1])}</blockquote>`); continue }
+
+    // UL
+    const ul = line.match(/^[*\-]\s+(.+)/)
+    if (ul) {
+      flushParagraph()
+      if (inOl) { out.push('</ol>'); inOl = false }
+      if (!inUl) { out.push('<ul>'); inUl = true }
+      out.push(`<li>${inlineMd(ul[1])}</li>`)
+      continue
+    }
+
+    // OL
+    const ol = line.match(/^\d+\.\s+(.+)/)
+    if (ol) {
+      flushParagraph()
+      if (inUl) { out.push('</ul>'); inUl = false }
+      if (!inOl) { out.push('<ol>'); inOl = true }
+      out.push(`<li>${inlineMd(ol[1])}</li>`)
+      continue
+    }
+
+    // Blank line = paragraph break
+    if (line.trim() === '') {
+      closeList()
+      flushParagraph()
+      continue
+    }
+
+    // Otherwise: accumulate paragraph
+    if (inUl || inOl) { closeList() }
+    paragraph.push(inlineMd(line))
+  }
+
+  flushParagraph()
+  closeList()
+
+  return out.join('\n')
+}
+
 // --- Prompt bank (33 prompts, 4 catégories) ---
 const PROMPT_BANK = {
   'Performance': [
@@ -295,17 +418,18 @@ export default function AutopilotPage() {
 
       {/* --- TAB: Nouvelle session --- */}
       {tab === 'session' && (
-        <div className="grid grid-cols-5 gap-4">
-          {/* Prompt bank */}
-          <div className="col-span-2 space-y-3">
-            <div className="card p-3">
-              <p className="text-xs font-semibold text-[#0d0d12] mb-2">Bibliothèque de prompts</p>
+        <div className="flex gap-4" style={{ minHeight: 600 }}>
+
+          {/* ── Prompt bank (left column) ── */}
+          <div className="flex-shrink-0 w-56">
+            <div className="card p-3 sticky top-4">
+              <p className="text-xs font-bold text-[#0d0d12] mb-2 uppercase tracking-wide">Prompts</p>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher un prompt…"
-                className="input mb-2 py-1.5 text-xs"
+                placeholder="Rechercher…"
+                className="input mb-2 py-1 text-xs"
               />
               <div className="flex gap-1 flex-wrap mb-2">
                 {(Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).map((cat) => (
@@ -313,20 +437,23 @@ export default function AutopilotPage() {
                     key={cat}
                     onClick={() => setPromptCategory(cat)}
                     className={clsx(
-                      'text-xs px-2.5 py-1 rounded-lg font-medium transition-colors',
-                      promptCategory === cat ? 'bg-[#3434ef] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      'text-[10px] px-2 py-0.5 rounded font-semibold transition-colors',
+                      promptCategory === cat
+                        ? 'bg-[#3434ef] text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     )}
                   >
                     {cat}
                   </button>
                 ))}
               </div>
-              <div className="space-y-1 max-h-96 overflow-y-auto">
+              <div className="space-y-0.5 max-h-[520px] overflow-y-auto">
                 {filteredPrompts.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => sendMessage(p.prompt)}
-                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-blue-50 hover:text-[#3434ef] transition-colors text-xs text-gray-700 border border-transparent hover:border-blue-200"
+                    disabled={streaming}
+                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-blue-50 hover:text-[#3434ef] transition-colors text-[11px] text-gray-600 leading-snug"
                   >
                     {p.label}
                   </button>
@@ -338,51 +465,113 @@ export default function AutopilotPage() {
             </div>
           </div>
 
-          {/* Chat */}
-          <div className="col-span-3 flex flex-col card p-0 overflow-hidden" style={{ height: 560 }}>
-            <div className="px-4 py-3 border-b border-[#E5E7EB] flex-shrink-0">
-              <p className="text-sm font-semibold text-[#0d0d12]">Session d&apos;analyse</p>
-              <p className="text-xs text-gray-400">{selectedAccount?.name || 'Aucun compte sélectionné'}</p>
+          {/* ── Chat (right, full width) ── */}
+          <div className="flex-1 flex flex-col min-w-0">
+
+            {/* Top bar */}
+            <div className="card p-3 mb-3 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-sm font-semibold text-[#0d0d12]">Session d&apos;analyse</span>
+                <span className="text-xs text-gray-400">·</span>
+                <span className="text-xs text-gray-400">{selectedAccount?.name || 'Aucun compte'}</span>
+              </div>
+              {messages.length > 0 && (
+                <button
+                  onClick={() => setMessages([])}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  Effacer
+                </button>
+              )}
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 space-y-4 overflow-y-auto pb-4">
               {messages.length === 0 && (
-                <div className="text-center py-12">
-                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-6 h-6 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="card text-center py-16">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-[#0d0d12]">Démarrez une analyse</p>
-                  <p className="text-xs text-gray-400 mt-1">Choisissez un prompt dans la bibliothèque ou tapez votre question</p>
+                  <p className="font-semibold text-[#0d0d12]">Démarrez une analyse</p>
+                  <p className="text-sm text-gray-400 mt-1 max-w-xs mx-auto">
+                    Choisissez un prompt dans la bibliothèque ou tapez votre question ci-dessous
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center mt-4">
+                    {['Analyse du funnel complet', 'Top / Flop des publicités', 'Rapport hebdomadaire'].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          const found = Object.values(PROMPT_BANK).flat().find((p) => p.label === s)
+                          if (found) sendMessage(found.prompt)
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-[#3434ef] border border-blue-200 hover:bg-blue-100 transition-colors"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
+
               {messages.map((m, i) => (
-                <div key={i} className={clsx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  <div className={clsx(
-                    'max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm',
-                    m.role === 'user'
-                      ? 'bg-[#3434ef] text-white'
-                      : 'bg-[#f8f9fc] border border-[#E5E7EB] text-[#0d0d12]'
-                  )}>
-                    {m.role === 'assistant' ? (
-                      <div
-                        className="report-content text-xs leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: m.content.startsWith('<') ? m.content : m.content.replace(/\n/g, '<br/>') }}
-                      />
-                    ) : m.content}
-                    {m.role === 'assistant' && streaming && i === messages.length - 1 && (
-                      <span className="inline-block w-1.5 h-3.5 bg-[#3434ef] animate-pulse ml-1 rounded-sm" />
-                    )}
-                  </div>
+                <div key={i}>
+                  {m.role === 'user' ? (
+                    /* ── User question chip ── */
+                    <div className="flex justify-end">
+                      <div className="max-w-[75%] bg-[#3434ef] text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed">
+                        {m.content}
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── AI response — full width card ── */
+                    <div className="card p-0 overflow-hidden">
+                      {/* Card header */}
+                      <div className="flex items-center gap-2 px-5 py-3 border-b border-[#E5E7EB] bg-[#f8f9fc]">
+                        <div className="w-6 h-6 rounded-md bg-[#3434ef] flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <span className="text-xs font-semibold text-[#0d0d12]">Analyse Metanalyzer</span>
+                        {streaming && i === messages.length - 1 && (
+                          <div className="flex gap-0.5 ml-1">
+                            <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                        )}
+                        {!streaming && (
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(m.content); toast.success('Copié !') }}
+                            className="ml-auto text-[10px] text-gray-400 hover:text-[#0d0d12] transition-colors"
+                          >
+                            Copier
+                          </button>
+                        )}
+                      </div>
+                      {/* Card body — full width, proper spacing */}
+                      <div className="px-5 py-5">
+                        <div
+                          className="chat-report"
+                          dangerouslySetInnerHTML={{
+                            __html: m.content
+                              ? markdownToHtml(m.content)
+                              : '<p class="text-gray-400 text-sm">Analyse en cours…</p>',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="px-4 py-3 border-t border-[#E5E7EB] flex-shrink-0">
+            {/* Input bar */}
+            <div className="card p-3 mt-3 flex-shrink-0">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -390,26 +579,35 @@ export default function AutopilotPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder="Posez votre question ou collez un prompt…"
-                  className="input flex-1 py-2 text-sm"
+                  className="input flex-1 py-2"
                   disabled={streaming}
                 />
                 <button
                   onClick={() => sendMessage()}
                   disabled={streaming || !input.trim()}
-                  className="btn-primary px-3 py-2 flex-shrink-0"
+                  className="btn-primary px-4 py-2 flex-shrink-0 flex items-center gap-2"
                 >
                   {streaming ? (
-                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                    <>
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span>Analyse…</span>
+                    </>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span>Envoyer</span>
+                    </>
                   )}
                 </button>
               </div>
+              <p className="text-[10px] text-gray-400 mt-1.5 text-center">
+                L&apos;IA accède à vos données Meta Ads en temps réel · 20-40 secondes
+              </p>
             </div>
           </div>
         </div>
