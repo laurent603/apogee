@@ -40,9 +40,20 @@ export function AnalysisPanel({ title, description, category, analysisType, date
           brandSettings: bsData.settings,
         }),
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setResult(data.result)
+
+      if (!res.ok || !res.body) throw new Error('Erreur serveur')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        setResult(accumulated)
+      }
+
       toast.success('Analyse terminée')
     } catch (err) {
       toast.error('Erreur lors de l\'analyse')

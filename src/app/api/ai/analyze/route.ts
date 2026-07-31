@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { analyzeWithClaude } from '@/lib/anthropic'
+import { anthropic } from '@/lib/anthropic'
 import { PROMPTS } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
 type PromptCategory = keyof typeof PROMPTS
-type PromptKey = string
 
-function getPrompt(category: PromptCategory, key: PromptKey): string {
+function getPrompt(category: PromptCategory, key: string): string {
   const cat = PROMPTS[category] as Record<string, string>
   return cat[key] || Object.values(cat)[0]
 }
@@ -28,26 +27,27 @@ export async function POST(req: NextRequest) {
   }
 
   const token = session.accessToken as string
+  const encoder = new TextEncoder()
 
-  try {
-    // Fetch relevant data based on analysis type
-    const [overview, campaigns, adsets, ads, daily] = await Promise.all([
-      getAccountOverview(accountId, token, datePreset),
-      getCampaigns(accountId, token, datePreset),
-      getAdSets(accountId, token, datePreset),
-      getAds(accountId, token, datePreset),
-      getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
-    ])
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const [overview, campaigns, adsets, ads, daily] = await Promise.all([
+          getAccountOverview(accountId, token, datePreset),
+          getCampaigns(accountId, token, datePreset),
+          getAdSets(accountId, token, datePreset),
+          getAds(accountId, token, datePreset),
+          getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
+        ])
 
-    const systemPrompt = getPrompt(category as PromptCategory, analysisType)
-
-    const userMessage = `
+        const systemPrompt = getPrompt(category as PromptCategory, analysisType)
+        const userMessage = `
 # Données du compte Meta Ads
 
-## Brand Settings (Profil Client)
+## Brand Settings
 ${brandSettings ? JSON.stringify(brandSettings, null, 2) : 'Non renseigné'}
 
-## Vue d'ensemble du compte (${datePreset})
+## Vue d'ensemble (${datePreset})
 ${JSON.stringify(overview, null, 2)}
 
 ## Campagnes
@@ -66,23 +66,43 @@ ${JSON.stringify(daily, null, 2)}
 Lance maintenant l'analyse demandée avec ces données réelles.
 `
 
-    const result = await analyzeWithClaude(systemPrompt, userMessage)
+        let fullResult = ''
+        const claudeStream = anthropic.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 8192,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMessage }],
+        })
 
-    // Save report
-    if (dbAccountId) {
-      await prisma.report.create({
-        data: {
-          title: `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`,
-          type: category,
-          content: result,
-          adAccountId: dbAccountId,
-        },
-      })
-    }
+        for await (const chunk of claudeStream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            fullResult += chunk.delta.text
+            controller.enqueue(encoder.encode(chunk.delta.text))
+          }
+        }
 
-    return NextResponse.json({ result })
-  } catch (err) {
-    console.error('AI analyze error:', err)
-    return NextResponse.json({ error: String(err) }, { status: 500 })
-  }
+        if (dbAccountId && fullResult) {
+          await prisma.report.create({
+            data: {
+              title: `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`,
+              type: category,
+              content: fullResult,
+              adAccountId: dbAccountId,
+            },
+          }).catch(() => {})
+        }
+      } catch (err) {
+        controller.enqueue(encoder.encode(`\n\n**Erreur:** ${String(err)}`))
+      }
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no',
+    },
+  })
 }
