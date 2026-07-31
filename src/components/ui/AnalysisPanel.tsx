@@ -67,8 +67,8 @@ export function AnalysisPanel({ title, description, category, analysisType, date
       <div className="card">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-semibold text-white">{title}</h3>
-            <p className="text-sm text-gray-400 mt-0.5">{description}</p>
+            <h3 className="font-semibold text-[#0d0d12]">{title}</h3>
+            <p className="text-sm text-gray-500 mt-0.5">{description}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <select
@@ -111,12 +111,12 @@ export function AnalysisPanel({ title, description, category, analysisType, date
       {loading && (
         <div className="card flex items-center justify-center py-16">
           <div className="text-center space-y-3">
-            <svg className="animate-spin w-8 h-8 text-brand-500 mx-auto" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin w-8 h-8 text-[#3434ef] mx-auto" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            <p className="text-gray-400 text-sm">L&apos;IA analyse vos données Meta Ads…</p>
-            <p className="text-gray-600 text-xs">Cela peut prendre 20-40 secondes</p>
+            <p className="text-gray-500 text-sm">L&apos;IA analyse vos données Meta Ads…</p>
+            <p className="text-gray-400 text-xs">Cela peut prendre 20-40 secondes</p>
           </div>
         </div>
       )}
@@ -124,19 +124,19 @@ export function AnalysisPanel({ title, description, category, analysisType, date
       {result && !loading && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-semibold text-gray-300">Résultat de l&apos;analyse</h4>
+            <h4 className="text-sm font-semibold text-[#0d0d12]">Résultat de l&apos;analyse</h4>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(result)
                 toast.success('Copié !')
               }}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-400 hover:text-[#0d0d12] transition-colors"
             >
               Copier
             </button>
           </div>
           <div
-            className="report-content prose prose-invert max-w-none"
+            className="report-content prose max-w-none"
             dangerouslySetInnerHTML={{
               __html: result.startsWith('<')
                 ? result

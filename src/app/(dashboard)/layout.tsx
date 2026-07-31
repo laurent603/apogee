@@ -9,15 +9,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!session) redirect('/login')
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
+    <div className="flex h-screen overflow-hidden bg-[#f8f9fc]">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="h-14 bg-gray-950 border-b border-gray-800 flex items-center justify-between px-6 flex-shrink-0">
+        <header className="h-14 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 flex-shrink-0">
           <AccountSelector />
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-600">claude-sonnet-4-6</span>
             <div className="w-2 h-2 rounded-full bg-green-500" title="IA connectée" />
+            <span className="text-xs text-gray-400 font-medium">IA connectée</span>
           </div>
         </header>
         {/* Content */}

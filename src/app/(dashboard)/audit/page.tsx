@@ -36,8 +36,8 @@ export default function AuditPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Audit</h1>
-        <p className="text-gray-400 text-sm mt-0.5">Framework Andromeda — Diagnostic complet de votre compte Meta Ads</p>
+        <h1 className="page-title">Audit</h1>
+        <p className="page-subtitle mt-0.5">Framework Andromeda — Diagnostic complet de votre compte Meta Ads</p>
       </div>
 
       {/* Tabs */}
@@ -48,8 +48,8 @@ export default function AuditPage() {
             onClick={() => setActive(a.key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               active === a.key
-                ? 'bg-brand-500 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                ? 'bg-[#3434ef] text-white'
+                : 'bg-white text-gray-600 hover:text-[#0d0d12] hover:bg-gray-50 border border-[#E5E7EB]'
             }`}
           >
             <span>{a.icon}</span>

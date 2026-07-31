@@ -92,8 +92,8 @@ export default function BrandSettingsPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Brand Settings</h1>
-          <p className="text-gray-400 text-sm mt-0.5">
+          <h1 className="page-title">Brand Settings</h1>
+          <p className="page-subtitle mt-0.5">
             Ces informations permettent à l&apos;IA de personnaliser chaque analyse pour votre client.
           </p>
         </div>

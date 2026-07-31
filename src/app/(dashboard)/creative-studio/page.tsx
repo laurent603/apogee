@@ -93,8 +93,8 @@ export default function CreativeStudioPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Creative Studio</h1>
-        <p className="text-gray-400 text-sm mt-0.5">Uploadez vos créas et publiez directement dans Meta Ads — sans passer par l&apos;Ads Manager</p>
+        <h1 className="page-title">Creative Studio</h1>
+        <p className="page-subtitle mt-0.5">Uploadez vos créas et publiez directement dans Meta Ads — sans passer par l&apos;Ads Manager</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

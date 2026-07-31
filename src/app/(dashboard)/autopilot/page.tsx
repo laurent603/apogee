@@ -1,93 +1,173 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useStore } from '@/lib/store'
+import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import type { AutopilotAgent } from '@/types'
 
+type Tab = 'session' | 'agent' | 'history' | 'settings'
+
+// --- Prompt bank (33 prompts, 4 catégories) ---
+const PROMPT_BANK = {
+  'Performance': [
+    { id: 'p1', label: 'Analyse globale du compte', prompt: 'Analyse les performances globales de mon compte sur les 7 derniers jours. Identifie les tendances principales, les points forts et les alertes.' },
+    { id: 'p2', label: 'Top / Flop des publicités', prompt: 'Liste le top 5 et flop 5 de mes publicités actives sur 14 jours. Pour chaque ad, donne : CPM, CTR, CPC, ROAS et une recommandation.' },
+    { id: 'p3', label: 'Analyse du ROAS', prompt: 'Analyse en profondeur le ROAS de toutes mes campagnes actives. Identifie les campagnes rentables vs déficitaires et les leviers pour améliorer.' },
+    { id: 'p4', label: 'Détection des ads à couper', prompt: 'Identifie les publicités à couper maintenant. Critères : spend > 2× CPA cible sans conversion, ou CPC > 2€ avec CTR < 0.5%.' },
+    { id: 'p5', label: 'Analyse du CPM', prompt: 'Analyse le CPM par campagne et ad set. Identifie les audiences avec CPM anormalement élevé et les raisons possibles.' },
+    { id: 'p6', label: 'Courbe de performance journalière', prompt: 'Analyse la courbe de performance jour par jour sur les 30 derniers jours. Identifie les pics, creux et facteurs explicatifs.' },
+    { id: 'p7', label: 'Analyse du funnel complet', prompt: 'Analyse le funnel complet : impressions → clics → vue LP → ATC → checkout → achat. Identifie le point de rupture principal.' },
+    { id: 'p8', label: 'Alerte dépassement budget', prompt: 'Vérifie si des campagnes dépassent leur budget prévisionnel. Calcule le rythme de dépense actuel vs objectif mensuel.' },
+  ],
+  'Créa & Stratégie': [
+    { id: 'c1', label: 'Scan de fatigue créative', prompt: 'Lance un scan de fatigue créative sur toutes les ads actives. Signale celles avec fréquence > 3 et CTR en baisse sur 7j.' },
+    { id: 'c2', label: 'Hook Rate analysis', prompt: 'Analyse le Hook Rate de toutes mes vidéos actives. Classe-les du plus performant au moins bon et donne des recommandations.' },
+    { id: 'c3', label: 'Hold Rate analysis', prompt: 'Analyse le Hold Rate de mes vidéos. Quels créatifs retiennent le mieux l\'attention et pourquoi ?' },
+    { id: 'c4', label: 'Comparaison formats créatifs', prompt: 'Compare les performances entre les formats 1:1, 9:16 et 16:9. Lequel génère le meilleur ROAS sur mes campagnes ?' },
+    { id: 'c5', label: 'Angles créatifs qui convertissent', prompt: 'Analyse les titres et descriptions de mes meilleures ads. Quels angles créatifs génèrent le plus de conversions ?' },
+    { id: 'c6', label: 'Brief créatif IA', prompt: 'Génère 3 briefs créatifs détaillés pour remplacer mes 3 publicités les moins performantes. Inclus : angle, accroche, structure, CTA.' },
+    { id: 'c7', label: 'Test créatif recommandé', prompt: 'Sur la base de mes données actuelles, recommande un plan de test créatif pour les 2 prochaines semaines.' },
+    { id: 'c8', label: 'Analyse des CTA', prompt: 'Analyse l\'efficacité des call-to-actions utilisés dans mes publicités. Quels CTA génèrent le meilleur CTR ?' },
+  ],
+  'Media Buying': [
+    { id: 'm1', label: 'Audit des ad sets', prompt: 'Audite tous mes ad sets actifs : budget, audience, optimisation, résultats phase apprentissage. Donne une note /10 et des actions.' },
+    { id: 'm2', label: 'Analyse des audiences', prompt: 'Compare les performances par audience (âge, genre, placement). Identifie les segments les plus rentables.' },
+    { id: 'm3', label: 'Recommandation de budget', prompt: 'Sur la base du ROAS actuel, recommande une réallocation des budgets entre les campagnes pour maximiser le profit.' },
+    { id: 'm4', label: 'Analyse des placements', prompt: 'Compare les performances par placement (Feed, Stories, Reels, Audience Network). Recommande la meilleure stratégie.' },
+    { id: 'm5', label: 'Phase apprentissage', prompt: 'Identifie les ad sets encore en phase apprentissage. Lesquels ont des signaux positifs et méritent d\'attendre ?' },
+    { id: 'm6', label: 'Stratégie de scaling', prompt: 'Identifie les campagnes prêtes à scaler. Propose une stratégie de scaling précise (budget, audience, duplicate).' },
+    { id: 'm7', label: 'Analyse CPL / CPA', prompt: 'Analyse le coût par lead ou coût par achat par campagne et ad set. Compare au CPA cible et identifie les outliers.' },
+    { id: 'm8', label: 'Détection des conflits d\'audience', prompt: 'Vérifie si des ad sets se chevauchent sur les audiences et causent une compétition interne au compte.' },
+    { id: 'm9', label: 'Optimisation des enchères', prompt: 'Analyse la stratégie d\'enchères actuelle. Recommande des ajustements pour réduire le CPM sans sacrifier les conversions.' },
+  ],
+  'Reporting': [
+    { id: 'r1', label: 'Rapport hebdomadaire', prompt: 'Génère un rapport de performance complet pour la semaine écoulée. Format : executive summary, tableaux, alertes, actions prioritaires.' },
+    { id: 'r2', label: 'Rapport mensuel client', prompt: 'Génère un rapport mensuel présentable à un client. Include : performance vs mois précédent, insights créatifs, plan d\'action.' },
+    { id: 'r3', label: 'Dashboard HTML', prompt: 'Génère un dashboard HTML visuel de la performance du compte sur 30 jours avec les KPIs clés, graphiques et recommandations.' },
+    { id: 'r4', label: 'Résumé exécutif', prompt: 'Rédige un résumé exécutif de 5 lignes sur la performance du compte ce mois-ci. Pour partage rapide avec le client.' },
+    { id: 'r5', label: 'Comparaison M/M', prompt: 'Compare les performances du mois en cours vs le mois précédent. Mets en évidence les évolutions positives et négatives.' },
+    { id: 'r6', label: 'Analyse de rentabilité', prompt: 'Analyse la rentabilité globale du compte : ROAS, MER estimé, revenue brut, coût des dépenses pub. L\'activité est-elle rentable ?' },
+    { id: 'r7', label: 'Rapport d\'audit complet', prompt: 'Génère un audit complet du compte : structure, budget, créas, audiences, pixel. Note chaque dimension et donne un plan d\'amélioration.' },
+    { id: 'r8', label: 'Plan d\'action 7 jours', prompt: 'Sur la base de l\'analyse actuelle, génère un plan d\'action détaillé pour les 7 prochains jours. Priorités classées par impact.' },
+  ],
+}
+
 const PRESET_AGENTS = [
-  {
-    name: 'Daily Kill Guard',
-    description: 'Coupe chaque jour les ads qui ont dépensé 2× le CPA cible sans conversion.',
-    role: 'performance_manager',
-    frequency: 'daily',
-    runMode: 'propose',
-    analysisPeriod: 'last_3d',
-    instructions: 'Analyse toutes les ads actives. Pour chaque ad, vérifie le spend depuis début de diffusion vs conversions. Kill si spend > 2× CPA cible sans conversion.',
-    outputFormat: 'Tableau compact avec KPIs + 3 actions max',
-    icon: '🔴',
-  },
-  {
-    name: 'Traffic Quality Watchdog',
-    description: 'Vérifie chaque jour la qualité du trafic (Cost per ATC / CPL).',
-    role: 'media_buyer',
-    frequency: 'daily',
-    runMode: 'report',
-    analysisPeriod: 'last_3d',
-    instructions: 'Vérifie la qualité du trafic sur chaque adset actif. Focus sur le cost per ATC (e-commerce) ou CPL (lead gen). Flag chaque adset où le coût dépasse le seuil cible.',
-    outputFormat: 'Tableau compact avec KPIs + 3 actions max',
-    icon: '👁',
-  },
-  {
-    name: 'Creative Fatigue Scanner',
-    description: 'Détecte tous les 3 jours les créas fatiguées et propose des remplacements.',
-    role: 'creative_strategist',
-    frequency: 'every_3_days',
-    runMode: 'propose',
-    analysisPeriod: 'last_14d',
-    instructions: 'Lance un scan de fatigue créative sur tout le compte. Pour chaque ad fatiguée (fréquence > 3 + CTR en baisse > 20%), propose un plan : pause + brief direction pour la remplacer.',
-    outputFormat: 'Liste les ads fatiguées avec métriques, puis pour chacune un brief de remplacement en 3 lignes.',
-    icon: '😴',
-  },
-  {
-    name: 'Weekly Performance Report',
-    description: 'Dashboard de performance complet chaque lundi matin.',
-    role: 'performance_manager',
-    frequency: 'weekly',
-    runMode: 'report',
-    analysisPeriod: 'last_7d',
-    instructions: 'Fais un review de performance complet. Inclus: résumé exécutif, tableau daily, top 3 performers, bottom 3, alertes (fréquence, CTR, CPA), et 3 actions prioritaires pour la semaine prochaine. Génère un artifact HTML dashboard.',
-    outputFormat: 'Dashboard HTML visuel. Commence par les chiffres clés, puis les alertes, puis les actions.',
-    icon: '📊',
-  },
-  {
-    name: 'Monthly Strategic Review',
-    description: 'Bilan stratégique mensuel complet, présentable à un client.',
-    role: 'performance_manager',
-    frequency: 'monthly',
-    runMode: 'report',
-    analysisPeriod: 'last_30d',
-    instructions: 'Fais un bilan stratégique mensuel complet. Inclus: executive summary, performance par semaine, top 5 ads, analyse créative (formats, angles), analyse audience (âge, genre, placements), business impact (rentabilité, MER estimé), et plan d\'action pour le mois prochain avec 5 priorités.',
-    outputFormat: 'Dashboard HTML complet avec graphiques. Présentable à un client ou investisseur.',
-    icon: '📅',
-  },
+  { name: 'Daily Kill Guard', description: 'Coupe chaque jour les ads qui ont dépensé 2× le CPA cible sans conversion.', role: 'performance_manager', frequency: 'daily', runMode: 'propose', analysisPeriod: 'last_3d', instructions: 'Analyse toutes les ads actives. Pour chaque ad, vérifie le spend vs conversions. Kill si spend > 2× CPA cible sans conversion.', outputFormat: 'Tableau compact avec KPIs + 3 actions max', icon: '🛡️' },
+  { name: 'Traffic Quality Watchdog', description: 'Vérifie chaque jour la qualité du trafic (Cost per ATC / CPL).', role: 'media_buyer', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_3d', instructions: 'Vérifie la qualité du trafic sur chaque adset actif. Focus sur le cost per ATC ou CPL.', outputFormat: 'Tableau compact avec KPIs + 3 actions max', icon: '👁️' },
+  { name: 'Creative Fatigue Scanner', description: 'Détecte tous les 3 jours les créas fatiguées et propose des remplacements.', role: 'creative_strategist', frequency: 'every_3_days', runMode: 'propose', analysisPeriod: 'last_14d', instructions: 'Lance un scan de fatigue créative. Pour chaque ad fatiguée (fréquence > 3 + CTR en baisse > 20%), propose un brief de remplacement.', outputFormat: 'Liste les ads fatiguées avec métriques puis brief de remplacement.', icon: '😴' },
+  { name: 'Weekly Performance Report', description: 'Dashboard de performance complet chaque lundi matin.', role: 'performance_manager', frequency: 'weekly', runMode: 'report', analysisPeriod: 'last_7d', instructions: 'Fais un review de performance complet. Inclus : résumé, tableau daily, top/bottom 3, alertes, et 3 actions prioritaires.', outputFormat: 'Dashboard HTML visuel.', icon: '📊' },
+  { name: 'Monthly Strategic Review', description: 'Bilan stratégique mensuel complet, présentable à un client.', role: 'performance_manager', frequency: 'monthly', runMode: 'report', analysisPeriod: 'last_30d', instructions: 'Fais un bilan stratégique mensuel complet incluant executive summary, analyse créative et plan d\'action.', outputFormat: 'Dashboard HTML complet présentable à un client.', icon: '📅' },
 ]
 
-const ROLE_LABELS: Record<string, string> = {
-  performance_manager: 'Performance Manager',
-  media_buyer: 'Media Buyer',
-  creative_strategist: 'Creative Strategist',
-  copywriter: 'Copywriter',
-}
+const ROLE_OPTIONS = [
+  { value: 'performance_manager', label: 'Performance Manager' },
+  { value: 'media_buyer', label: 'Media Buyer' },
+  { value: 'creative_strategist', label: 'Creative Strategist' },
+  { value: 'copywriter', label: 'Copywriter' },
+]
 
-const FREQ_LABELS: Record<string, string> = {
-  daily: 'Chaque jour',
-  every_3_days: 'Tous les 3 jours',
-  weekly: 'Chaque semaine',
-  monthly: 'Chaque mois',
-}
+const FREQ_OPTIONS = [
+  { value: 'daily', label: 'Chaque jour' },
+  { value: 'every_3_days', label: 'Tous les 3 jours' },
+  { value: 'weekly', label: 'Chaque semaine' },
+  { value: 'monthly', label: 'Chaque mois' },
+]
 
-const MODE_LABELS: Record<string, { label: string; color: string }> = {
-  report: { label: 'Rapport', color: 'badge-blue' },
-  propose: { label: 'Propose actions', color: 'badge-yellow' },
-  auto_execute: { label: 'Auto-exécute', color: 'badge-red' },
-}
+const MODE_OPTIONS = [
+  { value: 'report', label: 'Rapport uniquement' },
+  { value: 'propose', label: 'Propose des actions' },
+  { value: 'auto_execute', label: 'Auto-exécute (avancé)' },
+]
+
+const PERIOD_OPTIONS = [
+  { value: 'last_3d', label: '3 derniers jours' },
+  { value: 'last_7d', label: '7 derniers jours' },
+  { value: 'last_14d', label: '14 derniers jours' },
+  { value: 'last_30d', label: '30 derniers jours' },
+]
+
+interface Message { role: 'user' | 'assistant'; content: string }
 
 export default function AutopilotPage() {
   const { selectedAccount } = useStore()
+  const [tab, setTab] = useState<Tab>('session')
+
+  // --- Session (chat) ---
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const [search, setSearch] = useState('')
+  const [promptCategory, setPromptCategory] = useState<keyof typeof PROMPT_BANK>('Performance')
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const filteredPrompts = PROMPT_BANK[promptCategory].filter((p) =>
+    p.label.toLowerCase().includes(search.toLowerCase()) ||
+    p.prompt.toLowerCase().includes(search.toLowerCase())
+  )
+
+  async function sendMessage(text?: string) {
+    const msg = text || input.trim()
+    if (!msg || streaming) return
+    if (!selectedAccount) { toast.error('Sélectionnez un compte publicitaire'); return }
+
+    setInput('')
+    setMessages((prev) => [...prev, { role: 'user', content: msg }])
+    setStreaming(true)
+
+    try {
+      const bsRes = await fetch(`/api/brand-settings?dbAccountId=${selectedAccount.id}`)
+      const bsData = await bsRes.json()
+
+      const res = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: selectedAccount.metaAccountId || selectedAccount.id,
+          dbAccountId: selectedAccount.id,
+          category: 'autopilot',
+          analysisType: 'session',
+          datePreset: 'last_7d',
+          brandSettings: bsData.settings,
+          customPrompt: msg,
+        }),
+      })
+
+      if (!res.ok || !res.body) throw new Error('Erreur serveur')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        setMessages((prev) => {
+          const copy = [...prev]
+          copy[copy.length - 1] = { role: 'assistant', content: accumulated }
+          return copy
+        })
+      }
+    } catch {
+      toast.error('Erreur lors de l\'analyse')
+    }
+    setStreaming(false)
+  }
+
+  // --- Agent ---
   const [agents, setAgents] = useState<AutopilotAgent[]>([])
-  const [loading, setLoading] = useState(false)
+  const [agentForm, setAgentForm] = useState({
+    name: '', description: '', role: 'performance_manager', frequency: 'daily',
+    runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '',
+  })
   const [running, setRunning] = useState<string | null>(null)
-  const [results, setResults] = useState<Record<string, string>>({})
+  const [agentResults, setAgentResults] = useState<Record<string, string>>({})
 
   const loadAgents = useCallback(async () => {
     if (!selectedAccount?.id) return
@@ -98,15 +178,19 @@ export default function AutopilotPage() {
 
   useEffect(() => { loadAgents() }, [loadAgents])
 
-  async function addPreset(preset: typeof PRESET_AGENTS[0]) {
-    if (!selectedAccount?.id) return
+  async function createAgent(data: typeof agentForm | typeof PRESET_AGENTS[0]) {
+    if (!selectedAccount?.id) { toast.error('Sélectionnez un compte publicitaire'); return }
     const res = await fetch('/api/autopilot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dbAccountId: selectedAccount.id, ...preset }),
+      body: JSON.stringify({ dbAccountId: selectedAccount.id, ...data }),
     })
-    const data = await res.json()
-    if (data.agent) { setAgents((prev) => [data.agent, ...prev]); toast.success(`Agent "${preset.name}" créé`) }
+    const json = await res.json()
+    if (json.agent) {
+      setAgents((prev) => [json.agent, ...prev])
+      toast.success(`Agent "${data.name}" créé`)
+      setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '' })
+    }
   }
 
   async function toggleAgent(agent: AutopilotAgent) {
@@ -132,148 +216,404 @@ export default function AutopilotPage() {
     try {
       const bsRes = await fetch(`/api/brand-settings?dbAccountId=${selectedAccount.id}`)
       const bsData = await bsRes.json()
-
-      const category = agent.role === 'creative_strategist' ? 'creativeStrategy'
-        : agent.role === 'media_buyer' ? 'mediaBuying' : 'autopilot'
-      const analysisType = agent.name.toLowerCase().includes('kill') ? 'dailyKillGuard'
-        : agent.name.toLowerCase().includes('fatigue') ? 'creativeFatigue'
-        : agent.name.toLowerCase().includes('traffic') ? 'trafficQuality'
-        : agent.name.toLowerCase().includes('weekly') ? 'weeklyReport'
-        : 'monthlyReview'
-
       const res = await fetch('/api/ai/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accountId: selectedAccount.metaAccountId || selectedAccount.id,
           dbAccountId: selectedAccount.id,
-          category,
-          analysisType,
+          category: 'autopilot',
+          analysisType: agent.name,
           datePreset: agent.analysisPeriod,
           brandSettings: bsData.settings,
+          customPrompt: agent.instructions,
         }),
       })
-      const data = await res.json()
-      if (data.result) {
-        setResults((prev) => ({ ...prev, [agent.id]: data.result }))
-        toast.success(`Agent "${agent.name}" terminé`)
-        await fetch('/api/autopilot', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: agent.id, lastRunAt: new Date().toISOString() }),
-        })
+      if (!res.ok || !res.body) throw new Error()
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let acc = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        acc += decoder.decode(value, { stream: true })
+        setAgentResults((prev) => ({ ...prev, [agent.id]: acc }))
       }
+      toast.success(`Agent "${agent.name}" terminé`)
     } catch { toast.error('Erreur lors de l\'exécution') }
     setRunning(null)
   }
 
   const presetNames = agents.map((a) => a.name)
 
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'session', label: 'Nouvelle session',
+      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>,
+    },
+    {
+      id: 'agent', label: 'Nouvel agent',
+      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1" /></svg>,
+    },
+    {
+      id: 'history', label: 'Historique',
+      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+    },
+    {
+      id: 'settings', label: 'Paramètres',
+      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+    },
+  ]
+
   return (
     <div className="space-y-6 max-w-5xl">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Autopilote</h1>
-        <p className="text-gray-400 text-sm mt-0.5">Agents IA programmés pour surveiller et optimiser vos comptes</p>
+        <h1 className="page-title">Autopilot Agent IA</h1>
+        <p className="page-subtitle mt-0.5">Analysez en conversation libre ou créez des agents automatisés</p>
       </div>
 
-      {/* Presets */}
-      <div className="card">
-        <h2 className="text-sm font-semibold text-gray-300 mb-4">Agents pré-configurés</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {PRESET_AGENTS.map((preset) => {
-            const exists = presetNames.includes(preset.name)
-            return (
-              <div key={preset.name} className="bg-gray-800/50 rounded-xl p-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{preset.icon}</span>
-                  <span className="font-medium text-white text-sm">{preset.name}</span>
-                </div>
-                <p className="text-xs text-gray-400 flex-1">{preset.description}</p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-500">{FREQ_LABELS[preset.frequency]}</span>
-                  {exists ? (
-                    <span className="text-xs text-green-500">✓ Actif</span>
-                  ) : (
-                    <button
-                      onClick={() => addPreset(preset)}
-                      disabled={!selectedAccount}
-                      className="text-xs text-brand-400 hover:text-brand-300 font-medium"
-                    >
-                      + Ajouter
-                    </button>
-                  )}
-                </div>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-[#f8f9fc] rounded-xl p-1 border border-[#E5E7EB] w-fit">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={clsx(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              tab === t.id
+                ? 'bg-white text-[#3434ef] shadow-sm border border-[#E5E7EB]'
+                : 'text-gray-500 hover:text-[#0d0d12]'
+            )}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* --- TAB: Nouvelle session --- */}
+      {tab === 'session' && (
+        <div className="grid grid-cols-5 gap-4">
+          {/* Prompt bank */}
+          <div className="col-span-2 space-y-3">
+            <div className="card p-3">
+              <p className="text-xs font-semibold text-[#0d0d12] mb-2">Bibliothèque de prompts</p>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un prompt…"
+                className="input mb-2 py-1.5 text-xs"
+              />
+              <div className="flex gap-1 flex-wrap mb-2">
+                {(Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setPromptCategory(cat)}
+                    className={clsx(
+                      'text-xs px-2.5 py-1 rounded-lg font-medium transition-colors',
+                      promptCategory === cat ? 'bg-[#3434ef] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    )}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
-            )
-          })}
-        </div>
-      </div>
+              <div className="space-y-1 max-h-96 overflow-y-auto">
+                {filteredPrompts.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => sendMessage(p.prompt)}
+                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-blue-50 hover:text-[#3434ef] transition-colors text-xs text-gray-700 border border-transparent hover:border-blue-200"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+                {filteredPrompts.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-4">Aucun résultat</p>
+                )}
+              </div>
+            </div>
+          </div>
 
-      {/* Active agents */}
-      {agents.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-300">Mes agents ({agents.length})</h2>
-          {agents.map((agent) => (
-            <div key={agent.id} className="card">
-              <div className="flex items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-white">{agent.name}</h3>
-                    <span className={MODE_LABELS[agent.runMode].color}>{MODE_LABELS[agent.runMode].label}</span>
-                    <span className="badge-blue">{ROLE_LABELS[agent.role]}</span>
-                    <span className="text-xs text-gray-500">{FREQ_LABELS[agent.frequency]}</span>
-                  </div>
-                  {agent.description && (
-                    <p className="text-sm text-gray-400 mt-1">{agent.description}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => runAgent(agent)}
-                    disabled={running === agent.id || !selectedAccount}
-                    className="btn-secondary text-xs py-1.5"
-                  >
-                    {running === agent.id ? (
-                      <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                      </svg>
-                    ) : '▶ Lancer'}
-                  </button>
-                  <button
-                    onClick={() => toggleAgent(agent)}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                      agent.isActive ? 'bg-green-900/40 text-green-400 hover:bg-red-900/40 hover:text-red-400' : 'bg-gray-800 text-gray-500 hover:text-gray-300'
-                    }`}
-                  >
-                    {agent.isActive ? 'Actif' : 'Inactif'}
-                  </button>
-                  <button onClick={() => deleteAgent(agent.id)} className="text-gray-600 hover:text-red-400 transition-colors">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          {/* Chat */}
+          <div className="col-span-3 flex flex-col card p-0 overflow-hidden" style={{ height: 560 }}>
+            <div className="px-4 py-3 border-b border-[#E5E7EB] flex-shrink-0">
+              <p className="text-sm font-semibold text-[#0d0d12]">Session d&apos;analyse</p>
+              <p className="text-xs text-gray-400">{selectedAccount?.name || 'Aucun compte sélectionné'}</p>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1" />
                     </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Result */}
-              {results[agent.id] && (
-                <div className="mt-4 pt-4 border-t border-gray-800">
-                  <div
-                    className="report-content prose prose-invert max-w-none text-sm"
-                    dangerouslySetInnerHTML={{
-                      __html: results[agent.id].startsWith('<') ? results[agent.id] : results[agent.id].replace(/\n/g, '<br/>')
-                    }}
-                  />
+                  </div>
+                  <p className="text-sm font-medium text-[#0d0d12]">Démarrez une analyse</p>
+                  <p className="text-xs text-gray-400 mt-1">Choisissez un prompt dans la bibliothèque ou tapez votre question</p>
                 </div>
               )}
+              {messages.map((m, i) => (
+                <div key={i} className={clsx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  <div className={clsx(
+                    'max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm',
+                    m.role === 'user'
+                      ? 'bg-[#3434ef] text-white'
+                      : 'bg-[#f8f9fc] border border-[#E5E7EB] text-[#0d0d12]'
+                  )}>
+                    {m.role === 'assistant' ? (
+                      <div
+                        className="report-content text-xs leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: m.content.startsWith('<') ? m.content : m.content.replace(/\n/g, '<br/>') }}
+                      />
+                    ) : m.content}
+                    {m.role === 'assistant' && streaming && i === messages.length - 1 && (
+                      <span className="inline-block w-1.5 h-3.5 bg-[#3434ef] animate-pulse ml-1 rounded-sm" />
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
             </div>
-          ))}
+
+            {/* Input */}
+            <div className="px-4 py-3 border-t border-[#E5E7EB] flex-shrink-0">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  placeholder="Posez votre question ou collez un prompt…"
+                  className="input flex-1 py-2 text-sm"
+                  disabled={streaming}
+                />
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={streaming || !input.trim()}
+                  className="btn-primary px-3 py-2 flex-shrink-0"
+                >
+                  {streaming ? (
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {!selectedAccount && (
-        <div className="card text-center py-8 text-gray-400">Sélectionnez un compte publicitaire.</div>
+      {/* --- TAB: Nouvel agent --- */}
+      {tab === 'agent' && (
+        <div className="space-y-4">
+          {/* Templates */}
+          <div className="card">
+            <p className="text-sm font-semibold text-[#0d0d12] mb-3">Templates préconfigurés</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PRESET_AGENTS.map((preset) => {
+                const exists = presetNames.includes(preset.name)
+                return (
+                  <div key={preset.name} className="border border-[#E5E7EB] rounded-xl p-4 flex flex-col gap-2 bg-[#f8f9fc]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{preset.icon}</span>
+                      <span className="font-semibold text-[#0d0d12] text-sm">{preset.name}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 flex-1">{preset.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="badge-gray">{FREQ_OPTIONS.find((f) => f.value === preset.frequency)?.label}</span>
+                      {exists ? (
+                        <span className="text-xs text-green-600 font-medium">✓ Créé</span>
+                      ) : (
+                        <button onClick={() => createAgent(preset)} disabled={!selectedAccount} className="text-xs text-[#3434ef] hover:underline font-medium">
+                          + Ajouter
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Formulaire création */}
+          <div className="card">
+            <p className="text-sm font-semibold text-[#0d0d12] mb-4">Créer un agent personnalisé</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="label">Nom de l&apos;agent</label>
+                <input type="text" className="input" placeholder="Ex: Budget Optimizer" value={agentForm.name} onChange={(e) => setAgentForm((f) => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="col-span-2">
+                <label className="label">Description</label>
+                <input type="text" className="input" placeholder="Ce que fait cet agent en une phrase" value={agentForm.description} onChange={(e) => setAgentForm((f) => ({ ...f, description: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Rôle IA</label>
+                <select className="select" value={agentForm.role} onChange={(e) => setAgentForm((f) => ({ ...f, role: e.target.value }))}>
+                  {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Fréquence</label>
+                <select className="select" value={agentForm.frequency} onChange={(e) => setAgentForm((f) => ({ ...f, frequency: e.target.value }))}>
+                  {FREQ_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Mode d&apos;exécution</label>
+                <select className="select" value={agentForm.runMode} onChange={(e) => setAgentForm((f) => ({ ...f, runMode: e.target.value }))}>
+                  {MODE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Période d&apos;analyse</label>
+                <select className="select" value={agentForm.analysisPeriod} onChange={(e) => setAgentForm((f) => ({ ...f, analysisPeriod: e.target.value }))}>
+                  {PERIOD_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="label">Instructions de l&apos;agent</label>
+                <textarea rows={4} className="input resize-none" placeholder="Décrivez précisément ce que l'agent doit analyser et faire…" value={agentForm.instructions} onChange={(e) => setAgentForm((f) => ({ ...f, instructions: e.target.value }))} />
+              </div>
+              <div className="col-span-2">
+                <label className="label">Format de sortie attendu</label>
+                <input type="text" className="input" placeholder="Ex: Tableau compact avec les 5 ads à couper + justification" value={agentForm.outputFormat} onChange={(e) => setAgentForm((f) => ({ ...f, outputFormat: e.target.value }))} />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => createAgent(agentForm)} disabled={!agentForm.name || !selectedAccount} className="btn-primary">
+                Créer l&apos;agent
+              </button>
+            </div>
+          </div>
+
+          {/* Agents actifs */}
+          {agents.length > 0 && (
+            <div className="card">
+              <p className="text-sm font-semibold text-[#0d0d12] mb-3">Mes agents ({agents.length})</p>
+              <div className="space-y-2">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="border border-[#E5E7EB] rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-[#0d0d12] text-sm">{agent.name}</span>
+                          <span className={clsx('badge-gray', agent.runMode === 'propose' && 'bg-amber-50 text-amber-700 border-amber-200', agent.runMode === 'auto_execute' && 'bg-red-50 text-red-700 border-red-200')}>
+                            {MODE_OPTIONS.find((m) => m.value === agent.runMode)?.label}
+                          </span>
+                          <span className="badge-gray">{FREQ_OPTIONS.find((f) => f.value === agent.frequency)?.label}</span>
+                        </div>
+                        {agent.description && <p className="text-xs text-gray-500 mt-1">{agent.description}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button onClick={() => runAgent(agent)} disabled={running === agent.id || !selectedAccount} className="btn-secondary py-1 text-xs">
+                          {running === agent.id ? (
+                            <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                          ) : '▶ Lancer'}
+                        </button>
+                        <button
+                          onClick={() => toggleAgent(agent)}
+                          className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border', agent.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200')}
+                        >
+                          {agent.isActive ? 'Actif' : 'Inactif'}
+                        </button>
+                        <button onClick={() => deleteAgent(agent.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                    {agentResults[agent.id] && (
+                      <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+                        <div className="report-content text-xs" dangerouslySetInnerHTML={{ __html: agentResults[agent.id].replace(/\n/g, '<br/>') }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- TAB: Historique --- */}
+      {tab === 'history' && (
+        <div className="card">
+          <p className="text-sm font-semibold text-[#0d0d12] mb-4">Historique des actions</p>
+          {agents.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+              </div>
+              <p className="text-sm text-gray-500">Aucun historique disponible</p>
+              <p className="text-xs text-gray-400 mt-1">Les exécutions des agents apparaîtront ici</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#E5E7EB]">
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Agent</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Rôle</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Fréquence</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Statut</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Dernière exéc.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agents.map((agent) => (
+                    <tr key={agent.id} className="border-b border-[#E5E7EB] hover:bg-[#f8f9fc]">
+                      <td className="px-3 py-3 font-medium text-[#0d0d12]">{agent.name}</td>
+                      <td className="px-3 py-3 text-gray-500">{ROLE_OPTIONS.find((r) => r.value === agent.role)?.label || agent.role}</td>
+                      <td className="px-3 py-3 text-gray-500">{FREQ_OPTIONS.find((f) => f.value === agent.frequency)?.label || agent.frequency}</td>
+                      <td className="px-3 py-3">
+                        <span className={agent.isActive ? 'badge-green' : 'badge-gray'}>
+                          {agent.isActive ? 'Actif' : 'Inactif'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-gray-400 text-xs">
+                        {agent.lastRunAt ? new Date(agent.lastRunAt).toLocaleString('fr-FR') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- TAB: Paramètres --- */}
+      {tab === 'settings' && (
+        <div className="card">
+          <p className="text-sm font-semibold text-[#0d0d12] mb-1">Paramètres du compte publicitaire</p>
+          <p className="text-xs text-gray-500 mb-4">Ces paramètres sont partagés avec le module Brand Settings.</p>
+          {!selectedAccount ? (
+            <p className="text-sm text-gray-400">Sélectionnez un compte publicitaire dans la barre de navigation.</p>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="label">Compte actif</label>
+                <input type="text" className="input" value={selectedAccount.name || selectedAccount.id} readOnly />
+              </div>
+              <p className="text-xs text-gray-400">
+                Pour modifier les paramètres de marque (CPA cible, budget, etc.), rendez-vous dans{' '}
+                <a href="/brand-settings" className="text-[#3434ef] hover:underline">Brand Settings</a>.
+              </p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
