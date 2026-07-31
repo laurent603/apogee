@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import FacebookProvider from 'next-auth/providers/facebook'
+import { prisma } from '@/lib/db'
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
@@ -23,13 +24,23 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token
-        token.facebookId = account.providerAccountId
+        const user = await prisma.user.upsert({
+          where: { facebookId: account.providerAccountId },
+          update: { accessToken: account.access_token as string },
+          create: {
+            facebookId: account.providerAccountId,
+            name: token.name,
+            image: token.picture as string,
+            accessToken: account.access_token as string,
+          },
+        })
+        token.dbUserId = user.id
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.sub!
+        session.user.id = (token.dbUserId as string) || token.sub!
         session.accessToken = token.accessToken as string
       }
       return session
