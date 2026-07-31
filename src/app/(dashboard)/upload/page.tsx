@@ -30,6 +30,7 @@ interface MetaAd {
   id: string; name: string; adset_id: string
   _parsed: { primary_text: string; headline: string; description: string; cta_type: string; destination_url: string; thumbnail: string | null }
   _isNew?: boolean
+  _pageId?: string
 }
 interface MetaPage { id: string; name: string }
 interface MetaPixel { id: string; name: string }
@@ -534,12 +535,13 @@ function CreateAdModal({ onSave, onClose, pages }: {
       name: `Ad — ${primaryTexts[0]?.slice(0, 30) || 'Nouveau'}`,
       adset_id: '',
       _parsed: {
-        primary_text: primaryTexts.filter(Boolean).join('\n---\n'),
-        headline: headlines.filter(Boolean).join('\n---\n'),
+        primary_text: primaryTexts.filter(Boolean)[0] || '',
+        headline: headlines.filter(Boolean)[0] || '',
         description, cta_type: cta,
         destination_url: websiteUrl, thumbnail: null,
       },
       _isNew: true,
+      _pageId: pageId,
     })
     toast.success('Configuration ad enregistrée')
   }
@@ -854,19 +856,86 @@ export default function UploadPage() {
 
   async function simulateLaunch() {
     setLaunching(true); setJournal([])
-    const steps = [
-      'Connexion à Meta Ads API...',
-      `Campagne "${selectedCampaign?.name || 'Nouvelle campagne'}" ${selectedCampaign?._isNew ? 'en cours de création...' : 'sélectionnée'}`,
-      `Structure : ${TEST_STRUCTURES.find(s => s.id === testStructure)?.label}`,
-      `Upload de ${files.length} asset${files.length > 1 ? 's' : ''} → ${totalAds} ad${totalAds > 1 ? 's' : ''}...`,
-      'Création des ad creatives Meta...', `Création de ${treeNodes.length} adset${treeNodes.length > 1 ? 's' : ''}...`,
-      adsetTemplate ? `Config adset depuis "${adsetTemplate.name}"` : 'Configuration adsets...',
-      adTemplate ? `Copies depuis "${adTemplate.name}"` : 'Configuration annonces...',
-      '🎉 Campagne lancée avec succès !',
-    ]
-    for (const s of steps) { await new Promise(r => setTimeout(r, 600 + Math.random() * 500)); setJournal(prev => [...prev, s]) }
-    setLaunching(false); setLaunched(true); setConfetti(true)
-    toast.success('Campagne lancée !'); setTimeout(() => setConfetti(false), 5000)
+    const addLog = (msg: string) => setJournal(prev => [...prev, msg])
+
+    // Phase 1: upload image assets to Meta
+    const fileHashes = new Map<string, string>() // fileId → hash
+    const imageFiles = files.filter(f => f.type === 'image')
+    if (imageFiles.length > 0) {
+      addLog(`Upload de ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} vers Meta...`)
+      for (const uf of imageFiles) {
+        try {
+          const fd = new FormData()
+          fd.append('file', uf.file)
+          fd.append('accountId', metaId)
+          const res = await fetch('/api/meta/upload-asset', { method: 'POST', body: fd })
+          const data = await res.json()
+          if (data.hash) {
+            fileHashes.set(uf.id, data.hash)
+            addLog(`✓ ${uf.file.name} uploadé`)
+          } else {
+            addLog(`⚠ ${uf.file.name} : ${data.error || 'upload échoué'}`)
+          }
+        } catch {
+          addLog(`⚠ ${uf.file.name} : erreur réseau`)
+        }
+      }
+    }
+
+    // Phase 2: build enriched treeNodes with hashes
+    const enrichedNodes = treeNodes.map(node => ({
+      adsetName: node.adsetName,
+      adGroups: node.adGroups.map(ag => ({
+        adName: ag.adName,
+        assets: ag.assets.map(a => ({
+          id: a.id, ratio: a.ratio ?? null,
+          hash: fileHashes.get(a.id) ?? null,
+        })),
+      })),
+    }))
+
+    // Phase 3: call real Meta launch API
+    try {
+      const res = await fetch('/api/meta/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: metaId,
+          campaign: selectedCampaign,
+          adsetTemplate,
+          adTemplate,
+          treeNodes: enrichedNodes,
+          launchStatus,
+          launchDate,
+          launchTime,
+          budget: campaignBudget,
+        }),
+      })
+      if (!res.body) throw new Error('Réponse vide du serveur')
+
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const text = dec.decode(value)
+        const lines = text.split('\n').filter(l => l.startsWith('data: '))
+        for (const line of lines) {
+          const msg = line.slice(6).trim()
+          if (!msg) continue
+          addLog(msg)
+          if (msg.includes('🎉')) {
+            setLaunched(true); setConfetti(true)
+            toast.success('Campagne publiée dans Meta !')
+            setTimeout(() => setConfetti(false), 5000)
+          }
+        }
+      }
+    } catch (err) {
+      addLog(`❌ Erreur : ${err instanceof Error ? err.message : String(err)}`)
+    }
+
+    setLaunching(false)
   }
 
   function resetAll() {
@@ -1294,8 +1363,13 @@ export default function UploadPage() {
               <h3 className="text-sm font-semibold text-[#0d0d12]">Journal de lancement</h3>
               <div className="space-y-2">
                 {journal.map((line, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-[#0d0d12]">
-                    <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                  <div key={i} className={clsx('flex items-start gap-2 text-sm', line.startsWith('❌') ? 'text-red-600' : line.startsWith('⚠') ? 'text-amber-600' : 'text-[#0d0d12]')}>
+                    {line.startsWith('❌')
+                      ? <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      : line.startsWith('⚠')
+                        ? <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                        : <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    }
                     {line}
                   </div>
                 ))}
