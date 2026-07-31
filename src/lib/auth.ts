@@ -12,8 +12,6 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         params: {
           scope: [
-            'email',
-            'public_profile',
             'ads_management',
             'ads_read',
             'business_management',
