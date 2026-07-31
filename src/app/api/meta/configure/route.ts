@@ -62,9 +62,11 @@ export async function GET(req: NextRequest) {
         const linkData = oss?.link_data as Record<string, unknown> | undefined
         const videoData = oss?.video_data as Record<string, unknown> | undefined
         const cta = (creative?.call_to_action as { type?: string; value?: { link?: string } } | undefined)
+        const pageId = (oss?.page_id as string | undefined) || ''
 
         return {
           ...ad,
+          _pageId: pageId,
           _parsed: {
             primary_text: creative?.body || linkData?.message || videoData?.message || '',
             headline: creative?.title || linkData?.name || videoData?.title || '',
