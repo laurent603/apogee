@@ -63,7 +63,7 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
   const data = await metaFetch(`/${accountId}/ads`, token, {
     fields: [
       'id', 'name', 'status', 'adset_id', 'campaign_id', 'creative{id,name,title,body,image_url,thumbnail_url,video_id}',
-      'insights{spend,impressions,clicks,ctr,cpc,cpm,frequency,actions,cost_per_action_type,reach,video_3_sec_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_avg_time_watched_actions}',
+      'insights{spend,impressions,clicks,ctr,cpc,cpm,frequency,actions,cost_per_action_type,reach}',
     ].join(','),
     date_preset: datePreset,
     limit: '200',
