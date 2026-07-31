@@ -69,6 +69,24 @@ function groupFiles(files: UploadedFile[]): NomenclatureGroup[] {
   return Array.from(map.entries()).map(([concept, iterations]) => ({ concept, iterations }))
 }
 
+interface AdGroup {
+  adName: string
+  concept: string
+  iteration: string
+  assets: UploadedFile[]
+}
+
+function groupByAd(files: UploadedFile[]): AdGroup[] {
+  const map = new Map<string, UploadedFile[]>()
+  for (const f of files) {
+    const key = [f.concept, f.iteration].filter(Boolean).join('_') || f.file.name
+    map.set(key, [...(map.get(key) ?? []), f])
+  }
+  return Array.from(map.entries()).map(([adName, assets]) => ({
+    adName, concept: assets[0].concept, iteration: assets[0].iteration, assets,
+  }))
+}
+
 function badgeObjective(obj: string) {
   const map: Record<string, string> = { OUTCOME_SALES: 'SALES', OUTCOME_LEADS: 'LEADS', OUTCOME_TRAFFIC: 'TRAFFIC', OUTCOME_AWARENESS: 'AWARENESS' }
   return map[obj] || obj.replace('OUTCOME_', '')
@@ -821,13 +839,16 @@ export default function UploadPage() {
     setFiles(updated); setGroups(groupFiles(updated)); setNomenclatureMode('auto'); setBulkPaste('')
   }
 
-  const treeNodes: { adsetName: string; ads: UploadedFile[] }[] = (() => {
-    if (testStructure === 'one-ad-one-adset') return files.map(f => ({ adsetName: [f.concept, f.iteration].filter(Boolean).join('_') || f.file.name, ads: [f] }))
-    if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: g.concept, ads: g.iterations }))
-    if (testStructure === 'all-in-one') return files.length ? [{ adsetName: 'Adset_1', ads: files }] : []
-    return files.length ? [{ adsetName: 'Adset existant', ads: files }] : []
+  const adGroups = groupByAd(files)
+
+  const treeNodes: { adsetName: string; adGroups: AdGroup[] }[] = (() => {
+    if (testStructure === 'one-ad-one-adset') return adGroups.map(g => ({ adsetName: g.adName, adGroups: [g] }))
+    if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: g.concept, adGroups: groupByAd(g.iterations) }))
+    if (testStructure === 'all-in-one') return adGroups.length ? [{ adsetName: 'Adset_1', adGroups }] : []
+    return adGroups.length ? [{ adsetName: 'Adset existant', adGroups }] : []
   })()
 
+  const totalAds = adGroups.length
   const adsetConfigured = adsetTemplate !== null
   const adConfigured = adTemplate !== null
 
@@ -837,7 +858,7 @@ export default function UploadPage() {
       'Connexion à Meta Ads API...',
       `Campagne "${selectedCampaign?.name || 'Nouvelle campagne'}" ${selectedCampaign?._isNew ? 'en cours de création...' : 'sélectionnée'}`,
       `Structure : ${TEST_STRUCTURES.find(s => s.id === testStructure)?.label}`,
-      `Upload de ${files.length} créatif${files.length > 1 ? 's' : ''}...`,
+      `Upload de ${files.length} asset${files.length > 1 ? 's' : ''} → ${totalAds} ad${totalAds > 1 ? 's' : ''}...`,
       'Création des ad creatives Meta...', `Création de ${treeNodes.length} adset${treeNodes.length > 1 ? 's' : ''}...`,
       adsetTemplate ? `Config adset depuis "${adsetTemplate.name}"` : 'Configuration adsets...',
       adTemplate ? `Copies depuis "${adTemplate.name}"` : 'Configuration annonces...',
@@ -1132,7 +1153,7 @@ export default function UploadPage() {
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     New
                   </button>
-                  {adConfigured && <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>{files.length}/{files.length} ok</span>}
+                  {adConfigured && <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>{totalAds}/{totalAds} ok</span>}
                 </div>
               </div>
 
@@ -1162,26 +1183,38 @@ export default function UploadPage() {
                       <span className="text-xs font-medium text-[#0d0d12] flex-1 truncate">{adsetPrefix}{node.adsetName}{adsetSuffix}</span>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {isCBO && <span className="badge-blue text-xs">CBO</span>}
-                        <span className="text-xs text-gray-400">{node.ads.length} ad{node.ads.length > 1 ? 's' : ''}</span>
+                        <span className="text-xs text-gray-400">{node.adGroups.length} ad{node.adGroups.length > 1 ? 's' : ''}</span>
                         <button onClick={openCreateAdset} className={clsx('flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all', adsetConfigured ? 'border-green-200 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50 text-orange-600')}>
                           {adsetConfigured ? <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>Adset params</> : <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Adset params</>}
                         </button>
                       </div>
                     </div>
-                    {node.ads.map((ad, ai) => (
+                    {node.adGroups.map((ag, ai) => (
                       <div key={ai} className="flex items-center gap-3 px-4 py-2.5 pl-10 bg-[#fafafa] border-t border-[#F3F4F6]">
-                        {ad.type === 'image'
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={ad.preview} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />
-                          : <div className="w-7 h-7 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center"><svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg></div>
-                        }
-                        <span className="text-xs text-[#0d0d12] flex-1 truncate">{ad.file.name}</span>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {ad.ratio && <span className="text-xs text-gray-400">{ad.ratio}</span>}
-                          <button onClick={openCreateAd} className={clsx('flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all', adConfigured ? 'border-green-200 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50 text-orange-600')}>
-                            {adConfigured ? <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>Ad Params</> : <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Ad Params</>}
-                          </button>
+                        {/* Stacked thumbnails for each format asset */}
+                        <div className="flex -space-x-2 flex-shrink-0">
+                          {ag.assets.slice(0, 3).map((asset, si) => (
+                            asset.type === 'image'
+                              // eslint-disable-next-line @next/next/no-img-element
+                              ? <img key={si} src={asset.preview} alt="" className="w-7 h-7 rounded object-cover border-2 border-white" />
+                              : <div key={si} className="w-7 h-7 bg-gray-200 rounded border-2 border-white flex items-center justify-center"><svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg></div>
+                          ))}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-medium text-[#0d0d12] truncate block">{ag.adName}</span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {ag.assets.map((a, fi) => a.ratio && (
+                              <span key={fi} className="badge-blue text-xs py-0">{a.ratio}</span>
+                            ))}
+                            <span className="text-xs text-gray-400">{ag.assets.length} format{ag.assets.length > 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+                        <button onClick={openCreateAd} className={clsx('flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all flex-shrink-0', adConfigured ? 'border-green-200 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50 text-orange-600')}>
+                          {adConfigured
+                            ? <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>Ad Params</>
+                            : <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Ad Params</>
+                          }
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -1203,7 +1236,7 @@ export default function UploadPage() {
           <div className="card space-y-4">
             <h3 className="text-sm font-semibold text-[#0d0d12]">Récapitulatif</h3>
             <div className="grid grid-cols-4 gap-3">
-              {[{ label: 'Créatifs', value: files.length }, { label: 'Adsets', value: treeNodes.length }, { label: 'Formats', value: [...new Set(files.map(f => f.ratio).filter(Boolean))].length }, { label: 'Concepts', value: groups.length }].map(s => (
+              {[{ label: 'Ads', value: totalAds }, { label: 'Adsets', value: treeNodes.length }, { label: 'Assets', value: files.length }, { label: 'Formats', value: [...new Set(files.map(f => f.ratio).filter(Boolean))].length }].map(s => (
                 <div key={s.label} className="bg-[#f8f9fc] rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-[#3434ef]">{s.value}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
@@ -1246,7 +1279,7 @@ export default function UploadPage() {
                 <svg className="w-8 h-8 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
               </div>
               <h3 className="text-lg font-bold text-[#0d0d12] mb-2">Prêt à lancer</h3>
-              <p className="text-sm text-gray-500 mb-6">{files.length} créatif{files.length > 1 ? 's' : ''} · {treeNodes.length} adset{treeNodes.length > 1 ? 's' : ''} · {LAUNCH_STATUSES.find(s => s.id === launchStatus)?.label}</p>
+              <p className="text-sm text-gray-500 mb-6">{totalAds} ad{totalAds > 1 ? 's' : ''} ({files.length} assets) · {treeNodes.length} adset{treeNodes.length > 1 ? 's' : ''} · {LAUNCH_STATUSES.find(s => s.id === launchStatus)?.label}</p>
               <div className="flex gap-3 justify-center">
                 <button onClick={() => setStep(4)} className="btn-secondary">← Retour</button>
                 <button onClick={simulateLaunch} className="btn-primary px-8 flex items-center gap-2">
