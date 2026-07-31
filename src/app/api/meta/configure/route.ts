@@ -78,6 +78,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(ads)
     }
 
+    if (type === 'pages') {
+      const data = await metaFetch('/me/accounts', token, {
+        fields: 'id,name,picture',
+        limit: '50',
+      })
+      return NextResponse.json(data.data || [])
+    }
+
+    if (type === 'pixels') {
+      const data = await metaFetch(`/${accountId}/adspixels`, token, {
+        fields: 'id,name,last_fired_time',
+        limit: '50',
+      })
+      return NextResponse.json(data.data || [])
+    }
+
+    if (type === 'audiences') {
+      const data = await metaFetch(`/${accountId}/customaudiences`, token, {
+        fields: 'id,name,approximate_count_lower_bound,subtype',
+        limit: '100',
+        filtering: JSON.stringify([{ field: 'subtype', operator: 'NOT_IN', value: ['LOOKALIKE'] }]),
+      })
+      return NextResponse.json(data.data || [])
+    }
+
     return NextResponse.json({ error: 'Unknown type' }, { status: 400 })
   } catch (err) {
     console.error('Configure API error:', err)
