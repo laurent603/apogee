@@ -50,7 +50,11 @@ export async function GET(req: NextRequest) {
       const data = await metaFetch(path, token, {
         fields: [
           'id', 'name', 'adset_id', 'campaign_id', 'status',
-          'creative{id,name,title,body,image_url,thumbnail_url,video_id,call_to_action,link_url,object_story_spec}',
+          'creative{id,name,title,body,image_url,thumbnail_url,video_id,call_to_action,link_url,' +
+            'object_story_spec{page_id,' +
+              'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
+              'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
+            '}}',
         ].join(','),
         limit: '200',
         filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED'] }]),
@@ -61,19 +65,23 @@ export async function GET(req: NextRequest) {
         const oss = creative?.object_story_spec as Record<string, unknown> | undefined
         const linkData = oss?.link_data as Record<string, unknown> | undefined
         const videoData = oss?.video_data as Record<string, unknown> | undefined
-        const cta = (creative?.call_to_action as { type?: string; value?: { link?: string } } | undefined)
+        // CTA can be at creative level or nested inside link_data/video_data
+        const ctaTop = creative?.call_to_action as { type?: string; value?: { link?: string } } | undefined
+        const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
+        const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
+        const cta = ctaTop || ctaLink || ctaVideo
         const pageId = (oss?.page_id as string | undefined) || ''
 
         return {
           ...ad,
           _pageId: pageId,
           _parsed: {
-            primary_text: creative?.body || linkData?.message || videoData?.message || '',
-            headline: creative?.title || linkData?.name || videoData?.title || '',
-            description: linkData?.description || videoData?.link_description || '',
-            cta_type: cta?.type || 'LEARN_MORE',
-            destination_url: creative?.link_url || cta?.value?.link || linkData?.link || '',
-            thumbnail: creative?.thumbnail_url || creative?.image_url || null,
+            primary_text: (linkData?.message || videoData?.message || creative?.body || '') as string,
+            headline: (linkData?.name || videoData?.title || creative?.title || '') as string,
+            description: (linkData?.description || videoData?.link_description || '') as string,
+            cta_type: (cta?.type || 'LEARN_MORE') as string,
+            destination_url: (linkData?.link || videoData?.link || cta?.value?.link || creative?.link_url || '') as string,
+            thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
           },
         }
       })
