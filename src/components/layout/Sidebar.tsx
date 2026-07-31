@@ -7,13 +7,13 @@ import { clsx } from 'clsx'
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
-  { href: '/dashboard/brand-settings', label: 'Brand Settings', icon: '⚙' },
-  { href: '/dashboard/audit', label: 'Audit', icon: '🔍' },
-  { href: '/dashboard/performance', label: 'Performance', icon: '📈' },
-  { href: '/dashboard/media-buying', label: 'Media Buying', icon: '💰' },
-  { href: '/dashboard/creative-strategy', label: 'Creative Strategy', icon: '🎨' },
-  { href: '/dashboard/autopilot', label: 'Autopilote', icon: '🤖' },
-  { href: '/dashboard/creative-studio', label: 'Creative Studio', icon: '🚀' },
+  { href: '/brand-settings', label: 'Brand Settings', icon: '⚙' },
+  { href: '/audit', label: 'Audit', icon: '🔍' },
+  { href: '/performance', label: 'Performance', icon: '📈' },
+  { href: '/media-buying', label: 'Media Buying', icon: '💰' },
+  { href: '/creative-strategy', label: 'Creative Strategy', icon: '🎨' },
+  { href: '/autopilot', label: 'Autopilote', icon: '🤖' },
+  { href: '/creative-studio', label: 'Creative Studio', icon: '🚀' },
 ]
 
 export function Sidebar() {

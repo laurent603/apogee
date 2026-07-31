@@ -108,10 +108,10 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-gray-300 mb-4">Analyses rapides</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { href: '/dashboard/audit', label: 'Audit complet', icon: '🔍', desc: 'Score Andromeda' },
-                { href: '/dashboard/performance', label: 'Performance', icon: '📈', desc: 'Funnel & rentabilité' },
-                { href: '/dashboard/media-buying', label: 'Media Buying', icon: '💰', desc: 'Scale & Kill' },
-                { href: '/dashboard/creative-strategy', label: 'Créatives', icon: '🎨', desc: 'Fatigue & angles' },
+                { href: '/audit', label: 'Audit complet', icon: '🔍', desc: 'Score Andromeda' },
+                { href: '/performance', label: 'Performance', icon: '📈', desc: 'Funnel & rentabilité' },
+                { href: '/media-buying', label: 'Media Buying', icon: '💰', desc: 'Scale & Kill' },
+                { href: '/creative-strategy', label: 'Créatives', icon: '🎨', desc: 'Fatigue & angles' },
               ].map((action) => (
                 <a
                   key={action.href}
