@@ -22,28 +22,106 @@ export async function getAdAccounts(token: string) {
   return data.data || []
 }
 
+const INSIGHT_FIELDS = [
+  'spend', 'impressions', 'reach', 'frequency',
+  'clicks', 'unique_clicks', 'ctr', 'unique_ctr', 'cpc', 'cpm',
+  'outbound_clicks', 'outbound_clicks_ctr', 'cost_per_outbound_click',
+  'actions', 'action_values', 'cost_per_action_type',
+  'website_purchase_roas',
+].join(',')
+
+const INSIGHT_FIELDS_NESTED = [
+  'spend', 'impressions', 'reach', 'frequency',
+  'clicks', 'unique_clicks', 'ctr', 'unique_ctr', 'cpc', 'cpm',
+  'outbound_clicks', 'outbound_clicks_ctr',
+  'actions', 'action_values', 'cost_per_action_type',
+  'website_purchase_roas',
+].join(',')
+
+function extractAction(actions: { action_type: string; value: string }[] | undefined, type: string): number {
+  return Number(actions?.find(a => a.action_type === type)?.value || 0)
+}
+
+function extractActionValue(values: { action_type: string; value: string }[] | undefined, type: string): number {
+  return Number(values?.find(a => a.action_type === type)?.value || 0)
+}
+
+export function computeKPIs(d: Record<string, unknown>) {
+  const actions = d.actions as { action_type: string; value: string }[] | undefined
+  const actionValues = d.action_values as { action_type: string; value: string }[] | undefined
+  const costPer = d.cost_per_action_type as { action_type: string; value: string }[] | undefined
+  const outboundClicks = d.outbound_clicks as { action_type: string; value: string }[] | undefined
+
+  const spend = Number(d.spend || 0)
+  const impressions = Number(d.impressions || 0)
+
+  const linkClicks = extractAction(outboundClicks, 'link_click') || Number((d.outbound_clicks as {value:string}[])?.[0]?.value || 0)
+  const landingPageViews = extractAction(actions, 'landing_page_view')
+  const addToCart = extractAction(actions, 'add_to_cart') || extractAction(actions, 'offsite_conversion.fb_pixel_add_to_cart')
+  const initiateCheckout = extractAction(actions, 'initiate_checkout') || extractAction(actions, 'offsite_conversion.fb_pixel_initiate_checkout')
+  const purchases = extractAction(actions, 'purchase') || extractAction(actions, 'offsite_conversion.fb_pixel_purchase')
+  const leads = extractAction(actions, 'lead') || extractAction(actions, 'offsite_conversion.fb_pixel_lead') || extractAction(actions, 'onsite_conversion.lead_grouped')
+  const purchaseValue = extractActionValue(actionValues, 'purchase') || extractActionValue(actionValues, 'offsite_conversion.fb_pixel_purchase')
+
+  // Video
+  const thruPlays = extractAction(actions, 'video_thruplay_watched')
+  const video3s = extractAction(actions, 'video_view')
+
+  return {
+    // Funnel e-commerce
+    'Revenue Brut (CA)': purchaseValue > 0 ? purchaseValue - spend : null,
+    'AOV (Panier moyen)': purchases > 0 ? purchaseValue / purchases : null,
+    'ATCR (Add to Cart Rate)': landingPageViews > 0 ? (addToCart / landingPageViews) * 100 : null,
+    'ATC→Achat': addToCart > 0 ? (purchases / addToCart) * 100 : null,
+    'ATC→Payment Initiate': addToCart > 0 ? (initiateCheckout / addToCart) * 100 : null,
+    'Conversion Rate': landingPageViews > 0 ? (purchases / landingPageViews) * 100 : null,
+    'Initiate Payment Rate': landingPageViews > 0 ? (initiateCheckout / landingPageViews) * 100 : null,
+    'LPVR (Landing Page View Rate)': linkClicks > 0 ? (landingPageViews / linkClicks) * 100 : null,
+    'LP View Drop': linkClicks > 0 ? ((linkClicks - landingPageViews) / linkClicks) * 100 : null,
+    // Leadgen
+    'Taux transfo Form': linkClicks > 0 ? (leads / linkClicks) * 100 : null,
+    'Taux transfo LP': landingPageViews > 0 ? (leads / landingPageViews) * 100 : null,
+    // Video
+    'Hook Rate': impressions > 0 && video3s > 0 ? (video3s / impressions) * 100 : null,
+    'Hold Rate': impressions > 0 && thruPlays > 0 ? (thruPlays / impressions) * 100 : null,
+    // Counts
+    'Achats': purchases || null,
+    'Ajouts au panier': addToCart || null,
+    'Prospects (leads)': leads || null,
+    'Paiements initiés': initiateCheckout || null,
+    'Vues page destination': landingPageViews || null,
+    'Clics sur lien': linkClicks || null,
+    'Valeur de conversion': purchaseValue || null,
+    // Costs from API
+    'Coût par achat': extractAction(costPer, 'purchase') || extractAction(costPer, 'offsite_conversion.fb_pixel_purchase') || null,
+    'Coût par ATC': extractAction(costPer, 'add_to_cart') || extractAction(costPer, 'offsite_conversion.fb_pixel_add_to_cart') || null,
+    'Coût par prospect': extractAction(costPer, 'lead') || extractAction(costPer, 'offsite_conversion.fb_pixel_lead') || null,
+    'Coût par vue LP': (d.cost_per_outbound_click as {value:string}[])?.[0]?.value || null,
+  }
+}
+
 export async function getAccountOverview(accountId: string, token: string, datePreset = 'last_7d') {
   const data = await metaFetch(`/${accountId}/insights`, token, {
     date_preset: datePreset,
-    fields: [
-      'spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm',
-      'reach', 'frequency', 'actions', 'cost_per_action_type', 'website_purchase_roas',
-      'action_values', 'conversions', 'cost_per_conversion',
-    ].join(','),
+    fields: INSIGHT_FIELDS,
   })
-  return data.data?.[0] || {}
+  const raw = data.data?.[0] || {}
+  return { ...raw, _computed: computeKPIs(raw) }
 }
 
 export async function getCampaigns(accountId: string, token: string, datePreset = 'last_7d') {
   const data = await metaFetch(`/${accountId}/campaigns`, token, {
     fields: [
       'id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget',
-      'insights{spend,impressions,clicks,ctr,cpc,actions,cost_per_action_type,website_purchase_roas,frequency}',
+      `insights{${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
     date_preset: datePreset,
     limit: '50',
   })
-  return data.data || []
+  return (data.data || []).map((c: Record<string, unknown>) => ({
+    ...c,
+    _computed: c.insights ? computeKPIs((c.insights as {data: Record<string, unknown>[]}).data?.[0] || {}) : null,
+  }))
 }
 
 export async function getAdSets(accountId: string, token: string, datePreset = 'last_7d') {
@@ -51,24 +129,31 @@ export async function getAdSets(accountId: string, token: string, datePreset = '
     fields: [
       'id', 'name', 'status', 'campaign_id', 'daily_budget', 'optimization_goal',
       'targeting', 'learning_stage_info',
-      'insights{spend,impressions,clicks,ctr,cpc,cpm,frequency,actions,cost_per_action_type,reach}',
+      `insights{${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
     date_preset: datePreset,
     limit: '100',
   })
-  return data.data || []
+  return (data.data || []).map((a: Record<string, unknown>) => ({
+    ...a,
+    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}) : null,
+  }))
 }
 
 export async function getAds(accountId: string, token: string, datePreset = 'last_7d') {
   const data = await metaFetch(`/${accountId}/ads`, token, {
     fields: [
-      'id', 'name', 'status', 'adset_id', 'campaign_id', 'creative{id,name,title,body,image_url,thumbnail_url,video_id}',
-      'insights{spend,impressions,clicks,ctr,cpc,cpm,frequency,actions,cost_per_action_type,reach}',
+      'id', 'name', 'status', 'adset_id', 'campaign_id',
+      'creative{id,name,title,body,image_url,thumbnail_url,video_id}',
+      `insights{${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
     date_preset: datePreset,
     limit: '200',
   })
-  return data.data || []
+  return (data.data || []).map((a: Record<string, unknown>) => ({
+    ...a,
+    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}) : null,
+  }))
 }
 
 export async function getDailyBreakdown(accountId: string, token: string, days = 7) {
