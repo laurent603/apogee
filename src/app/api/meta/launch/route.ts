@@ -59,6 +59,35 @@ const OPT_GOAL_MAP: Record<string, string> = {
   MAXIMIZE_REACH: 'REACH',
 }
 
+// Optimization goals that need a pixel promoted_object
+const NEEDS_PIXEL = new Set(['OFFSITE_CONVERSIONS', 'VALUE'])
+// Optimization goals that need a page promoted_object
+const NEEDS_PAGE = new Set(['LEAD_GENERATION', 'PAGE_LIKES'])
+
+function metaError(data: Record<string, unknown>): string {
+  const e = data.error as Record<string, unknown> | undefined
+  if (!e) return JSON.stringify(data)
+  const parts = [e.message as string]
+  if (e.error_user_msg) parts.push(e.error_user_msg as string)
+  if (e.error_subcode) parts.push(`(subcode: ${e.error_subcode})`)
+  return parts.filter(Boolean).join(' — ')
+}
+
+// Strip empty arrays and deprecated fields from Meta targeting
+function cleanTargeting(t: LaunchAdset['targeting']): Record<string, unknown> {
+  if (!t) return { geo_locations: { countries: ['FR'] }, age_min: 18, age_max: 65 }
+  const out: Record<string, unknown> = {}
+  if (t.geo_locations) out.geo_locations = t.geo_locations
+  if (t.age_min) out.age_min = t.age_min
+  if (t.age_max) out.age_max = t.age_max
+  if (t.genders) out.genders = t.genders
+  // Only include custom_audiences if non-empty — empty array causes Invalid parameter
+  if (t.custom_audiences && t.custom_audiences.length > 0) {
+    out.custom_audiences = t.custom_audiences.map(a => ({ id: a.id }))
+  }
+  return out
+}
+
 async function metaPost(path: string, token: string, body: Record<string, unknown>) {
   const res = await fetch(`https://graph.facebook.com/v21.0${path}`, {
     method: 'POST',
@@ -140,42 +169,51 @@ export async function POST(req: NextRequest) {
           /* Create adset */
           send(`Création de l'adset "${node.adsetName}"...`)
 
-          const targeting = adsetTemplate?.targeting ?? {
-            geo_locations: { countries: ['FR'] },
-            age_min: 18,
-            age_max: 65,
-          }
-
           const rawOptGoal = adsetTemplate?.optimization_goal || 'OFFSITE_CONVERSIONS'
           const optimizationGoal = OPT_GOAL_MAP[rawOptGoal] ?? rawOptGoal
+
+          // billing_event: reuse from existing adset if available, else IMPRESSIONS
+          const adsetRaw = adsetTemplate as (LaunchAdset & Record<string, unknown>) | null
+          const billingEvent = (!adsetTemplate?._isNew && adsetRaw?.billing_event)
+            ? String(adsetRaw.billing_event)
+            : 'IMPRESSIONS'
 
           const adsetBody: Record<string, unknown> = {
             name: node.adsetName,
             campaign_id: campaignId,
             status: adsetStatus,
             optimization_goal: optimizationGoal,
-            billing_event: 'IMPRESSIONS',
-            targeting,
+            billing_event: billingEvent,
+            targeting: cleanTargeting(adsetTemplate?.targeting),
           }
 
           if (!isCBO) {
-            const adsetBudget = adsetTemplate?.daily_budget
-              ? Math.round(Number(adsetTemplate.daily_budget) * 100)
+            // _isNew → user entered euros → convert to cents
+            // from Meta → already in cents → use directly
+            const rawBudget = adsetTemplate?.daily_budget
+            const adsetBudgetCents = rawBudget
+              ? (adsetTemplate?._isNew
+                  ? Math.round(Number(rawBudget) * 100)
+                  : Number(rawBudget))
               : budgetCents
-            adsetBody.daily_budget = String(adsetBudget)
+            adsetBody.daily_budget = String(adsetBudgetCents)
           }
 
-          if (adsetTemplate?.promoted_object?.pixel_id) {
+          // Only add promoted_object when the optimization goal requires it
+          if (NEEDS_PIXEL.has(optimizationGoal) && adsetTemplate?.promoted_object?.pixel_id) {
             adsetBody.promoted_object = {
               pixel_id: adsetTemplate.promoted_object.pixel_id,
               custom_event_type: adsetTemplate.promoted_object.custom_event_type || 'PURCHASE',
             }
+          } else if (NEEDS_PAGE.has(optimizationGoal) && adTemplate?._pageId) {
+            adsetBody.promoted_object = { page_id: adTemplate._pageId }
           }
 
           if (startTime) adsetBody.start_time = startTime
 
+          console.log('[launch] adset body:', JSON.stringify(adsetBody))
           const adsetData = await metaPost(`/${accountId}/adsets`, token, adsetBody)
-          if (adsetData.error) throw new Error(`Adset : ${(adsetData.error as Record<string, string>).message}`)
+          if (adsetData.error) throw new Error(`Adset : ${metaError(adsetData)}`)
           const adsetId = adsetData.id as string
           send(`✓ Adset créé : "${node.adsetName}" (id: ${adsetId})`)
 
@@ -217,8 +255,9 @@ export async function POST(req: NextRequest) {
               },
             }
 
+            console.log('[launch] creative body:', JSON.stringify(creativeBody))
             const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
-            if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${(creativeData.error as Record<string, string>).message}`)
+            if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${metaError(creativeData)}`)
             const creativeId = creativeData.id as string
 
             const adData = await metaPost(`/${accountId}/ads`, token, {
@@ -227,7 +266,7 @@ export async function POST(req: NextRequest) {
               creative: { creative_id: creativeId },
               status: adsetStatus,
             })
-            if (adData.error) throw new Error(`Ad "${ag.adName}" : ${(adData.error as Record<string, string>).message}`)
+            if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
             send(`✓ Ad créée : "${ag.adName}"`)
           }
         }
