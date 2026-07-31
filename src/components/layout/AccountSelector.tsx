@@ -14,7 +14,11 @@ export function AccountSelector() {
       .then((d) => {
         const fresh = d.accounts || []
         setAccounts(fresh)
-        if (fresh.length > 0 && !selectedAccount) {
+        // Read current value from store at async completion time — not from
+        // the stale closure captured at first render before Zustand hydrates
+        const current = useStore.getState().selectedAccount
+        const stillValid = current && fresh.find((a: AdAccountMeta) => a.id === current.id)
+        if (fresh.length > 0 && !stillValid) {
           setSelectedAccount(fresh[0])
         }
         setLoading(false)

@@ -13,30 +13,43 @@ export async function GET() {
   try {
     const accounts = await getAdAccounts(session.accessToken as string)
 
-    // Upsert accounts in DB
-    await Promise.all(
-      accounts.map((acc: Record<string, string>) =>
-        prisma.adAccount.upsert({
-          where: { userId_metaAccountId: { userId: session.user!.id!, metaAccountId: acc.id } },
-          update: { name: acc.name, currency: acc.currency, timezone: acc.timezone_name },
-          create: {
-            metaAccountId: acc.id,
-            name: acc.name,
-            currency: acc.currency,
-            timezone: acc.timezone_name,
-            userId: session.user!.id!,
-          },
-        })
+    // Try to upsert + read from DB; fall back to raw Meta accounts if DB fails
+    try {
+      await Promise.all(
+        accounts.map((acc: Record<string, string>) =>
+          prisma.adAccount.upsert({
+            where: { userId_metaAccountId: { userId: session.user!.id!, metaAccountId: acc.id } },
+            update: { name: acc.name, currency: acc.currency, timezone: acc.timezone_name },
+            create: {
+              metaAccountId: acc.id,
+              name: acc.name,
+              currency: acc.currency,
+              timezone: acc.timezone_name,
+              userId: session.user!.id!,
+            },
+          })
+        )
       )
-    )
 
-    const dbAccounts = await prisma.adAccount.findMany({
-      where: { userId: session.user.id },
-      include: { brandSettings: true },
-      orderBy: { name: 'asc' },
-    })
+      const dbAccounts = await prisma.adAccount.findMany({
+        where: { userId: session.user.id },
+        include: { brandSettings: true },
+        orderBy: { name: 'asc' },
+      })
 
-    return NextResponse.json({ accounts: dbAccounts })
+      return NextResponse.json({ accounts: dbAccounts })
+    } catch (dbErr) {
+      console.error('DB error — falling back to Meta accounts:', dbErr)
+      // Return Meta accounts directly so the UI never shows "Aucun compte trouvé"
+      const fallback = accounts.map((acc: Record<string, string>) => ({
+        id: acc.id,
+        metaAccountId: acc.id,
+        name: acc.name,
+        currency: acc.currency,
+        timezone: acc.timezone_name,
+      }))
+      return NextResponse.json({ accounts: fallback })
+    }
   } catch (err) {
     console.error('Meta accounts error:', err)
     return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500 })
