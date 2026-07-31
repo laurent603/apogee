@@ -8,19 +8,18 @@ export function AccountSelector() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (accounts.length === 0) {
-      setLoading(true)
-      fetch('/api/meta/accounts')
-        .then((r) => r.json())
-        .then((d) => {
-          setAccounts(d.accounts || [])
-          if (d.accounts?.length > 0 && !selectedAccount) {
-            setSelectedAccount(d.accounts[0])
-          }
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    }
+    setLoading(true)
+    fetch('/api/meta/accounts')
+      .then((r) => r.json())
+      .then((d) => {
+        const fresh = d.accounts || []
+        setAccounts(fresh)
+        if (fresh.length > 0 && !selectedAccount) {
+          setSelectedAccount(fresh[0])
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   if (loading) return (
