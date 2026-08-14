@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
               description: (linkData?.description || videoData?.link_description || '') as string,
               cta_type: (cta?.type || 'LEARN_MORE') as string,
               destination_url: (linkData?.link || videoData?.link || cta?.value?.link || '') as string,
-              lead_gen_form_id: (cta?.value?.lead_gen_form_id || '') as string,
+              lead_gen_form_id: (creative?.leadgen_form_id || cta?.value?.lead_gen_form_id || '') as string,
               thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
             },
           }
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
         const data = await metaFetch(path, token, {
           fields: [
             'id', 'name', 'adset_id', 'campaign_id', 'status',
-            'creative{id,name,title,body,image_url,thumbnail_url,video_id,' +
+            'creative{id,name,title,body,image_url,thumbnail_url,video_id,leadgen_form_id,' +
               'object_story_spec{page_id,' +
                 'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
                 'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +

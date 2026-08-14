@@ -263,7 +263,7 @@ export async function POST(req: NextRequest) {
             if ((!resolvedParsed?.primary_text && !resolvedParsed?.lead_gen_form_id) && adTemplate?.id && !adTemplate._isNew) {
               try {
                 const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
-                  fields: 'creative{object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+                  fields: 'creative{id,leadgen_form_id,object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
                 })
                 const cr = adInfo?.creative as Record<string, unknown> | undefined
                 const oss2 = cr?.object_story_spec as Record<string, unknown> | undefined
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
                   description: (ld?.description || vd?.link_description || resolvedParsed?.description || '') as string,
                   cta_type: (ctaRaw?.type || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
                   destination_url: (ld?.link || vd?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
-                  lead_gen_form_id: (ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
+                  lead_gen_form_id: ((cr?.leadgen_form_id as string | undefined) || ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
                 }
                 console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))
               } catch (e) {
@@ -292,25 +292,9 @@ export async function POST(req: NextRequest) {
             const destinationUrl = resolvedParsed?.destination_url || ''
             let leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
 
-            // For lead gen campaigns: if no form ID extracted from creative, fetch from page
-            if (!leadGenFormId && pageId && campaign?.objective === 'OUTCOME_LEADS') {
-              try {
-                const formsData = await metaFetch(`/${pageId}/leadgen_forms`, token, {
-                  fields: 'id,name,status',
-                  limit: '10',
-                })
-                const forms = (formsData?.data || []) as Array<{ id: string; name: string; status?: string }>
-                const activeForm = forms.find(f => f.status !== 'ARCHIVED' && f.status !== 'DELETED') ?? forms[0]
-                if (activeForm) {
-                  leadGenFormId = activeForm.id
-                  send(`📋 Formulaire lead gen : "${activeForm.name}"`)
-                } else {
-                  throw new Error(`Aucun formulaire lead gen actif trouvé pour la page ${pageId} — créez-en un dans Meta`)
-                }
-              } catch (e) {
-                if (e instanceof Error && e.message.includes('formulaire lead gen')) throw e
-                console.error('[launch] leadgen_forms error:', e)
-              }
+            // For lead gen campaigns: warn if still no form ID
+            if (!leadGenFormId && campaign?.objective === 'OUTCOME_LEADS') {
+              throw new Error(`Formulaire lead gen introuvable pour l'ad "${ag.adName}" — resélectionnez l'ad template dans Ad Params`)
             }
             console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType)
 
