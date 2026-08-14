@@ -752,6 +752,7 @@ export default function UploadPage() {
   const [metaCampaigns, setMetaCampaigns] = useState<MetaCampaign[]>([])
   const [metaAdsets, setMetaAdsets] = useState<MetaAdset[]>([])
   const [metaAds, setMetaAds] = useState<MetaAd[]>([])
+  const [metaAdsError, setMetaAdsError] = useState<string | null>(null)
   const [metaPages, setMetaPages] = useState<MetaPage[]>([])
   const [metaPixels, setMetaPixels] = useState<MetaPixel[]>([])
   const [metaAudiences, setMetaAudiences] = useState<MetaAudience[]>([])
@@ -777,15 +778,24 @@ export default function UploadPage() {
     setLoadingMeta(false)
   }
   async function fetchAds(campaignId?: string, adsetId?: string) {
-    if (!metaId) return; setLoadingMeta(true)
+    if (!metaId) return
+    setLoadingMeta(true)
+    setMetaAdsError(null)
+    setMetaAds([])
     try {
       const params = new URLSearchParams({ accountId: metaId, type: 'ads' })
       if (adsetId) params.set('adsetId', adsetId)
       else if (campaignId) params.set('campaignId', campaignId)
       const r = await fetch(`/api/meta/configure?${params}`)
       const d = await r.json()
-      setMetaAds(Array.isArray(d) ? d : [])
-    } catch {}
+      if (Array.isArray(d)) {
+        setMetaAds(d)
+      } else if (d?._error) {
+        setMetaAdsError(d._error)
+      }
+    } catch (e) {
+      setMetaAdsError(e instanceof Error ? e.message : 'Erreur réseau')
+    }
     setLoadingMeta(false)
   }
   async function fetchPages() {
@@ -1453,7 +1463,12 @@ export default function UploadPage() {
       {adModal && (
         <Modal title="Copier la config d'une pub existante" onClose={() => setAdModal(false)}>
           <p className="text-xs text-gray-400 mb-3">Sélectionnez une annonce pour copier texte, titre, CTA et URL.</p>
-          {loadingMeta ? <Spinner /> : metaAds.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">Aucune annonce trouvée</p> : (
+          {loadingMeta ? <Spinner /> : metaAdsError ? (
+            <div className="py-6 text-center space-y-2">
+              <p className="text-sm text-red-500 font-medium">Erreur Meta API</p>
+              <p className="text-xs text-gray-500 break-all">{metaAdsError}</p>
+            </div>
+          ) : metaAds.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">Aucune annonce trouvée</p> : (
             <div className="space-y-1.5">{metaAds.map(ad => (
               <button key={ad.id} onClick={() => { setAdTemplate(ad); setAdModal(false); toast.success(`Copies de "${ad.name}" appliquées`) }}
                 className={clsx('w-full text-left p-3 rounded-xl border transition-all hover:border-[#3434ef] hover:bg-[#f0f0ff] flex gap-3', adTemplate?.id === ad.id ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB]')}>

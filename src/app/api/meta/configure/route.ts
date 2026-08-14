@@ -47,6 +47,32 @@ export async function GET(req: NextRequest) {
       const adsetId = searchParams.get('adsetId')
       const campaignId = searchParams.get('campaignId')
       const path = adsetId ? `/${adsetId}/ads` : campaignId ? `/${campaignId}/ads` : `/${accountId}/ads`
+
+      function parseAds(data: Record<string, unknown>) {
+        return (data.data as Record<string, unknown>[] || []).map((ad: Record<string, unknown>) => {
+          const creative = ad.creative as Record<string, unknown> | undefined
+          const oss = creative?.object_story_spec as Record<string, unknown> | undefined
+          const linkData = oss?.link_data as Record<string, unknown> | undefined
+          const videoData = oss?.video_data as Record<string, unknown> | undefined
+          const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
+          const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
+          const cta = ctaLink || ctaVideo
+          return {
+            ...ad,
+            _pageId: (oss?.page_id as string | undefined) || '',
+            _parsed: {
+              primary_text: (linkData?.message || videoData?.message || creative?.body || '') as string,
+              headline: (linkData?.name || videoData?.title || creative?.title || '') as string,
+              description: (linkData?.description || videoData?.link_description || '') as string,
+              cta_type: (cta?.type || 'LEARN_MORE') as string,
+              destination_url: (linkData?.link || videoData?.link || cta?.value?.link || '') as string,
+              thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
+            },
+          }
+        })
+      }
+
+      // Try full fields (with object_story_spec)
       try {
         const data = await metaFetch(path, token, {
           fields: [
@@ -59,34 +85,21 @@ export async function GET(req: NextRequest) {
           ].join(','),
           limit: '200',
         })
-
-        const ads = (data.data || []).map((ad: Record<string, unknown>) => {
-          const creative = ad.creative as Record<string, unknown> | undefined
-          const oss = creative?.object_story_spec as Record<string, unknown> | undefined
-          const linkData = oss?.link_data as Record<string, unknown> | undefined
-          const videoData = oss?.video_data as Record<string, unknown> | undefined
-          const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
-          const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
-          const cta = ctaLink || ctaVideo
-          const pageId = (oss?.page_id as string | undefined) || ''
-
-          return {
-            ...ad,
-            _pageId: pageId,
-            _parsed: {
-              primary_text: (linkData?.message || videoData?.message || creative?.body || '') as string,
-              headline: (linkData?.name || videoData?.title || creative?.title || '') as string,
-              description: (linkData?.description || videoData?.link_description || '') as string,
-              cta_type: (cta?.type || 'LEARN_MORE') as string,
-              destination_url: (linkData?.link || videoData?.link || cta?.value?.link || '') as string,
-              thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
-            },
-          }
-        })
-        return NextResponse.json(ads)
-      } catch (adsErr) {
-        console.error('Ads fetch error:', adsErr)
-        return NextResponse.json([])
+        return NextResponse.json(parseAds(data))
+      } catch (e1) {
+        console.error('Ads full-fields error:', e1)
+        // Fallback: minimal fields only
+        try {
+          const data = await metaFetch(path, token, {
+            fields: 'id,name,adset_id,campaign_id,status,creative{id,name,title,body,image_url,thumbnail_url}',
+            limit: '200',
+          })
+          return NextResponse.json(parseAds(data))
+        } catch (e2) {
+          const msg = e2 instanceof Error ? e2.message : String(e2)
+          console.error('Ads minimal-fields error:', msg)
+          return NextResponse.json({ _error: msg, data: [] })
+        }
       }
     }
 
