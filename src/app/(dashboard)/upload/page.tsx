@@ -514,13 +514,28 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   )
 }
 
-function CreateAdModal({ onSave, onClose, pages }: {
+function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
   onSave: (a: MetaAd) => void; onClose: () => void; pages: MetaPage[]
+  isLeadGen?: boolean; accountId?: string
 }) {
   const [pageId, setPageId] = useState(pages[0]?.id || '')
   const [igAccount, setIgAccount] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [leadGenFormId, setLeadGenFormId] = useState('')
+  const [leadForms, setLeadForms] = useState<{ id: string; name: string; status: string; lead_count?: number }[]>([])
+  const [loadingForms, setLoadingForms] = useState(false)
+
+  useEffect(() => {
+    if (!isLeadGen || !pageId || !accountId) { setLeadForms([]); return }
+    setLoadingForms(true)
+    fetch(`/api/meta/configure?accountId=${accountId}&type=leadforms&pageId=${pageId}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) { setLeadForms(d); if (d[0] && !leadGenFormId) setLeadGenFormId(d[0].id) } })
+      .catch(() => {})
+      .finally(() => setLoadingForms(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLeadGen, pageId, accountId])
+
   const [useDisplayLink, setUseDisplayLink] = useState(false)
   const [displayLink, setDisplayLink] = useState('')
   const [format, setFormat] = useState<'SINGLE' | 'COLLECTION'>('SINGLE')
@@ -590,14 +605,38 @@ function CreateAdModal({ onSave, onClose, pages }: {
         {/* DESTINATION */}
         <div className="space-y-3 pt-3 border-t border-[#F3F4F6]">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Destination</p>
-          <div>
-            <label className="label">Website URL {!leadGenFormId && <span className="text-red-500">*</span>}</label>
-            <input className="input" placeholder="https://www.example.com/" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} disabled={!!leadGenFormId} />
-          </div>
-          <div>
-            <label className="label">Lead Gen Form ID <span className="text-gray-400 font-normal text-xs">(campagne prospects — remplace l'URL)</span></label>
-            <input className="input font-mono text-sm" placeholder="ex: 1234567890123456" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value.trim())} />
-          </div>
+          {isLeadGen ? (
+            <div>
+              <label className="label">Formulaire instantané <span className="text-red-500">*</span></label>
+              {loadingForms ? (
+                <div className="input flex items-center gap-2 text-gray-400 text-sm"><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Chargement des formulaires…</div>
+              ) : leadForms.length > 0 ? (
+                <select className="select" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value)}>
+                  {leadForms.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}{f.lead_count ? ` (${f.lead_count} leads)` : ''}{f.status !== 'ACTIVE' ? ` — ${f.status}` : ''}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Aucun formulaire trouvé pour cette page. Saisissez l'ID manuellement ou vérifiez que la page est correcte.
+                  </p>
+                  <input className="input font-mono text-sm" placeholder="ex: 1234567890123456" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value.trim())} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="label">Website URL <span className="text-red-500">*</span></label>
+                <input className="input" placeholder="https://www.example.com/" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Lead Gen Form ID <span className="text-gray-400 font-normal text-xs">(campagne prospects — remplace l'URL)</span></label>
+                <input className="input font-mono text-sm" placeholder="ex: 1234567890123456" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value.trim())} />
+              </div>
+            </>
+          )}
           <div className="flex items-center justify-between cursor-pointer">
             <span className="text-sm text-[#0d0d12]">Use a display link</span>
             <Toggle value={useDisplayLink} onChange={setUseDisplayLink} />
@@ -743,6 +782,10 @@ export default function UploadPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<MetaCampaign | null>(null)
   const [adsetTemplate, setAdsetTemplate] = useState<MetaAdset | null>(null)
   const [adTemplate, setAdTemplate] = useState<MetaAd | null>(null)
+  const [leadFormOverride, setLeadFormOverride] = useState('')
+  const [leadFormsList, setLeadFormsList] = useState<{ id: string; name: string; status: string; lead_count?: number }[]>([])
+  const [loadingLeadForms, setLoadingLeadForms] = useState(false)
+  const [leadFormsPageId, setLeadFormsPageId] = useState('')
 
   // Selection modals
   const [campaignModal, setCampaignModal] = useState(false)
@@ -818,6 +861,35 @@ export default function UploadPage() {
 
   function openCreateAdset() { fetchPixels(); fetchAudiences(); setCreateAdsetModal(true) }
   function openCreateAd() { fetchPages(); setCreateAdModal(true) }
+
+  // When adTemplate changes, auto-set the lead forms page ID from the ad's page
+  useEffect(() => {
+    if (selectedCampaign?.objective !== 'OUTCOME_LEADS') return
+    const fromAd = adTemplate?._pageId
+    if (fromAd) setLeadFormsPageId(fromAd)
+    else if (metaPages.length > 0 && !leadFormsPageId) setLeadFormsPageId(metaPages[0].id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampaign?.objective, adTemplate?._pageId])
+
+  // Fetch lead gen forms whenever the page ID or campaign changes
+  useEffect(() => {
+    if (selectedCampaign?.objective !== 'OUTCOME_LEADS' || !leadFormsPageId || !metaId) {
+      setLeadFormsList([]); setLeadFormOverride(''); return
+    }
+    setLoadingLeadForms(true)
+    fetch(`/api/meta/configure?accountId=${metaId}&type=leadforms&pageId=${leadFormsPageId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          setLeadFormsList(d)
+          const detected = adTemplate?._parsed?.lead_gen_form_id
+          setLeadFormOverride(detected && d.some((f: { id: string }) => f.id === detected) ? detected : (d[0]?.id || ''))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingLeadForms(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampaign?.objective, leadFormsPageId, metaId])
 
   const processFiles = useCallback(async (fileList: FileList | File[]) => {
     const arr = Array.from(fileList).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'))
@@ -932,7 +1004,10 @@ export default function UploadPage() {
           accountId: metaId,
           campaign: selectedCampaign,
           adsetTemplate,
-          adTemplate,
+          // Inject lead gen form override when set (handles Advantage+ creative where form ID can't be extracted)
+          adTemplate: (leadFormOverride && selectedCampaign?.objective === 'OUTCOME_LEADS')
+            ? { ...adTemplate, _parsed: { ...(adTemplate?._parsed ?? {}), lead_gen_form_id: leadFormOverride } }
+            : adTemplate,
           treeNodes: enrichedNodes,
           testStructure,
           launchStatus,
@@ -971,6 +1046,7 @@ export default function UploadPage() {
   function resetAll() {
     setStep(1); setFiles([]); setGroups([]); setLaunched(false); setJournal([])
     setSelectedCampaign(null); setAdsetTemplate(null); setAdTemplate(null); setConfetti(false)
+    setLeadFormOverride(''); setLeadFormsList([]); setLeadFormsPageId('')
   }
 
   const Spinner = () => <div className="flex justify-center py-8"><svg className="animate-spin w-5 h-5 text-[#3434ef]" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
@@ -1254,6 +1330,58 @@ export default function UploadPage() {
                   </button>
                   {adConfigured && <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>{totalAds}/{totalAds} ok</span>}
                 </div>
+
+                {/* Lead Gen Form picker — visible uniquement pour les campagnes OUTCOME_LEADS */}
+                {selectedCampaign?.objective === 'OUTCOME_LEADS' && (
+                  <div className="space-y-2 pt-1">
+                    {/* Sélecteur de page si l'ID n'a pas pu être extrait de la créa (Advantage+) */}
+                    {!adTemplate?._pageId && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 w-24 flex-shrink-0">Page :</span>
+                        {metaPages.length > 0 ? (
+                          <select
+                            className="flex-1 text-xs border border-[#E5E7EB] rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-[#3434ef]"
+                            value={leadFormsPageId}
+                            onChange={e => setLeadFormsPageId(e.target.value)}
+                          >
+                            <option value="">— Sélectionner une page —</option>
+                            {metaPages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        ) : (
+                          <button onClick={fetchPages} className="text-xs text-[#3434ef] underline">Charger les pages…</button>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-600 w-24 flex-shrink-0">Formulaire :</span>
+                      {loadingLeadForms ? (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          Chargement…
+                        </div>
+                      ) : leadFormsList.length > 0 ? (
+                        <select
+                          className="flex-1 text-xs border border-[#E5E7EB] rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-[#3434ef] focus:ring-1 focus:ring-[#3434ef]"
+                          value={leadFormOverride}
+                          onChange={e => setLeadFormOverride(e.target.value)}
+                        >
+                          {leadFormsList.map(f => (
+                            <option key={f.id} value={f.id}>
+                              {f.id === adTemplate?._parsed?.lead_gen_form_id ? '★ ' : ''}{f.name}{f.lead_count ? ` (${f.lead_count} leads)` : ''}{f.status !== 'ACTIVE' ? ` — ${f.status}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      ) : leadFormsPageId ? (
+                        <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                          Aucun formulaire trouvé — vérifiez vos permissions (reconnectez-vous)
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">Sélectionnez une page ci-dessus</span>
+                      )}
+                      {leadFormOverride && <span className="flex items-center gap-1 text-xs text-green-600 font-medium flex-shrink-0"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>ok</span>}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Prefix / Suffix */}
@@ -1525,6 +1653,8 @@ export default function UploadPage() {
           onSave={a => { setAdTemplate(a); setCreateAdModal(false) }}
           onClose={() => setCreateAdModal(false)}
           pages={metaPages}
+          isLeadGen={selectedCampaign?.objective === 'OUTCOME_LEADS'}
+          accountId={metaId}
         />
       )}
     </div>

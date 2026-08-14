@@ -52,14 +52,17 @@ export async function GET(req: NextRequest) {
         return (data.data as Record<string, unknown>[] || []).map((ad: Record<string, unknown>) => {
           const creative = ad.creative as Record<string, unknown> | undefined
           const oss = creative?.object_story_spec as Record<string, unknown> | undefined
-          const linkData = oss?.link_data as Record<string, unknown> | undefined
-          const videoData = oss?.video_data as Record<string, unknown> | undefined
+          const eoss = creative?.effective_object_story_spec as Record<string, unknown> | undefined
+          // For Advantage+ creative, object_story_spec is empty — use effective_object_story_spec
+          const spec = (oss?.page_id ? oss : eoss) ?? oss
+          const linkData = spec?.link_data as Record<string, unknown> | undefined
+          const videoData = spec?.video_data as Record<string, unknown> | undefined
           const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const cta = ctaLink || ctaVideo
           return {
             ...ad,
-            _pageId: (oss?.page_id as string | undefined) || '',
+            _pageId: ((oss?.page_id || eoss?.page_id) as string | undefined) || '',
             _parsed: {
               primary_text: (linkData?.message || videoData?.message || creative?.body || '') as string,
               headline: (linkData?.name || videoData?.title || creative?.title || '') as string,
@@ -73,13 +76,17 @@ export async function GET(req: NextRequest) {
         })
       }
 
-      // Try full fields (with object_story_spec)
+      // Try full fields (with object_story_spec + effective_object_story_spec for Advantage+)
       try {
         const data = await metaFetch(path, token, {
           fields: [
             'id', 'name', 'adset_id', 'campaign_id', 'status',
             'creative{id,name,title,body,image_url,thumbnail_url,video_id,leadgen_form_id,' +
               'object_story_spec{page_id,' +
+                'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
+                'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
+              '},' +
+              'effective_object_story_spec{page_id,' +
                 'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
                 'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
               '}}',
@@ -107,6 +114,32 @@ export async function GET(req: NextRequest) {
     if (type === 'pages') {
       const data = await metaFetch('/me/accounts', token, {
         fields: 'id,name,picture',
+        limit: '50',
+      })
+      return NextResponse.json(data.data || [])
+    }
+
+    if (type === 'leadforms') {
+      const pageId = searchParams.get('pageId')
+      if (!pageId) return NextResponse.json({ error: 'Missing pageId' }, { status: 400 })
+
+      // /{pageId}/leadgen_forms requires a Page Access Token (error #190 with user token)
+      // Approach 1: /me/accounts returns page tokens for all managed pages
+      let pageToken = token
+      try {
+        const accounts = await metaFetch('/me/accounts', token, { fields: 'id,access_token', limit: '50' })
+        const match = (accounts.data || []).find((p: { id: string; access_token?: string }) => p.id === pageId)
+        if (match?.access_token) pageToken = match.access_token
+      } catch {
+        // Approach 2: fetch page token directly from the page node
+        try {
+          const pageData = await metaFetch(`/${pageId}`, token, { fields: 'access_token' })
+          if (pageData.access_token) pageToken = pageData.access_token as string
+        } catch { /* fall through — will likely fail with #190 */ }
+      }
+
+      const data = await metaFetch(`/${pageId}/leadgen_forms`, pageToken, {
+        fields: 'id,name,status,lead_count',
         limit: '50',
       })
       return NextResponse.json(data.data || [])
