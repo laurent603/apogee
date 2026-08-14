@@ -290,7 +290,28 @@ export async function POST(req: NextRequest) {
             const description = resolvedParsed?.description || ''
             const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
             const destinationUrl = resolvedParsed?.destination_url || ''
-            const leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
+            let leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
+
+            // For lead gen campaigns: if no form ID extracted from creative, fetch from page
+            if (!leadGenFormId && pageId && campaign?.objective === 'OUTCOME_LEADS') {
+              try {
+                const formsData = await metaFetch(`/${pageId}/leadgen_forms`, token, {
+                  fields: 'id,name,status',
+                  limit: '10',
+                })
+                const forms = (formsData?.data || []) as Array<{ id: string; name: string; status?: string }>
+                const activeForm = forms.find(f => f.status !== 'ARCHIVED' && f.status !== 'DELETED') ?? forms[0]
+                if (activeForm) {
+                  leadGenFormId = activeForm.id
+                  send(`📋 Formulaire lead gen : "${activeForm.name}"`)
+                } else {
+                  throw new Error(`Aucun formulaire lead gen actif trouvé pour la page ${pageId} — créez-en un dans Meta`)
+                }
+              } catch (e) {
+                if (e instanceof Error && e.message.includes('formulaire lead gen')) throw e
+                console.error('[launch] leadgen_forms error:', e)
+              }
+            }
             console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType)
 
             // CTA value: lead gen form takes priority over destination URL
