@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { metaFetch } from '@/lib/meta'
 
 /* ── Types matching the client payload ──────────────────────────────────────── */
 
