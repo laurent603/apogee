@@ -278,7 +278,6 @@ export async function POST(req: NextRequest) {
                   cta_type: (ctaRaw?.type || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
                   destination_url: (ld?.link || vd?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
                   lead_gen_form_id: (ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
-                  thumbnail: resolvedParsed?.thumbnail ?? null,
                 }
                 console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))
               } catch (e) {
