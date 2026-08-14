@@ -28,7 +28,7 @@ interface MetaAdset {
 }
 interface MetaAd {
   id: string; name: string; adset_id: string
-  _parsed: { primary_text: string; headline: string; description: string; cta_type: string; destination_url: string; thumbnail: string | null }
+  _parsed: { primary_text: string; headline: string; description: string; cta_type: string; destination_url: string; lead_gen_form_id: string; thumbnail: string | null }
   _isNew?: boolean
   _pageId?: string
 }

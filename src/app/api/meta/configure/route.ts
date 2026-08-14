@@ -54,8 +54,8 @@ export async function GET(req: NextRequest) {
           const oss = creative?.object_story_spec as Record<string, unknown> | undefined
           const linkData = oss?.link_data as Record<string, unknown> | undefined
           const videoData = oss?.video_data as Record<string, unknown> | undefined
-          const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
-          const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string } } | undefined
+          const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
+          const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const cta = ctaLink || ctaVideo
           return {
             ...ad,
@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
               description: (linkData?.description || videoData?.link_description || '') as string,
               cta_type: (cta?.type || 'LEARN_MORE') as string,
               destination_url: (linkData?.link || videoData?.link || cta?.value?.link || '') as string,
+              lead_gen_form_id: (cta?.value?.lead_gen_form_id || '') as string,
               thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
             },
           }

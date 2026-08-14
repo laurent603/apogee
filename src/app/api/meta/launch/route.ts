@@ -36,9 +36,8 @@ interface LaunchAdset {
 }
 interface LaunchAd {
   id: string; name: string; _isNew?: boolean; _pageId?: string
-  // creative may be present when ad was fetched from Meta (spread from raw ad object)
   creative?: { object_story_spec?: { page_id?: string } }
-  _parsed: { primary_text: string; headline: string; description: string; cta_type: string; destination_url: string }
+  _parsed: { primary_text: string; headline: string; description: string; cta_type: string; destination_url: string; lead_gen_form_id?: string }
 }
 interface LaunchBody {
   accountId: string
@@ -263,7 +262,13 @@ export async function POST(req: NextRequest) {
             const headline = adTemplate?._parsed?.headline || ''
             const description = adTemplate?._parsed?.description || ''
             const ctaType = adTemplate?._parsed?.cta_type || 'LEARN_MORE'
-            const destinationUrl = adTemplate?._parsed?.destination_url || 'https://example.com'
+            const destinationUrl = adTemplate?._parsed?.destination_url || ''
+            const leadGenFormId = adTemplate?._parsed?.lead_gen_form_id || ''
+
+            // CTA value: lead gen form takes priority over destination URL
+            const ctaValue: Record<string, string> = leadGenFormId
+              ? { lead_gen_form_id: leadGenFormId }
+              : { link: destinationUrl || 'https://example.com' }
 
             send(`Création du créatif "${ag.adName}"...`)
 
@@ -276,7 +281,7 @@ export async function POST(req: NextRequest) {
                   message: primaryText,
                   title: headline,
                   link_description: description,
-                  call_to_action: { type: ctaType, value: { link: destinationUrl } },
+                  call_to_action: { type: ctaType, value: ctaValue },
                 },
               }
             } else {
@@ -284,11 +289,11 @@ export async function POST(req: NextRequest) {
                 page_id: pageId,
                 link_data: {
                   image_hash: imageAsset!.hash,
-                  link: destinationUrl,
+                  ...(leadGenFormId ? {} : { link: destinationUrl || 'https://example.com' }),
                   message: primaryText,
                   name: headline,
                   description,
-                  call_to_action: { type: ctaType, value: { link: destinationUrl } },
+                  call_to_action: { type: ctaType, value: ctaValue },
                 },
               }
             }
