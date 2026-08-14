@@ -773,25 +773,25 @@ export default function UploadPage() {
   }
   async function fetchAdsets(campaignId?: string) {
     if (!metaId) return; setLoadingMeta(true)
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=adsets${campaignId ? `&campaignId=${campaignId}` : ''}`); setMetaAdsets(await r.json() || []) } catch {}
+    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=adsets${campaignId ? `&campaignId=${campaignId}` : ''}`); const d = await r.json(); setMetaAdsets(Array.isArray(d) ? d : []) } catch {}
     setLoadingMeta(false)
   }
   async function fetchAds(campaignId?: string) {
     if (!metaId) return; setLoadingMeta(true)
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=ads${campaignId ? `&campaignId=${campaignId}` : ''}`); setMetaAds(await r.json() || []) } catch {}
+    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=ads${campaignId ? `&campaignId=${campaignId}` : ''}`); const d = await r.json(); setMetaAds(Array.isArray(d) ? d : []) } catch {}
     setLoadingMeta(false)
   }
   async function fetchPages() {
     if (!metaId || metaPages.length > 0) return
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=pages`); setMetaPages(await r.json() || []) } catch {}
+    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=pages`); const d = await r.json(); setMetaPages(Array.isArray(d) ? d : []) } catch {}
   }
   async function fetchPixels() {
     if (!metaId || metaPixels.length > 0) return
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=pixels`); setMetaPixels(await r.json() || []) } catch {}
+    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=pixels`); const d = await r.json(); setMetaPixels(Array.isArray(d) ? d : []) } catch {}
   }
   async function fetchAudiences() {
     if (!metaId || metaAudiences.length > 0) return
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=audiences`); setMetaAudiences(await r.json() || []) } catch {}
+    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=audiences`); const d = await r.json(); setMetaAudiences(Array.isArray(d) ? d : []) } catch {}
   }
 
   function openCreateAdset() { fetchPixels(); fetchAudiences(); setCreateAdsetModal(true) }
