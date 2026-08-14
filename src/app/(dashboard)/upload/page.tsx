@@ -538,7 +538,7 @@ function CreateAdModal({ onSave, onClose, pages }: {
         primary_text: primaryTexts.filter(Boolean)[0] || '',
         headline: headlines.filter(Boolean)[0] || '',
         description, cta_type: cta,
-        destination_url: websiteUrl, thumbnail: null,
+        destination_url: websiteUrl, lead_gen_form_id: '', thumbnail: null,
       },
       _isNew: true,
       _pageId: pageId,
