@@ -58,7 +58,6 @@ export async function GET(req: NextRequest) {
               '}}',
           ].join(','),
           limit: '200',
-          filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED'] }]),
         })
 
         const ads = (data.data || []).map((ad: Record<string, unknown>) => {
