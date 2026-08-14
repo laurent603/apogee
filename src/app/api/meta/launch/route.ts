@@ -264,6 +264,7 @@ export async function POST(req: NextRequest) {
             const ctaType = adTemplate?._parsed?.cta_type || 'LEARN_MORE'
             const destinationUrl = adTemplate?._parsed?.destination_url || ''
             const leadGenFormId = adTemplate?._parsed?.lead_gen_form_id || ''
+            console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType, '| destinationUrl:', destinationUrl)
 
             // CTA value: lead gen form takes priority over destination URL
             const ctaValue: Record<string, string> = leadGenFormId

@@ -80,8 +80,8 @@ export async function GET(req: NextRequest) {
             'id', 'name', 'adset_id', 'campaign_id', 'status',
             'creative{id,name,title,body,image_url,thumbnail_url,video_id,' +
               'object_story_spec{page_id,' +
-                'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
-                'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
+                'link_data{message,name,description,link,image_hash,call_to_action{type,value{link,lead_gen_form_id}}},' +
+                'video_data{message,title,link_description,link,video_id,call_to_action{type,value{link,lead_gen_form_id}}}' +
               '}}',
           ].join(','),
           limit: '200',
