@@ -325,7 +325,8 @@ export async function POST(req: NextRequest) {
                 page_id: pageId,
                 link_data: {
                   image_hash: imageAsset!.hash,
-                  ...(leadGenFormId ? {} : { link: destinationUrl || 'https://example.com' }),
+                  // Meta requires `link` even for lead gen forms (it's displayed but not the CTA destination)
+                  link: destinationUrl || (leadGenFormId ? `https://www.facebook.com/${pageId}` : 'https://example.com'),
                   message: primaryText,
                   name: headline,
                   description,
