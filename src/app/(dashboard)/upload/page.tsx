@@ -862,14 +862,24 @@ export default function UploadPage() {
   function openCreateAdset() { fetchPixels(); fetchAudiences(); setCreateAdsetModal(true) }
   function openCreateAd() { fetchPages(); setCreateAdModal(true) }
 
-  // When adTemplate changes, auto-set the lead forms page ID from the ad's page
+  // Auto-load pages when a LEADS campaign is selected (needed for the form picker)
+  useEffect(() => {
+    if (selectedCampaign?.objective === 'OUTCOME_LEADS') fetchPages()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampaign?.objective])
+
+  // When adTemplate or pages change, auto-set the lead forms page ID
   useEffect(() => {
     if (selectedCampaign?.objective !== 'OUTCOME_LEADS') return
     const fromAd = adTemplate?._pageId
-    if (fromAd) setLeadFormsPageId(fromAd)
-    else if (metaPages.length > 0 && !leadFormsPageId) setLeadFormsPageId(metaPages[0].id)
+    if (fromAd) {
+      setLeadFormsPageId(fromAd)
+    } else if (metaPages.length > 0) {
+      // Advantage+ creative: page_id not in object_story_spec — fall back to first managed page
+      setLeadFormsPageId(p => p || metaPages[0].id)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCampaign?.objective, adTemplate?._pageId])
+  }, [selectedCampaign?.objective, adTemplate?._pageId, metaPages.length])
 
   // Fetch lead gen forms whenever the page ID or campaign changes
   useEffect(() => {
