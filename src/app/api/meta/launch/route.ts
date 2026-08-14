@@ -35,6 +35,8 @@ interface LaunchAdset {
 }
 interface LaunchAd {
   id: string; name: string; _isNew?: boolean; _pageId?: string
+  // creative may be present when ad was fetched from Meta (spread from raw ad object)
+  creative?: { object_story_spec?: { page_id?: string } }
   _parsed: { primary_text: string; headline: string; description: string; cta_type: string; destination_url: string }
 }
 interface LaunchBody {
@@ -241,7 +243,16 @@ export async function POST(req: NextRequest) {
               continue
             }
 
-            const pageId = adTemplate?._pageId
+            // page_id cascade: _pageId → creative.object_story_spec.page_id → API lookup
+            let pageId = adTemplate?._pageId || adTemplate?.creative?.object_story_spec?.page_id || ''
+            if (!pageId && adTemplate?.id) {
+              try {
+                const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
+                  fields: 'creative{object_story_spec{page_id}}',
+                })
+                pageId = (adInfo?.creative as { object_story_spec?: { page_id?: string } } | undefined)?.object_story_spec?.page_id || ''
+              } catch {}
+            }
             if (!pageId) {
               send(`⚠ "${ag.adName}" : page Facebook manquante — configurez l'ad avec une page`)
               continue
