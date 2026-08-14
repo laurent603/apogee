@@ -292,9 +292,25 @@ export async function POST(req: NextRequest) {
             const destinationUrl = resolvedParsed?.destination_url || ''
             let leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
 
-            // For lead gen campaigns: warn if still no form ID
-            if (!leadGenFormId && campaign?.objective === 'OUTCOME_LEADS') {
-              throw new Error(`Formulaire lead gen introuvable pour l'ad "${ag.adName}" — resélectionnez l'ad template dans Ad Params`)
+            // For lead gen campaigns: fallback — query page's lead gen forms
+            if (!leadGenFormId && pageId && campaign?.objective === 'OUTCOME_LEADS') {
+              try {
+                const formsData = await metaFetch(`/${pageId}/leadgen_forms`, token, {
+                  fields: 'id,name,status',
+                  limit: '10',
+                })
+                const forms = (formsData?.data || []) as Array<{ id: string; name: string; status?: string }>
+                const activeForm = forms.find(f => f.status !== 'ARCHIVED' && f.status !== 'DELETED') ?? forms[0]
+                if (activeForm) {
+                  leadGenFormId = activeForm.id
+                  send(`📋 Formulaire lead gen auto : "${activeForm.name}"`)
+                } else {
+                  throw new Error(`Aucun formulaire lead gen actif trouvé — créez-en un dans Meta pour la page ${pageId}`)
+                }
+              } catch (e) {
+                if (e instanceof Error && e.message.includes('formulaire lead gen actif')) throw e
+                throw new Error(`Formulaire lead gen introuvable (${e instanceof Error ? e.message : String(e)})`)
+              }
             }
             console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType)
 
