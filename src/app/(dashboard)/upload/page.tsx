@@ -520,6 +520,7 @@ function CreateAdModal({ onSave, onClose, pages }: {
   const [pageId, setPageId] = useState(pages[0]?.id || '')
   const [igAccount, setIgAccount] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
+  const [leadGenFormId, setLeadGenFormId] = useState('')
   const [useDisplayLink, setUseDisplayLink] = useState(false)
   const [displayLink, setDisplayLink] = useState('')
   const [format, setFormat] = useState<'SINGLE' | 'COLLECTION'>('SINGLE')
@@ -538,7 +539,7 @@ function CreateAdModal({ onSave, onClose, pages }: {
         primary_text: primaryTexts.filter(Boolean)[0] || '',
         headline: headlines.filter(Boolean)[0] || '',
         description, cta_type: cta,
-        destination_url: websiteUrl, lead_gen_form_id: '', thumbnail: null,
+        destination_url: websiteUrl, lead_gen_form_id: leadGenFormId, thumbnail: null,
       },
       _isNew: true,
       _pageId: pageId,
@@ -590,8 +591,12 @@ function CreateAdModal({ onSave, onClose, pages }: {
         <div className="space-y-3 pt-3 border-t border-[#F3F4F6]">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Destination</p>
           <div>
-            <label className="label">Website URL <span className="text-red-500">*</span></label>
-            <input className="input" placeholder="https://www.example.com/" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} />
+            <label className="label">Website URL {!leadGenFormId && <span className="text-red-500">*</span>}</label>
+            <input className="input" placeholder="https://www.example.com/" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} disabled={!!leadGenFormId} />
+          </div>
+          <div>
+            <label className="label">Lead Gen Form ID <span className="text-gray-400 font-normal text-xs">(campagne prospects — remplace l'URL)</span></label>
+            <input className="input font-mono text-sm" placeholder="ex: 1234567890123456" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value.trim())} />
           </div>
           <div className="flex items-center justify-between cursor-pointer">
             <span className="text-sm text-[#0d0d12]">Use a display link</span>
