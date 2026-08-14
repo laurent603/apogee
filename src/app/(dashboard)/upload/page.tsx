@@ -878,6 +878,7 @@ export default function UploadPage() {
     // Phase 1: upload image assets to Meta
     const fileHashes = new Map<string, string>() // fileId → hash
     const imageFiles = files.filter(f => f.type === 'image')
+    addLog(`[diag] ${files.length} fichier(s) chargé(s) — ${imageFiles.length} image(s), ${files.filter(f => f.type === 'video').length} vidéo(s)`)
     if (imageFiles.length > 0) {
       addLog(`Upload de ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} vers Meta...`)
       for (const uf of imageFiles) {
