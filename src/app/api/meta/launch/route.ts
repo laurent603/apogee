@@ -258,13 +258,41 @@ export async function POST(req: NextRequest) {
               continue
             }
 
-            const primaryText = adTemplate?._parsed?.primary_text || 'Découvrez notre offre'
-            const headline = adTemplate?._parsed?.headline || ''
-            const description = adTemplate?._parsed?.description || ''
-            const ctaType = adTemplate?._parsed?.cta_type || 'LEARN_MORE'
-            const destinationUrl = adTemplate?._parsed?.destination_url || ''
-            const leadGenFormId = adTemplate?._parsed?.lead_gen_form_id || ''
-            console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType, '| destinationUrl:', destinationUrl)
+            // If _parsed is empty (fallback minimal fetch was used), re-fetch creative from Meta
+            let resolvedParsed = adTemplate?._parsed
+            if ((!resolvedParsed?.primary_text && !resolvedParsed?.lead_gen_form_id) && adTemplate?.id && !adTemplate._isNew) {
+              try {
+                const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
+                  fields: 'creative{object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+                })
+                const cr = adInfo?.creative as Record<string, unknown> | undefined
+                const oss2 = cr?.object_story_spec as Record<string, unknown> | undefined
+                const ld = oss2?.link_data as Record<string, unknown> | undefined
+                const vd = oss2?.video_data as Record<string, unknown> | undefined
+                const ctaRaw = (ld?.call_to_action || vd?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
+                if (!pageId) pageId = (oss2?.page_id as string | undefined) || ''
+                resolvedParsed = {
+                  primary_text: (ld?.message || vd?.message || resolvedParsed?.primary_text || '') as string,
+                  headline: (ld?.name || vd?.title || resolvedParsed?.headline || '') as string,
+                  description: (ld?.description || vd?.link_description || resolvedParsed?.description || '') as string,
+                  cta_type: (ctaRaw?.type || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
+                  destination_url: (ld?.link || vd?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
+                  lead_gen_form_id: (ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
+                  thumbnail: resolvedParsed?.thumbnail ?? null,
+                }
+                console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))
+              } catch (e) {
+                console.error('[launch] re-fetch creative error:', e)
+              }
+            }
+
+            const primaryText = resolvedParsed?.primary_text || 'Découvrez notre offre'
+            const headline = resolvedParsed?.headline || ''
+            const description = resolvedParsed?.description || ''
+            const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
+            const destinationUrl = resolvedParsed?.destination_url || ''
+            const leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
+            console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType)
 
             // CTA value: lead gen form takes priority over destination URL
             const ctaValue: Record<string, string> = leadGenFormId
