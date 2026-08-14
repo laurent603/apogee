@@ -8,6 +8,7 @@ interface LaunchAsset {
   id: string
   ratio: string | null
   hash: string | null
+  videoId: string | null
 }
 interface LaunchAdGroup {
   adName: string
@@ -233,9 +234,10 @@ export async function POST(req: NextRequest) {
           /* Create ads in this adset */
           for (const ag of node.adGroups) {
             const imageAsset = ag.assets.find(a => a.hash)
+            const videoAsset = ag.assets.find(a => a.videoId)
 
-            if (!imageAsset?.hash) {
-              send(`⚠ "${ag.adName}" : pas d'image uploadée — ad ignorée`)
+            if (!imageAsset?.hash && !videoAsset?.videoId) {
+              send(`⚠ "${ag.adName}" : aucun asset uploadé — ad ignorée`)
               continue
             }
 
@@ -253,19 +255,35 @@ export async function POST(req: NextRequest) {
 
             send(`Création du créatif "${ag.adName}"...`)
 
-            const creativeBody: Record<string, unknown> = {
-              name: ag.adName,
-              object_story_spec: {
+            let storySpec: Record<string, unknown>
+            if (videoAsset?.videoId) {
+              storySpec = {
+                page_id: pageId,
+                video_data: {
+                  video_id: videoAsset.videoId,
+                  message: primaryText,
+                  title: headline,
+                  link_description: description,
+                  call_to_action: { type: ctaType, value: { link: destinationUrl } },
+                },
+              }
+            } else {
+              storySpec = {
                 page_id: pageId,
                 link_data: {
-                  image_hash: imageAsset.hash,
+                  image_hash: imageAsset!.hash,
                   link: destinationUrl,
                   message: primaryText,
                   name: headline,
                   description,
                   call_to_action: { type: ctaType, value: { link: destinationUrl } },
                 },
-              },
+              }
+            }
+
+            const creativeBody: Record<string, unknown> = {
+              name: ag.adName,
+              object_story_spec: storySpec,
             }
 
             console.log('[launch] creative body:', JSON.stringify(creativeBody))

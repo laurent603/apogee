@@ -15,9 +15,22 @@ export async function POST(req: NextRequest) {
   const token = session.accessToken as string
 
   if (file.type.startsWith('video/')) {
-    // Video upload — Meta requires chunked upload; for now return a placeholder
-    // Full video upload can be added later via /resumable_upload
-    return NextResponse.json({ error: 'Video upload not yet supported — use images for now' }, { status: 422 })
+    // Video upload via graph-video.facebook.com/advideos
+    const uploadForm = new FormData()
+    uploadForm.append('access_token', token)
+    uploadForm.append('title', file.name)
+    uploadForm.append('source', file)
+
+    const res = await fetch(`https://graph-video.facebook.com/v21.0/${accountId}/advideos`, {
+      method: 'POST',
+      body: uploadForm,
+    })
+    const data = await res.json()
+    if (data.error) {
+      console.error('Meta advideos error:', data.error)
+      return NextResponse.json({ error: data.error.message }, { status: 400 })
+    }
+    return NextResponse.json({ videoId: data.id as string })
   }
 
   // Image upload via adimages
@@ -37,7 +50,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: data.error.message }, { status: 400 })
   }
 
-  // data.images is keyed by filename
   const images = data.images as Record<string, { hash: string; url: string }> | undefined
   if (!images) return NextResponse.json({ error: 'No image data returned' }, { status: 500 })
 

@@ -875,13 +875,15 @@ export default function UploadPage() {
     setLaunching(true); setJournal([])
     const addLog = (msg: string) => setJournal(prev => [...prev, msg])
 
-    // Phase 1: upload image assets to Meta
-    const fileHashes = new Map<string, string>() // fileId → hash
-    const imageFiles = files.filter(f => f.type === 'image')
-    addLog(`[diag] ${files.length} fichier(s) chargé(s) — ${imageFiles.length} image(s), ${files.filter(f => f.type === 'video').length} vidéo(s)`)
-    if (imageFiles.length > 0) {
-      addLog(`Upload de ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} vers Meta...`)
-      for (const uf of imageFiles) {
+    // Phase 1: upload all assets (images + videos) to Meta
+    const fileHashes = new Map<string, string>()  // fileId → image hash
+    const fileVideoIds = new Map<string, string>() // fileId → video id
+    const uploadableFiles = files.filter(f => f.type === 'image' || f.type === 'video')
+    const imgCount = files.filter(f => f.type === 'image').length
+    const vidCount = files.filter(f => f.type === 'video').length
+    if (uploadableFiles.length > 0) {
+      addLog(`Upload de ${imgCount > 0 ? `${imgCount} image${imgCount > 1 ? 's' : ''}` : ''}${imgCount > 0 && vidCount > 0 ? ' et ' : ''}${vidCount > 0 ? `${vidCount} vidéo${vidCount > 1 ? 's' : ''}` : ''} vers Meta...`)
+      for (const uf of uploadableFiles) {
         try {
           const fd = new FormData()
           fd.append('file', uf.file)
@@ -891,6 +893,9 @@ export default function UploadPage() {
           if (data.hash) {
             fileHashes.set(uf.id, data.hash)
             addLog(`✓ ${uf.file.name} uploadé`)
+          } else if (data.videoId) {
+            fileVideoIds.set(uf.id, data.videoId)
+            addLog(`✓ ${uf.file.name} uploadé (vidéo)`)
           } else {
             addLog(`⚠ ${uf.file.name} : ${data.error || 'upload échoué'}`)
           }
@@ -900,7 +905,7 @@ export default function UploadPage() {
       }
     }
 
-    // Phase 2: build enriched treeNodes with hashes
+    // Phase 2: build enriched treeNodes with hashes + videoIds
     const enrichedNodes = treeNodes.map(node => ({
       adsetName: node.adsetName,
       adGroups: node.adGroups.map(ag => ({
@@ -908,6 +913,7 @@ export default function UploadPage() {
         assets: ag.assets.map(a => ({
           id: a.id, ratio: a.ratio ?? null,
           hash: fileHashes.get(a.id) ?? null,
+          videoId: fileVideoIds.get(a.id) ?? null,
         })),
       })),
     }))
