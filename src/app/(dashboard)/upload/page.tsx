@@ -786,6 +786,7 @@ export default function UploadPage() {
   const [leadFormsList, setLeadFormsList] = useState<{ id: string; name: string; status: string; lead_count?: number }[]>([])
   const [loadingLeadForms, setLoadingLeadForms] = useState(false)
   const [leadFormsPageId, setLeadFormsPageId] = useState('')
+  const [leadFormWebsiteUrl, setLeadFormWebsiteUrl] = useState('')
 
   // Selection modals
   const [campaignModal, setCampaignModal] = useState(false)
@@ -868,15 +869,18 @@ export default function UploadPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampaign?.objective])
 
-  // When adTemplate or pages change, auto-set the lead forms page ID
+  // When adTemplate or pages change, auto-set the lead forms page ID and website URL
   useEffect(() => {
     if (selectedCampaign?.objective !== 'OUTCOME_LEADS') return
     const fromAd = adTemplate?._pageId
     if (fromAd) {
       setLeadFormsPageId(fromAd)
     } else if (metaPages.length > 0) {
-      // Advantage+ creative: page_id not in object_story_spec — fall back to first managed page
       setLeadFormsPageId(p => p || metaPages[0].id)
+    }
+    // Pre-fill website URL from template if available
+    if (adTemplate?._parsed?.destination_url) {
+      setLeadFormWebsiteUrl(adTemplate._parsed.destination_url)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampaign?.objective, adTemplate?._pageId, metaPages.length])
@@ -1014,9 +1018,16 @@ export default function UploadPage() {
           accountId: metaId,
           campaign: selectedCampaign,
           adsetTemplate,
-          // Inject lead gen form override when set (handles Advantage+ creative where form ID can't be extracted)
-          adTemplate: (leadFormOverride && selectedCampaign?.objective === 'OUTCOME_LEADS')
-            ? { ...adTemplate, _parsed: { ...(adTemplate?._parsed ?? {}), lead_gen_form_id: leadFormOverride } }
+          // Inject lead gen overrides (form ID + website URL) for Advantage+ creative where they can't be extracted
+          adTemplate: selectedCampaign?.objective === 'OUTCOME_LEADS'
+            ? {
+                ...adTemplate,
+                _parsed: {
+                  ...(adTemplate?._parsed ?? {}),
+                  ...(leadFormOverride ? { lead_gen_form_id: leadFormOverride } : {}),
+                  ...(leadFormWebsiteUrl ? { destination_url: leadFormWebsiteUrl } : {}),
+                },
+              }
             : adTemplate,
           treeNodes: enrichedNodes,
           testStructure,
@@ -1056,7 +1067,7 @@ export default function UploadPage() {
   function resetAll() {
     setStep(1); setFiles([]); setGroups([]); setLaunched(false); setJournal([])
     setSelectedCampaign(null); setAdsetTemplate(null); setAdTemplate(null); setConfetti(false)
-    setLeadFormOverride(''); setLeadFormsList([]); setLeadFormsPageId('')
+    setLeadFormOverride(''); setLeadFormsList([]); setLeadFormsPageId(''); setLeadFormWebsiteUrl('')
   }
 
   const Spinner = () => <div className="flex justify-center py-8"><svg className="animate-spin w-5 h-5 text-[#3434ef]" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg></div>
@@ -1344,6 +1355,16 @@ export default function UploadPage() {
                 {/* Lead Gen Form picker — visible uniquement pour les campagnes OUTCOME_LEADS */}
                 {selectedCampaign?.objective === 'OUTCOME_LEADS' && (
                   <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-600 w-24 flex-shrink-0">Site web :</span>
+                      <input
+                        className="flex-1 text-xs border border-[#E5E7EB] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#3434ef] focus:ring-1 focus:ring-[#3434ef]"
+                        placeholder="https://www.votresite.com"
+                        value={leadFormWebsiteUrl}
+                        onChange={e => setLeadFormWebsiteUrl(e.target.value)}
+                      />
+                      {leadFormWebsiteUrl && <span className="text-xs text-green-600 font-medium flex-shrink-0">✓</span>}
+                    </div>
                     {/* Sélecteur de page si l'ID n'a pas pu être extrait de la créa (Advantage+) */}
                     {!adTemplate?._pageId && (
                       <div className="flex items-center gap-2">

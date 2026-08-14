@@ -292,14 +292,28 @@ export async function POST(req: NextRequest) {
             const headline = resolvedParsed?.headline || ''
             const description = resolvedParsed?.description || ''
             const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
-            const destinationUrl = resolvedParsed?.destination_url || ''
+            let destinationUrl = resolvedParsed?.destination_url || ''
             let leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
 
             // For lead gen campaigns: fail with actionable message if form ID still missing
             if (!leadGenFormId && campaign?.objective === 'OUTCOME_LEADS') {
-              throw new Error(`Campagne prospects : Lead Gen Form ID manquant pour "${ag.adName}". Renseignez-le dans Ad Params → Configurer l'annonce → champ "Lead Gen Form ID"`)
+              throw new Error(`Campagne prospects : Lead Gen Form ID manquant pour "${ag.adName}". Sélectionnez un formulaire dans le panneau Campaign Structure.`)
             }
-            console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType)
+
+            // For lead gen form ads, link_data.link must be an external URL (not Facebook)
+            // Auto-fetch the page's website URL as fallback if no destination URL was provided
+            if (!destinationUrl && leadGenFormId && pageId) {
+              try {
+                const pagesData = await metaFetch('/me/accounts', token, { fields: 'id,website', limit: '50' })
+                const pg = (pagesData.data || []).find((p: { id: string; website?: string }) => p.id === pageId)
+                if (pg?.website) destinationUrl = pg.website as string
+              } catch { /* ignore — will fail at creative creation if still empty */ }
+            }
+            if (!destinationUrl && leadGenFormId) {
+              throw new Error(`Campagne prospects "${ag.adName}" : URL du site web manquante. Renseignez-la dans la section "Site web" du panneau Campaign Structure.`)
+            }
+
+            console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType, '| destinationUrl:', destinationUrl)
 
             // CTA value: lead gen form takes priority over destination URL
             const ctaValue: Record<string, string> = leadGenFormId
@@ -325,8 +339,8 @@ export async function POST(req: NextRequest) {
                 page_id: pageId,
                 link_data: {
                   image_hash: imageAsset!.hash,
-                  // Meta requires `link` even for lead gen forms (it's displayed but not the CTA destination)
-                  link: destinationUrl || (leadGenFormId ? `https://www.facebook.com/${pageId}` : 'https://example.com'),
+                  // Meta requires an external link even for lead gen form ads
+                  link: destinationUrl || 'https://example.com',
                   message: primaryText,
                   name: headline,
                   description,
