@@ -263,10 +263,13 @@ export async function POST(req: NextRequest) {
             if ((!resolvedParsed?.primary_text && !resolvedParsed?.lead_gen_form_id) && adTemplate?.id && !adTemplate._isNew) {
               try {
                 const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
-                  fields: 'creative{id,leadgen_form_id,object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+                  fields: 'creative{id,leadgen_form_id,' +
+                    'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
+                    'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
                 })
                 const cr = adInfo?.creative as Record<string, unknown> | undefined
-                const oss2 = cr?.object_story_spec as Record<string, unknown> | undefined
+                // prefer effective_object_story_spec (resolves Advantage+ creative)
+                const oss2 = (cr?.effective_object_story_spec || cr?.object_story_spec) as Record<string, unknown> | undefined
                 const ld = oss2?.link_data as Record<string, unknown> | undefined
                 const vd = oss2?.video_data as Record<string, unknown> | undefined
                 const ctaRaw = (ld?.call_to_action || vd?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
@@ -292,25 +295,9 @@ export async function POST(req: NextRequest) {
             const destinationUrl = resolvedParsed?.destination_url || ''
             let leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
 
-            // For lead gen campaigns: fallback — query page's lead gen forms
-            if (!leadGenFormId && pageId && campaign?.objective === 'OUTCOME_LEADS') {
-              try {
-                const formsData = await metaFetch(`/${pageId}/leadgen_forms`, token, {
-                  fields: 'id,name,status',
-                  limit: '10',
-                })
-                const forms = (formsData?.data || []) as Array<{ id: string; name: string; status?: string }>
-                const activeForm = forms.find(f => f.status !== 'ARCHIVED' && f.status !== 'DELETED') ?? forms[0]
-                if (activeForm) {
-                  leadGenFormId = activeForm.id
-                  send(`📋 Formulaire lead gen auto : "${activeForm.name}"`)
-                } else {
-                  throw new Error(`Aucun formulaire lead gen actif trouvé — créez-en un dans Meta pour la page ${pageId}`)
-                }
-              } catch (e) {
-                if (e instanceof Error && e.message.includes('formulaire lead gen actif')) throw e
-                throw new Error(`Formulaire lead gen introuvable (${e instanceof Error ? e.message : String(e)})`)
-              }
+            // For lead gen campaigns: fail with actionable message if form ID still missing
+            if (!leadGenFormId && campaign?.objective === 'OUTCOME_LEADS') {
+              throw new Error(`Campagne prospects : Lead Gen Form ID manquant pour "${ag.adName}". Renseignez-le dans Ad Params → Configurer l'annonce → champ "Lead Gen Form ID"`)
             }
             console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType)
 
