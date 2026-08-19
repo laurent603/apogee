@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
           'start_time', 'end_time',
         ].join(','),
         limit: '200',
-        filtering: JSON.stringify([{ field: 'effective_status', operator: 'NOT_IN', value: ['DELETED'] }]),
+        filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED', 'IN_PROCESS', 'WITH_ISSUES'] }]),
       })
       return NextResponse.json(data.data || [])
     }
