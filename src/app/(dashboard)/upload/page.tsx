@@ -181,7 +181,10 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
   function handleSfmConfirm() {
     if (!sfmSelected) return
     if (!sfmName.trim()) { toast.error('Nom de campagne requis'); return }
-    onSave({ ...sfmSelected, id: `new_${Date.now()}`, name: sfmName.trim(), _isNew: true })
+    // Infer CBO: Meta sometimes omits budget_rebalance_flag on CBO campaigns;
+    // presence of daily_budget at campaign level is a reliable CBO indicator.
+    const inferredCBO = !!(sfmSelected.budget_rebalance_flag) || !!(sfmSelected.daily_budget)
+    onSave({ ...sfmSelected, id: `new_${Date.now()}`, name: sfmName.trim(), _isNew: true, budget_rebalance_flag: inferredCBO })
     toast.success(`Nouvelle campagne "${sfmName.trim()}" créée depuis Meta`)
     onClose()
   }
