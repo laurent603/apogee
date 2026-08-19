@@ -19,6 +19,16 @@ interface TopSpender {
   ctr: number
 }
 
+interface LaunchRecord {
+  id: string
+  campaignName: string
+  adsetCount: number
+  adCount: number
+  status: string
+  objective: string | null
+  createdAt: string
+}
+
 interface DailyPoint {
   date_start: string
   spend: string
@@ -62,6 +72,14 @@ export default function DashboardPage() {
   const [spenders, setSpenders] = useState<TopSpender[]>([])
   const [loading, setLoading] = useState(false)
   const [datePreset, setDatePreset] = useState('last_7d')
+  const [recentLaunches, setRecentLaunches] = useState<LaunchRecord[]>([])
+
+  useEffect(() => {
+    fetch('/api/launch-history')
+      .then(r => r.json())
+      .then(data => setRecentLaunches(Array.isArray(data) ? data.slice(0, 5) : []))
+      .catch(() => {})
+  }, [])
 
   const fetchAll = useCallback(async () => {
     if (!selectedAccount) return
@@ -267,19 +285,36 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Recent launches stub */}
+            {/* Recent launches */}
             <div className="card">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-[#0d0d12]">Derniers lancements</h2>
                 <a href="/history" className="text-xs text-[#3434ef] hover:underline">Voir tout</a>
               </div>
-              <div className="flex flex-col items-center justify-center h-36 text-center">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-2">
-                  <svg className="w-5 h-5 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+              {recentLaunches.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-36 text-center">
+                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-2">
+                    <svg className="w-5 h-5 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                  </div>
+                  <p className="text-sm text-gray-500 font-medium">Pas encore de lancement</p>
+                  <a href="/upload" className="mt-2 btn-primary text-xs px-3 py-1.5 inline-block">Lancer une campagne</a>
                 </div>
-                <p className="text-sm text-gray-500 font-medium">Pas encore de lancement</p>
-                <a href="/upload" className="mt-2 btn-primary text-xs px-3 py-1.5 inline-block">Lancer une campagne</a>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  {recentLaunches.map((l) => (
+                    <div key={l.id} className="flex items-center gap-3 py-1.5">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${l.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-[#0d0d12] truncate">{l.campaignName}</p>
+                        <p className="text-xs text-gray-400">{l.adsetCount} adsets · {l.adCount} ads</p>
+                      </div>
+                      <span className="text-xs text-gray-400 flex-shrink-0">
+                        {new Date(l.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

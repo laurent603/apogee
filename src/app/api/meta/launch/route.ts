@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { metaFetch } from '@/lib/meta'
+import { prisma } from '@/lib/db'
 
 /* ── Types matching the client payload ──────────────────────────────────────── */
 
@@ -128,7 +129,14 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      const logLines: string[] = []
+      let launchCampaignId: string | undefined
+      let launchAdsetCount = 0
+      let launchAdCount = 0
+      let historyStatus = 'success'
+
       function send(msg: string) {
+        logLines.push(msg)
         controller.enqueue(encoder.encode(`data: ${msg}\n\n`))
       }
 
@@ -182,6 +190,8 @@ export async function POST(req: NextRequest) {
         } else {
           throw new Error('Aucune campagne sélectionnée')
         }
+
+        launchCampaignId = campaignId
 
         /* ── 2. Determine adset status + start_time ────────────────────────── */
         let adsetStatus = 'PAUSED'
@@ -266,6 +276,7 @@ export async function POST(req: NextRequest) {
             if (adsetData.error) throw new Error(`Adset : ${metaError(adsetData)}`)
             adsetId = adsetData.id as string
             send(`✓ Adset créé : "${node.adsetName}" (id: ${adsetId})`)
+            launchAdsetCount++
           }
 
           /* Create ads in this adset */
@@ -448,13 +459,33 @@ export async function POST(req: NextRequest) {
             })
             if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
             send(`✓ Ad créée : "${ag.adName}"`)
+            launchAdCount++
           }
         }
 
         send(`🎉 ${treeNodes.length} adset${treeNodes.length > 1 ? 's' : ''} et ${treeNodes.reduce((n, node) => n + node.adGroups.length, 0)} ad${treeNodes.reduce((n, node) => n + node.adGroups.length, 0) > 1 ? 's' : ''} publiés dans Meta Ads Manager !`)
       } catch (err) {
+        historyStatus = 'error'
         send(`❌ ${err instanceof Error ? err.message : String(err)}`)
       } finally {
+        // Save launch history (fire and forget)
+        const userId = (session.user as { id?: string })?.id
+        if (userId) {
+          prisma.launchHistory.create({
+            data: {
+              userId,
+              metaAccountId: accountId,
+              campaignName: campaign?.name || 'Campagne inconnue',
+              campaignId: launchCampaignId,
+              objective: campaign?.objective,
+              structure: body.testStructure,
+              adsetCount: launchAdsetCount,
+              adCount: launchAdCount,
+              status: historyStatus,
+              logs: logLines.join('\n'),
+            },
+          }).catch((e) => console.error('[launch] history save failed:', e))
+        }
         controller.close()
       }
     },

@@ -22,6 +22,7 @@ model User {
   sessions      Session[]
   adAccounts    AdAccount[]
   autopilotAgents AutopilotAgent[]
+  launches      LaunchHistory[]
 }
 
 model Account {
@@ -147,6 +148,22 @@ model AutopilotAgent {
   reports        Report[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model LaunchHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  metaAccountId String
+  campaignName  String
+  campaignId    String?
+  objective     String?
+  structure     String?
+  adsetCount    Int      @default(0)
+  adCount       Int      @default(0)
+  status        String   @default("success")
+  logs          String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
 }
 
 model Report {
