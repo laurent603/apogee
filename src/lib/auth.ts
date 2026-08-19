@@ -38,7 +38,6 @@ export const authOptions: NextAuthOptions = {
           token.dbUserId = user.id
         } catch (e) {
           console.error('[auth] prisma upsert failed:', e)
-          // Try to find existing user by facebookId so we get the real DB id
           try {
             const existing = await prisma.user.findUnique({ where: { facebookId: account.providerAccountId } })
             token.dbUserId = existing?.id ?? token.sub
@@ -46,6 +45,13 @@ export const authOptions: NextAuthOptions = {
             token.dbUserId = token.sub
           }
         }
+      }
+      // If dbUserId fell back to Facebook sub (not a cuid), try to recover the real DB id
+      if (token.sub && token.dbUserId === token.sub) {
+        try {
+          const user = await prisma.user.findUnique({ where: { facebookId: token.sub } })
+          if (user) token.dbUserId = user.id
+        } catch { /* keep existing */ }
       }
       return token
     },
