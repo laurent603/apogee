@@ -26,24 +26,32 @@ export async function GET(req: NextRequest) {
 
     if (!adId) return NextResponse.json({ error: 'Pass ?adId=XXX or ?adsetId=XXX' }, { status: 400 })
 
-    // Fetch the ad to get its creative ID
-    const adResult = await metaFetch(`/${adId}`, token, { fields: 'id,name,creative{id}' })
-    const creativeId = (adResult.creative as Record<string, unknown>)?.id as string
-
-    if (!creativeId) {
-      return NextResponse.json({ error: 'No creative found on this ad', ad: adResult })
-    }
-
-    // Fetch the creative directly — this gives the most reliable field access
-    const creativeResult = await metaFetch(`/${creativeId}`, token, {
-      fields: 'id,name,body,title,object_story_spec,effective_object_story_spec,asset_feed_spec',
+    // Fetch via ad ID with the exact same fields as configure/route.ts uses
+    const adResult = await metaFetch(`/${adId}`, token, {
+      fields: 'id,name,creative{id,name,title,body,leadgen_form_id,' +
+        'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
+        'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
+        'asset_feed_spec{bodies,titles,descriptions,call_to_action_types,link_urls}}',
     })
+
+    const cr = adResult.creative as Record<string, unknown> | undefined
+    const oss = cr?.object_story_spec as Record<string, unknown> | undefined
+    const eoss = cr?.effective_object_story_spec as Record<string, unknown> | undefined
+    const afs = cr?.asset_feed_spec as Record<string, unknown> | undefined
 
     return NextResponse.json({
       ad_id: adId,
-      creative_id: creativeId,
-      creative: creativeResult,
-      _note: 'Look at: body, title, object_story_spec.link_data.message, effective_object_story_spec.link_data.message, asset_feed_spec.bodies[0].text',
+      _extracted: {
+        'creative.body': cr?.body,
+        'creative.title': cr?.title,
+        'oss.link_data.message': (oss?.link_data as Record<string,unknown>)?.message,
+        'eoss.link_data.message': (eoss?.link_data as Record<string,unknown>)?.message,
+        'oss.video_data.message': (oss?.video_data as Record<string,unknown>)?.message,
+        'eoss.video_data.message': (eoss?.video_data as Record<string,unknown>)?.message,
+        'afs.bodies[0].text': (afs?.bodies as Array<{text:string}>)?.[0]?.text,
+        'afs.titles[0].text': (afs?.titles as Array<{text:string}>)?.[0]?.text,
+      },
+      _raw_creative: cr,
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
