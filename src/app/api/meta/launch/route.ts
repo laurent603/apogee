@@ -328,7 +328,10 @@ export async function POST(req: NextRequest) {
             const description = resolvedParsed?.description || ''
             const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
             let destinationUrl = resolvedParsed?.destination_url || ''
-            let leadGenFormId = resolvedParsed?.lead_gen_form_id || ''
+            // Only use lead gen form ID for OUTCOME_LEADS campaigns — ignore it for Sales/Traffic
+            let leadGenFormId = campaign?.objective === 'OUTCOME_LEADS'
+              ? (resolvedParsed?.lead_gen_form_id || '')
+              : ''
 
             // For lead gen campaigns: fail with actionable message if form ID still missing
             if (!leadGenFormId && campaign?.objective === 'OUTCOME_LEADS') {
