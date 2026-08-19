@@ -1284,45 +1284,50 @@ export default function UploadPage() {
         } catch { /* fall through — will use server route */ }
       }
 
-      for (const uf of uploadableFiles) {
-        try {
-          if (uf.type === 'video' && metaToken) {
-            // Upload directly from browser to Meta — avoids Vercel's 4.5MB serverless limit
-            const fd = new FormData()
-            fd.append('access_token', metaToken)
-            fd.append('title', uf.file.name)
-            fd.append('source', uf.file)
-            const res = await fetch(`https://graph-video.facebook.com/v21.0/${metaId}/advideos`, {
-              method: 'POST',
-              body: fd,
-            })
-            const data = await res.json()
-            if (data.id) {
-              fileVideoIds.set(uf.id, data.id as string)
-              addLog(`✓ ${uf.file.name} uploadé`)
+      // Upload in parallel batches of 4 for ~4x speed improvement
+      const UPLOAD_CONCURRENCY = 4
+      for (let i = 0; i < uploadableFiles.length; i += UPLOAD_CONCURRENCY) {
+        const batch = uploadableFiles.slice(i, i + UPLOAD_CONCURRENCY)
+        await Promise.all(batch.map(async (uf) => {
+          try {
+            if (uf.type === 'video' && metaToken) {
+              // Upload directly from browser to Meta — avoids Vercel's 4.5MB serverless limit
+              const fd = new FormData()
+              fd.append('access_token', metaToken)
+              fd.append('title', uf.file.name)
+              fd.append('source', uf.file)
+              const res = await fetch(`https://graph-video.facebook.com/v21.0/${metaId}/advideos`, {
+                method: 'POST',
+                body: fd,
+              })
+              const data = await res.json()
+              if (data.id) {
+                fileVideoIds.set(uf.id, data.id as string)
+                addLog(`✓ ${uf.file.name} uploadé`)
+              } else {
+                addLog(`⚠ ${uf.file.name} : ${(data.error as { message?: string })?.message || 'upload vidéo échoué'}`)
+              }
             } else {
-              addLog(`⚠ ${uf.file.name} : ${(data.error as { message?: string })?.message || 'upload vidéo échoué'}`)
+              // Images (and video fallback) via server route
+              const fd = new FormData()
+              fd.append('file', uf.file)
+              fd.append('accountId', metaId)
+              const res = await fetch('/api/meta/upload-asset', { method: 'POST', body: fd })
+              const data = await res.json()
+              if (data.hash) {
+                fileHashes.set(uf.id, data.hash)
+                addLog(`✓ ${uf.file.name} uploadé`)
+              } else if (data.videoId) {
+                fileVideoIds.set(uf.id, data.videoId)
+                addLog(`✓ ${uf.file.name} uploadé`)
+              } else {
+                addLog(`⚠ ${uf.file.name} : ${data.error || 'upload échoué'}`)
+              }
             }
-          } else {
-            // Images (and video fallback) via server route
-            const fd = new FormData()
-            fd.append('file', uf.file)
-            fd.append('accountId', metaId)
-            const res = await fetch('/api/meta/upload-asset', { method: 'POST', body: fd })
-            const data = await res.json()
-            if (data.hash) {
-              fileHashes.set(uf.id, data.hash)
-              addLog(`✓ ${uf.file.name} uploadé`)
-            } else if (data.videoId) {
-              fileVideoIds.set(uf.id, data.videoId)
-              addLog(`✓ ${uf.file.name} uploadé`)
-            } else {
-              addLog(`⚠ ${uf.file.name} : ${data.error || 'upload échoué'}`)
-            }
+          } catch {
+            addLog(`⚠ ${uf.file.name} : erreur réseau`)
           }
-        } catch {
-          addLog(`⚠ ${uf.file.name} : erreur réseau`)
-        }
+        }))
       }
     }
 
