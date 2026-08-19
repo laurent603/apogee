@@ -152,7 +152,8 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
 const BID_STRATEGIES = ['Lowest cost', 'Cost cap', 'Bid cap', 'ROAS goal']
 const SPECIAL_AD_CATEGORIES = ['None', 'Credit', 'Employment', 'Housing', 'Social Issues, Elections or Politics']
 
-function CreateCampaignModal({ onSave, onClose }: { onSave: (c: MetaCampaign) => void; onClose: () => void }) {
+function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaCampaign) => void; onClose: () => void; accountId?: string }) {
+  const [activeTab, setActiveTab] = useState(0)
   const [name, setName] = useState('')
   const [objective, setObjective] = useState<'OUTCOME_SALES' | 'OUTCOME_LEADS'>('OUTCOME_SALES')
   const [isCBO, setIsCBO] = useState(false)
@@ -160,6 +161,20 @@ function CreateCampaignModal({ onSave, onClose }: { onSave: (c: MetaCampaign) =>
   const [bidStrategy, setBidStrategy] = useState('Lowest cost')
   const [specialCat, setSpecialCat] = useState('None')
   const [status, setStatus] = useState<'PAUSED' | 'ACTIVE'>('PAUSED')
+
+  const [sfmCampaigns, setSfmCampaigns] = useState<MetaCampaign[]>([])
+  const [sfmLoading, setSfmLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== 1 || !accountId || sfmCampaigns.length > 0) return
+    setSfmLoading(true)
+    fetch(`/api/meta/configure?accountId=${accountId}&type=campaigns`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setSfmCampaigns(d) })
+      .catch(() => {})
+      .finally(() => setSfmLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, accountId])
 
   function handleSave() {
     if (!name.trim()) { toast.error('Nom de campagne requis'); return }
@@ -172,8 +187,48 @@ function CreateCampaignModal({ onSave, onClose }: { onSave: (c: MetaCampaign) =>
   ]
 
   return (
-    <Modal title="Create New Campaign" onClose={onClose} wide>
-      <div className="grid grid-cols-2 gap-6">
+    <Modal title="Configurer la campagne" onClose={onClose} wide>
+      {/* Tabs */}
+      <div className="flex border-b border-[#E5E7EB] mb-5 -mx-5 px-5 gap-1">
+        {['Create New', 'Select from Meta'].map((t, i) => (
+          <button key={t} onClick={() => setActiveTab(i)} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', activeTab === i ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
+        ))}
+      </div>
+
+      {activeTab === 1 && (
+        <div className="space-y-3">
+          {sfmLoading && (
+            <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              Chargement des campagnes…
+            </div>
+          )}
+          {!sfmLoading && sfmCampaigns.length === 0 && (
+            <p className="text-sm text-gray-400 py-4 text-center">Aucune campagne trouvée</p>
+          )}
+          {!sfmLoading && sfmCampaigns.length > 0 && (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {sfmCampaigns.map(c => (
+                <div key={c.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-xl hover:border-[#3434ef] hover:bg-[#f0f0ff] transition-all cursor-pointer group" onClick={() => { onSave(c); toast.success(`Campagne "${c.name}" sélectionnée`) }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-[#0d0d12] truncate">{c.name}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium border', c.status === 'ACTIVE' ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-600 bg-gray-50 border-gray-200')}>{c.status}</span>
+                      <span className="badge-blue text-xs">{c.objective === 'OUTCOME_LEADS' ? 'Leads' : 'Sales'}</span>
+                      {c.budget_rebalance_flag && <span className="badge-blue text-xs">CBO</span>}
+                    </div>
+                  </div>
+                  <button className="flex-shrink-0 text-xs px-2.5 py-1 rounded-lg border border-[#3434ef] text-[#3434ef] opacity-0 group-hover:opacity-100 transition-opacity">
+                    Sélectionner
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 0 && <div className="grid grid-cols-2 gap-6">
         <div className="space-y-5">
           <div>
             <label className="label">Campaign Name <span className="text-red-500">*</span></label>
@@ -246,10 +301,10 @@ function CreateCampaignModal({ onSave, onClose }: { onSave: (c: MetaCampaign) =>
             <p className="text-xs text-gray-400 mt-1.5">{status === 'PAUSED' ? "Campaign will be created but won't spend" : 'Campaign will start spending immediately'}</p>
           </div>
         </div>
-      </div>
+      </div>}
       <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[#E5E7EB]">
-        <button onClick={onClose} className="btn-secondary">Cancel</button>
-        <button onClick={handleSave} className="btn-primary px-6">Create Campaign</button>
+        <button onClick={onClose} className="btn-secondary">Annuler</button>
+        {activeTab === 0 && <button onClick={handleSave} className="btn-primary px-6">Créer la campagne</button>}
       </div>
     </Modal>
   )
@@ -268,10 +323,67 @@ const COUNTRIES = [
 ]
 const AGES = [13, 15, 18, 21, 25, 30, 35, 40, 45, 50, 55, 60, 65]
 
-function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences }: {
+function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId }: {
   onSave: (a: MetaAdset) => void; onClose: () => void
   isCBO: boolean; pixels: MetaPixel[]; audiences: MetaAudience[]
+  accountId?: string
 }) {
+  const [activeTab, setActiveTab] = useState(0)
+
+  // "Select from Meta" tab state
+  const [sfmCampaigns, setSfmCampaigns] = useState<MetaCampaign[]>([])
+  const [sfmAdsets, setSfmAdsets] = useState<MetaAdset[]>([])
+  const [sfmCampaignId, setSfmCampaignId] = useState('')
+  const [sfmLoading, setSfmLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab !== 1 || !accountId || sfmCampaigns.length > 0) return
+    setSfmLoading(true)
+    fetch(`/api/meta/configure?accountId=${accountId}&type=campaigns`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setSfmCampaigns(d) })
+      .catch(() => {})
+      .finally(() => setSfmLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, accountId])
+
+  useEffect(() => {
+    if (!accountId) return
+    setSfmLoading(true)
+    const params = new URLSearchParams({ accountId, type: 'adsets' })
+    if (sfmCampaignId) params.set('campaignId', sfmCampaignId)
+    fetch(`/api/meta/configure?${params}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setSfmAdsets(d) })
+      .catch(() => {})
+      .finally(() => setSfmLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sfmCampaignId, accountId, activeTab])
+
+  function applyAdsetFromMeta(adset: MetaAdset) {
+    const og = adset.optimization_goal?.toUpperCase() || ''
+    const goalMap: Record<string, string> = {
+      OFFSITE_CONVERSIONS: 'Maximize number of conversions',
+      VALUE: 'Maximize conversion value',
+      LEAD_GENERATION: 'Maximize number of leads',
+      LINK_CLICKS: 'Maximize number of link clicks',
+      REACH: 'Maximize reach',
+    }
+    if (goalMap[og]) setPerfGoal(goalMap[og])
+    if (adset.targeting?.age_min) setAgeMin(adset.targeting.age_min)
+    if (adset.targeting?.age_max) setAgeMax(adset.targeting.age_max)
+    if (adset.targeting?.genders) {
+      const g = adset.targeting.genders
+      setGender(g.includes(1) && g.includes(2) ? 'ALL' : g.includes(1) ? 'MALE' : 'FEMALE')
+    }
+    if (adset.targeting?.geo_locations?.countries?.length) setLocations(adset.targeting.geo_locations.countries)
+    if (adset.targeting?.custom_audiences?.length) setIncludedAudiences(adset.targeting.custom_audiences.map(a => a.id))
+    if (adset.promoted_object?.pixel_id) setPixelId(adset.promoted_object.pixel_id)
+    if (adset.daily_budget) setBudget(String(Math.round(Number(adset.daily_budget) / 100)))
+    setActiveTab(0)
+    toast.success(`Adset "${adset.name}" importé`)
+  }
+
   const [perfGoal, setPerfGoal] = useState('Maximize number of conversions')
   const [pixelId, setPixelId] = useState(pixels[0]?.id || '')
   const [convEvent, setConvEvent] = useState('Purchase')
@@ -316,7 +428,56 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences }: {
 
   return (
     <Modal title="Configurer l'adset" onClose={onClose} wide>
-      <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex border-b border-[#E5E7EB] mb-5 -mx-5 px-5 gap-1">
+        {['Create New', 'Select from Meta'].map((t, i) => (
+          <button key={t} onClick={() => setActiveTab(i)} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', activeTab === i ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
+        ))}
+      </div>
+
+      {activeTab === 1 && (
+        <div className="space-y-4">
+          <div>
+            <label className="label">Filtrer par campagne</label>
+            <select className="select" value={sfmCampaignId} onChange={e => setSfmCampaignId(e.target.value)}>
+              <option value="">— Toutes les campagnes —</option>
+              {sfmCampaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+
+          {sfmLoading && (
+            <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              Chargement…
+            </div>
+          )}
+          {!sfmLoading && sfmAdsets.length === 0 && (
+            <p className="text-sm text-gray-400 py-4 text-center">Aucun adset trouvé</p>
+          )}
+          {!sfmLoading && sfmAdsets.length > 0 && (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {sfmAdsets.map(a => (
+                <div key={a.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-xl hover:border-[#3434ef] hover:bg-[#f0f0ff] transition-all cursor-pointer group" onClick={() => applyAdsetFromMeta(a)}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-[#0d0d12] truncate">{a.name}</p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium border', a.status === 'ACTIVE' ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-600 bg-gray-50 border-gray-200')}>{a.status}</span>
+                      {a.optimization_goal && <span className="text-xs text-gray-400 truncate max-w-[140px]">{a.optimization_goal}</span>}
+                      {a.targeting?.geo_locations?.countries && <span className="text-xs text-gray-400">{a.targeting.geo_locations.countries.join(', ')}</span>}
+                      {a.targeting?.age_min && <span className="text-xs text-gray-400">{a.targeting.age_min}–{a.targeting.age_max || 65}ans</span>}
+                    </div>
+                  </div>
+                  <button className="flex-shrink-0 text-xs px-2.5 py-1 rounded-lg border border-[#3434ef] text-[#3434ef] opacity-0 group-hover:opacity-100 transition-opacity">
+                    Utiliser
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 0 && <div className="space-y-6">
         {/* CONVERSION */}
         <div className="space-y-3">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
@@ -481,16 +642,15 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences }: {
             </div>
           )}
         </div>
-      </div>
-
+      </div>}
       <div className="flex items-center gap-2 mt-6 pt-4 border-t border-[#E5E7EB]">
-        <button onClick={() => { handleSave(); onClose() }} className="btn-primary flex items-center gap-2 px-5">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-          Save
-        </button>
-        <button onClick={() => { handleSave(); onClose() }} className="px-4 py-2 text-sm font-medium text-gray-600 border border-[#E5E7EB] rounded-lg hover:border-gray-300">Apply to all</button>
-        <button className="px-4 py-2 text-sm font-medium text-gray-600 border border-[#E5E7EB] rounded-lg hover:border-gray-300">Apply to other</button>
-        <button onClick={onClose} className="ml-auto btn-secondary">Cancel</button>
+        {activeTab === 0 && (
+          <button onClick={() => { handleSave(); onClose() }} className="btn-primary flex items-center gap-2 px-5">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+            Appliquer à tous
+          </button>
+        )}
+        <button onClick={onClose} className="ml-auto btn-secondary">Annuler</button>
       </div>
     </Modal>
   )
@@ -1797,6 +1957,7 @@ export default function UploadPage() {
         <CreateCampaignModal
           onSave={c => { setSelectedCampaign(c); setCreateCampaignModal(false) }}
           onClose={() => setCreateCampaignModal(false)}
+          accountId={metaId}
         />
       )}
 
@@ -1807,6 +1968,7 @@ export default function UploadPage() {
           isCBO={isCBO}
           pixels={metaPixels}
           audiences={metaAudiences}
+          accountId={metaId}
         />
       )}
 
