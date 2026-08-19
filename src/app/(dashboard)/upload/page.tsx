@@ -684,12 +684,13 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   )
 }
 
-function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyToAdset }: {
+function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyToAdset, initialTab }: {
   onSave: (a: MetaAd) => void; onClose: () => void; pages: MetaPage[]
   isLeadGen?: boolean; accountId?: string
   onApplyToAdset?: (a: MetaAd) => void
+  initialTab?: number
 }) {
-  const [activeTab, setActiveTab] = useState(0)
+  const [activeTab, setActiveTab] = useState(initialTab ?? 0)
   const [pageId, setPageId] = useState(pages[0]?.id || '')
   const [igAccount, setIgAccount] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -1156,10 +1157,13 @@ export default function UploadPage() {
     try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=audiences`); const d = await r.json(); setMetaAudiences(Array.isArray(d) ? d : []) } catch {}
   }
 
+  const [createAdModalInitialTab, setCreateAdModalInitialTab] = useState(0)
+
   function openCreateAdset() { fetchPixels(); fetchAudiences(); setCreateAdsetModal(true) }
-  function openCreateAd(adsetIndex?: number) {
+  function openCreateAd(adsetIndex?: number, initialTab = 0) {
     fetchPages()
     setCurrentOpenAdsetIndex(adsetIndex ?? null)
+    setCreateAdModalInitialTab(initialTab)
     setCreateAdModal(true)
   }
 
@@ -1673,7 +1677,7 @@ export default function UploadPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-600 w-24 flex-shrink-0">Ad params :</span>
-                  <button onClick={() => { setAdModal(true); const cid = selectedCampaign?.id; const aid = (!adsetTemplate?._isNew && adsetTemplate?.id) ? adsetTemplate.id : undefined; fetchAds(cid?.startsWith('new_') ? undefined : cid, aid) }} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
+                  <button onClick={() => openCreateAd(undefined, 1)} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
                     Select from Meta
                   </button>
@@ -2020,6 +2024,7 @@ export default function UploadPage() {
           pages={metaPages}
           isLeadGen={selectedCampaign?.objective === 'OUTCOME_LEADS'}
           accountId={metaId}
+          initialTab={createAdModalInitialTab}
           onApplyToAdset={currentOpenAdsetIndex !== null ? (a) => {
             setPerAdsetAdTemplate(prev => ({ ...prev, [currentOpenAdsetIndex]: a }))
             setCreateAdModal(false)
