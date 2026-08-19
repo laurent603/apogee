@@ -28,10 +28,9 @@ export async function GET(req: NextRequest) {
 
     // Fetch via ad ID with the exact same fields as configure/route.ts uses
     const adResult = await metaFetch(`/${adId}`, token, {
-      fields: 'id,name,creative{id,name,title,body,leadgen_form_id,' +
+      fields: 'id,name,creative{id,name,title,body,' +
         'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-        'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-        'asset_feed_spec{bodies,titles,descriptions,call_to_action_types,link_urls}}',
+        'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
     })
 
     const cr = adResult.creative as Record<string, unknown> | undefined
