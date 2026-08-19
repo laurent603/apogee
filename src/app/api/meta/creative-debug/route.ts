@@ -14,12 +14,30 @@ export async function GET(req: NextRequest) {
   const token = session.accessToken as string
 
   try {
-    // Step 1: fetch creative with only safe fields (no asset_feed_spec sub-fields)
-    const result = await metaFetch(`/${adId}`, token, {
-      fields: 'id,name,creative{id,name,body,title,leadgen_form_id,object_story_spec,effective_object_story_spec,asset_feed_spec}',
-    })
-    return NextResponse.json(result, {
-      headers: { 'Content-Type': 'application/json' },
+    // Try as ad first, then as creative directly
+    let adResult: Record<string, unknown> = {}
+    let creativeResult: Record<string, unknown> = {}
+
+    try {
+      adResult = await metaFetch(`/${adId}`, token, { fields: 'id,name,creative' })
+    } catch (e1) {
+      adResult = { _error: String(e1) }
+    }
+
+    // Get creative ID — either from ad lookup or treat the ID itself as a creative ID
+    const creativeId = (adResult.creative as Record<string, unknown>)?.id as string || adId
+    try {
+      creativeResult = await metaFetch(`/${creativeId}`, token, {
+        fields: 'id,name,body,title,object_story_spec,effective_object_story_spec,asset_feed_spec',
+      })
+    } catch (e2) {
+      creativeResult = { _error: String(e2) }
+    }
+
+    return NextResponse.json({
+      ad: adResult,
+      creative: creativeResult,
+      _note: 'body/title at top level = copy fields. Check object_story_spec.link_data.message and effective_object_story_spec.link_data.message',
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
