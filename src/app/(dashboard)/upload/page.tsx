@@ -1274,21 +1274,51 @@ export default function UploadPage() {
     const vidCount = files.filter(f => f.type === 'video').length
     if (uploadableFiles.length > 0) {
       addLog(`Upload de ${imgCount > 0 ? `${imgCount} image${imgCount > 1 ? 's' : ''}` : ''}${imgCount > 0 && vidCount > 0 ? ' et ' : ''}${vidCount > 0 ? `${vidCount} vidéo${vidCount > 1 ? 's' : ''}` : ''} vers Meta...`)
+
+      // Fetch token once for direct video uploads (bypass Vercel 4.5MB payload limit)
+      let metaToken: string | null = null
+      if (vidCount > 0) {
+        try {
+          const t = await fetch('/api/meta/token').then(r => r.json())
+          metaToken = t.token || null
+        } catch { /* fall through — will use server route */ }
+      }
+
       for (const uf of uploadableFiles) {
         try {
-          const fd = new FormData()
-          fd.append('file', uf.file)
-          fd.append('accountId', metaId)
-          const res = await fetch('/api/meta/upload-asset', { method: 'POST', body: fd })
-          const data = await res.json()
-          if (data.hash) {
-            fileHashes.set(uf.id, data.hash)
-            addLog(`✓ ${uf.file.name} uploadé`)
-          } else if (data.videoId) {
-            fileVideoIds.set(uf.id, data.videoId)
-            addLog(`✓ ${uf.file.name} uploadé (vidéo)`)
+          if (uf.type === 'video' && metaToken) {
+            // Upload directly from browser to Meta — avoids Vercel's 4.5MB serverless limit
+            const fd = new FormData()
+            fd.append('access_token', metaToken)
+            fd.append('title', uf.file.name)
+            fd.append('source', uf.file)
+            const res = await fetch(`https://graph-video.facebook.com/v21.0/${metaId}/advideos`, {
+              method: 'POST',
+              body: fd,
+            })
+            const data = await res.json()
+            if (data.id) {
+              fileVideoIds.set(uf.id, data.id as string)
+              addLog(`✓ ${uf.file.name} uploadé`)
+            } else {
+              addLog(`⚠ ${uf.file.name} : ${(data.error as { message?: string })?.message || 'upload vidéo échoué'}`)
+            }
           } else {
-            addLog(`⚠ ${uf.file.name} : ${data.error || 'upload échoué'}`)
+            // Images (and video fallback) via server route
+            const fd = new FormData()
+            fd.append('file', uf.file)
+            fd.append('accountId', metaId)
+            const res = await fetch('/api/meta/upload-asset', { method: 'POST', body: fd })
+            const data = await res.json()
+            if (data.hash) {
+              fileHashes.set(uf.id, data.hash)
+              addLog(`✓ ${uf.file.name} uploadé`)
+            } else if (data.videoId) {
+              fileVideoIds.set(uf.id, data.videoId)
+              addLog(`✓ ${uf.file.name} uploadé`)
+            } else {
+              addLog(`⚠ ${uf.file.name} : ${data.error || 'upload échoué'}`)
+            }
           }
         } catch {
           addLog(`⚠ ${uf.file.name} : erreur réseau`)
