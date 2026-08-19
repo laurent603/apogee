@@ -137,19 +137,34 @@ export async function POST(req: NextRequest) {
         let campaignId: string
         if (campaign?._isNew) {
           send(`Création de la campagne "${campaign.name}"...`)
-          const budgetCents = Math.round(Number(budget || 50) * 100)
+          const campaignBudgetCents = Math.round(Number(budget || 50) * 100)
+          // Map legacy objectives to OUTCOME_* format (required for API v21+)
+          const OBJECTIVE_MAP: Record<string, string> = {
+            LEAD_GENERATION: 'OUTCOME_LEADS',
+            CONVERSIONS: 'OUTCOME_SALES',
+            LINK_CLICKS: 'OUTCOME_TRAFFIC',
+            BRAND_AWARENESS: 'OUTCOME_AWARENESS',
+            REACH: 'OUTCOME_AWARENESS',
+            VIDEO_VIEWS: 'OUTCOME_ENGAGEMENT',
+            POST_ENGAGEMENT: 'OUTCOME_ENGAGEMENT',
+            PAGE_LIKES: 'OUTCOME_ENGAGEMENT',
+            APP_INSTALLS: 'OUTCOME_APP_PROMOTION',
+          }
+          const rawObjective = campaign.objective || 'OUTCOME_SALES'
+          const mappedObjective = OBJECTIVE_MAP[rawObjective] || rawObjective
           const campaignBody: Record<string, unknown> = {
             name: campaign.name,
-            objective: campaign.objective || 'OUTCOME_SALES',
+            objective: mappedObjective,
             status: campaign.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
             special_ad_categories: [],
           }
           if (campaign.budget_rebalance_flag) {
             campaignBody.budget_rebalance_flag = true
-            campaignBody.daily_budget = String(budgetCents)
+            campaignBody.daily_budget = String(campaignBudgetCents)
           }
+          console.log('[launch] campaign body:', JSON.stringify(campaignBody))
           const data = await metaPost(`/${accountId}/campaigns`, token, campaignBody)
-          if (data.error) throw new Error(`Campagne : ${(data.error as Record<string, string>).message}`)
+          if (data.error) throw new Error(`Campagne : ${metaError(data)}`)
           campaignId = data.id as string
           send(`✓ Campagne créée (id: ${campaignId})`)
         } else if (campaign?.id) {
