@@ -361,27 +361,16 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
   }, [sfmCampaignId, accountId, activeTab])
 
   function applyAdsetFromMeta(adset: MetaAdset) {
-    const og = adset.optimization_goal?.toUpperCase() || ''
-    const goalMap: Record<string, string> = {
-      OFFSITE_CONVERSIONS: 'Maximize number of conversions',
-      VALUE: 'Maximize conversion value',
-      LEAD_GENERATION: 'Maximize number of leads',
-      LINK_CLICKS: 'Maximize number of link clicks',
-      REACH: 'Maximize reach',
-    }
-    if (goalMap[og]) setPerfGoal(goalMap[og])
-    if (adset.targeting?.age_min) setAgeMin(adset.targeting.age_min)
-    if (adset.targeting?.age_max) setAgeMax(adset.targeting.age_max)
-    if (adset.targeting?.genders) {
-      const g = adset.targeting.genders
-      setGender(g.includes(1) && g.includes(2) ? 'ALL' : g.includes(1) ? 'MALE' : 'FEMALE')
-    }
-    if (adset.targeting?.geo_locations?.countries?.length) setLocations(adset.targeting.geo_locations.countries)
-    if (adset.targeting?.custom_audiences?.length) setIncludedAudiences(adset.targeting.custom_audiences.map(a => a.id))
-    if (adset.promoted_object?.pixel_id) setPixelId(adset.promoted_object.pixel_id)
-    if (adset.daily_budget) setBudget(String(Math.round(Number(adset.daily_budget) / 100)))
-    setActiveTab(0)
-    toast.success(`Adset "${adset.name}" importé`)
+    onSave({
+      id: `new_${Date.now()}`, name: 'Nouvel adset', campaign_id: '', status: 'PAUSED',
+      optimization_goal: adset.optimization_goal || 'OFFSITE_CONVERSIONS',
+      targeting: adset.targeting,
+      promoted_object: adset.promoted_object,
+      daily_budget: isCBO ? undefined : (adset.daily_budget ? String(Math.round(Number(adset.daily_budget) / 100)) : undefined),
+      _isNew: true,
+    })
+    toast.success(`Config adset "${adset.name}" importée`)
+    onClose()
   }
 
   const [perfGoal, setPerfGoal] = useState('Maximize number of conversions')

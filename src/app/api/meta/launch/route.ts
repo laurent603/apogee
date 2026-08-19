@@ -166,7 +166,9 @@ export async function POST(req: NextRequest) {
         if (launchStatus === 'SCHEDULED_LIVE') { adsetStatus = 'ACTIVE'; startTime = launchDate && launchTime ? `${launchDate}T${launchTime}:00` : undefined }
         if (launchStatus === 'SCHEDULED_PAUSED') { adsetStatus = 'PAUSED'; startTime = launchDate && launchTime ? `${launchDate}T${launchTime}:00` : undefined }
 
-        const isCBO = campaign?.budget_rebalance_flag ?? false
+        // CBO: explicit flag OR existing campaign with a campaign-level budget (Meta doesn't always return budget_rebalance_flag)
+        const isCBO = !!(campaign?.budget_rebalance_flag) ||
+          (!campaign?._isNew && !!campaign?.daily_budget)
         const budgetCents = Math.round(Number(budget || 50) * 100)
 
         /* ── 3. For each tree node: adset + ads ────────────────────────────── */
