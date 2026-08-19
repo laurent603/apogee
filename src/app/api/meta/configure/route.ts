@@ -48,32 +48,32 @@ export async function GET(req: NextRequest) {
       const campaignId = searchParams.get('campaignId')
       const path = adsetId ? `/${adsetId}/ads` : campaignId ? `/${campaignId}/ads` : `/${accountId}/ads`
 
-      function parseAds(data: Record<string, unknown>) {
-        return (data.data as Record<string, unknown>[] || []).map((ad: Record<string, unknown>) => {
-          const creative = ad.creative as Record<string, unknown> | undefined
-          const oss = creative?.object_story_spec as Record<string, unknown> | undefined
-          const ld = oss?.link_data as Record<string, unknown> | undefined
-          const vd = oss?.video_data as Record<string, unknown> | undefined
-          const ctaLink = ld?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
-          const ctaVideo = vd?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
-          const cta = ctaLink || ctaVideo
-          return {
-            ...ad,
-            _pageId: (oss?.page_id as string | undefined) || '',
-            _parsed: {
-              primary_text: (ld?.message || vd?.message || creative?.body || '') as string,
-              headline: (ld?.name || vd?.title || creative?.title || '') as string,
-              description: (ld?.description || vd?.link_description || '') as string,
-              cta_type: (cta?.type || 'LEARN_MORE') as string,
-              destination_url: (ld?.link || vd?.link || cta?.value?.link || '') as string,
-              lead_gen_form_id: (cta?.value?.lead_gen_form_id || '') as string,
-              thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
-            },
-          }
-        })
+      function extractFromCreative(creative: Record<string, unknown> | undefined) {
+        const oss = creative?.object_story_spec as Record<string, unknown> | undefined
+        const ld = oss?.link_data as Record<string, unknown> | undefined
+        const vd = oss?.video_data as Record<string, unknown> | undefined
+        const ossCta = (ld?.call_to_action || vd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
+        // Advantage+ creative: copy in asset_feed_spec (accessible on creative node directly)
+        const afs = creative?.asset_feed_spec as Record<string, unknown> | undefined
+        const afsBodies = (afs?.bodies as Array<{ text: string }> | undefined) || []
+        const afsTitles = (afs?.titles as Array<{ text: string }> | undefined) || []
+        const afsDescs = (afs?.descriptions as Array<{ text: string }> | undefined) || []
+        const afsCtas = (afs?.call_to_action_types as string[] | undefined) || []
+        const afsCTAs = (afs?.call_to_actions as Array<{ type: string; value?: { lead_gen_form_id?: string; link?: string } }> | undefined) || []
+        const afsLinks = (afs?.link_urls as Array<{ website_url: string }> | undefined) || []
+        return {
+          _pageId: (oss?.page_id as string | undefined) || '',
+          primary_text: (ld?.message || vd?.message || afsBodies[0]?.text || creative?.body || '') as string,
+          headline: (ld?.name || vd?.title || afsTitles[0]?.text || creative?.title || '') as string,
+          description: (ld?.description || vd?.link_description || afsDescs[0]?.text || '') as string,
+          cta_type: (ossCta?.type || afsCtas[0] || 'LEARN_MORE') as string,
+          destination_url: (ld?.link || vd?.link || ossCta?.value?.link || afsCTAs[0]?.value?.link || afsLinks[0]?.website_url || '') as string,
+          lead_gen_form_id: (ossCta?.value?.lead_gen_form_id || afsCTAs[0]?.value?.lead_gen_form_id || '') as string,
+          thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
+        }
       }
 
-      // Try full fields (object_story_spec + effective_object_story_spec + asset_feed_spec for Advantage+)
+      // Fetch ads — for Advantage+ creative, do a follow-up fetch of the creative directly
       try {
         const data = await metaFetch(path, token, {
           fields: [
@@ -86,17 +86,24 @@ export async function GET(req: NextRequest) {
           ].join(','),
           limit: '200',
         })
-        // DEBUG: log first ad's creative to understand Meta API response structure
-        const firstAd = (data.data as Record<string, unknown>[])?.[0]
-        if (firstAd) {
-          const cr = firstAd.creative as Record<string, unknown> | undefined
-          console.log('[configure/ads] DEBUG first ad creative keys:', Object.keys(cr || {}))
-          console.log('[configure/ads] DEBUG object_story_spec:', JSON.stringify(cr?.object_story_spec).slice(0, 400))
-          console.log('[configure/ads] DEBUG effective_object_story_spec:', JSON.stringify(cr?.effective_object_story_spec).slice(0, 400))
-          console.log('[configure/ads] DEBUG asset_feed_spec:', JSON.stringify(cr?.asset_feed_spec).slice(0, 400))
-          console.log('[configure/ads] DEBUG body/title:', cr?.body, '|', cr?.title)
-        }
-        return NextResponse.json(parseAds(data))
+        const ads = (data.data as Record<string, unknown>[] || [])
+        const results = await Promise.all(ads.map(async (ad: Record<string, unknown>) => {
+          let creative = ad.creative as Record<string, unknown> | undefined
+          let parsed = extractFromCreative(creative)
+          // Advantage+ creative: object_story_spec has only page_id, copy is in asset_feed_spec
+          // Fetch the creative directly to get asset_feed_spec
+          if (!parsed.primary_text && creative?.id) {
+            try {
+              const cr2 = await metaFetch(`/${creative.id}`, token, {
+                fields: 'id,body,title,asset_feed_spec,object_story_spec',
+              })
+              creative = { ...creative, ...cr2 }
+              parsed = extractFromCreative(creative)
+            } catch { /* keep empty */ }
+          }
+          return { ...ad, creative, _pageId: parsed._pageId, _parsed: { ...parsed } }
+        }))
+        return NextResponse.json(results)
       } catch (e1) {
         console.error('Ads full-fields error:', e1)
         // Fallback: minimal fields only
@@ -105,7 +112,12 @@ export async function GET(req: NextRequest) {
             fields: 'id,name,adset_id,campaign_id,status,creative{id,name,title,body,image_url,thumbnail_url}',
             limit: '200',
           })
-          return NextResponse.json(parseAds(data))
+          const ads = (data.data as Record<string, unknown>[] || [])
+          return NextResponse.json(ads.map((ad: Record<string, unknown>) => {
+            const creative = ad.creative as Record<string, unknown> | undefined
+            const parsed = extractFromCreative(creative)
+            return { ...ad, _pageId: parsed._pageId, _parsed: { ...parsed } }
+          }))
         } catch (e2) {
           const msg = e2 instanceof Error ? e2.message : String(e2)
           console.error('Ads minimal-fields error:', msg)

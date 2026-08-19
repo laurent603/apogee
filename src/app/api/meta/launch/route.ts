@@ -267,23 +267,51 @@ export async function POST(req: NextRequest) {
             let resolvedParsed = adTemplate?._parsed
             if (!resolvedParsed?.primary_text && adTemplate?.id && !adTemplate._isNew) {
               try {
+                // Step 1: get creative ID via ad
                 const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
-                  fields: 'creative{id,' +
-                    'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+                  fields: 'creative{id,object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
                 })
-                const cr = adInfo?.creative as Record<string, unknown> | undefined
+                let cr = adInfo?.creative as Record<string, unknown> | undefined
                 const oss2 = cr?.object_story_spec as Record<string, unknown> | undefined
                 const ld2 = oss2?.link_data as Record<string, unknown> | undefined
                 const vd2 = oss2?.video_data as Record<string, unknown> | undefined
-                const ctaRaw = (ld2?.call_to_action || vd2?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
+                const ossCta2 = (ld2?.call_to_action || vd2?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
                 if (!pageId) pageId = (oss2?.page_id as string | undefined) || ''
+                let primaryText2 = (ld2?.message || vd2?.message || '') as string
+                let headline2 = (ld2?.name || vd2?.title || '') as string
+                let description2 = (ld2?.description || vd2?.link_description || '') as string
+                let ctaType2 = (ossCta2?.type || '') as string
+                let destUrl2 = (ld2?.link || vd2?.link || ossCta2?.value?.link || '') as string
+                let leadFormId2 = (ossCta2?.value?.lead_gen_form_id || '') as string
+                // Step 2: Advantage+ creative — fetch creative directly for asset_feed_spec
+                if (!primaryText2 && cr?.id) {
+                  try {
+                    const crDirect = await metaFetch(`/${cr.id}`, token, {
+                      fields: 'id,body,title,asset_feed_spec,object_story_spec',
+                    })
+                    cr = { ...cr, ...crDirect }
+                    const afs = crDirect.asset_feed_spec as Record<string, unknown> | undefined
+                    const afsBodies = (afs?.bodies as Array<{ text: string }> | undefined) || []
+                    const afsTitles = (afs?.titles as Array<{ text: string }> | undefined) || []
+                    const afsDescs = (afs?.descriptions as Array<{ text: string }> | undefined) || []
+                    const afsCtas = (afs?.call_to_action_types as string[] | undefined) || []
+                    const afsCTAs = (afs?.call_to_actions as Array<{ type: string; value?: { lead_gen_form_id?: string; link?: string } }> | undefined) || []
+                    const afsLinks = (afs?.link_urls as Array<{ website_url: string }> | undefined) || []
+                    primaryText2 = afsBodies[0]?.text || (crDirect.body as string) || ''
+                    headline2 = afsTitles[0]?.text || (crDirect.title as string) || ''
+                    description2 = afsDescs[0]?.text || ''
+                    ctaType2 = afsCtas[0] || ''
+                    destUrl2 = afsCTAs[0]?.value?.link || afsLinks[0]?.website_url || ''
+                    leadFormId2 = afsCTAs[0]?.value?.lead_gen_form_id || ''
+                  } catch { /* keep empty */ }
+                }
                 resolvedParsed = {
-                  primary_text: (ld2?.message || vd2?.message || resolvedParsed?.primary_text || '') as string,
-                  headline: (ld2?.name || vd2?.title || resolvedParsed?.headline || '') as string,
-                  description: (ld2?.description || vd2?.link_description || resolvedParsed?.description || '') as string,
-                  cta_type: (ctaRaw?.type || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
-                  destination_url: (ld2?.link || vd2?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
-                  lead_gen_form_id: (ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
+                  primary_text: (primaryText2 || resolvedParsed?.primary_text || '') as string,
+                  headline: (headline2 || resolvedParsed?.headline || '') as string,
+                  description: (description2 || resolvedParsed?.description || '') as string,
+                  cta_type: (ctaType2 || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
+                  destination_url: (destUrl2 || resolvedParsed?.destination_url || '') as string,
+                  lead_gen_form_id: (leadFormId2 || resolvedParsed?.lead_gen_form_id || '') as string,
                 }
                 console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))
               } catch (e) {
