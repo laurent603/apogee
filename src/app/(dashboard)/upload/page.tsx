@@ -754,15 +754,11 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
   }, [sfmAdsetId, sfmCampaignId, accountId])
 
   function applyAdFromMeta(ad: MetaAd) {
-    const p = ad._parsed
-    if (p.primary_text) setPrimaryTexts([p.primary_text])
-    if (p.headline) setHeadlines([p.headline])
-    if (p.description !== undefined) setDescription(p.description)
-    if (p.cta_type) setCta(p.cta_type)
-    if (p.destination_url) setWebsiteUrl(p.destination_url)
-    if (p.lead_gen_form_id) setLeadGenFormId(p.lead_gen_form_id)
-    if (ad._pageId) setPageId(ad._pageId)
-    setActiveTab(0)
+    if (onApplyToAdset) {
+      onApplyToAdset(ad)
+    } else {
+      onSave(ad)
+    }
     toast.success(`Annonce "${ad.name}" importée`)
   }
 
