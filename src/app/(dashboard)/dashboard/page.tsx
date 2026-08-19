@@ -75,11 +75,12 @@ export default function DashboardPage() {
   const [recentLaunches, setRecentLaunches] = useState<LaunchRecord[]>([])
 
   useEffect(() => {
+    if (!selectedAccount) return
     fetch('/api/launch-history')
       .then(r => r.json())
       .then(data => setRecentLaunches(Array.isArray(data) ? data.slice(0, 5) : []))
       .catch(() => {})
-  }, [])
+  }, [selectedAccount])
 
   const fetchAll = useCallback(async () => {
     if (!selectedAccount) return

@@ -38,8 +38,13 @@ export const authOptions: NextAuthOptions = {
           token.dbUserId = user.id
         } catch (e) {
           console.error('[auth] prisma upsert failed:', e)
-          // Still allow login even if DB write fails
-          token.dbUserId = token.sub
+          // Try to find existing user by facebookId so we get the real DB id
+          try {
+            const existing = await prisma.user.findUnique({ where: { facebookId: account.providerAccountId } })
+            token.dbUserId = existing?.id ?? token.sub
+          } catch {
+            token.dbUserId = token.sub
+          }
         }
       }
       return token
