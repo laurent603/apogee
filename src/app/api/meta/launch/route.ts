@@ -392,6 +392,14 @@ export async function POST(req: NextRequest) {
 
             let storySpec: Record<string, unknown>
             if (videoAsset?.videoId) {
+              // Meta requires a thumbnail (image_hash or image_url) in video_data
+              // Fetch the auto-generated thumbnail from the uploaded video
+              let videoThumbnailUrl: string | undefined
+              try {
+                const videoInfo = await metaFetch(`/${videoAsset.videoId}`, token, { fields: 'picture' })
+                videoThumbnailUrl = videoInfo.picture as string | undefined
+              } catch { /* proceed without thumbnail — creative may still work */ }
+
               storySpec = {
                 page_id: pageId,
                 video_data: {
@@ -400,6 +408,7 @@ export async function POST(req: NextRequest) {
                   title: headline,
                   link_description: description,
                   call_to_action: { type: ctaType, value: ctaValue },
+                  ...(videoThumbnailUrl ? { image_url: videoThumbnailUrl } : {}),
                 },
               }
             } else {
