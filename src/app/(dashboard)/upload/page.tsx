@@ -1741,9 +1741,17 @@ export default function UploadPage() {
                           ))}
                         </select>
                       ) : leadFormsPageId ? (
-                        <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                          Aucun formulaire trouvé — vérifiez vos permissions (reconnectez-vous)
-                        </span>
+                        <div className="flex-1 flex flex-col gap-1.5">
+                          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                            Formulaires non accessibles — saisissez l&apos;ID manuellement
+                          </span>
+                          <input
+                            className="text-xs border border-[#E5E7EB] rounded-lg px-2 py-1.5 font-mono focus:outline-none focus:border-[#3434ef] focus:ring-1 focus:ring-[#3434ef]"
+                            placeholder="ID du formulaire (ex: 1234567890123456)"
+                            value={leadFormOverride}
+                            onChange={e => setLeadFormOverride(e.target.value.trim())}
+                          />
+                        </div>
                       ) : (
                         <span className="text-xs text-gray-400">Sélectionnez une page ci-dessus</span>
                       )}

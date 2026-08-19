@@ -15,6 +15,8 @@ export const authOptions: NextAuthOptions = {
             'ads_read',
             'business_management',
             'pages_read_engagement',
+            'leads_retrieval',
+            'pages_manage_metadata',
           ].join(','),
         },
       },
