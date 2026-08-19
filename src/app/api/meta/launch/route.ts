@@ -328,13 +328,13 @@ export async function POST(req: NextRequest) {
             const description = resolvedParsed?.description || ''
             const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
             let destinationUrl = resolvedParsed?.destination_url || ''
-            // Only use lead gen form ID for OUTCOME_LEADS campaigns — ignore it for Sales/Traffic
-            let leadGenFormId = campaign?.objective === 'OUTCOME_LEADS'
-              ? (resolvedParsed?.lead_gen_form_id || '')
-              : ''
+            // Lead gen objectives: OUTCOME_LEADS (new) or LEAD_GENERATION (legacy campaigns)
+            const isLeadGenObjective = campaign?.objective === 'OUTCOME_LEADS' || campaign?.objective === 'LEAD_GENERATION'
+            // Only use lead_gen_form_id for lead gen campaigns — ignore for Sales/Traffic
+            let leadGenFormId = isLeadGenObjective ? (resolvedParsed?.lead_gen_form_id || '') : ''
 
             // For lead gen campaigns: fail with actionable message if form ID still missing
-            if (!leadGenFormId && campaign?.objective === 'OUTCOME_LEADS') {
+            if (!leadGenFormId && isLeadGenObjective) {
               throw new Error(`Campagne prospects : Lead Gen Form ID manquant pour "${ag.adName}". Sélectionnez un formulaire dans le panneau Campaign Structure.`)
             }
 
@@ -347,7 +347,7 @@ export async function POST(req: NextRequest) {
                 if (pg?.website) destinationUrl = pg.website as string
               } catch { /* ignore — will fail at creative creation if still empty */ }
             }
-            if (!destinationUrl && leadGenFormId) {
+            if (!destinationUrl && isLeadGenObjective && leadGenFormId) {
               throw new Error(`Campagne prospects "${ag.adName}" : URL du site web manquante. Renseignez-la dans la section "Site web" du panneau Campaign Structure.`)
             }
 
@@ -402,6 +402,8 @@ export async function POST(req: NextRequest) {
               adset_id: adsetId,
               creative: { creative_id: creativeId },
               status: adsetStatus,
+              // Lead gen form ads require destination_type: ON_AD
+              ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
             })
             if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
             send(`✓ Ad créée : "${ag.adName}"`)
