@@ -8,36 +8,42 @@ export async function GET(req: NextRequest) {
   if (!session?.accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const adId = searchParams.get('adId')
-  if (!adId) return NextResponse.json({ error: 'Missing adId' }, { status: 400 })
-
   const token = session.accessToken as string
 
+  // Accept either adId or adsetId — if adsetId, fetch first ad from that adset
+  let adId = searchParams.get('adId')
+  const adsetId = searchParams.get('adsetId')
+
   try {
-    // Try as ad first, then as creative directly
-    let adResult: Record<string, unknown> = {}
-    let creativeResult: Record<string, unknown> = {}
-
-    try {
-      adResult = await metaFetch(`/${adId}`, token, { fields: 'id,name,creative' })
-    } catch (e1) {
-      adResult = { _error: String(e1) }
-    }
-
-    // Get creative ID — either from ad lookup or treat the ID itself as a creative ID
-    const creativeId = (adResult.creative as Record<string, unknown>)?.id as string || adId
-    try {
-      creativeResult = await metaFetch(`/${creativeId}`, token, {
-        fields: 'id,name,body,title,object_story_spec,effective_object_story_spec,asset_feed_spec',
+    if (!adId && adsetId) {
+      const adsData = await metaFetch(`/${adsetId}/ads`, token, { fields: 'id,name', limit: '5' })
+      const ads = adsData.data as { id: string; name: string }[] || []
+      return NextResponse.json({
+        _note: 'Pass one of these ad IDs as ?adId=XXX to inspect its creative',
+        ads: ads.map(a => ({ id: a.id, name: a.name })),
       })
-    } catch (e2) {
-      creativeResult = { _error: String(e2) }
     }
+
+    if (!adId) return NextResponse.json({ error: 'Pass ?adId=XXX or ?adsetId=XXX' }, { status: 400 })
+
+    // Fetch the ad to get its creative ID
+    const adResult = await metaFetch(`/${adId}`, token, { fields: 'id,name,creative{id}' })
+    const creativeId = (adResult.creative as Record<string, unknown>)?.id as string
+
+    if (!creativeId) {
+      return NextResponse.json({ error: 'No creative found on this ad', ad: adResult })
+    }
+
+    // Fetch the creative directly — this gives the most reliable field access
+    const creativeResult = await metaFetch(`/${creativeId}`, token, {
+      fields: 'id,name,body,title,object_story_spec,effective_object_story_spec,asset_feed_spec',
+    })
 
     return NextResponse.json({
-      ad: adResult,
+      ad_id: adId,
+      creative_id: creativeId,
       creative: creativeResult,
-      _note: 'body/title at top level = copy fields. Check object_story_spec.link_data.message and effective_object_story_spec.link_data.message',
+      _note: 'Look at: body, title, object_story_spec.link_data.message, effective_object_story_spec.link_data.message, asset_feed_spec.bodies[0].text',
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
