@@ -53,14 +53,17 @@ export async function GET(req: NextRequest) {
           const creative = ad.creative as Record<string, unknown> | undefined
           const oss = creative?.object_story_spec as Record<string, unknown> | undefined
           const eoss = creative?.effective_object_story_spec as Record<string, unknown> | undefined
-          // For Advantage+ creative, object_story_spec is empty — use effective_object_story_spec
-          const spec = (oss?.page_id ? oss : eoss) ?? oss
-          const linkData = spec?.link_data as Record<string, unknown> | undefined
-          const videoData = spec?.video_data as Record<string, unknown> | undefined
-          const ctaLink = linkData?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
-          const ctaVideo = videoData?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
+          // For text fields, try BOTH specs — for Advantage+ creative, oss.link_data.message is
+          // empty while eoss.link_data.message has the real running text. Always prefer eoss for copy.
+          const ossLd = oss?.link_data as Record<string, unknown> | undefined
+          const ossVd = oss?.video_data as Record<string, unknown> | undefined
+          const eossLd = eoss?.link_data as Record<string, unknown> | undefined
+          const eossVd = eoss?.video_data as Record<string, unknown> | undefined
+          // For URL/CTA use oss if available, eoss as fallback
+          const ctaLink = (ossLd?.call_to_action || eossLd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
+          const ctaVideo = (ossVd?.call_to_action || eossVd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const cta = ctaLink || ctaVideo
-          // Advantage+ creative stores copy in asset_feed_spec (not object_story_spec)
+          // Advantage+ creative can also store copy in asset_feed_spec
           const afs = creative?.asset_feed_spec as Record<string, unknown> | undefined
           const afsBodies = (afs?.bodies as Array<{ text: string }> | undefined) || []
           const afsTitles = (afs?.titles as Array<{ text: string }> | undefined) || []
@@ -71,11 +74,12 @@ export async function GET(req: NextRequest) {
             ...ad,
             _pageId: ((oss?.page_id || eoss?.page_id) as string | undefined) || '',
             _parsed: {
-              primary_text: (linkData?.message || videoData?.message || afsBodies[0]?.text || creative?.body || '') as string,
-              headline: (linkData?.name || videoData?.title || afsTitles[0]?.text || creative?.title || '') as string,
-              description: (linkData?.description || videoData?.link_description || afsDescs[0]?.text || '') as string,
+              // Prefer eoss for copy (has real running text on Advantage+ creative)
+              primary_text: (eossLd?.message || eossVd?.message || ossLd?.message || ossVd?.message || afsBodies[0]?.text || creative?.body || '') as string,
+              headline: (eossLd?.name || eossVd?.title || ossLd?.name || ossVd?.title || afsTitles[0]?.text || creative?.title || '') as string,
+              description: (eossLd?.description || eossVd?.link_description || ossLd?.description || ossVd?.link_description || afsDescs[0]?.text || '') as string,
               cta_type: (cta?.type || afsCtas[0] || 'LEARN_MORE') as string,
-              destination_url: (linkData?.link || videoData?.link || cta?.value?.link || afsLinks[0]?.website_url || '') as string,
+              destination_url: (ossLd?.link || ossVd?.link || eossLd?.link || eossVd?.link || cta?.value?.link || afsLinks[0]?.website_url || '') as string,
               lead_gen_form_id: (creative?.leadgen_form_id || cta?.value?.lead_gen_form_id || '') as string,
               thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
             },
@@ -101,6 +105,16 @@ export async function GET(req: NextRequest) {
           ].join(','),
           limit: '200',
         })
+        // DEBUG: log first ad's creative to understand Meta API response structure
+        const firstAd = (data.data as Record<string, unknown>[])?.[0]
+        if (firstAd) {
+          const cr = firstAd.creative as Record<string, unknown> | undefined
+          console.log('[configure/ads] DEBUG first ad creative keys:', Object.keys(cr || {}))
+          console.log('[configure/ads] DEBUG object_story_spec:', JSON.stringify(cr?.object_story_spec).slice(0, 400))
+          console.log('[configure/ads] DEBUG effective_object_story_spec:', JSON.stringify(cr?.effective_object_story_spec).slice(0, 400))
+          console.log('[configure/ads] DEBUG asset_feed_spec:', JSON.stringify(cr?.asset_feed_spec).slice(0, 400))
+          console.log('[configure/ads] DEBUG body/title:', cr?.body, '|', cr?.title)
+        }
         return NextResponse.json(parseAds(data))
       } catch (e1) {
         console.error('Ads full-fields error:', e1)

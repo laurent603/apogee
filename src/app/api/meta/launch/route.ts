@@ -258,6 +258,10 @@ export async function POST(req: NextRequest) {
               continue
             }
 
+            // DEBUG: log what adTemplate._parsed looks like when received
+            console.log('[launch] adTemplate._parsed:', JSON.stringify(adTemplate?._parsed))
+            console.log('[launch] adTemplate.id:', adTemplate?.id, '| _isNew:', adTemplate?._isNew)
+
             // Re-fetch creative copy from Meta if primary_text is missing
             // (happens with minimal-fields fallback OR Advantage+ creative with asset_feed_spec)
             let resolvedParsed = adTemplate?._parsed
@@ -270,10 +274,13 @@ export async function POST(req: NextRequest) {
                     'asset_feed_spec{bodies,titles,descriptions,call_to_action_types,link_urls}}',
                 })
                 const cr = adInfo?.creative as Record<string, unknown> | undefined
-                const oss2 = (cr?.effective_object_story_spec || cr?.object_story_spec) as Record<string, unknown> | undefined
-                const ld = oss2?.link_data as Record<string, unknown> | undefined
-                const vd = oss2?.video_data as Record<string, unknown> | undefined
-                const ctaRaw = (ld?.call_to_action || vd?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
+                const oss2 = cr?.object_story_spec as Record<string, unknown> | undefined
+                const eoss2 = cr?.effective_object_story_spec as Record<string, unknown> | undefined
+                const ossLd2 = oss2?.link_data as Record<string, unknown> | undefined
+                const ossVd2 = oss2?.video_data as Record<string, unknown> | undefined
+                const eossLd2 = eoss2?.link_data as Record<string, unknown> | undefined
+                const eossVd2 = eoss2?.video_data as Record<string, unknown> | undefined
+                const ctaRaw = ((ossLd2?.call_to_action || eossLd2?.call_to_action || ossVd2?.call_to_action || eossVd2?.call_to_action)) as { type?: string; value?: Record<string, string> } | undefined
                 // Advantage+ creative: copy lives in asset_feed_spec
                 const afs = cr?.asset_feed_spec as Record<string, unknown> | undefined
                 const afsBodies = (afs?.bodies as Array<{ text: string }> | undefined) || []
@@ -281,13 +288,14 @@ export async function POST(req: NextRequest) {
                 const afsDescs = (afs?.descriptions as Array<{ text: string }> | undefined) || []
                 const afsCtas = (afs?.call_to_action_types as string[] | undefined) || []
                 const afsLinks = (afs?.link_urls as Array<{ website_url: string }> | undefined) || []
-                if (!pageId) pageId = (oss2?.page_id as string | undefined) || ''
+                if (!pageId) pageId = ((oss2?.page_id || eoss2?.page_id) as string | undefined) || ''
                 resolvedParsed = {
-                  primary_text: (ld?.message || vd?.message || afsBodies[0]?.text || resolvedParsed?.primary_text || '') as string,
-                  headline: (ld?.name || vd?.title || afsTitles[0]?.text || resolvedParsed?.headline || '') as string,
-                  description: (ld?.description || vd?.link_description || afsDescs[0]?.text || resolvedParsed?.description || '') as string,
+                  // Prefer eoss for copy — Advantage+ creative has real text in effective_object_story_spec
+                  primary_text: (eossLd2?.message || eossVd2?.message || ossLd2?.message || ossVd2?.message || afsBodies[0]?.text || resolvedParsed?.primary_text || '') as string,
+                  headline: (eossLd2?.name || eossVd2?.title || ossLd2?.name || ossVd2?.title || afsTitles[0]?.text || resolvedParsed?.headline || '') as string,
+                  description: (eossLd2?.description || eossVd2?.link_description || ossLd2?.description || ossVd2?.link_description || afsDescs[0]?.text || resolvedParsed?.description || '') as string,
                   cta_type: (ctaRaw?.type || afsCtas[0] || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
-                  destination_url: (ld?.link || vd?.link || ctaRaw?.value?.link || afsLinks[0]?.website_url || resolvedParsed?.destination_url || '') as string,
+                  destination_url: (ossLd2?.link || ossVd2?.link || eossLd2?.link || eossVd2?.link || ctaRaw?.value?.link || afsLinks[0]?.website_url || resolvedParsed?.destination_url || '') as string,
                   lead_gen_form_id: ((cr?.leadgen_form_id as string | undefined) || ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
                 }
                 console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))
