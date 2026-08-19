@@ -24,17 +24,23 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token
-        const user = await prisma.user.upsert({
-          where: { facebookId: account.providerAccountId },
-          update: { accessToken: account.access_token as string },
-          create: {
-            facebookId: account.providerAccountId,
-            name: token.name,
-            image: token.picture as string,
-            accessToken: account.access_token as string,
-          },
-        })
-        token.dbUserId = user.id
+        try {
+          const user = await prisma.user.upsert({
+            where: { facebookId: account.providerAccountId },
+            update: { accessToken: account.access_token as string },
+            create: {
+              facebookId: account.providerAccountId,
+              name: token.name,
+              image: token.picture as string,
+              accessToken: account.access_token as string,
+            },
+          })
+          token.dbUserId = user.id
+        } catch (e) {
+          console.error('[auth] prisma upsert failed:', e)
+          // Still allow login even if DB write fails
+          token.dbUserId = token.sub
+        }
       }
       return token
     },
