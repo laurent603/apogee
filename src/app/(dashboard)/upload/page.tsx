@@ -514,16 +514,26 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   )
 }
 
-function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
+function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyToAdset }: {
   onSave: (a: MetaAd) => void; onClose: () => void; pages: MetaPage[]
   isLeadGen?: boolean; accountId?: string
+  onApplyToAdset?: (a: MetaAd) => void
 }) {
+  const [activeTab, setActiveTab] = useState(0)
   const [pageId, setPageId] = useState(pages[0]?.id || '')
   const [igAccount, setIgAccount] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [leadGenFormId, setLeadGenFormId] = useState('')
   const [leadForms, setLeadForms] = useState<{ id: string; name: string; status: string; lead_count?: number }[]>([])
   const [loadingForms, setLoadingForms] = useState(false)
+
+  // "Select from Meta" tab state
+  const [sfmCampaigns, setSfmCampaigns] = useState<MetaCampaign[]>([])
+  const [sfmAdsets, setSfmAdsets] = useState<MetaAdset[]>([])
+  const [sfmAds, setSfmAds] = useState<MetaAd[]>([])
+  const [sfmCampaignId, setSfmCampaignId] = useState('')
+  const [sfmAdsetId, setSfmAdsetId] = useState('')
+  const [sfmLoading, setSfmLoading] = useState(false)
 
   useEffect(() => {
     if (!isLeadGen || !pageId || !accountId) { setLeadForms([]); return }
@@ -536,6 +546,55 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLeadGen, pageId, accountId])
 
+  useEffect(() => {
+    if (activeTab !== 1 || !accountId || sfmCampaigns.length > 0) return
+    setSfmLoading(true)
+    fetch(`/api/meta/configure?accountId=${accountId}&type=campaigns`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setSfmCampaigns(d) })
+      .catch(() => {})
+      .finally(() => setSfmLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, accountId])
+
+  useEffect(() => {
+    if (!sfmCampaignId || !accountId) { setSfmAdsets([]); setSfmAdsetId(''); setSfmAds([]); return }
+    setSfmLoading(true)
+    fetch(`/api/meta/configure?accountId=${accountId}&type=adsets&campaignId=${sfmCampaignId}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) { setSfmAdsets(d); setSfmAdsetId(d[0]?.id || '') } })
+      .catch(() => {})
+      .finally(() => setSfmLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sfmCampaignId, accountId])
+
+  useEffect(() => {
+    if (!accountId || (!sfmAdsetId && !sfmCampaignId)) { setSfmAds([]); return }
+    setSfmLoading(true)
+    const params = new URLSearchParams({ accountId, type: 'ads' })
+    if (sfmAdsetId) params.set('adsetId', sfmAdsetId)
+    else if (sfmCampaignId) params.set('campaignId', sfmCampaignId)
+    fetch(`/api/meta/configure?${params}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setSfmAds(d) })
+      .catch(() => {})
+      .finally(() => setSfmLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sfmAdsetId, sfmCampaignId, accountId])
+
+  function applyAdFromMeta(ad: MetaAd) {
+    const p = ad._parsed
+    if (p.primary_text) setPrimaryTexts([p.primary_text])
+    if (p.headline) setHeadlines([p.headline])
+    if (p.description !== undefined) setDescription(p.description)
+    if (p.cta_type) setCta(p.cta_type)
+    if (p.destination_url) setWebsiteUrl(p.destination_url)
+    if (p.lead_gen_form_id) setLeadGenFormId(p.lead_gen_form_id)
+    if (ad._pageId) setPageId(ad._pageId)
+    setActiveTab(0)
+    toast.success(`Annonce "${ad.name}" importée`)
+  }
+
   const [useDisplayLink, setUseDisplayLink] = useState(false)
   const [displayLink, setDisplayLink] = useState('')
   const [format, setFormat] = useState<'SINGLE' | 'COLLECTION'>('SINGLE')
@@ -545,8 +604,8 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
   const [cta, setCta] = useState('LEARN_MORE')
   const [partnershipAd, setPartnershipAd] = useState(false)
 
-  function handleSave() {
-    onSave({
+  function buildResult(): MetaAd {
+    return {
       id: `new_${Date.now()}`,
       name: `Ad — ${primaryTexts[0]?.slice(0, 30) || 'Nouveau'}`,
       adset_id: '',
@@ -558,16 +617,15 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
       },
       _isNew: true,
       _pageId: pageId,
-    })
-    toast.success('Configuration ad enregistrée')
+    }
   }
 
   return (
     <Modal title="Configurer l'annonce" onClose={onClose} wide>
       {/* Tabs */}
       <div className="flex border-b border-[#E5E7EB] mb-5 -mx-5 px-5 gap-1">
-        {['Create New', 'Select from Meta', 'Select Template'].map((t, i) => (
-          <button key={t} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', i === 0 ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
+        {['Create New', 'Select from Meta'].map((t, i) => (
+          <button key={t} onClick={() => setActiveTab(i)} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', activeTab === i ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
         ))}
         <button className="pb-2.5 px-3 text-xs font-medium text-gray-400 border-b-2 border-transparent -mb-px ml-auto flex items-center gap-1.5 hover:text-[#3434ef]">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -575,7 +633,69 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
         </button>
       </div>
 
-      <div className="space-y-6">
+      {/* SELECT FROM META TAB */}
+      {activeTab === 1 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Campagne</label>
+              <select className="select" value={sfmCampaignId} onChange={e => setSfmCampaignId(e.target.value)}>
+                <option value="">— Choisir une campagne —</option>
+                {sfmCampaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Adset</label>
+              <select className="select" value={sfmAdsetId} onChange={e => setSfmAdsetId(e.target.value)} disabled={!sfmCampaignId}>
+                <option value="">— Tous les adsets —</option>
+                {sfmAdsets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {sfmLoading && (
+            <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              Chargement…
+            </div>
+          )}
+
+          {!sfmLoading && !sfmCampaignId && (
+            <p className="text-sm text-gray-400 py-4 text-center">Sélectionnez une campagne pour afficher les annonces</p>
+          )}
+
+          {!sfmLoading && sfmCampaignId && sfmAds.length === 0 && (
+            <p className="text-sm text-gray-400 py-4 text-center">Aucune annonce trouvée</p>
+          )}
+
+          {!sfmLoading && sfmAds.length > 0 && (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {sfmAds.map(ad => (
+                <div key={ad.id} className="flex items-start gap-3 p-3 border border-[#E5E7EB] rounded-xl hover:border-[#3434ef] hover:bg-[#f0f0ff] transition-all cursor-pointer group" onClick={() => applyAdFromMeta(ad)}>
+                  {ad._parsed?.thumbnail ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ad._parsed.thumbnail} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-[#0d0d12] truncate">{ad.name}</p>
+                    {ad._parsed?.primary_text && <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{ad._parsed.primary_text}</p>}
+                    {ad._parsed?.headline && <p className="text-xs text-gray-400 truncate mt-0.5 font-medium">{ad._parsed.headline}</p>}
+                  </div>
+                  <button className="flex-shrink-0 text-xs px-2.5 py-1 rounded-lg border border-[#3434ef] text-[#3434ef] opacity-0 group-hover:opacity-100 transition-opacity">
+                    Utiliser
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 0 && <div className="space-y-6">
         {/* IDENTITY */}
         <div className="space-y-3">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Identity</p>
@@ -720,17 +840,19 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId }: {
             </select>
           </div>
         </div>
-      </div>
+      </div>}
 
       <div className="flex items-center gap-2 mt-6 pt-4 border-t border-[#E5E7EB]">
-        <button onClick={() => { handleSave(); onClose() }} className="btn-primary flex items-center gap-2 px-5">
+        <button onClick={() => { onSave(buildResult()); toast.success('Configuration enregistrée'); onClose() }} className="btn-primary flex items-center gap-2 px-5">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-          Save
+          Appliquer à tous
         </button>
-        <button onClick={() => { handleSave(); onClose() }} className="px-4 py-2 text-sm font-medium text-gray-600 border border-[#E5E7EB] rounded-lg hover:border-gray-300">Apply to all</button>
-        <button className="px-4 py-2 text-sm font-medium text-gray-600 border border-[#E5E7EB] rounded-lg hover:border-gray-300">Apply to adset</button>
-        <button className="px-4 py-2 text-sm font-medium text-gray-600 border border-[#E5E7EB] rounded-lg hover:border-gray-300">Import to other</button>
-        <button onClick={onClose} className="ml-auto btn-secondary">Cancel</button>
+        {onApplyToAdset && (
+          <button onClick={() => { onApplyToAdset(buildResult()); toast.success('Appliqué à cet adset'); onClose() }} className="px-4 py-2 text-sm font-medium text-[#3434ef] border border-[#3434ef] rounded-lg hover:bg-[#f0f0ff]">
+            Appliquer à cet adset
+          </button>
+        )}
+        <button onClick={onClose} className="ml-auto btn-secondary">Annuler</button>
       </div>
     </Modal>
   )
@@ -787,6 +909,10 @@ export default function UploadPage() {
   const [loadingLeadForms, setLoadingLeadForms] = useState(false)
   const [leadFormsPageId, setLeadFormsPageId] = useState('')
   const [leadFormWebsiteUrl, setLeadFormWebsiteUrl] = useState('')
+
+  // Per-adset ad template overrides (keyed by treeNode index)
+  const [perAdsetAdTemplate, setPerAdsetAdTemplate] = useState<Record<number, MetaAd>>({})
+  const [currentOpenAdsetIndex, setCurrentOpenAdsetIndex] = useState<number | null>(null)
 
   // Selection modals
   const [campaignModal, setCampaignModal] = useState(false)
@@ -861,7 +987,11 @@ export default function UploadPage() {
   }
 
   function openCreateAdset() { fetchPixels(); fetchAudiences(); setCreateAdsetModal(true) }
-  function openCreateAd() { fetchPages(); setCreateAdModal(true) }
+  function openCreateAd(adsetIndex?: number) {
+    fetchPages()
+    setCurrentOpenAdsetIndex(adsetIndex ?? null)
+    setCreateAdModal(true)
+  }
 
   // Auto-load pages when a LEADS campaign is selected (needed for the form picker)
   useEffect(() => {
@@ -997,7 +1127,7 @@ export default function UploadPage() {
     }
 
     // Phase 2: build enriched treeNodes with hashes + videoIds
-    const enrichedNodes = treeNodes.map(node => ({
+    const enrichedNodes = treeNodes.map((node, ni) => ({
       adsetName: node.adsetName,
       adGroups: node.adGroups.map(ag => ({
         adName: ag.adName,
@@ -1007,6 +1137,7 @@ export default function UploadPage() {
           videoId: fileVideoIds.get(a.id) ?? null,
         })),
       })),
+      _adTemplateOverride: perAdsetAdTemplate[ni] ?? null,
     }))
 
     // Phase 3: call real Meta launch API
@@ -1345,7 +1476,7 @@ export default function UploadPage() {
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
                     Select from Meta
                   </button>
-                  <button onClick={openCreateAd} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
+                  <button onClick={() => openCreateAd()} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                     New
                   </button>
@@ -1467,8 +1598,8 @@ export default function UploadPage() {
                             <span className="text-xs text-gray-400">{ag.assets.length} format{ag.assets.length > 1 ? 's' : ''}</span>
                           </div>
                         </div>
-                        <button onClick={openCreateAd} className={clsx('flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all flex-shrink-0', adConfigured ? 'border-green-200 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50 text-orange-600')}>
-                          {adConfigured
+                        <button onClick={() => openCreateAd(ni)} className={clsx('flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-all flex-shrink-0', (perAdsetAdTemplate[ni] || adConfigured) ? 'border-green-200 bg-green-50 text-green-700' : 'border-orange-200 bg-orange-50 text-orange-600')}>
+                          {(perAdsetAdTemplate[ni] || adConfigured)
                             ? <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>Ad Params</>
                             : <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Ad Params</>
                           }
@@ -1686,6 +1817,10 @@ export default function UploadPage() {
           pages={metaPages}
           isLeadGen={selectedCampaign?.objective === 'OUTCOME_LEADS'}
           accountId={metaId}
+          onApplyToAdset={currentOpenAdsetIndex !== null ? (a) => {
+            setPerAdsetAdTemplate(prev => ({ ...prev, [currentOpenAdsetIndex]: a }))
+            setCreateAdModal(false)
+          } : undefined}
         />
       )}
     </div>

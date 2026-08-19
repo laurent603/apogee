@@ -18,6 +18,7 @@ interface LaunchAdGroup {
 interface LaunchTreeNode {
   adsetName: string
   adGroups: LaunchAdGroup[]
+  _adTemplateOverride?: LaunchAd | null
 }
 interface LaunchCampaign {
   id: string; name: string; status: string; objective: string
@@ -220,8 +221,8 @@ export async function POST(req: NextRequest) {
                 pixel_id: adsetTemplate.promoted_object.pixel_id,
                 custom_event_type: adsetTemplate.promoted_object.custom_event_type || 'PURCHASE',
               }
-            } else if (NEEDS_PAGE.has(optimizationGoal) && adTemplate?._pageId) {
-              adsetBody.promoted_object = { page_id: adTemplate._pageId }
+            } else if (NEEDS_PAGE.has(optimizationGoal) && (node._adTemplateOverride?._pageId || adTemplate?._pageId)) {
+              adsetBody.promoted_object = { page_id: node._adTemplateOverride?._pageId || adTemplate!._pageId }
             }
 
             if (startTime) adsetBody.start_time = startTime
@@ -234,6 +235,7 @@ export async function POST(req: NextRequest) {
           }
 
           /* Create ads in this adset */
+          const effectiveAdTemplate = node._adTemplateOverride ?? adTemplate
           for (const ag of node.adGroups) {
             const imageAsset = ag.assets.find(a => a.hash)
             const videoAsset = ag.assets.find(a => a.videoId)
@@ -244,10 +246,10 @@ export async function POST(req: NextRequest) {
             }
 
             // page_id cascade: _pageId → creative.object_story_spec.page_id → API lookup
-            let pageId = adTemplate?._pageId || adTemplate?.creative?.object_story_spec?.page_id || ''
-            if (!pageId && adTemplate?.id) {
+            let pageId = effectiveAdTemplate?._pageId || effectiveAdTemplate?.creative?.object_story_spec?.page_id || ''
+            if (!pageId && effectiveAdTemplate?.id) {
               try {
-                const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
+                const adInfo = await metaFetch(`/${effectiveAdTemplate.id}`, token, {
                   fields: 'creative{object_story_spec{page_id}}',
                 })
                 pageId = (adInfo?.creative as { object_story_spec?: { page_id?: string } } | undefined)?.object_story_spec?.page_id || ''
@@ -258,17 +260,17 @@ export async function POST(req: NextRequest) {
               continue
             }
 
-            // DEBUG: log what adTemplate._parsed looks like when received
-            console.log('[launch] adTemplate._parsed:', JSON.stringify(adTemplate?._parsed))
-            console.log('[launch] adTemplate.id:', adTemplate?.id, '| _isNew:', adTemplate?._isNew)
+            // DEBUG: log what effectiveAdTemplate._parsed looks like when received
+            console.log('[launch] effectiveAdTemplate._parsed:', JSON.stringify(effectiveAdTemplate?._parsed))
+            console.log('[launch] effectiveAdTemplate.id:', effectiveAdTemplate?.id, '| _isNew:', effectiveAdTemplate?._isNew)
 
             // Re-fetch creative copy from Meta if primary_text is missing
             // (happens with minimal-fields fallback OR Advantage+ creative with asset_feed_spec)
-            let resolvedParsed = adTemplate?._parsed
-            if (!resolvedParsed?.primary_text && adTemplate?.id && !adTemplate._isNew) {
+            let resolvedParsed = effectiveAdTemplate?._parsed
+            if (!resolvedParsed?.primary_text && effectiveAdTemplate?.id && !effectiveAdTemplate._isNew) {
               try {
                 // Step 1: get creative ID via ad
-                const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
+                const adInfo = await metaFetch(`/${effectiveAdTemplate.id}`, token, {
                   fields: 'creative{id,object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
                 })
                 let cr = adInfo?.creative as Record<string, unknown> | undefined
