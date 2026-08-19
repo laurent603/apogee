@@ -14,12 +14,9 @@ export async function GET(req: NextRequest) {
   const token = session.accessToken as string
 
   try {
-    const creativeFields = 'id,name,body,title,image_url,thumbnail_url,leadgen_form_id,' +
-      'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-      'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-      'asset_feed_spec{bodies,titles,descriptions,call_to_action_types,link_urls}'
+    // Step 1: fetch creative with only safe fields (no asset_feed_spec sub-fields)
     const result = await metaFetch(`/${adId}`, token, {
-      fields: `id,name,creative{${creativeFields}}`,
+      fields: 'id,name,creative{id,name,body,title,leadgen_form_id,object_story_spec,effective_object_story_spec,asset_feed_spec}',
     })
     return NextResponse.json(result, {
       headers: { 'Content-Type': 'application/json' },
