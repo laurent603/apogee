@@ -469,7 +469,14 @@ export async function POST(req: NextRequest) {
         send(`❌ ${err instanceof Error ? err.message : String(err)}`)
       } finally {
         // Save launch history (fire and forget)
-        const userId = (session.user as { id?: string })?.id
+        let userId = (session.user as { id?: string })?.id
+        // If userId is a Facebook numeric ID (not a cuid), resolve the real DB User.id
+        if (userId && /^\d+$/.test(userId)) {
+          try {
+            const u = await prisma.user.findUnique({ where: { facebookId: userId } })
+            if (u) userId = u.id
+          } catch { /* keep existing */ }
+        }
         if (userId) {
           prisma.launchHistory.create({
             data: {

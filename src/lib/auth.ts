@@ -46,13 +46,6 @@ export const authOptions: NextAuthOptions = {
           }
         }
       }
-      // If dbUserId fell back to Facebook sub (not a cuid), try to recover the real DB id
-      if (token.sub && token.dbUserId === token.sub) {
-        try {
-          const user = await prisma.user.findUnique({ where: { facebookId: token.sub } })
-          if (user) token.dbUserId = user.id
-        } catch { /* keep existing */ }
-      }
       return token
     },
     async session({ session, token }) {
