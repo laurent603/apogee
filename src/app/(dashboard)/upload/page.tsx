@@ -909,9 +909,15 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
                 </select>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    Aucun formulaire trouvé pour cette page. Saisissez l'ID manuellement ou vérifiez que la page est correcte.
-                  </p>
+                  {leadGenFormId ? (
+                    <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      ✓ Formulaire importé depuis l&apos;annonce source. Vous pouvez modifier l&apos;ID si besoin.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      Aucun formulaire trouvé pour cette page. Saisissez l&apos;ID manuellement ou vérifiez que la page est correcte.
+                    </p>
+                  )}
                   <input className="input font-mono text-sm" placeholder="ex: 1234567890123456" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value.trim())} />
                 </div>
               )}
