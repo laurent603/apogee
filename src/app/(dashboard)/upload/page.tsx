@@ -1284,11 +1284,8 @@ export default function UploadPage() {
         } catch { /* fall through — will use server route */ }
       }
 
-      // Upload in parallel batches of 4 for ~4x speed improvement
-      const UPLOAD_CONCURRENCY = 4
-      for (let i = 0; i < uploadableFiles.length; i += UPLOAD_CONCURRENCY) {
-        const batch = uploadableFiles.slice(i, i + UPLOAD_CONCURRENCY)
-        await Promise.all(batch.map(async (uf) => {
+      // Upload all files in parallel — bandwidth is not the bottleneck on fast connections
+      await Promise.all(uploadableFiles.map(async (uf) => {
           try {
             if (uf.type === 'video' && metaToken) {
               // Upload directly from browser to Meta — avoids Vercel's 4.5MB serverless limit
@@ -1328,7 +1325,6 @@ export default function UploadPage() {
             addLog(`⚠ ${uf.file.name} : erreur réseau`)
           }
         }))
-      }
     }
 
     // Phase 2: build enriched treeNodes with hashes + videoIds
