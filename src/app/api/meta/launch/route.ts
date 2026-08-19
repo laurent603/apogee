@@ -258,28 +258,36 @@ export async function POST(req: NextRequest) {
               continue
             }
 
-            // If _parsed is empty (fallback minimal fetch was used), re-fetch creative from Meta
+            // Re-fetch creative copy from Meta if primary_text is missing
+            // (happens with minimal-fields fallback OR Advantage+ creative with asset_feed_spec)
             let resolvedParsed = adTemplate?._parsed
-            if ((!resolvedParsed?.primary_text && !resolvedParsed?.lead_gen_form_id) && adTemplate?.id && !adTemplate._isNew) {
+            if (!resolvedParsed?.primary_text && adTemplate?.id && !adTemplate._isNew) {
               try {
                 const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
                   fields: 'creative{id,leadgen_form_id,' +
                     'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-                    'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+                    'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
+                    'asset_feed_spec{bodies,titles,descriptions,call_to_action_types,link_urls}}',
                 })
                 const cr = adInfo?.creative as Record<string, unknown> | undefined
-                // prefer effective_object_story_spec (resolves Advantage+ creative)
                 const oss2 = (cr?.effective_object_story_spec || cr?.object_story_spec) as Record<string, unknown> | undefined
                 const ld = oss2?.link_data as Record<string, unknown> | undefined
                 const vd = oss2?.video_data as Record<string, unknown> | undefined
                 const ctaRaw = (ld?.call_to_action || vd?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
+                // Advantage+ creative: copy lives in asset_feed_spec
+                const afs = cr?.asset_feed_spec as Record<string, unknown> | undefined
+                const afsBodies = (afs?.bodies as Array<{ text: string }> | undefined) || []
+                const afsTitles = (afs?.titles as Array<{ text: string }> | undefined) || []
+                const afsDescs = (afs?.descriptions as Array<{ text: string }> | undefined) || []
+                const afsCtas = (afs?.call_to_action_types as string[] | undefined) || []
+                const afsLinks = (afs?.link_urls as Array<{ website_url: string }> | undefined) || []
                 if (!pageId) pageId = (oss2?.page_id as string | undefined) || ''
                 resolvedParsed = {
-                  primary_text: (ld?.message || vd?.message || resolvedParsed?.primary_text || '') as string,
-                  headline: (ld?.name || vd?.title || resolvedParsed?.headline || '') as string,
-                  description: (ld?.description || vd?.link_description || resolvedParsed?.description || '') as string,
-                  cta_type: (ctaRaw?.type || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
-                  destination_url: (ld?.link || vd?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
+                  primary_text: (ld?.message || vd?.message || afsBodies[0]?.text || resolvedParsed?.primary_text || '') as string,
+                  headline: (ld?.name || vd?.title || afsTitles[0]?.text || resolvedParsed?.headline || '') as string,
+                  description: (ld?.description || vd?.link_description || afsDescs[0]?.text || resolvedParsed?.description || '') as string,
+                  cta_type: (ctaRaw?.type || afsCtas[0] || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
+                  destination_url: (ld?.link || vd?.link || ctaRaw?.value?.link || afsLinks[0]?.website_url || resolvedParsed?.destination_url || '') as string,
                   lead_gen_form_id: ((cr?.leadgen_form_id as string | undefined) || ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
                 }
                 console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))
