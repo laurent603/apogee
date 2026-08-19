@@ -269,24 +269,20 @@ export async function POST(req: NextRequest) {
               try {
                 const adInfo = await metaFetch(`/${adTemplate.id}`, token, {
                   fields: 'creative{id,' +
-                    'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-                    'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+                    'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
                 })
                 const cr = adInfo?.creative as Record<string, unknown> | undefined
                 const oss2 = cr?.object_story_spec as Record<string, unknown> | undefined
-                const eoss2 = cr?.effective_object_story_spec as Record<string, unknown> | undefined
-                const ossLd2 = oss2?.link_data as Record<string, unknown> | undefined
-                const ossVd2 = oss2?.video_data as Record<string, unknown> | undefined
-                const eossLd2 = eoss2?.link_data as Record<string, unknown> | undefined
-                const eossVd2 = eoss2?.video_data as Record<string, unknown> | undefined
-                const ctaRaw = (ossLd2?.call_to_action || eossLd2?.call_to_action || ossVd2?.call_to_action || eossVd2?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
-                if (!pageId) pageId = ((oss2?.page_id || eoss2?.page_id) as string | undefined) || ''
+                const ld2 = oss2?.link_data as Record<string, unknown> | undefined
+                const vd2 = oss2?.video_data as Record<string, unknown> | undefined
+                const ctaRaw = (ld2?.call_to_action || vd2?.call_to_action) as { type?: string; value?: Record<string, string> } | undefined
+                if (!pageId) pageId = (oss2?.page_id as string | undefined) || ''
                 resolvedParsed = {
-                  primary_text: (eossLd2?.message || eossVd2?.message || ossLd2?.message || ossVd2?.message || resolvedParsed?.primary_text || '') as string,
-                  headline: (eossLd2?.name || eossVd2?.title || ossLd2?.name || ossVd2?.title || resolvedParsed?.headline || '') as string,
-                  description: (eossLd2?.description || eossVd2?.link_description || ossLd2?.description || ossVd2?.link_description || resolvedParsed?.description || '') as string,
+                  primary_text: (ld2?.message || vd2?.message || resolvedParsed?.primary_text || '') as string,
+                  headline: (ld2?.name || vd2?.title || resolvedParsed?.headline || '') as string,
+                  description: (ld2?.description || vd2?.link_description || resolvedParsed?.description || '') as string,
                   cta_type: (ctaRaw?.type || resolvedParsed?.cta_type || 'LEARN_MORE') as string,
-                  destination_url: (ossLd2?.link || ossVd2?.link || eossLd2?.link || eossVd2?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
+                  destination_url: (ld2?.link || vd2?.link || ctaRaw?.value?.link || resolvedParsed?.destination_url || '') as string,
                   lead_gen_form_id: (ctaRaw?.value?.lead_gen_form_id || resolvedParsed?.lead_gen_form_id || '') as string,
                 }
                 console.log('[launch] re-fetched parsed:', JSON.stringify(resolvedParsed))

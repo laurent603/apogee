@@ -52,27 +52,20 @@ export async function GET(req: NextRequest) {
         return (data.data as Record<string, unknown>[] || []).map((ad: Record<string, unknown>) => {
           const creative = ad.creative as Record<string, unknown> | undefined
           const oss = creative?.object_story_spec as Record<string, unknown> | undefined
-          const eoss = creative?.effective_object_story_spec as Record<string, unknown> | undefined
-          // For text fields, try BOTH specs — for Advantage+ creative, oss.link_data.message is
-          // empty while eoss.link_data.message has the real running text. Always prefer eoss for copy.
-          const ossLd = oss?.link_data as Record<string, unknown> | undefined
-          const ossVd = oss?.video_data as Record<string, unknown> | undefined
-          const eossLd = eoss?.link_data as Record<string, unknown> | undefined
-          const eossVd = eoss?.video_data as Record<string, unknown> | undefined
-          // For URL/CTA use oss if available, eoss as fallback
-          const ctaLink = (ossLd?.call_to_action || eossLd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
-          const ctaVideo = (ossVd?.call_to_action || eossVd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
+          const ld = oss?.link_data as Record<string, unknown> | undefined
+          const vd = oss?.video_data as Record<string, unknown> | undefined
+          const ctaLink = ld?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
+          const ctaVideo = vd?.call_to_action as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const cta = ctaLink || ctaVideo
           return {
             ...ad,
-            _pageId: ((oss?.page_id || eoss?.page_id) as string | undefined) || '',
+            _pageId: (oss?.page_id as string | undefined) || '',
             _parsed: {
-              // Prefer eoss for copy (has real running text on Advantage+ creative)
-              primary_text: (eossLd?.message || eossVd?.message || ossLd?.message || ossVd?.message || creative?.body || '') as string,
-              headline: (eossLd?.name || eossVd?.title || ossLd?.name || ossVd?.title || creative?.title || '') as string,
-              description: (eossLd?.description || eossVd?.link_description || ossLd?.description || ossVd?.link_description || '') as string,
+              primary_text: (ld?.message || vd?.message || creative?.body || '') as string,
+              headline: (ld?.name || vd?.title || creative?.title || '') as string,
+              description: (ld?.description || vd?.link_description || '') as string,
               cta_type: (cta?.type || 'LEARN_MORE') as string,
-              destination_url: (ossLd?.link || ossVd?.link || eossLd?.link || eossVd?.link || cta?.value?.link || '') as string,
+              destination_url: (ld?.link || vd?.link || cta?.value?.link || '') as string,
               lead_gen_form_id: (cta?.value?.lead_gen_form_id || '') as string,
               thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
             },
@@ -87,10 +80,6 @@ export async function GET(req: NextRequest) {
             'id', 'name', 'adset_id', 'campaign_id', 'status',
             'creative{id,name,title,body,image_url,thumbnail_url,video_id,' +
               'object_story_spec{page_id,' +
-                'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
-                'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
-              '},' +
-              'effective_object_story_spec{page_id,' +
                 'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
                 'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
               '}}',

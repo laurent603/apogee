@@ -27,28 +27,29 @@ export async function GET(req: NextRequest) {
     if (!adId) return NextResponse.json({ error: 'Pass ?adId=XXX or ?adsetId=XXX' }, { status: 400 })
 
     // Fetch via ad ID with the exact same fields as configure/route.ts uses
+    // Only use object_story_spec — effective_object_story_spec fails on /{adId} endpoint
     const adResult = await metaFetch(`/${adId}`, token, {
       fields: 'id,name,creative{id,name,title,body,' +
-        'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}},' +
-        'effective_object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
+        'object_story_spec{page_id,link_data{message,name,description,link,call_to_action{type,value}},video_data{message,title,link_description,link,call_to_action{type,value}}}}',
     })
 
     const cr = adResult.creative as Record<string, unknown> | undefined
     const oss = cr?.object_story_spec as Record<string, unknown> | undefined
-    const eoss = cr?.effective_object_story_spec as Record<string, unknown> | undefined
-    const afs = cr?.asset_feed_spec as Record<string, unknown> | undefined
+    const ossLd = oss?.link_data as Record<string, unknown> | undefined
+    const ossVd = oss?.video_data as Record<string, unknown> | undefined
 
     return NextResponse.json({
       ad_id: adId,
       _extracted: {
         'creative.body': cr?.body,
         'creative.title': cr?.title,
-        'oss.link_data.message': (oss?.link_data as Record<string,unknown>)?.message,
-        'eoss.link_data.message': (eoss?.link_data as Record<string,unknown>)?.message,
-        'oss.video_data.message': (oss?.video_data as Record<string,unknown>)?.message,
-        'eoss.video_data.message': (eoss?.video_data as Record<string,unknown>)?.message,
-        'afs.bodies[0].text': (afs?.bodies as Array<{text:string}>)?.[0]?.text,
-        'afs.titles[0].text': (afs?.titles as Array<{text:string}>)?.[0]?.text,
+        'oss.page_id': oss?.page_id,
+        'oss.link_data.message': ossLd?.message,
+        'oss.link_data.name': ossLd?.name,
+        'oss.video_data.message': ossVd?.message,
+        'oss.video_data.title': ossVd?.title,
+        'oss.link_data.call_to_action': ossLd?.call_to_action,
+        'oss.video_data.call_to_action': ossVd?.call_to_action,
       },
       _raw_creative: cr,
     })
