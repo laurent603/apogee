@@ -161,6 +161,9 @@ export async function POST(req: NextRequest) {
           if (campaign.budget_rebalance_flag) {
             campaignBody.budget_rebalance_flag = true
             campaignBody.daily_budget = String(campaignBudgetCents)
+          } else {
+            // Required for OUTCOME_* campaigns without CBO
+            campaignBody.is_adset_budget_sharing_enabled = false
           }
           console.log('[launch] campaign body:', JSON.stringify(campaignBody))
           const data = await metaPost(`/${accountId}/campaigns`, token, campaignBody)
