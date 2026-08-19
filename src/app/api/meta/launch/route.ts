@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
           const campaignBody: Record<string, unknown> = {
             name: campaign.name,
             objective: campaign.objective || 'OUTCOME_SALES',
-            status: campaign.status || 'PAUSED',
+            status: campaign.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
             special_ad_categories: [],
           }
           if (campaign.budget_rebalance_flag) {
