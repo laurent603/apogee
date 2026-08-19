@@ -164,6 +164,8 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
 
   const [sfmCampaigns, setSfmCampaigns] = useState<MetaCampaign[]>([])
   const [sfmLoading, setSfmLoading] = useState(false)
+  const [sfmSelected, setSfmSelected] = useState<MetaCampaign | null>(null)
+  const [sfmName, setSfmName] = useState('')
 
   useEffect(() => {
     if (activeTab !== 1 || !accountId || sfmCampaigns.length > 0) return
@@ -175,6 +177,14 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
       .finally(() => setSfmLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, accountId])
+
+  function handleSfmConfirm() {
+    if (!sfmSelected) return
+    if (!sfmName.trim()) { toast.error('Nom de campagne requis'); return }
+    onSave({ ...sfmSelected, id: `new_${Date.now()}`, name: sfmName.trim(), _isNew: true })
+    toast.success(`Nouvelle campagne "${sfmName.trim()}" créée depuis Meta`)
+    onClose()
+  }
 
   function handleSave() {
     if (!name.trim()) { toast.error('Nom de campagne requis'); return }
@@ -207,22 +217,29 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
             <p className="text-sm text-gray-400 py-4 text-center">Aucune campagne trouvée</p>
           )}
           {!sfmLoading && sfmCampaigns.length > 0 && (
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {sfmCampaigns.map(c => (
-                <div key={c.id} className="flex items-center gap-3 p-3 border border-[#E5E7EB] rounded-xl hover:border-[#3434ef] hover:bg-[#f0f0ff] transition-all cursor-pointer group" onClick={() => { onSave(c); toast.success(`Campagne "${c.name}" sélectionnée`) }}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[#0d0d12] truncate">{c.name}</p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium border', c.status === 'ACTIVE' ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-600 bg-gray-50 border-gray-200')}>{c.status}</span>
-                      <span className="badge-blue text-xs">{c.objective === 'OUTCOME_LEADS' ? 'Leads' : 'Sales'}</span>
-                      {c.budget_rebalance_flag && <span className="badge-blue text-xs">CBO</span>}
+            <div className="space-y-3">
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {sfmCampaigns.map(c => (
+                  <div key={c.id} className={clsx('flex items-center gap-3 p-3 border rounded-xl transition-all cursor-pointer group', sfmSelected?.id === c.id ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-[#3434ef] hover:bg-[#f0f0ff]')} onClick={() => { setSfmSelected(c); setSfmName(c.name) }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-[#0d0d12] truncate">{c.name}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium border', c.status === 'ACTIVE' ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-600 bg-gray-50 border-gray-200')}>{c.status}</span>
+                        <span className="badge-blue text-xs">{c.objective === 'OUTCOME_LEADS' ? 'Leads' : 'Sales'}</span>
+                        {c.budget_rebalance_flag && <span className="badge-blue text-xs">CBO</span>}
+                      </div>
                     </div>
+                    {sfmSelected?.id === c.id && <div className="w-5 h-5 bg-[#3434ef] rounded-full flex items-center justify-center flex-shrink-0"><svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg></div>}
                   </div>
-                  <button className="flex-shrink-0 text-xs px-2.5 py-1 rounded-lg border border-[#3434ef] text-[#3434ef] opacity-0 group-hover:opacity-100 transition-opacity">
-                    Sélectionner
-                  </button>
+                ))}
+              </div>
+              {sfmSelected && (
+                <div>
+                  <label className="label">Nom de la nouvelle campagne <span className="text-red-500">*</span></label>
+                  <input className="input" value={sfmName} onChange={e => setSfmName(e.target.value)} placeholder="Nom de la campagne" autoFocus />
+                  <p className="text-xs text-gray-400 mt-1">Une nouvelle campagne sera créée avec les paramètres de la campagne sélectionnée.</p>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -305,6 +322,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
       <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[#E5E7EB]">
         <button onClick={onClose} className="btn-secondary">Annuler</button>
         {activeTab === 0 && <button onClick={handleSave} className="btn-primary px-6">Créer la campagne</button>}
+        {activeTab === 1 && sfmSelected && <button onClick={handleSfmConfirm} className="btn-primary px-6">Créer la campagne</button>}
       </div>
     </Modal>
   )

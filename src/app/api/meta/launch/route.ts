@@ -171,6 +171,9 @@ export async function POST(req: NextRequest) {
           (!campaign?._isNew && !!campaign?.daily_budget)
         const budgetCents = Math.round(Number(budget || 50) * 100)
 
+        // Lead gen objective check (used both for adset destination_type and ad creation)
+        const isLeadGenObjective = campaign?.objective === 'OUTCOME_LEADS' || campaign?.objective === 'LEAD_GENERATION'
+
         /* ── 3. For each tree node: adset + ads ────────────────────────────── */
 
         // In "insert-in-adset" mode with an existing adset template, reuse the
@@ -206,6 +209,11 @@ export async function POST(req: NextRequest) {
               optimization_goal: optimizationGoal,
               billing_event: billingEvent,
               targeting: cleanTargeting(adsetTemplate?.targeting),
+            }
+
+            // OUTCOME_LEADS / LEAD_GENERATION adsets must declare ON_AD destination
+            if (isLeadGenObjective) {
+              adsetBody.destination_type = 'ON_AD'
             }
 
             if (!isCBO) {
@@ -333,8 +341,6 @@ export async function POST(req: NextRequest) {
             const description = resolvedParsed?.description || ''
             const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
             let destinationUrl = resolvedParsed?.destination_url || ''
-            // Lead gen objectives: OUTCOME_LEADS (new) or LEAD_GENERATION (legacy campaigns)
-            const isLeadGenObjective = campaign?.objective === 'OUTCOME_LEADS' || campaign?.objective === 'LEAD_GENERATION'
             // Only use lead_gen_form_id for lead gen campaigns — ignore for Sales/Traffic
             let leadGenFormId = isLeadGenObjective ? (resolvedParsed?.lead_gen_form_id || '') : ''
 
