@@ -134,10 +134,13 @@ export async function POST(req: NextRequest) {
 
       try {
         /* ── 1. Campaign ───────────────────────────────────────────────────── */
+        const budgetCents = Math.round(Number(budget || 50) * 100)
+        // CBO: explicit flag OR campaign-level budget on imported campaign
+        const isCBO = !!(campaign?.budget_rebalance_flag) || !!campaign?.daily_budget
+
         let campaignId: string
         if (campaign?._isNew) {
           send(`Création de la campagne "${campaign.name}"...`)
-          const campaignBudgetCents = Math.round(Number(budget || 50) * 100)
           // Map legacy objectives to OUTCOME_* format (required for API v21+)
           const OBJECTIVE_MAP: Record<string, string> = {
             LEAD_GENERATION: 'OUTCOME_LEADS',
@@ -158,11 +161,11 @@ export async function POST(req: NextRequest) {
             status: campaign.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
             special_ad_categories: [],
           }
-          if (campaign.budget_rebalance_flag) {
-            campaignBody.budget_rebalance_flag = true
-            campaignBody.daily_budget = String(campaignBudgetCents)
+          if (isCBO) {
+            // CBO: budget at campaign level (budget_rebalance_flag deprecated in v7+)
+            campaignBody.daily_budget = String(budgetCents)
           } else {
-            // Required for OUTCOME_* campaigns without CBO
+            // ABO: budget at adset level
             campaignBody.is_adset_budget_sharing_enabled = false
           }
           console.log('[launch] campaign body:', JSON.stringify(campaignBody))
@@ -183,11 +186,6 @@ export async function POST(req: NextRequest) {
         if (launchStatus === 'LIVE_NOW') adsetStatus = 'ACTIVE'
         if (launchStatus === 'SCHEDULED_LIVE') { adsetStatus = 'ACTIVE'; startTime = launchDate && launchTime ? `${launchDate}T${launchTime}:00` : undefined }
         if (launchStatus === 'SCHEDULED_PAUSED') { adsetStatus = 'PAUSED'; startTime = launchDate && launchTime ? `${launchDate}T${launchTime}:00` : undefined }
-
-        // CBO: explicit flag OR existing campaign with a campaign-level budget (Meta doesn't always return budget_rebalance_flag)
-        const isCBO = !!(campaign?.budget_rebalance_flag) ||
-          (!campaign?._isNew && !!campaign?.daily_budget)
-        const budgetCents = Math.round(Number(budget || 50) * 100)
 
         // Lead gen objective check (used both for adset destination_type and ad creation)
         const isLeadGenObjective = campaign?.objective === 'OUTCOME_LEADS' || campaign?.objective === 'LEAD_GENERATION'
