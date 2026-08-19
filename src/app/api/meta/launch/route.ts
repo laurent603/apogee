@@ -223,8 +223,13 @@ export async function POST(req: NextRequest) {
                 pixel_id: adsetTemplate.promoted_object.pixel_id,
                 custom_event_type: adsetTemplate.promoted_object.custom_event_type || 'PURCHASE',
               }
-            } else if (NEEDS_PAGE.has(optimizationGoal) && (node._adTemplateOverride?._pageId || adTemplate?._pageId)) {
-              adsetBody.promoted_object = { page_id: node._adTemplateOverride?._pageId || adTemplate!._pageId }
+            } else if (NEEDS_PAGE.has(optimizationGoal)) {
+              // page_id cascade: per-adset override → global ad template → adset template promoted_object
+              const adsetPageId = node._adTemplateOverride?._pageId
+                || adTemplate?._pageId
+                || (adsetTemplate?.promoted_object as { page_id?: string } | undefined)?.page_id
+                || ''
+              if (adsetPageId) adsetBody.promoted_object = { page_id: adsetPageId }
             }
 
             if (startTime) adsetBody.start_time = startTime
@@ -390,6 +395,8 @@ export async function POST(req: NextRequest) {
             const creativeBody: Record<string, unknown> = {
               name: ag.adName,
               object_story_spec: storySpec,
+              // Lead gen form creatives must declare ON_AD destination at both creative and ad level
+              ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
             }
 
             console.log('[launch] creative body:', JSON.stringify(creativeBody))
