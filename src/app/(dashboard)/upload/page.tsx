@@ -1673,7 +1673,7 @@ export default function UploadPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-600 w-24 flex-shrink-0">Ad params :</span>
-                  <button onClick={() => { setAdModal(true); fetchAds(selectedCampaign?.id, (!adsetTemplate?._isNew && adsetTemplate?.id) ? adsetTemplate.id : undefined) }} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
+                  <button onClick={() => { setAdModal(true); const cid = selectedCampaign?.id; const aid = (!adsetTemplate?._isNew && adsetTemplate?.id) ? adsetTemplate.id : undefined; fetchAds(cid?.startsWith('new_') ? undefined : cid, aid) }} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
                     Select from Meta
                   </button>
