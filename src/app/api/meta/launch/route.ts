@@ -227,10 +227,9 @@ export async function POST(req: NextRequest) {
               targeting: cleanTargeting(adsetTemplate?.targeting),
             }
 
-            // OUTCOME_LEADS / LEAD_GENERATION adsets: ON_AD destination + explicit bid strategy
+            // OUTCOME_LEADS / LEAD_GENERATION adsets must declare ON_AD destination
             if (isLeadGenObjective) {
               adsetBody.destination_type = 'ON_AD'
-              adsetBody.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'
             }
 
             if (!isCBO) {
