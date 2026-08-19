@@ -63,24 +63,17 @@ export async function GET(req: NextRequest) {
           const ctaLink = (ossLd?.call_to_action || eossLd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const ctaVideo = (ossVd?.call_to_action || eossVd?.call_to_action) as { type?: string; value?: { link?: string; lead_gen_form_id?: string } } | undefined
           const cta = ctaLink || ctaVideo
-          // Advantage+ creative can also store copy in asset_feed_spec
-          const afs = creative?.asset_feed_spec as Record<string, unknown> | undefined
-          const afsBodies = (afs?.bodies as Array<{ text: string }> | undefined) || []
-          const afsTitles = (afs?.titles as Array<{ text: string }> | undefined) || []
-          const afsDescs = (afs?.descriptions as Array<{ text: string }> | undefined) || []
-          const afsCtas = (afs?.call_to_action_types as string[] | undefined) || []
-          const afsLinks = (afs?.link_urls as Array<{ website_url: string }> | undefined) || []
           return {
             ...ad,
             _pageId: ((oss?.page_id || eoss?.page_id) as string | undefined) || '',
             _parsed: {
               // Prefer eoss for copy (has real running text on Advantage+ creative)
-              primary_text: (eossLd?.message || eossVd?.message || ossLd?.message || ossVd?.message || afsBodies[0]?.text || creative?.body || '') as string,
-              headline: (eossLd?.name || eossVd?.title || ossLd?.name || ossVd?.title || afsTitles[0]?.text || creative?.title || '') as string,
-              description: (eossLd?.description || eossVd?.link_description || ossLd?.description || ossVd?.link_description || afsDescs[0]?.text || '') as string,
-              cta_type: (cta?.type || afsCtas[0] || 'LEARN_MORE') as string,
-              destination_url: (ossLd?.link || ossVd?.link || eossLd?.link || eossVd?.link || cta?.value?.link || afsLinks[0]?.website_url || '') as string,
-              lead_gen_form_id: (creative?.leadgen_form_id || cta?.value?.lead_gen_form_id || '') as string,
+              primary_text: (eossLd?.message || eossVd?.message || ossLd?.message || ossVd?.message || creative?.body || '') as string,
+              headline: (eossLd?.name || eossVd?.title || ossLd?.name || ossVd?.title || creative?.title || '') as string,
+              description: (eossLd?.description || eossVd?.link_description || ossLd?.description || ossVd?.link_description || '') as string,
+              cta_type: (cta?.type || 'LEARN_MORE') as string,
+              destination_url: (ossLd?.link || ossVd?.link || eossLd?.link || eossVd?.link || cta?.value?.link || '') as string,
+              lead_gen_form_id: (cta?.value?.lead_gen_form_id || '') as string,
               thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
             },
           }
@@ -92,7 +85,7 @@ export async function GET(req: NextRequest) {
         const data = await metaFetch(path, token, {
           fields: [
             'id', 'name', 'adset_id', 'campaign_id', 'status',
-            'creative{id,name,title,body,image_url,thumbnail_url,video_id,leadgen_form_id,' +
+            'creative{id,name,title,body,image_url,thumbnail_url,video_id,' +
               'object_story_spec{page_id,' +
                 'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
                 'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
@@ -100,8 +93,7 @@ export async function GET(req: NextRequest) {
               'effective_object_story_spec{page_id,' +
                 'link_data{message,name,description,link,image_hash,call_to_action{type,value}},' +
                 'video_data{message,title,link_description,link,video_id,call_to_action{type,value}}' +
-              '},' +
-              'asset_feed_spec{bodies,titles,descriptions,call_to_action_types,link_urls}}',
+              '}}',
           ].join(','),
           limit: '200',
         })
