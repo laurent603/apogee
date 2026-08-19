@@ -168,6 +168,9 @@ export async function POST(req: NextRequest) {
             // ABO: budget at adset level
             campaignBody.is_adset_budget_sharing_enabled = false
           }
+          // Explicitly declare bid strategy — Meta may default to LOWEST_COST_WITH_BID_CAP
+          // for some OUTCOME_* campaign types, causing adset creation to fail (subcode 1815857)
+          campaignBody.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'
           console.log('[launch] campaign body:', JSON.stringify(campaignBody))
           const data = await metaPost(`/${accountId}/campaigns`, token, campaignBody)
           if (data.error) throw new Error(`Campagne : ${metaError(data)}`)
