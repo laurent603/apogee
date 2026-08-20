@@ -62,7 +62,8 @@ export default function CommentAnalysisPage() {
 
     try {
       // Step 1: fetch comments
-      const res = await fetch(`/api/meta/comments?accountId=${selectedAccount.id}`)
+      const metaId = selectedAccount.metaAccountId || selectedAccount.id
+      const res = await fetch(`/api/meta/comments?accountId=${metaId}`)
       if (!res.ok) throw new Error('Erreur lors de la récupération des commentaires')
       const data = await res.json()
       setPosts(data.posts)
