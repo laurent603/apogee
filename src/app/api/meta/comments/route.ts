@@ -66,31 +66,27 @@ export async function GET(req: NextRequest) {
 
     const toFetch = uniqueAds.slice(0, 50)
 
-    const spamPatterns = /^(https?:\/\/|www\.)|^\s*[\p{Emoji}\s]+\s*$/u
-
     // Step 3 : récupérer les commentaires en utilisant le page token si disponible
     const results = await Promise.allSettled(
       toFetch.map(async (ad) => {
         // Utiliser le page token si dispo, sinon user token
         const pageToken = (ad.pageId && pageTokens[ad.pageId]) ? pageTokens[ad.pageId] : token
         try {
-          const data = await metaFetch(`/${ad.postId}`, pageToken, {
-            fields: 'comments.limit(100).filter(toplevel){message,created_time,like_count,from{name}}',
+          const data = await metaFetch(`/${ad.postId}/comments`, pageToken, {
+            fields: 'message,created_time,like_count,from{name}',
+            limit: '100',
+            filter: 'toplevel',
           })
-          const comments = (data.comments?.data || [])
+          const comments = (data.data || [])
             .filter((c: Record<string, unknown>) => {
               const msg = ((c.message as string) || '').trim()
-              const from = c.from as Record<string, string> | undefined
-              if (!from?.name) return false
-              if (msg.length < 4) return false
-              if (spamPatterns.test(msg)) return false
-              return true
+              return msg.length >= 2
             })
             .map((c: Record<string, unknown>) => ({
               message: (c.message as string).trim(),
               createdTime: c.created_time as string,
               likeCount: Number(c.like_count || 0),
-              author: (c.from as Record<string, string>).name,
+              author: (c.from as Record<string, string>)?.name || 'Anonyme',
             }))
           return { adId: ad.id, adName: ad.name, postId: ad.postId, thumbnail: ad.thumbnail, comments }
         } catch (e) {
