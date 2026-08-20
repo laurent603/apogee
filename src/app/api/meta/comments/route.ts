@@ -4,6 +4,20 @@ import { authOptions } from '@/lib/auth'
 import { metaFetch } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
+type CommentItem = { message: string; createdTime: string; likeCount: number; author: string }
+type PostItem = { adId: string; adName: string; postId: string; thumbnail?: string; comments: CommentItem[] }
+
+function parseComments(raw: Record<string, unknown>[]): CommentItem[] {
+  return raw
+    .filter((c) => ((c.message as string) || '').trim().length >= 2)
+    .map((c) => ({
+      message: (c.message as string).trim(),
+      createdTime: c.created_time as string,
+      likeCount: Number(c.like_count || 0),
+      author: (c.from as Record<string, string>)?.name || 'Anonyme',
+    }))
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -24,7 +38,7 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
 
-    // Step 1 : pages gérées + leurs tokens
+    // Pages + leurs tokens
     const pageTokens: Record<string, string> = {}
     try {
       const pagesData = await metaFetch('/me/accounts', token, { fields: 'id,access_token', limit: '50' })
@@ -33,81 +47,91 @@ export async function GET(req: NextRequest) {
       }
     } catch { /* ignore */ }
 
-    // Step 2 : pubs → page IDs uniques
+    // Pubs → postIds uniques + pageIds
     const adsData = await metaFetch(`/${metaAccountId}/ads`, token, {
       fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
       limit: '200',
     })
 
-    const pageIdToThumbnail: Record<string, string> = {}
-    const uniquePageIds = new Set<string>()
-
+    const adMap: Map<string, { adId: string; adName: string; pageId: string; thumbnail?: string }> = new Map()
     for (const ad of (adsData.data || []) as Record<string, unknown>[]) {
       const creative = ad.creative as Record<string, string> | undefined
       const postId = creative?.effective_object_story_id || creative?.object_story_id
-      if (!postId) continue
-      const pageId = postId.split('_')[0]
-      if (pageId) {
-        uniquePageIds.add(pageId)
-        if (creative?.thumbnail_url && !pageIdToThumbnail[pageId]) {
-          pageIdToThumbnail[pageId] = creative.thumbnail_url
-        }
-      }
+      if (!postId || adMap.has(postId)) continue
+      adMap.set(postId, {
+        adId: ad.id as string,
+        adName: ad.name as string,
+        pageId: postId.split('_')[0],
+        thumbnail: creative?.thumbnail_url,
+      })
     }
 
-    // Step 3 : pour chaque page, récupérer les ads_posts avec commentaires inline
-    const commentFields = 'comments.limit(100){message,created_time,like_count,from{name}}'
-    const adPostFields = `id,message,${commentFields}`
+    const toFetch = Array.from(adMap.entries()).slice(0, 50)
 
-    const pageResults = await Promise.allSettled(
-      Array.from(uniquePageIds).map(async (pageId) => {
-        const pt = pageTokens[pageId] || token
+    // Approche 1 : /{postId}/comments pour chaque pub
+    const postResults = await Promise.allSettled(
+      toFetch.map(async ([postId, meta]) => {
+        const pt = pageTokens[meta.pageId] || token
         try {
-          // ads_posts retourne tous les posts liés aux pubs (dark posts inclus)
-          const data = await metaFetch(`/${pageId}/ads_posts`, pt, {
-            fields: adPostFields,
-            include_hidden: 'true',
+          const data = await metaFetch(`/${postId}/comments`, pt, {
+            fields: 'message,created_time,like_count,from{name}',
             limit: '100',
           })
-          return { pageId, posts: data.data || [], error: null }
-        } catch (e) {
-          return { pageId, posts: [], error: e instanceof Error ? e.message : 'unknown' }
+          return { postId, ...meta, comments: parseComments(data.data || []) }
+        } catch {
+          return { postId, ...meta, comments: [] }
         }
       })
     )
 
-    // Agréger les commentaires par post
-    type CommentItem = { message: string; createdTime: string; likeCount: number; author: string }
-    type PostItem = { adId: string; adName: string; postId: string; thumbnail?: string; comments: CommentItem[] }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const posts: PostItem[] = (postResults as any[])
+      .filter((r) => r.status === 'fulfilled' && r.value.comments.length > 0)
+      .map((r) => ({
+        adId: r.value.adId,
+        adName: r.value.adName,
+        postId: r.value.postId,
+        thumbnail: r.value.thumbnail,
+        comments: r.value.comments,
+      }))
 
-    const posts: PostItem[] = []
-    const errors: string[] = []
+    // Approche 2 (fallback) : ads_posts pour les pages qui n'ont rien retourné
+    const pagesWithComments = new Set(posts.map((p) => p.postId.split('_')[0]))
+    const uniquePageIds = new Set(toFetch.map(([, m]) => m.pageId))
+    const pagesNeedingFallback = Array.from(uniquePageIds).filter((pid) => !pagesWithComments.has(pid))
 
-    for (const result of pageResults) {
-      if (result.status !== 'fulfilled') continue
-      const { pageId, posts: pagePosts, error } = result.value
-      if (error) { errors.push(`page ${pageId}: ${error}`); continue }
+    const seenPostIds = new Set(posts.map((p) => p.postId))
 
-      for (const post of pagePosts as Record<string, unknown>[]) {
-        const postId = post.id as string
-        const commentsData = (post.comments as { data?: Record<string, unknown>[] } | undefined)?.data || []
-        if (commentsData.length === 0) continue
+    if (pagesNeedingFallback.length > 0) {
+      const fallbackResults = await Promise.allSettled(
+        pagesNeedingFallback.map(async (pageId) => {
+          const pt = pageTokens[pageId] || token
+          try {
+            const data = await metaFetch(`/${pageId}/ads_posts`, pt, {
+              fields: 'id,message,comments.limit(100){message,created_time,like_count,from{name}}',
+              include_hidden: 'true',
+              limit: '100',
+            })
+            return { pageId, posts: data.data || [] }
+          } catch {
+            return { pageId, posts: [] }
+          }
+        })
+      )
 
-        const comments: CommentItem[] = commentsData
-          .filter((c) => ((c.message as string) || '').trim().length >= 2)
-          .map((c) => ({
-            message: (c.message as string).trim(),
-            createdTime: c.created_time as string,
-            likeCount: Number(c.like_count || 0),
-            author: (c.from as Record<string, string>)?.name || 'Anonyme',
-          }))
-
-        if (comments.length > 0) {
+      for (const result of fallbackResults) {
+        if (result.status !== 'fulfilled') continue
+        for (const post of result.value.posts as Record<string, unknown>[]) {
+          const postId = post.id as string
+          if (seenPostIds.has(postId)) continue
+          const commentsData = (post.comments as { data?: Record<string, unknown>[] } | undefined)?.data || []
+          const comments = parseComments(commentsData)
+          if (comments.length === 0) continue
+          seenPostIds.add(postId)
           posts.push({
             adId: postId,
-            adName: (post.message as string | undefined)?.slice(0, 60) || postId,
+            adName: ((post.message as string) || '').slice(0, 60) || postId,
             postId,
-            thumbnail: pageIdToThumbnail[pageId],
             comments,
           })
         }
@@ -116,12 +140,7 @@ export async function GET(req: NextRequest) {
 
     const totalComments = posts.reduce((s, p) => s + p.comments.length, 0)
 
-    return NextResponse.json({
-      posts,
-      totalComments,
-      adsScanned: uniquePageIds.size,
-      debug: { pagesFound: Object.keys(pageTokens).length, uniquePageIds: uniquePageIds.size, firstErrors: errors.slice(0, 3) },
-    })
+    return NextResponse.json({ posts, totalComments, adsScanned: toFetch.length })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inconnue'
     return NextResponse.json({ error: message }, { status: 500 })
