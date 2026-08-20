@@ -47,97 +47,76 @@ export async function GET(req: NextRequest) {
       }
     } catch { /* ignore */ }
 
-    // Pubs → postIds uniques + pageIds
+    // Pubs → pageIds uniques + thumbnail par page
     const adsData = await metaFetch(`/${metaAccountId}/ads`, token, {
       fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
       limit: '200',
     })
 
-    const adMap: Map<string, { adId: string; adName: string; pageId: string; thumbnail?: string }> = new Map()
+    const pageIdToThumbnail: Record<string, string> = {}
+    const uniquePageIds = new Set<string>()
+
     for (const ad of (adsData.data || []) as Record<string, unknown>[]) {
       const creative = ad.creative as Record<string, string> | undefined
       const postId = creative?.effective_object_story_id || creative?.object_story_id
-      if (!postId || adMap.has(postId)) continue
-      adMap.set(postId, {
-        adId: ad.id as string,
-        adName: ad.name as string,
-        pageId: postId.split('_')[0],
-        thumbnail: creative?.thumbnail_url,
-      })
+      if (!postId) continue
+      const pageId = postId.split('_')[0]
+      if (!pageId) continue
+      uniquePageIds.add(pageId)
+      if (creative?.thumbnail_url && !pageIdToThumbnail[pageId]) {
+        pageIdToThumbnail[pageId] = creative.thumbnail_url
+      }
     }
 
-    const toFetch = Array.from(adMap.entries()).slice(0, 50)
+    // Étape 1 : récupérer les postIds via ads_posts pour chaque page
+    const pagePostIds: { pageId: string; postId: string; message: string }[] = []
 
-    // Approche 1 : /{postId}/comments pour chaque pub
+    await Promise.allSettled(
+      Array.from(uniquePageIds).map(async (pageId) => {
+        const pt = pageTokens[pageId] || token
+        try {
+          const data = await metaFetch(`/${pageId}/ads_posts`, pt, {
+            fields: 'id,message',
+            include_hidden: 'true',
+            limit: '100',
+          })
+          for (const post of (data.data || []) as { id: string; message?: string }[]) {
+            pagePostIds.push({ pageId, postId: post.id, message: post.message || '' })
+          }
+        } catch { /* ignore */ }
+      })
+    )
+
+    // Étape 2 : pour chaque postId, récupérer les commentaires
     const postResults = await Promise.allSettled(
-      toFetch.map(async ([postId, meta]) => {
-        const pt = pageTokens[meta.pageId] || token
+      pagePostIds.slice(0, 150).map(async ({ pageId, postId, message }) => {
+        const pt = pageTokens[pageId] || token
         try {
           const data = await metaFetch(`/${postId}/comments`, pt, {
             fields: 'message,created_time,like_count,from{name}',
             limit: '100',
           })
-          return { postId, ...meta, comments: parseComments(data.data || []) }
+          const comments = parseComments(data.data || [])
+          return { postId, adName: message.slice(0, 80) || postId, thumbnail: pageIdToThumbnail[pageId], comments }
         } catch {
-          return { postId, ...meta, comments: [] }
+          return { postId, adName: message.slice(0, 80) || postId, thumbnail: pageIdToThumbnail[pageId], comments: [] }
         }
       })
     )
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const posts: PostItem[] = (postResults as any[])
+    const posts: PostItem[] = (postResults as PromiseFulfilledResult<{ postId: string; adName: string; thumbnail?: string; comments: CommentItem[] }>[])
       .filter((r) => r.status === 'fulfilled' && r.value.comments.length > 0)
       .map((r) => ({
-        adId: r.value.adId,
+        adId: r.value.postId,
         adName: r.value.adName,
         postId: r.value.postId,
         thumbnail: r.value.thumbnail,
         comments: r.value.comments,
       }))
 
-    // Approche 2 : ads_posts pour TOUTES les pages (dark posts non retournés par /comments)
-    const uniquePageIds = new Set(toFetch.map(([, m]) => m.pageId))
-    const seenPostIds = new Set(posts.map((p) => p.postId))
-
-    if (uniquePageIds.size > 0) {
-      const fallbackResults = await Promise.allSettled(
-        Array.from(uniquePageIds).map(async (pageId) => {
-          const pt = pageTokens[pageId] || token
-          try {
-            const data = await metaFetch(`/${pageId}/ads_posts`, pt, {
-              fields: 'id,message,comments.limit(100){message,created_time,like_count,from{name}}',
-              include_hidden: 'true',
-              limit: '100',
-            })
-            return { pageId, posts: data.data || [] }
-          } catch {
-            return { pageId, posts: [] }
-          }
-        })
-      )
-
-      for (const result of fallbackResults) {
-        if (result.status !== 'fulfilled') continue
-        for (const post of result.value.posts as Record<string, unknown>[]) {
-          const postId = post.id as string
-          if (seenPostIds.has(postId)) continue
-          const commentsData = (post.comments as { data?: Record<string, unknown>[] } | undefined)?.data || []
-          const comments = parseComments(commentsData)
-          if (comments.length === 0) continue
-          seenPostIds.add(postId)
-          posts.push({
-            adId: postId,
-            adName: ((post.message as string) || '').slice(0, 60) || postId,
-            postId,
-            comments,
-          })
-        }
-      }
-    }
-
     const totalComments = posts.reduce((s, p) => s + p.comments.length, 0)
 
-    return NextResponse.json({ posts, totalComments, adsScanned: toFetch.length })
+    return NextResponse.json({ posts, totalComments, adsScanned: pagePostIds.length })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inconnue'
     return NextResponse.json({ error: message }, { status: 500 })
