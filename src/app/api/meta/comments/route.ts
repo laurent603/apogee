@@ -24,6 +24,15 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
 
+    // Vérifier les permissions du token
+    let grantedPermissions: string[] = []
+    try {
+      const permsData = await metaFetch('/me/permissions', token, {})
+      grantedPermissions = ((permsData.data || []) as { permission: string; status: string }[])
+        .filter(p => p.status === 'granted')
+        .map(p => p.permission)
+    } catch { /* ignore */ }
+
     // Step 1 : récupérer les pages gérées par l'utilisateur + leurs tokens
     let pageTokens: Record<string, string> = {}
     try {
@@ -125,6 +134,8 @@ export async function GET(req: NextRequest) {
         pagesFound: Object.keys(pageTokens).length,
         adsWithPostId: uniqueAds.length,
         firstErrors: errors,
+        hasReadUserContent: grantedPermissions.includes('pages_read_user_content'),
+        grantedPermissions,
       },
     })
   } catch (e) {
