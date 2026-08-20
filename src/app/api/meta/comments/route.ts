@@ -84,20 +84,17 @@ export async function GET(req: NextRequest) {
           const data = await metaFetch(`/${ad.postId}/comments`, pageToken, {
             fields: 'message,created_time,like_count,from{name}',
             limit: '100',
-            filter: 'toplevel',
           })
-          const comments = (data.data || [])
-            .filter((c: Record<string, unknown>) => {
-              const msg = ((c.message as string) || '').trim()
-              return msg.length >= 2
-            })
+          const raw = data.data || []
+          const comments = raw
+            .filter((c: Record<string, unknown>) => ((c.message as string) || '').trim().length >= 2)
             .map((c: Record<string, unknown>) => ({
               message: (c.message as string).trim(),
               createdTime: c.created_time as string,
               likeCount: Number(c.like_count || 0),
               author: (c.from as Record<string, string>)?.name || 'Anonyme',
             }))
-          return { adId: ad.id, adName: ad.name, postId: ad.postId, thumbnail: ad.thumbnail, comments }
+          return { adId: ad.id, adName: ad.name, postId: ad.postId, thumbnail: ad.thumbnail, comments, rawCount: raw.length }
         } catch (e) {
           return {
             adId: ad.id,
@@ -136,6 +133,8 @@ export async function GET(req: NextRequest) {
         firstErrors: errors,
         hasReadUserContent: grantedPermissions.includes('pages_read_user_content'),
         grantedPermissions,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        totalRawComments: (allPosts as any[]).reduce((s: number, p: any) => s + (p.rawCount || 0), 0),
       },
     })
   } catch (e) {
