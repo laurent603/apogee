@@ -33,7 +33,7 @@ interface LaunchAdset {
     geo_locations?: { countries?: string[] }
     custom_audiences?: { id: string; name: string }[]
   }
-  promoted_object?: { pixel_id?: string; custom_event_type?: string }
+  promoted_object?: { pixel_id?: string; custom_event_type?: string; page_id?: string }
   _isNew?: boolean
 }
 interface LaunchAd {
@@ -224,7 +224,11 @@ export async function POST(req: NextRequest) {
             send(`Création de l'adset "${node.adsetName}"...`)
 
             const rawOptGoal = adsetTemplate?.optimization_goal || 'OFFSITE_CONVERSIONS'
-            const optimizationGoal = OPT_GOAL_MAP[rawOptGoal] ?? rawOptGoal
+            let optimizationGoal = OPT_GOAL_MAP[rawOptGoal] ?? rawOptGoal
+            // For OUTCOME_LEADS campaigns, force LEAD_GENERATION (QUALITY_LEAD requires special account enablement)
+            if (isLeadGenObjective) {
+              optimizationGoal = 'LEAD_GENERATION'
+            }
 
             const adsetRaw = adsetTemplate as (LaunchAdset & Record<string, unknown>) | null
             const billingEvent = (!adsetTemplate?._isNew && adsetRaw?.billing_event)
@@ -260,11 +264,11 @@ export async function POST(req: NextRequest) {
                 pixel_id: adsetTemplate.promoted_object.pixel_id,
                 custom_event_type: adsetTemplate.promoted_object.custom_event_type || 'PURCHASE',
               }
-            } else if (NEEDS_PAGE.has(optimizationGoal)) {
+            } else if (NEEDS_PAGE.has(optimizationGoal) || isLeadGenObjective) {
               // page_id cascade: per-adset override → global ad template → adset template promoted_object
               const adsetPageId = node._adTemplateOverride?._pageId
                 || adTemplate?._pageId
-                || (adsetTemplate?.promoted_object as { page_id?: string } | undefined)?.page_id
+                || adsetTemplate?.promoted_object?.page_id
                 || ''
               if (adsetPageId) adsetBody.promoted_object = { page_id: adsetPageId }
             }
@@ -399,35 +403,48 @@ export async function POST(req: NextRequest) {
               ? { lead_gen_form_id: leadGenFormId }
               : { link: destinationUrl || 'https://example.com' }
 
-            send(`Création du créatif "${ag.adName}"...`)
+            // Separate assets by format (vertical 9:16 = story, everything else = feed)
+            const isVertical = (r: string | null) => r === '9:16'
+            const videoAssets = ag.assets.filter(a => a.videoId)
+            const imageAssets = ag.assets.filter(a => a.hash)
+            const feedVideo = videoAssets.find(a => !isVertical(a.ratio))
+            const storyVideo = videoAssets.find(a => isVertical(a.ratio))
+            const feedImage = imageAssets.find(a => !isVertical(a.ratio))
+            const storyImage = imageAssets.find(a => isVertical(a.ratio))
 
-            let storySpec: Record<string, unknown>
-            if (videoAsset?.videoId) {
-              // Meta requires a thumbnail (image_hash or image_url) in video_data
-              // Fetch the auto-generated thumbnail from the uploaded video
-              let videoThumbnailUrl: string | undefined
-              try {
-                const videoInfo = await metaFetch(`/${videoAsset.videoId}`, token, { fields: 'picture' })
-                videoThumbnailUrl = videoInfo.picture as string | undefined
-              } catch { /* proceed without thumbnail — creative may still work */ }
+            // Poll until Meta video is ready and return thumbnail URL
+            async function waitForVideo(videoId: string): Promise<string | undefined> {
+              for (let i = 0; i < 15; i++) {
+                const info = await metaFetch(`/${videoId}`, token, { fields: 'status,picture' })
+                const vs = (info.status as Record<string, unknown> | undefined)?.video_status as string | undefined
+                if (vs === 'ready' || (!vs && info.picture)) return info.picture as string | undefined
+                await new Promise(r => setTimeout(r, 2000))
+              }
+            }
 
-              storySpec = {
+            // Build object_story_spec for a single video
+            async function buildVideoSpec(videoId: string): Promise<Record<string, unknown>> {
+              let thumb: string | undefined
+              try { thumb = await waitForVideo(videoId) } catch { /* proceed */ }
+              return {
                 page_id: pageId,
                 video_data: {
-                  video_id: videoAsset.videoId,
+                  video_id: videoId,
                   message: primaryText,
                   title: headline,
                   link_description: description,
                   call_to_action: { type: ctaType, value: ctaValue },
-                  ...(videoThumbnailUrl ? { image_url: videoThumbnailUrl } : {}),
+                  ...(thumb ? { image_url: thumb } : {}),
                 },
               }
-            } else {
-              storySpec = {
+            }
+
+            // Build object_story_spec for a single image
+            function buildImageSpec(hash: string): Record<string, unknown> {
+              return {
                 page_id: pageId,
                 link_data: {
-                  image_hash: imageAsset!.hash,
-                  // Meta requires an external link even for lead gen form ads
+                  image_hash: hash,
                   link: destinationUrl || 'https://example.com',
                   message: primaryText,
                   name: headline,
@@ -437,29 +454,129 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            const creativeBody: Record<string, unknown> = {
-              name: ag.adName,
-              object_story_spec: storySpec,
-              // Lead gen form creatives must declare ON_AD destination at both creative and ad level
-              ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+            // Create one creative + one ad for a given spec
+            async function postAd(spec: Record<string, unknown>, adName: string) {
+              send(`Création du créatif "${adName}"...`)
+              const creativeBody: Record<string, unknown> = {
+                name: adName,
+                object_story_spec: spec,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              }
+              console.log('[launch] creative body:', JSON.stringify(creativeBody))
+              const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
+              if (creativeData.error) throw new Error(`Créatif "${adName}" : ${metaError(creativeData)}`)
+              const creativeId = creativeData.id as string
+              const adData = await metaPost(`/${accountId}/ads`, token, {
+                name: adName,
+                adset_id: adsetId,
+                creative: { creative_id: creativeId },
+                status: adsetStatus,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              })
+              if (adData.error) throw new Error(`Ad "${adName}" : ${metaError(adData)}`)
+              send(`✓ Ad créée : "${adName}"`)
+              launchAdCount++
             }
 
-            console.log('[launch] creative body:', JSON.stringify(creativeBody))
-            const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
-            if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${metaError(creativeData)}`)
-            const creativeId = creativeData.id as string
+            // Valid Meta positions from API (facebook_positions)
+            const FB_FEED_POS = ['feed', 'marketplace', 'video_feeds', 'right_hand_column', 'search', 'instant_article', 'suggested_video', 'biz_disco_feed', 'profile_feed']
+            const FB_STORY_POS = ['story', 'facebook_reels', 'instream_video', 'story_sticker', 'facebook_reels_overlay', 'profile_reels']
+            const IG_FEED_POS = ['stream', 'explore', 'explore_home', 'profile_feed']
+            const IG_STORY_POS = ['story', 'reels', 'profile_reels']
 
-            const adData = await metaPost(`/${accountId}/ads`, token, {
-              name: ag.adName,
-              adset_id: adsetId,
-              creative: { creative_id: creativeId },
-              status: adsetStatus,
-              // Lead gen form ads require destination_type: ON_AD
-              ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
-            })
-            if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
-            send(`✓ Ad créée : "${ag.adName}"`)
-            launchAdCount++
+            // Build asset_feed_spec for multi-format (feed + story in one ad)
+            // No asset_customization_rules — Meta auto-routes each asset to the right placement by ratio
+            async function buildAssetFeedSpec(
+              assets: { type: 'video'; videoId: string }[] | { type: 'image'; hash: string }[]
+            ): Promise<Record<string, unknown>> {
+              const afsCta = leadGenFormId
+                ? { call_to_actions: [{ type: ctaType || 'SIGN_UP', value: { lead_gen_form_id: leadGenFormId, link: destinationUrl || 'https://example.com' } }] }
+                : { call_to_action_types: [ctaType || 'LEARN_MORE'], link_urls: [{ website_url: destinationUrl || 'https://example.com' }] }
+
+              if ((assets[0] as { type: string }).type === 'video') {
+                const videoAssetList = assets as { type: 'video'; videoId: string }[]
+                const thumbs = await Promise.all(videoAssetList.map(a => waitForVideo(a.videoId).catch(() => undefined)))
+                return {
+                  videos: videoAssetList.map((a, i) => ({
+                    video_id: a.videoId,
+                    ...(thumbs[i] ? { thumbnail_url: thumbs[i] } : {}),
+                  })),
+                  bodies: [{ text: primaryText }],
+                  ...(headline ? { titles: [{ text: headline }] } : {}),
+                  ...(description ? { descriptions: [{ text: description }] } : {}),
+                  ...afsCta,
+                }
+              } else {
+                const imgList = assets as { type: 'image'; hash: string }[]
+                return {
+                  images: imgList.map(a => ({ hash: a.hash })),
+                  bodies: [{ text: primaryText }],
+                  ...(headline ? { titles: [{ text: headline }] } : {}),
+                  ...(description ? { descriptions: [{ text: description }] } : {}),
+                  ...afsCta,
+                }
+              }
+            }
+
+            // Multi-format (feed + story) → 1 ad with asset_feed_spec
+            if (feedVideo?.videoId && storyVideo?.videoId) {
+              send(`Création du créatif "${ag.adName}"...`)
+              const afs = await buildAssetFeedSpec([
+                { type: 'video', videoId: feedVideo.videoId },
+                { type: 'video', videoId: storyVideo.videoId },
+              ])
+              const creativeBody: Record<string, unknown> = {
+                name: ag.adName,
+                object_type: 'SHARE',
+                page_id: pageId,
+                asset_feed_spec: afs,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              }
+              console.log('[launch] creative body (multi-video):', JSON.stringify(creativeBody))
+              const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
+              if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${metaError(creativeData)}`)
+              const adData = await metaPost(`/${accountId}/ads`, token, {
+                name: ag.adName, adset_id: adsetId, creative: { creative_id: creativeData.id }, status: adsetStatus,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              })
+              if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
+              send(`✓ Ad créée : "${ag.adName}"`)
+              launchAdCount++
+            } else if (feedImage?.hash && storyImage?.hash) {
+              send(`Création du créatif "${ag.adName}"...`)
+              const afs = await buildAssetFeedSpec([
+                { type: 'image', hash: feedImage.hash },
+                { type: 'image', hash: storyImage.hash },
+              ])
+              const creativeBody: Record<string, unknown> = {
+                name: ag.adName,
+                object_type: 'SHARE',
+                page_id: pageId,
+                asset_feed_spec: afs,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              }
+              console.log('[launch] creative body (multi-image):', JSON.stringify(creativeBody))
+              const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
+              if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${metaError(creativeData)}`)
+              const adData = await metaPost(`/${accountId}/ads`, token, {
+                name: ag.adName, adset_id: adsetId, creative: { creative_id: creativeData.id }, status: adsetStatus,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              })
+              if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
+              send(`✓ Ad créée : "${ag.adName}"`)
+              launchAdCount++
+            } else {
+              // Single asset
+              const vid = videoAssets[0]
+              const img = imageAssets[0]
+              if (vid?.videoId) {
+                await postAd(await buildVideoSpec(vid.videoId), ag.adName)
+              } else if (img?.hash) {
+                await postAd(buildImageSpec(img.hash), ag.adName)
+              } else {
+                send(`⚠ "${ag.adName}" : aucun asset uploadé — ad ignorée`)
+              }
+            }
           }
         }
 

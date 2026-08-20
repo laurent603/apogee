@@ -152,6 +152,81 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
 const BID_STRATEGIES = ['Lowest cost', 'Cost cap', 'Bid cap', 'ROAS goal']
 const SPECIAL_AD_CATEGORIES = ['None', 'Credit', 'Employment', 'Housing', 'Social Issues, Elections or Politics']
 
+function CampaignNamingBuilder({ onNameChange, name, setName }: { onNameChange?: (n: string) => void; name: string; setName: (n: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [enabled, setEnabled] = useState(false)
+  const [brand, setBrand] = useState('[LDS]')
+  const [tunnel, setTunnel] = useState('Tofu')
+  const [obj, setObj] = useState('Acquisition')
+  const [budgetType, setBudgetType] = useState('CBO')
+  const [produit, setProduit] = useState('')
+  const [version, setVersion] = useState('V1')
+  const [placement, setPlacement] = useState('')
+
+  const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  useEffect(() => {
+    if (!enabled) return
+    const parts = [brand, tunnel, obj, budgetType || null, produit || null, today, version, placement || null].filter(Boolean)
+    const built = parts.join(' | ')
+    setName(built)
+    onNameChange?.(built)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, brand, tunnel, obj, budgetType, produit, version, placement])
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <button onClick={() => setOpen(p => !p)} className="flex items-center gap-1.5 flex-1 text-xs text-gray-500 hover:text-gray-700">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+          Naming builder
+          <svg className={clsx('w-3 h-3 transition-transform', open && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <button onClick={() => setEnabled(p => !p)} className={clsx('flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all', enabled ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'border-[#E5E7EB] text-gray-500 hover:border-[#3434ef] hover:text-[#3434ef]')}>
+          {enabled ? '✓ Actif' : 'Activer'}
+        </button>
+      </div>
+      {open && (
+        <div className="bg-[#f8f9fc] rounded-xl p-3 space-y-2.5">
+          <div className="grid grid-cols-3 gap-2">
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Brand</label><input className="input py-1.5 text-xs" value={brand} onChange={e => setBrand(e.target.value)} placeholder="[LDS]" /></div>
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Tunnel</label>
+              <select className="input py-1.5 text-xs" value={tunnel} onChange={e => setTunnel(e.target.value)}>
+                <option>Tofu</option><option>Mofu</option><option>Bofu</option>
+              </select>
+            </div>
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Objectif</label>
+              <select className="input py-1.5 text-xs" value={obj} onChange={e => setObj(e.target.value)}>
+                <option>Acquisition</option><option>Notoriété</option><option>Considération</option><option>Interaction</option><option>Achat</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Budget</label>
+              <select className="input py-1.5 text-xs" value={budgetType} onChange={e => setBudgetType(e.target.value)}>
+                <option>CBO</option><option>ABO</option><option>Adv+</option>
+              </select>
+            </div>
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Produit</label><input className="input py-1.5 text-xs" value={produit} onChange={e => setProduit(e.target.value)} placeholder="Solaire…" /></div>
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Version</label><input className="input py-1.5 text-xs" value={version} onChange={e => setVersion(e.target.value)} placeholder="V1" /></div>
+            <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Placement</label>
+              <select className="input py-1.5 text-xs" value={placement} onChange={e => setPlacement(e.target.value)}>
+                <option value="">—</option><option>Auto</option><option>Adv+</option><option>Feed</option>
+              </select>
+            </div>
+          </div>
+          {enabled && name && (
+            <div className="p-2 bg-white border border-[#3434ef]/20 rounded-lg">
+              <p className="text-[10px] text-gray-400 mb-0.5">Prévisualisation :</p>
+              <p className="text-xs font-mono font-medium text-[#0d0d12] break-all">{name}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaCampaign) => void; onClose: () => void; accountId?: string }) {
   const [activeTab, setActiveTab] = useState(0)
   const [name, setName] = useState('')
@@ -237,10 +312,13 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
                 ))}
               </div>
               {sfmSelected && (
-                <div>
-                  <label className="label">Nom de la nouvelle campagne <span className="text-red-500">*</span></label>
-                  <input className="input" value={sfmName} onChange={e => setSfmName(e.target.value)} placeholder="Nom de la campagne" autoFocus />
-                  <p className="text-xs text-gray-400 mt-1">Une nouvelle campagne sera créée avec les paramètres de la campagne sélectionnée.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Nom de la nouvelle campagne <span className="text-red-500">*</span></label>
+                    <input className="input" value={sfmName} onChange={e => setSfmName(e.target.value)} placeholder="Nom de la campagne" autoFocus />
+                  </div>
+                  <CampaignNamingBuilder name={sfmName} setName={setSfmName} />
+                  <p className="text-xs text-gray-400">Une nouvelle campagne sera créée avec les paramètres de la campagne sélectionnée.</p>
                 </div>
               )}
             </div>
@@ -250,9 +328,10 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
 
       {activeTab === 0 && <div className="grid grid-cols-2 gap-6">
         <div className="space-y-5">
-          <div>
+          <div className="space-y-2">
             <label className="label">Campaign Name <span className="text-red-500">*</span></label>
             <input className="input" placeholder="Enter campaign name" value={name} onChange={e => setName(e.target.value)} autoFocus />
+            <CampaignNamingBuilder name={name} setName={setName} />
           </div>
           <div>
             <label className="label">Campaign Objective <span className="text-red-500">*</span></label>
@@ -1073,6 +1152,28 @@ export default function UploadPage() {
   const [prefixOpen, setPrefixOpen] = useState(false)
   const [adsetPrefix, setAdsetPrefix] = useState('')
   const [adsetSuffix, setAdsetSuffix] = useState('')
+  const [namingOpen, setNamingOpen] = useState(false)
+  const [namingEnabled, setNamingEnabled] = useState(false)
+  const [namingAudience, setNamingAudience] = useState('Broad')
+  // Ad naming builder
+  const [adNamingOpen, setAdNamingOpen] = useState(false)
+  const [adNamingEnabled, setAdNamingEnabled] = useState(false)
+  const [adNamingFormat, setAdNamingFormat] = useState('Static')
+  const [adNamingSubFormat, setAdNamingSubFormat] = useState('')
+  const [adNamingCreateur, setAdNamingCreateur] = useState('')
+  const [adNamingProduit, setAdNamingProduit] = useState('')
+  const [adNamingAngle, setAdNamingAngle] = useState('')
+  const [adNamingConcept, setAdNamingConcept] = useState('')
+  const [adNamingLP, setAdNamingLP] = useState('')
+  const [adNamingScript, setAdNamingScript] = useState('')
+  const [adNamingVersion, setAdNamingVersion] = useState('V1')
+  const [namingStack, setNamingStack] = useState('')
+  const [namingGenre, setNamingGenre] = useState('H/F')
+  const [namingAge, setNamingAge] = useState('')
+  const [namingZone, setNamingZone] = useState('')
+  const [namingPays, setNamingPays] = useState('FR')
+  const [namingPlacement, setNamingPlacement] = useState('Adv+')
+  const [namingExclusion, setNamingExclusion] = useState('')
 
   const [selectedCampaign, setSelectedCampaign] = useState<MetaCampaign | null>(null)
   const [adsetTemplate, setAdsetTemplate] = useState<MetaAdset | null>(null)
@@ -1090,6 +1191,7 @@ export default function UploadPage() {
   // Selection modals
   const [campaignModal, setCampaignModal] = useState(false)
   const [adsetModal, setAdsetModal] = useState(false)
+  const [adsetModalError, setAdsetModalError] = useState<string | null>(null)
   const [adModal, setAdModal] = useState(false)
 
   // Creation modals
@@ -1121,8 +1223,20 @@ export default function UploadPage() {
     setLoadingMeta(false)
   }
   async function fetchAdsets(campaignId?: string) {
-    if (!metaId) return; setLoadingMeta(true)
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=adsets${campaignId ? `&campaignId=${campaignId}` : ''}`); const d = await r.json(); setMetaAdsets(Array.isArray(d) ? d : []) } catch {}
+    if (!metaId) return
+    setLoadingMeta(true); setAdsetModalError(null); setMetaAdsets([])
+    try {
+      const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=adsets${campaignId ? `&campaignId=${campaignId}` : ''}`)
+      const d = await r.json()
+      if (Array.isArray(d)) {
+        setMetaAdsets(d)
+        if (d.length === 0) setAdsetModalError('Aucun adset trouvé dans cette campagne.')
+      } else {
+        setAdsetModalError(d?.error || 'Erreur inconnue de l\'API Meta')
+      }
+    } catch (e) {
+      setAdsetModalError(e instanceof Error ? e.message : 'Erreur réseau')
+    }
     setLoadingMeta(false)
   }
   async function fetchAds(campaignId?: string, adsetId?: string) {
@@ -1257,11 +1371,42 @@ export default function UploadPage() {
 
   const adGroups = groupByAd(files)
 
+  const adNamingTemplate = (() => {
+    if (!adNamingEnabled) return ''
+    const parts = [
+      adNamingFormat, adNamingSubFormat || null,
+      adNamingCreateur || null, adNamingProduit || null,
+      adNamingAngle || null, adNamingConcept || null,
+      '{créa}',
+      adNamingLP || null, adNamingScript || null,
+      adNamingVersion || null,
+    ].filter(Boolean)
+    return parts.join(' | ')
+  })()
+  const buildAdNameFor = (concept: string) =>
+    adNamingTemplate ? adNamingTemplate.replace('{créa}', concept) : ''
+
+  const builtAdsetName = (() => {
+    if (!namingEnabled) return ''
+    const parts = [
+      namingAudience,
+      namingStack || null,
+      namingGenre || null,
+      namingAge || null,
+      namingZone || null,
+      namingPays,
+      namingPlacement,
+      namingExclusion || null,
+    ].filter(Boolean)
+    return parts.join(' | ')
+  })()
+
   const treeNodes: { adsetName: string; adGroups: AdGroup[] }[] = (() => {
-    if (testStructure === 'one-ad-one-adset') return adGroups.map(g => ({ adsetName: g.adName, adGroups: [g] }))
-    if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: g.concept, adGroups: groupByAd(g.iterations) }))
-    if (testStructure === 'all-in-one') return adGroups.length ? [{ adsetName: 'Adset_1', adGroups }] : []
-    return adGroups.length ? [{ adsetName: 'Adset existant', adGroups }] : []
+    const getName = (fallback: string) => builtAdsetName || fallback
+    if (testStructure === 'one-ad-one-adset') return adGroups.map(g => ({ adsetName: getName(g.adName), adGroups: [g] }))
+    if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: getName(g.concept), adGroups: groupByAd(g.iterations) }))
+    if (testStructure === 'all-in-one') return adGroups.length ? [{ adsetName: getName('Adset_1'), adGroups }] : []
+    return adGroups.length ? [{ adsetName: getName('Adset existant'), adGroups }] : []
   })()
 
   const totalAds = adGroups.length
@@ -1335,14 +1480,22 @@ export default function UploadPage() {
 
     // Phase 2: build enriched treeNodes with hashes + videoIds
     const enrichedNodes = treeNodes.map((node, ni) => ({
-      adsetName: node.adsetName,
+      adsetName: `${adsetPrefix}${node.adsetName}${adsetSuffix}`,
       adGroups: node.adGroups.map(ag => ({
-        adName: ag.adName,
-        assets: ag.assets.map(a => ({
-          id: a.id, ratio: a.ratio ?? null,
-          hash: fileHashes.get(a.id) ?? null,
-          videoId: fileVideoIds.get(a.id) ?? null,
-        })),
+        adName: buildAdNameFor(ag.concept) || ag.adName,
+        assets: ag.assets.map(a => {
+          // Derive ratio for videos from filename format (images already have pixel-based ratio)
+          let ratio = a.ratio ?? null
+          if (!ratio && a.type === 'video') {
+            const fmt = (a.format ?? '').toLowerCase()
+            ratio = (['story', 'stories', 'reel', 'reels', '9x16', '9:16'].some(s => fmt.includes(s))) ? '9:16' : '1:1'
+          }
+          return {
+            id: a.id, ratio,
+            hash: fileHashes.get(a.id) ?? null,
+            videoId: fileVideoIds.get(a.id) ?? null,
+          }
+        }),
       })),
       _adTemplateOverride: perAdsetAdTemplate[ni] ?? null,
     }))
@@ -1569,6 +1722,79 @@ export default function UploadPage() {
               <button onClick={applyBulkPaste} className="btn-primary text-sm">Appliquer</button>
             </div>
           )}
+          {/* Ad naming builder */}
+          <div className="card space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#0d0d12]">Naming des publicités</p>
+                <p className="text-xs text-gray-400 mt-0.5">Définissez le pattern — <span className="font-mono bg-[#f0f0ff] text-[#3434ef] px-1 rounded">{'{créa}'}</span> sera remplacé par le nom de chaque créa</p>
+              </div>
+              <button onClick={() => setAdNamingEnabled(p => !p)} className={clsx('flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all', adNamingEnabled ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'border-[#E5E7EB] text-gray-500 hover:border-[#3434ef] hover:text-[#3434ef]')}>
+                {adNamingEnabled ? '✓ Actif' : 'Activer'}
+              </button>
+            </div>
+
+            <button onClick={() => setAdNamingOpen(p => !p)} className="flex items-center gap-1.5 text-xs text-[#3434ef] hover:underline">
+              <svg className={clsx('w-3 h-3 transition-transform', adNamingOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              {adNamingOpen ? 'Masquer les champs' : 'Configurer les champs'}
+            </button>
+
+            {adNamingOpen && (
+              <div className="space-y-2.5 bg-[#f8f9fc] rounded-xl p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Format</label>
+                    <select className="input py-1.5 text-xs" value={adNamingFormat} onChange={e => setAdNamingFormat(e.target.value)}>
+                      <option>Static</option><option>Carrousel</option><option>video</option>
+                    </select>
+                  </div>
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Sous-format</label>
+                    <select className="input py-1.5 text-xs" value={adNamingSubFormat} onChange={e => setAdNamingSubFormat(e.target.value)}>
+                      <option value="">–</option><option>Graphique</option><option>Motion</option><option>UGC</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Créateur</label><input className="input py-1.5 text-xs" placeholder="Laurent, Fabien…" value={adNamingCreateur} onChange={e => setAdNamingCreateur(e.target.value)} /></div>
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Produit</label><input className="input py-1.5 text-xs" placeholder="3kWc - 4750…" value={adNamingProduit} onChange={e => setAdNamingProduit(e.target.value)} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Angle marketing</label>
+                    <select className="input py-1.5 text-xs" value={adNamingAngle} onChange={e => setAdNamingAngle(e.target.value)}>
+                      <option value="">–</option><option>Offre/Promo</option><option>Education produit</option><option>Caractéristique</option><option>Prix</option><option>Démonstration produit</option>
+                    </select>
+                  </div>
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Concept marketing</label>
+                    <select className="input py-1.5 text-xs" value={adNamingConcept} onChange={e => setAdNamingConcept(e.target.value)}>
+                      <option value="">–</option><option>Callout/Features</option><option>Interview fondateur</option><option>Podcast</option><option>Avant/Après</option><option>Présentation produit</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Landing Page</label>
+                    <select className="input py-1.5 text-xs" value={adNamingLP} onChange={e => setAdNamingLP(e.target.value)}>
+                      <option value="">–</option><option>Page produit</option><option>LP</option><option>Leadform</option>
+                    </select>
+                  </div>
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Script</label><input className="input py-1.5 text-xs" placeholder="AIDA / -" value={adNamingScript} onChange={e => setAdNamingScript(e.target.value)} /></div>
+                  <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Version</label><input className="input py-1.5 text-xs" placeholder="V1" value={adNamingVersion} onChange={e => setAdNamingVersion(e.target.value)} /></div>
+                </div>
+              </div>
+            )}
+
+            {/* Preview par créa */}
+            {adNamingEnabled && adNamingTemplate && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Prévisualisation par créa :</p>
+                {groups.map(g => (
+                  <div key={g.concept} className="flex items-start gap-2 p-2 bg-[#f8f9fc] rounded-lg">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3434ef] mt-1.5 flex-shrink-0" />
+                    <p className="text-xs font-mono text-[#0d0d12] break-all">{buildAdNameFor(g.concept)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-between">
             <button onClick={() => setStep(1)} className="btn-secondary">← Retour</button>
             <button onClick={() => setStep(3)} className="btn-primary">Configure Testing →</button>
@@ -1761,15 +1987,96 @@ export default function UploadPage() {
                 )}
               </div>
 
-              {/* Prefix / Suffix */}
-              <div className="border-t border-[#F3F4F6] pt-2">
+              {/* Adset Naming Builder */}
+              <div className="border-t border-[#F3F4F6] pt-2 space-y-2">
+                <div className="flex items-center gap-2 py-1">
+                  <button onClick={() => setNamingOpen(p => !p)} className="flex items-center gap-2 flex-1 text-xs text-gray-500 hover:text-gray-700">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                    Naming adsets
+                    <svg className={clsx('w-3.5 h-3.5 transition-transform', namingOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  <button
+                    onClick={() => setNamingEnabled(p => !p)}
+                    className={clsx('flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all', namingEnabled ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'border-[#E5E7EB] text-gray-500 hover:border-[#3434ef] hover:text-[#3434ef]')}
+                  >
+                    {namingEnabled ? '✓ Actif' : 'Activer'}
+                  </button>
+                </div>
+
+                {namingOpen && (
+                  <div className="space-y-2.5 bg-[#f8f9fc] rounded-xl p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Audience</label>
+                        <select className="input py-1.5 text-xs" value={namingAudience} onChange={e => setNamingAudience(e.target.value)}>
+                          <option>Broad</option>
+                          <option>Stack interest</option>
+                          <option>LKL</option>
+                          <option>Retargeting</option>
+                          <option>Lookalike</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Stack / Intérêt</label>
+                        <input className="input py-1.5 text-xs" placeholder="ex: Energie photovoltaïque" value={namingStack} onChange={e => setNamingStack(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Genre</label>
+                        <select className="input py-1.5 text-xs" value={namingGenre} onChange={e => setNamingGenre(e.target.value)}>
+                          <option>H/F</option>
+                          <option>Femmes</option>
+                          <option>Hommes</option>
+                          <option>-</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Âge</label>
+                        <input className="input py-1.5 text-xs" placeholder="MTP 35+ / 25/65" value={namingAge} onChange={e => setNamingAge(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Zone</label>
+                        <input className="input py-1.5 text-xs" placeholder="Sud + Paris / MTP" value={namingZone} onChange={e => setNamingZone(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Pays</label>
+                        <input className="input py-1.5 text-xs" placeholder="FR" value={namingPays} onChange={e => setNamingPays(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Placement</label>
+                        <select className="input py-1.5 text-xs" value={namingPlacement} onChange={e => setNamingPlacement(e.target.value)}>
+                          <option>Adv+</option>
+                          <option>Auto</option>
+                          <option>Feed</option>
+                          <option>Story</option>
+                          <option>Reels</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Exclusion</label>
+                        <input className="input py-1.5 text-xs" placeholder="exclus_Leads 90j" value={namingExclusion} onChange={e => setNamingExclusion(e.target.value)} />
+                      </div>
+                    </div>
+                    {builtAdsetName && (
+                      <div className="mt-1 p-2 bg-white border border-[#3434ef]/20 rounded-lg">
+                        <p className="text-[10px] text-gray-400 mb-0.5">Prévisualisation :</p>
+                        <p className="text-xs font-mono font-medium text-[#0d0d12] break-all">{adsetPrefix}{builtAdsetName}{adsetSuffix}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Prefix / Suffix */}
                 <button onClick={() => setPrefixOpen(p => !p)} className="flex items-center gap-2 w-full text-xs text-gray-500 hover:text-gray-700 py-1">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" /></svg>
                   Prefix / Suffix
                   <svg className={clsx('w-3.5 h-3.5 ml-auto transition-transform', prefixOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 {prefixOpen && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div><label className="text-xs text-gray-500 mb-1 block">Préfixe</label><input className="input py-1.5 text-xs" placeholder="[TEST]_" value={adsetPrefix} onChange={e => setAdsetPrefix(e.target.value)} /></div>
                     <div><label className="text-xs text-gray-500 mb-1 block">Suffixe</label><input className="input py-1.5 text-xs" placeholder="_2025" value={adsetSuffix} onChange={e => setAdsetSuffix(e.target.value)} /></div>
                   </div>
@@ -1784,7 +2091,7 @@ export default function UploadPage() {
                   <div key={ni} className="border-b border-[#F3F4F6] last:border-0">
                     <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#fafafa]">
                       <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      <span className="text-xs font-medium text-[#0d0d12] flex-1 truncate">{adsetPrefix}{node.adsetName}{adsetSuffix}</span>
+                      <span className="text-xs font-medium text-[#0d0d12] flex-1 truncate">{node.adsetName ? `${adsetPrefix}${node.adsetName}${adsetSuffix}` : ''}</span>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {isCBO && <span className="badge-blue text-xs">CBO</span>}
                         <span className="text-xs text-gray-400">{node.adGroups.length} ad{node.adGroups.length > 1 ? 's' : ''}</span>
@@ -1805,7 +2112,7 @@ export default function UploadPage() {
                           ))}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-xs font-medium text-[#0d0d12] truncate block">{ag.adName}</span>
+                          <span className="text-xs font-medium text-[#0d0d12] truncate block">{(adNamingEnabled && buildAdNameFor(ag.concept)) || ag.adName}</span>
                           <div className="flex items-center gap-1 mt-0.5">
                             {ag.assets.map((a, fi) => a.ratio && (
                               <span key={fi} className="badge-blue text-xs py-0">{a.ratio}</span>
@@ -1957,7 +2264,13 @@ export default function UploadPage() {
       {adsetModal && (
         <Modal title="Copier la config d'un adset existant" onClose={() => setAdsetModal(false)}>
           <p className="text-xs text-gray-400 mb-3">Sélectionnez un adset pour copier son ciblage, pixel et objectif.</p>
-          {loadingMeta ? <Spinner /> : metaAdsets.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">Aucun adset actif trouvé</p> : (
+          {loadingMeta ? <Spinner /> : adsetModalError ? (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-sm text-red-500">{adsetModalError}</p>
+              {adsetModalError.toLowerCase().includes('limit') && <p className="text-xs text-gray-400">Meta rate-limite les requêtes API. Attendez quelques secondes puis réessayez.</p>}
+              <button onClick={() => { const cid = selectedCampaign?.id; fetchAdsets(cid?.startsWith('new_') ? undefined : cid) }} className="text-xs px-3 py-1.5 border border-[#3434ef] text-[#3434ef] rounded-lg hover:bg-[#f0f0ff]">Réessayer</button>
+            </div>
+          ) : metaAdsets.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">Aucun adset trouvé</p> : (
             <div className="space-y-1.5">{metaAdsets.map(a => {
               const countries = (a.targeting?.geo_locations?.countries || []).join(', ')
               const pixel = a.promoted_object?.pixel_id
