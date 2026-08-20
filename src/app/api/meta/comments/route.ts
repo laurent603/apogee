@@ -129,10 +129,11 @@ export async function GET(req: NextRequest) {
       adsScanned: toFetch.length,
       debug: {
         pagesFound: Object.keys(pageTokens).length,
+        pageIds: Object.keys(pageTokens),
         adsWithPostId: uniqueAds.length,
+        samplePostIds: toFetch.slice(0, 3).map(a => ({ postId: a.postId, pageId: a.pageId, hasPageToken: !!(a.pageId && pageTokens[a.pageId]) })),
         firstErrors: errors,
         hasReadUserContent: grantedPermissions.includes('pages_read_user_content'),
-        grantedPermissions,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         totalRawComments: (allPosts as any[]).reduce((s: number, p: any) => s + (p.rawCount || 0), 0),
       },
