@@ -50,16 +50,23 @@ export async function GET(req: NextRequest) {
             limit: '100',
             filter: 'toplevel',
           })
+          const spamPatterns = /^(https?:\/\/|www\.)|^\s*[\p{Emoji}\s]+\s*$/u
+
           const comments = (data.data || [])
             .filter((c: Record<string, unknown>) => {
-              const msg = (c.message as string) || ''
-              return msg.trim().length > 2
+              const msg = ((c.message as string) || '').trim()
+              const from = c.from as Record<string, string> | undefined
+              // Exclure : pas d'auteur identifié, message vide, trop court, ou pur spam URL/emoji
+              if (!from?.name) return false
+              if (msg.length < 4) return false
+              if (spamPatterns.test(msg)) return false
+              return true
             })
             .map((c: Record<string, unknown>) => ({
-              message: c.message as string,
+              message: (c.message as string).trim(),
               createdTime: c.created_time as string,
               likeCount: Number(c.like_count || 0),
-              author: (c.from as Record<string, string>)?.name || 'Anonyme',
+              author: (c.from as Record<string, string>).name,
             }))
           return { adId: ad.id, adName: ad.name, postId: ad.postId, thumbnail: ad.thumbnail, comments }
         } catch {
