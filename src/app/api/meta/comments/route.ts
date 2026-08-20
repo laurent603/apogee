@@ -74,12 +74,10 @@ export async function GET(req: NextRequest) {
         // Utiliser le page token si dispo, sinon user token
         const pageToken = (ad.pageId && pageTokens[ad.pageId]) ? pageTokens[ad.pageId] : token
         try {
-          const data = await metaFetch(`/${ad.postId}/comments`, pageToken, {
-            fields: 'message,created_time,like_count,from{name}',
-            limit: '100',
-            filter: 'toplevel',
+          const data = await metaFetch(`/${ad.postId}`, pageToken, {
+            fields: 'comments.limit(100).filter(toplevel){message,created_time,like_count,from{name}}',
           })
-          const comments = (data.data || [])
+          const comments = (data.comments?.data || [])
             .filter((c: Record<string, unknown>) => {
               const msg = ((c.message as string) || '').trim()
               const from = c.from as Record<string, string> | undefined
