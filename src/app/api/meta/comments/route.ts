@@ -14,19 +14,20 @@ export async function GET(req: NextRequest) {
 
     const token = session.accessToken as string
 
-    // Fetch ads with their effective post IDs (no filtering param — simpler)
+    // Fetch ads with their post IDs (try effective + object_story_id)
     const adsData = await metaFetch(`/${accountId}/ads`, token, {
-      fields: 'id,name,creative{effective_object_story_id,thumbnail_url}',
-      limit: '100',
+      fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
+      limit: '200',
     })
 
     const ads: Array<{ id: string; name: string; postId: string | null; thumbnail?: string }> = (adsData.data || []).map(
       (ad: Record<string, unknown>) => {
         const creative = ad.creative as Record<string, string> | undefined
+        const postId = creative?.effective_object_story_id || creative?.object_story_id || null
         return {
           id: ad.id as string,
           name: ad.name as string,
-          postId: creative?.effective_object_story_id ?? null,
+          postId,
           thumbnail: creative?.thumbnail_url,
         }
       }
@@ -84,7 +85,16 @@ export async function GET(req: NextRequest) {
 
     const totalComments = (posts as { comments: unknown[] }[]).reduce((sum, p) => sum + p.comments.length, 0)
 
-    return NextResponse.json({ posts, totalComments, adsScanned: toFetch.length })
+    return NextResponse.json({
+      posts,
+      totalComments,
+      adsScanned: toFetch.length,
+      debug: {
+        totalAds: ads.length,
+        adsWithPostId: ads.filter(a => a.postId).length,
+        adsWithoutPostId: ads.filter(a => !a.postId).length,
+      },
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inconnue'
     return NextResponse.json({ error: message }, { status: 500 })
