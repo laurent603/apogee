@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { metaFetch } from '@/lib/meta'
+import { prisma } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,6 +14,15 @@ export async function GET(req: NextRequest) {
     if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 })
 
     const token = session.accessToken as string
+
+    // Résoudre l'accountId : si c'est un ID DB (pas act_XXXXX), chercher le metaAccountId
+    let metaAccountId = accountId
+    if (!accountId.startsWith('act_')) {
+      try {
+        const row = await prisma.adAccount.findUnique({ where: { id: accountId }, select: { metaAccountId: true } })
+        if (row?.metaAccountId) metaAccountId = row.metaAccountId
+      } catch { /* ignore */ }
+    }
 
     // Step 1 : récupérer les pages gérées par l'utilisateur + leurs tokens
     let pageTokens: Record<string, string> = {}
@@ -26,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 2 : récupérer les pubs avec leur post ID
-    const adsData = await metaFetch(`/${accountId}/ads`, token, {
+    const adsData = await metaFetch(`/${metaAccountId}/ads`, token, {
       fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
       limit: '200',
     })
