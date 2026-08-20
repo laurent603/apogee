@@ -95,16 +95,13 @@ export async function GET(req: NextRequest) {
         comments: r.value.comments,
       }))
 
-    // Approche 2 (fallback) : ads_posts pour les pages qui n'ont rien retourné
-    const pagesWithComments = new Set(posts.map((p) => p.postId.split('_')[0]))
+    // Approche 2 : ads_posts pour TOUTES les pages (dark posts non retournés par /comments)
     const uniquePageIds = new Set(toFetch.map(([, m]) => m.pageId))
-    const pagesNeedingFallback = Array.from(uniquePageIds).filter((pid) => !pagesWithComments.has(pid))
-
     const seenPostIds = new Set(posts.map((p) => p.postId))
 
-    if (pagesNeedingFallback.length > 0) {
+    if (uniquePageIds.size > 0) {
       const fallbackResults = await Promise.allSettled(
-        pagesNeedingFallback.map(async (pageId) => {
+        Array.from(uniquePageIds).map(async (pageId) => {
           const pt = pageTokens[pageId] || token
           try {
             const data = await metaFetch(`/${pageId}/ads_posts`, pt, {
