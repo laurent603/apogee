@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const token = session.accessToken as string
 
-    // Résoudre l'accountId : si c'est un ID DB (pas act_XXXXX), chercher le metaAccountId
+    // Résoudre l'accountId DB → Meta
     let metaAccountId = accountId
     if (!accountId.startsWith('act_')) {
       try {
@@ -24,119 +24,103 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
 
-    // Vérifier les permissions du token
-    let grantedPermissions: string[] = []
-    try {
-      const permsData = await metaFetch('/me/permissions', token, {})
-      grantedPermissions = ((permsData.data || []) as { permission: string; status: string }[])
-        .filter(p => p.status === 'granted')
-        .map(p => p.permission)
-    } catch { /* ignore */ }
-
-    // Step 1 : récupérer les pages gérées par l'utilisateur + leurs tokens
-    let pageTokens: Record<string, string> = {}
+    // Step 1 : pages gérées + leurs tokens
+    const pageTokens: Record<string, string> = {}
     try {
       const pagesData = await metaFetch('/me/accounts', token, { fields: 'id,access_token', limit: '50' })
       for (const page of (pagesData.data || []) as { id: string; access_token: string }[]) {
         pageTokens[page.id] = page.access_token
       }
-    } catch {
-      // pas de pages — on continuera avec le user token
-    }
+    } catch { /* ignore */ }
 
-    // Step 2 : récupérer les pubs avec leur post ID
+    // Step 2 : pubs → page IDs uniques
     const adsData = await metaFetch(`/${metaAccountId}/ads`, token, {
       fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
       limit: '200',
     })
 
-    const ads: Array<{ id: string; name: string; postId: string | null; pageId: string | null; thumbnail?: string }> =
-      (adsData.data || []).map((ad: Record<string, unknown>) => {
-        const creative = ad.creative as Record<string, string> | undefined
-        const postId = creative?.effective_object_story_id || creative?.object_story_id || null
-        // effective_object_story_id format: "{pageId}_{postId}"
-        const pageId = postId ? postId.split('_')[0] : null
-        return {
-          id: ad.id as string,
-          name: ad.name as string,
-          postId,
-          pageId,
-          thumbnail: creative?.thumbnail_url,
+    const pageIdToThumbnail: Record<string, string> = {}
+    const uniquePageIds = new Set<string>()
+
+    for (const ad of (adsData.data || []) as Record<string, unknown>[]) {
+      const creative = ad.creative as Record<string, string> | undefined
+      const postId = creative?.effective_object_story_id || creative?.object_story_id
+      if (!postId) continue
+      const pageId = postId.split('_')[0]
+      if (pageId) {
+        uniquePageIds.add(pageId)
+        if (creative?.thumbnail_url && !pageIdToThumbnail[pageId]) {
+          pageIdToThumbnail[pageId] = creative.thumbnail_url
         }
-      })
+      }
+    }
 
-    // Dédupliquer par postId
-    const seen = new Set<string>()
-    const uniqueAds = ads.filter((a) => {
-      if (!a.postId || seen.has(a.postId)) return false
-      seen.add(a.postId)
-      return true
-    })
+    // Step 3 : pour chaque page, récupérer les ads_posts avec commentaires inline
+    const commentFields = 'comments.limit(100){message,created_time,like_count,from{name}}'
+    const adPostFields = `id,message,${commentFields}`
 
-    const toFetch = uniqueAds.slice(0, 50)
-
-    // Step 3 : récupérer les commentaires en utilisant le page token si disponible
-    const results = await Promise.allSettled(
-      toFetch.map(async (ad) => {
-        // Utiliser le page token si dispo, sinon user token
-        const pageToken = (ad.pageId && pageTokens[ad.pageId]) ? pageTokens[ad.pageId] : token
+    const pageResults = await Promise.allSettled(
+      Array.from(uniquePageIds).map(async (pageId) => {
+        const pt = pageTokens[pageId] || token
         try {
-          const data = await metaFetch(`/${ad.postId}/comments`, pageToken, {
-            fields: 'message,created_time,like_count,from{name}',
+          // ads_posts retourne tous les posts liés aux pubs (dark posts inclus)
+          const data = await metaFetch(`/${pageId}/ads_posts`, pt, {
+            fields: adPostFields,
+            include_hidden: 'true',
             limit: '100',
           })
-          const raw = data.data || []
-          const comments = raw
-            .filter((c: Record<string, unknown>) => ((c.message as string) || '').trim().length >= 2)
-            .map((c: Record<string, unknown>) => ({
-              message: (c.message as string).trim(),
-              createdTime: c.created_time as string,
-              likeCount: Number(c.like_count || 0),
-              author: (c.from as Record<string, string>)?.name || 'Anonyme',
-            }))
-          return { adId: ad.id, adName: ad.name, postId: ad.postId, thumbnail: ad.thumbnail, comments, rawCount: raw.length }
+          return { pageId, posts: data.data || [], error: null }
         } catch (e) {
-          return {
-            adId: ad.id,
-            adName: ad.name,
-            postId: ad.postId,
-            thumbnail: ad.thumbnail,
-            comments: [],
-            error: e instanceof Error ? e.message : 'unknown',
-          }
+          return { pageId, posts: [], error: e instanceof Error ? e.message : 'unknown' }
         }
       })
     )
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allPosts = results
-      .filter((r) => r.status === 'fulfilled')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((r) => (r as any).value)
+    // Agréger les commentaires par post
+    type CommentItem = { message: string; createdTime: string; likeCount: number; author: string }
+    type PostItem = { adId: string; adName: string; postId: string; thumbnail?: string; comments: CommentItem[] }
 
-    const posts = allPosts.filter((p: { comments: unknown[] }) => p.comments.length > 0)
-    const totalComments = posts.reduce((sum: number, p: { comments: unknown[] }) => sum + p.comments.length, 0)
+    const posts: PostItem[] = []
+    const errors: string[] = []
 
-    // Debug : erreurs des posts sans commentaires
-    const errors = allPosts
-      .filter((p: { error?: string }) => p.error)
-      .slice(0, 3)
-      .map((p: { adName: string; error: string }) => `${p.adName}: ${p.error}`)
+    for (const result of pageResults) {
+      if (result.status !== 'fulfilled') continue
+      const { pageId, posts: pagePosts, error } = result.value
+      if (error) { errors.push(`page ${pageId}: ${error}`); continue }
+
+      for (const post of pagePosts as Record<string, unknown>[]) {
+        const postId = post.id as string
+        const commentsData = (post.comments as { data?: Record<string, unknown>[] } | undefined)?.data || []
+        if (commentsData.length === 0) continue
+
+        const comments: CommentItem[] = commentsData
+          .filter((c) => ((c.message as string) || '').trim().length >= 2)
+          .map((c) => ({
+            message: (c.message as string).trim(),
+            createdTime: c.created_time as string,
+            likeCount: Number(c.like_count || 0),
+            author: (c.from as Record<string, string>)?.name || 'Anonyme',
+          }))
+
+        if (comments.length > 0) {
+          posts.push({
+            adId: postId,
+            adName: (post.message as string | undefined)?.slice(0, 60) || postId,
+            postId,
+            thumbnail: pageIdToThumbnail[pageId],
+            comments,
+          })
+        }
+      }
+    }
+
+    const totalComments = posts.reduce((s, p) => s + p.comments.length, 0)
 
     return NextResponse.json({
       posts,
       totalComments,
-      adsScanned: toFetch.length,
-      debug: {
-        pagesFound: Object.keys(pageTokens).length,
-        pageIds: Object.keys(pageTokens),
-        adsWithPostId: uniqueAds.length,
-        samplePostIds: toFetch.slice(0, 3).map(a => ({ postId: a.postId, pageId: a.pageId, hasPageToken: !!(a.pageId && pageTokens[a.pageId]) })),
-        firstErrors: errors,
-        hasReadUserContent: grantedPermissions.includes('pages_read_user_content'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        totalRawComments: (allPosts as any[]).reduce((s: number, p: any) => s + (p.rawCount || 0), 0),
-      },
+      adsScanned: uniquePageIds.size,
+      debug: { pagesFound: Object.keys(pageTokens).length, uniquePageIds: uniquePageIds.size, firstErrors: errors.slice(0, 3) },
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inconnue'
