@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [datePreset, setDatePreset] = useState('last_7d')
   const [recentLaunches, setRecentLaunches] = useState<LaunchRecord[]>([])
+  const [targets, setTargets] = useState<{ targetCpa?: number; maxCpa?: number }>({})
 
   useEffect(() => {
     if (!selectedAccount) return
@@ -81,6 +82,10 @@ export default function DashboardPage() {
       .then(r => r.json())
       .then(data => setRecentLaunches(Array.isArray(data) ? data.slice(0, 5) : []))
       .catch(() => {})
+    fetch(`/api/brand-settings?dbAccountId=${selectedAccount.id}`)
+      .then(r => r.json())
+      .then(d => setTargets({ targetCpa: d.settings?.targetCpa ?? undefined, maxCpa: d.settings?.maxCpa ?? undefined }))
+      .catch(() => setTargets({}))
   }, [selectedAccount])
 
   const fetchAll = useCallback(async () => {
@@ -114,6 +119,19 @@ export default function DashboardPage() {
   // definition — the raw `lead` action is Meta's total and ignores that choice.
   const leads = Number(overview?._computed?.['Prospects (leads)'] ?? 0)
   const conversions = purchases || leads
+
+  // Lead gen accounts have no ROAS, so show what they actually steer on: the
+  // cost per acquisition, checked against the targets set in Brand Settings.
+  const isEcom = purchases > 0
+  const costLabel = isEcom ? 'CPA' : 'CPL'
+  const costPerConv = conversions > 0 ? spend / conversions : 0
+  const { targetCpa, maxCpa } = targets
+  const costVerdict =
+    !costPerConv ? undefined
+    : maxCpa && costPerConv > maxCpa ? `⚠ Au-dessus du max (${fmt(maxCpa, 0)}€)`
+    : targetCpa && costPerConv <= targetCpa ? `✓ Sous l'objectif (${fmt(targetCpa, 0)}€)`
+    : targetCpa ? `⚠ Au-dessus de l'objectif (${fmt(targetCpa, 0)}€)`
+    : `${fmt(conversions)} ${isEcom ? 'achats' : 'prospects'}`
 
   const chartData = daily.map(d => ({
     label: new Date(d.date_start).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
@@ -160,11 +178,19 @@ export default function DashboardPage() {
           {/* KPI Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KPICard label="Dépense totale" value={fmtCur(spend)} highlight />
-            <KPICard
-              label="ROAS"
-              value={roas ? fmt(roas, 2) + 'x' : 'N/A'}
-              sub={roas >= 2 ? '✓ Rentable' : roas > 0 ? '⚠ Sous seuil' : undefined}
-            />
+            {roas > 0 ? (
+              <KPICard
+                label="ROAS"
+                value={fmt(roas, 2) + 'x'}
+                sub={roas >= 2 ? '✓ Rentable' : '⚠ Sous seuil'}
+              />
+            ) : (
+              <KPICard
+                label={costLabel}
+                value={costPerConv ? `${fmt(costPerConv, 2)}€` : 'N/A'}
+                sub={costVerdict}
+              />
+            )}
             <KPICard label="Conversions" value={fmt(conversions)} sub={purchases > 0 ? 'Achats' : leads > 0 ? 'Leads' : undefined} />
             <KPICard
               label="Impressions"
