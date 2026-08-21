@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getAds } from '@/lib/meta'
+import { getAds, type LeadSource } from '@/lib/meta'
+import { prisma } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -9,13 +10,22 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const accountId = searchParams.get('accountId')
+  const dbAccountId = searchParams.get('dbAccountId')
   const limit = parseInt(searchParams.get('limit') || '10')
   const datePreset = searchParams.get('datePreset') || 'last_7d'
 
   if (!accountId) return NextResponse.json({ error: 'Missing accountId' }, { status: 400 })
 
+  let leadSource: LeadSource = 'total'
+  if (dbAccountId) {
+    const bs = await prisma.brandSettings
+      .findUnique({ where: { adAccountId: dbAccountId }, select: { leadSource: true } })
+      .catch(() => null)
+    leadSource = (bs?.leadSource as LeadSource) || 'total'
+  }
+
   try {
-    const ads = await getAds(accountId, session.accessToken as string, datePreset)
+    const ads = await getAds(accountId, session.accessToken as string, datePreset, leadSource)
 
     const spenders = ads
       .map((ad: Record<string, unknown>) => {
@@ -33,20 +43,16 @@ export async function GET(req: NextRequest) {
         const purchases = parseFloat(
           actions?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0'
         )
-        // `lead` is Meta's total; when absent, sum its website and instant-form
-        // sources rather than picking whichever matches first
-        const actionVal = (type: string) => parseFloat(actions?.find(a => a.action_type === type)?.value || '0')
-        const leads =
-          actionVal('lead') ||
-          actionVal('offsite_conversion.fb_pixel_lead') +
-            (actionVal('onsite_conversion.lead_grouped') || actionVal('leadgen.other'))
+        // getAds already computed these under the account's lead definition
+        const computed = ad._computed as Record<string, unknown> | null
+        const leads = Number(computed?.['Prospects (leads)'] ?? 0)
         const purchaseValue = parseFloat(
           actionValues?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0'
         )
         const roas = parseFloat(roasArr?.[0]?.value || '0')
-        const cpa = parseFloat(
-          costPer?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'lead')?.value || '0'
-        )
+        const cpa =
+          parseFloat(costPer?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0') ||
+          Number(computed?.['Coût par prospect'] ?? 0)
 
         const creative = ad.creative as { thumbnail_url?: string; image_url?: string; title?: string } | undefined
 

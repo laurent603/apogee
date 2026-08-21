@@ -104,4 +104,6 @@ export interface MetaInsight {
   actions?: { action_type: string; value: string }[]
   website_purchase_roas?: { action_type: string; value: string }[]
   cost_per_action_type?: { action_type: string; value: string }[]
+  /** KPIs derived server-side; already honours the account's lead definition */
+  _computed?: Record<string, string | number | null>
 }

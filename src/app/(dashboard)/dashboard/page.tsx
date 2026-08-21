@@ -91,7 +91,7 @@ export default function DashboardPage() {
       const [ovRes, dailyRes, spendersRes] = await Promise.all([
         fetch(`/api/meta/insights?accountId=${metaId}&dbAccountId=${selectedAccount.id}&type=overview&datePreset=${datePreset}`),
         fetch(`/api/meta/insights?accountId=${metaId}&type=daily&days=${datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30}`),
-        fetch(`/api/meta/top-spenders?accountId=${metaId}&limit=10&datePreset=${datePreset}`),
+        fetch(`/api/meta/top-spenders?accountId=${metaId}&dbAccountId=${selectedAccount.id}&limit=10&datePreset=${datePreset}`),
       ])
       const [ov, d, sp] = await Promise.all([ovRes.json(), dailyRes.json(), spendersRes.json()])
       setOverview(ov)
@@ -110,10 +110,9 @@ export default function DashboardPage() {
     (overview?.actions as { action_type: string; value: string }[] | undefined)
       ?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0'
   )
-  const leads = parseFloat(
-    (overview?.actions as { action_type: string; value: string }[] | undefined)
-      ?.find(a => a.action_type === 'lead')?.value || '0'
-  )
+  // Read the server-computed figure, which already applies the account's lead
+  // definition — the raw `lead` action is Meta's total and ignores that choice.
+  const leads = Number(overview?._computed?.['Prospects (leads)'] ?? 0)
   const conversions = purchases || leads
 
   const chartData = daily.map(d => ({
