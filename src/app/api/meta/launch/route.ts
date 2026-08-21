@@ -482,6 +482,9 @@ export async function POST(req: NextRequest) {
               const creativeBody: Record<string, unknown> = {
                 name: adName,
                 object_story_spec: spec,
+                degrees_of_freedom_spec: {
+                  creative_features_spec: { standard_enhancements: { enroll_status: 'OPT_OUT' } },
+                },
                 ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
               }
               console.log('[launch] creative body:', JSON.stringify(creativeBody))
@@ -550,9 +553,11 @@ export async function POST(req: NextRequest) {
               const adFormat = isVideo ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE'
               const labelKey = isVideo ? 'video_label' : 'image_label'
 
+              // link_urls is required by asset customization even for lead gen (subcode 1885800)
+              const linkUrls = [{ website_url: destinationUrl || 'https://example.com' }]
               const afsCta = leadGenFormId
-                ? { call_to_actions: [{ type: ctaType || 'SIGN_UP', value: { lead_gen_form_id: leadGenFormId, link: destinationUrl || 'https://example.com' } }] }
-                : { call_to_action_types: [ctaType || 'LEARN_MORE'], link_urls: [{ website_url: destinationUrl || 'https://example.com' }] }
+                ? { call_to_actions: [{ type: ctaType || 'SIGN_UP', value: { lead_gen_form_id: leadGenFormId, link: destinationUrl || 'https://example.com' } }], link_urls: linkUrls }
+                : { call_to_action_types: [ctaType || 'LEARN_MORE'], link_urls: linkUrls }
 
               const copy = {
                 bodies: [{ text: primaryText }],
@@ -596,6 +601,15 @@ export async function POST(req: NextRequest) {
                 ...(igUserId ? { instagram_user_id: igUserId } : {}),
               }
 
+              // This tool is for creative testing: keep Meta from altering the assets
+              const NO_ADVANTAGE = {
+                degrees_of_freedom_spec: {
+                  creative_features_spec: {
+                    standard_enhancements: { enroll_status: 'OPT_OUT' },
+                  },
+                },
+              }
+
               // Ordered by preference: first that Meta accepts wins.
               const candidates: { label: string; routed: boolean; body: Record<string, unknown> }[] = [
                 ...(igUserId ? [{
@@ -609,6 +623,7 @@ export async function POST(req: NextRequest) {
                       ad_formats: [adFormat],
                       asset_customization_rules: buildCustomizationRules(labelKey, true),
                     },
+                    ...NO_ADVANTAGE,
                     ...leadGen,
                   },
                 }] : []),
@@ -623,6 +638,7 @@ export async function POST(req: NextRequest) {
                       ad_formats: [adFormat],
                       asset_customization_rules: buildCustomizationRules(labelKey, false),
                     },
+                    ...NO_ADVANTAGE,
                     ...leadGen,
                   },
                 },
@@ -633,6 +649,7 @@ export async function POST(req: NextRequest) {
                     name: adName,
                     object_story_spec: storySpec,
                     asset_feed_spec: { ...assetList(false), ...copy, ad_formats: [adFormat] },
+                    ...NO_ADVANTAGE,
                     ...leadGen,
                   },
                 },
