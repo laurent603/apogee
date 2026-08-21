@@ -317,6 +317,20 @@ export async function GET(req: NextRequest) {
       }
     })
 
+    // Is readability tied to publication status? If every post that answers is
+    // published and every silent one is not, ads built on existing published
+    // posts keep their comments reachable.
+    const publishState: Record<string, string> = {}
+    await mapLimit(Array.from(fbPostMap.keys()), 6, async (postId) => {
+      const tok = pageTokens[postId.split('_')[0]] || token
+      try {
+        const r = await metaFetch(`/${postId}`, tok, { fields: 'is_published' })
+        publishState[postId] = `${r.is_published === true ? 'published' : 'unpublished'}/read=${seenPostIds.has(postId) ? 'yes' : 'no'}`
+      } catch {
+        publishState[postId] = 'unknown'
+      }
+    })
+
     // === FACEBOOK : deuxième passe sur les posts que Meta dit commentés ===
     // A page answers to several ids (the ad-manager page id, the profile id, the
     // one in permalink_url). {page_id}_{story_id} resolves but reports nothing,
@@ -526,6 +540,7 @@ export async function GET(req: NextRequest) {
         pageLookupErrors: pageLookupErrors.slice(0, 10),
         fbTokenUsed,
         adsPosts: adsPostsDebug,
+        publishState,
         altIdAttempts,
         postProbe,
         fbSummary: fbDebugSummary,
