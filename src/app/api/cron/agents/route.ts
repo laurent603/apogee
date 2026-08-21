@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic } from '@/lib/anthropic'
-import { getAccountOverview, getCampaigns, getAdSets, getAds } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, type LeadSource } from '@/lib/meta'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -75,11 +75,16 @@ export async function GET(req: NextRequest) {
       if (!token || !metaAccountId) { results.push({ agentId: agent.id, name: agent.name, status: 'skip:no-token' }); continue }
 
       const datePreset = agent.analysisPeriod || 'last_7d'
+      const bs = await prisma.brandSettings.findUnique({
+        where: { adAccountId: agent.adAccountId },
+        select: { leadSource: true },
+      }).catch(() => null)
+      const leadSource = (bs?.leadSource as LeadSource) || 'total'
       const [overview, campaigns, adsets, ads] = await Promise.all([
-        getAccountOverview(metaAccountId, token, datePreset),
-        getCampaigns(metaAccountId, token, datePreset),
-        getAdSets(metaAccountId, token, datePreset),
-        getAds(metaAccountId, token, datePreset),
+        getAccountOverview(metaAccountId, token, datePreset, leadSource),
+        getCampaigns(metaAccountId, token, datePreset, leadSource),
+        getAdSets(metaAccountId, token, datePreset, leadSource),
+        getAds(metaAccountId, token, datePreset, leadSource),
       ])
 
       const userMessage = `${agent.instructions}\n\nFormat de sortie : ${agent.outputFormat || 'Markdown structuré'}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}`

@@ -122,6 +122,8 @@ model BrandSettings {
   landingPageType       String?
   trackingSetup         String?
   crmIntegration        String?
+  // 'total' | 'meta' | 'website' — see LeadSource in src/lib/meta.ts
+  leadSource            String?  @default("total")
   trackedEvents         String?
   trustpilotUrl         String?
   updatedAt             DateTime @updatedAt

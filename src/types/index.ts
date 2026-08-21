@@ -61,6 +61,8 @@ export interface BrandSettings {
   landingPageType?: string
   trackingSetup?: string
   crmIntegration?: string
+  /** 'total' | 'meta' | 'website' — which lead figure this account trusts */
+  leadSource?: string
   trackedEvents?: string
   trustpilotUrl?: string
 }

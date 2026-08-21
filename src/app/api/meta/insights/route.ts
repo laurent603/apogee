@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, computeVideoMetrics } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, computeVideoMetrics, type LeadSource } from '@/lib/meta'
+import { prisma } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -16,22 +17,33 @@ export async function GET(req: NextRequest) {
 
   const token = session.accessToken as string
 
+  // Lead definition is per-account: an account whose CRM re-pushes instant-form
+  // leads over the CAPI must not be reported on Meta's inflated total.
+  const dbAccountId = searchParams.get('dbAccountId')
+  let leadSource: LeadSource = 'total'
+  if (dbAccountId) {
+    const bs = await prisma.brandSettings
+      .findUnique({ where: { adAccountId: dbAccountId }, select: { leadSource: true } })
+      .catch(() => null)
+    leadSource = (bs?.leadSource as LeadSource) || 'total'
+  }
+
   try {
     switch (type) {
       case 'overview': {
-        const data = await getAccountOverview(accountId, token, datePreset)
+        const data = await getAccountOverview(accountId, token, datePreset, leadSource)
         return NextResponse.json(data)
       }
       case 'campaigns': {
-        const data = await getCampaigns(accountId, token, datePreset)
+        const data = await getCampaigns(accountId, token, datePreset, leadSource)
         return NextResponse.json(data)
       }
       case 'adsets': {
-        const data = await getAdSets(accountId, token, datePreset)
+        const data = await getAdSets(accountId, token, datePreset, leadSource)
         return NextResponse.json(data)
       }
       case 'ads': {
-        const ads = await getAds(accountId, token, datePreset)
+        const ads = await getAds(accountId, token, datePreset, leadSource)
         const enriched = ads.map((ad: Record<string, unknown>) => ({
           ...ad,
           videoMetrics: computeVideoMetrics(ad),

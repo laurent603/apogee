@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic } from '@/lib/anthropic'
 import { PROMPTS } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
 type PromptCategory = keyof typeof PROMPTS
@@ -32,11 +32,12 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        const leadSource = (brandSettings?.leadSource as LeadSource) || 'total'
         const [overview, campaigns, adsets, ads, daily] = await Promise.all([
-          getAccountOverview(accountId, token, datePreset),
-          getCampaigns(accountId, token, datePreset),
-          getAdSets(accountId, token, datePreset),
-          getAds(accountId, token, datePreset),
+          getAccountOverview(accountId, token, datePreset, leadSource),
+          getCampaigns(accountId, token, datePreset, leadSource),
+          getAdSets(accountId, token, datePreset, leadSource),
+          getAds(accountId, token, datePreset, leadSource),
           getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
         ])
 
@@ -53,8 +54,17 @@ export async function POST(req: NextRequest) {
           ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes.${outputInstruction}`
           : getPrompt(category as PromptCategory, analysisType)
 
+        const leadSourceNote = {
+          total: `Le champ "Prospects (leads)" est le total Meta (site web + formulaires). Si "Alerte prospects" est présente dans les données, les deux sources sont actives et le total peut être un double comptage : signale-le au lieu de raisonner dessus comme si c'était fiable.`,
+          meta: `Ce compte ne retient QUE les prospects issus des formulaires instantanés Meta. "Prospects (leads)" et "Coût par prospect" sont déjà calculés sur cette base. Ignore "Prospects site web" : ce sont des doublons renvoyés par le CRM via la CAPI, jamais de vrais prospects supplémentaires.`,
+          website: `Ce compte ne retient QUE les prospects du site web (pixel/CAPI). "Prospects (leads)" et "Coût par prospect" sont déjà calculés sur cette base. Ignore "Prospects Meta".`,
+        }[leadSource]
+
         const dataContext = `
 # Données du compte Meta Ads
+
+## Définition des prospects (à respecter impérativement)
+${leadSourceNote}
 
 ## Brand Settings
 ${brandSettings ? JSON.stringify(brandSettings, null, 2) : 'Non renseigné'}

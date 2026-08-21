@@ -52,7 +52,17 @@ function extractActionValue(values: { action_type: string; value: string }[] | u
   return Number(values?.find(a => a.action_type === type)?.value || 0)
 }
 
-export function computeKPIs(d: Record<string, unknown>) {
+/**
+ * Which lead figure an account treats as authoritative.
+ * 'total'   — Meta's own total (website + instant forms)
+ * 'meta'    — instant form submissions only
+ * 'website' — pixel/CAPI Lead events only
+ * Accounts whose CRM pushes a CAPI `Lead` back for every instant-form lead see
+ * the same person counted twice in the total; they should pick 'meta'.
+ */
+export type LeadSource = 'total' | 'meta' | 'website'
+
+export function computeKPIs(d: Record<string, unknown>, leadSource: LeadSource = 'total') {
   const actions = d.actions as { action_type: string; value: string }[] | undefined
   const actionValues = d.action_values as { action_type: string; value: string }[] | undefined
   const costPer = d.cost_per_action_type as { action_type: string; value: string }[] | undefined
@@ -71,7 +81,11 @@ export function computeKPIs(d: Record<string, unknown>) {
   // the sources apart and only derive the total when Meta omits it.
   const leadsWebsite = extractAction(actions, 'offsite_conversion.fb_pixel_lead')
   const leadsMeta = extractAction(actions, 'onsite_conversion.lead_grouped') || extractAction(actions, 'leadgen.other')
-  const leads = extractAction(actions, 'lead') || (leadsWebsite + leadsMeta)
+  const leadsTotal = extractAction(actions, 'lead') || (leadsWebsite + leadsMeta)
+  const leads =
+    leadSource === 'meta' ? leadsMeta :
+    leadSource === 'website' ? leadsWebsite :
+    leadsTotal
   const purchaseValue = extractActionValue(actionValues, 'purchase') || extractActionValue(actionValues, 'offsite_conversion.fb_pixel_purchase')
 
   // Video
@@ -101,6 +115,10 @@ export function computeKPIs(d: Record<string, unknown>) {
     'Prospects (leads)': leads || null,
     'Prospects site web': leadsWebsite || null,
     'Prospects Meta': leadsMeta || null,
+    'Source prospects retenue': leadSource,
+    ...(leadSource === 'total' && leadsWebsite > 0 && leadsMeta > 0
+      ? { 'Alerte prospects': `Les deux sources sont actives (${leadsWebsite} site web + ${leadsMeta} Meta). Si le CRM renvoie un événement Lead pour chaque prospect issu des formulaires Meta, le total est un double comptage — vérifier avant de raisonner sur ce chiffre.` }
+      : {}),
     'Paiements initiés': initiateCheckout || null,
     'Vues page destination': landingPageViews || null,
     'Clics sur lien': linkClicks || null,
@@ -108,21 +126,25 @@ export function computeKPIs(d: Record<string, unknown>) {
     // Costs from API
     'Coût par achat': extractAction(costPer, 'purchase') || extractAction(costPer, 'offsite_conversion.fb_pixel_purchase') || null,
     'Coût par ATC': extractAction(costPer, 'add_to_cart') || extractAction(costPer, 'offsite_conversion.fb_pixel_add_to_cart') || null,
-    'Coût par prospect': extractAction(costPer, 'lead') || (leads > 0 ? spend / leads : null),
+    // Meta's own cost-per-lead is derived from its total, so it is wrong as soon
+    // as the account narrows the source — recompute from the retained figure.
+    'Coût par prospect': leadSource === 'total'
+      ? (extractAction(costPer, 'lead') || (leads > 0 ? spend / leads : null))
+      : (leads > 0 ? spend / leads : null),
     'Coût par vue LP': (d.cost_per_outbound_click as {value:string}[])?.[0]?.value || null,
   }
 }
 
-export async function getAccountOverview(accountId: string, token: string, datePreset = 'last_7d') {
+export async function getAccountOverview(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
   const data = await metaFetch(`/${accountId}/insights`, token, {
     date_preset: datePreset,
     fields: INSIGHT_FIELDS,
   })
   const raw = data.data?.[0] || {}
-  return { ...raw, _computed: computeKPIs(raw) }
+  return { ...raw, _computed: computeKPIs(raw, leadSource) }
 }
 
-export async function getCampaigns(accountId: string, token: string, datePreset = 'last_7d') {
+export async function getCampaigns(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
   const data = await metaFetch(`/${accountId}/campaigns`, token, {
     fields: [
       'id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget',
@@ -133,11 +155,11 @@ export async function getCampaigns(accountId: string, token: string, datePreset 
   })
   return (data.data || []).map((c: Record<string, unknown>) => ({
     ...c,
-    _computed: c.insights ? computeKPIs((c.insights as {data: Record<string, unknown>[]}).data?.[0] || {}) : null,
+    _computed: c.insights ? computeKPIs((c.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
   }))
 }
 
-export async function getAdSets(accountId: string, token: string, datePreset = 'last_7d') {
+export async function getAdSets(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
   const data = await metaFetch(`/${accountId}/adsets`, token, {
     fields: [
       'id', 'name', 'status', 'campaign_id', 'daily_budget', 'optimization_goal',
@@ -149,11 +171,11 @@ export async function getAdSets(accountId: string, token: string, datePreset = '
   })
   return (data.data || []).map((a: Record<string, unknown>) => ({
     ...a,
-    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}) : null,
+    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
   }))
 }
 
-export async function getAds(accountId: string, token: string, datePreset = 'last_7d') {
+export async function getAds(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
   const data = await metaFetch(`/${accountId}/ads`, token, {
     fields: [
       'id', 'name', 'status', 'adset_id', 'campaign_id',
@@ -165,7 +187,7 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
   })
   return (data.data || []).map((a: Record<string, unknown>) => ({
     ...a,
-    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}) : null,
+    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
   }))
 }
 

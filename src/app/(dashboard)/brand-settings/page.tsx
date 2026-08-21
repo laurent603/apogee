@@ -326,6 +326,18 @@ export default function BrandSettingsPage() {
                     { value: 'other', label: 'Autre' },
                   ]} />
                 </div>
+                <div>
+                  <SelectField label="Prospects à comptabiliser" field="leadSource" settings={settings} onChange={handleChange} options={[
+                    { value: 'total', label: 'Total Meta (site web + formulaires)' },
+                    { value: 'meta', label: 'Formulaires instantanés Meta uniquement' },
+                    { value: 'website', label: 'Site web uniquement (pixel / CAPI)' },
+                  ]} />
+                  <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+                    Si votre CRM renvoie un événement <code className="bg-gray-100 px-1 rounded">Lead</code> via la CAPI pour chaque prospect
+                    venu d&apos;un formulaire Meta, le total compte deux fois la même personne. Choisissez alors
+                    « Formulaires instantanés Meta uniquement » : le dashboard et les analyses IA utiliseront ce chiffre.
+                  </p>
+                </div>
                 <Field label="Événements trackés" field="trackedEvents" placeholder="ex : Purchase, Lead, ViewContent, AddToCart" settings={settings} onChange={handleChange} />
                 <Field label="URL Trustpilot" field="trustpilotUrl" placeholder="https://trustpilot.com/review/votresite.com" settings={settings} onChange={handleChange} />
               </div>

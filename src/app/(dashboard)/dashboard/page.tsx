@@ -89,7 +89,7 @@ export default function DashboardPage() {
     const metaId = selectedAccount.metaAccountId || selectedAccount.id
     try {
       const [ovRes, dailyRes, spendersRes] = await Promise.all([
-        fetch(`/api/meta/insights?accountId=${metaId}&type=overview&datePreset=${datePreset}`),
+        fetch(`/api/meta/insights?accountId=${metaId}&dbAccountId=${selectedAccount.id}&type=overview&datePreset=${datePreset}`),
         fetch(`/api/meta/insights?accountId=${metaId}&type=daily&days=${datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30}`),
         fetch(`/api/meta/top-spenders?accountId=${metaId}&limit=10&datePreset=${datePreset}`),
       ])
