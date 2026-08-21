@@ -294,6 +294,7 @@ export default function AutopilotPage() {
   const [running, setRunning] = useState<string | null>(null)
   const [newReportId, setNewReportId] = useState<string | null>(null)
   const [showCustomForm, setShowCustomForm] = useState(false)
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
 
   // --- History ---
   type Report = { id: string; title: string; content: string; createdAt: string; agent: { name: string } | null }
@@ -318,16 +319,61 @@ export default function AutopilotPage() {
 
   useEffect(() => { loadAgents() }, [loadAgents])
 
+  function buildDeliveryChannels(data: typeof agentForm): string {
+    if (!('channels' in data)) return 'in_app'
+    const cfg: Record<string, unknown> = { channels: data.channels }
+    if (data.channels.includes('email') && data.deliveryEmail) cfg.email = data.deliveryEmail
+    if (data.channels.includes('notion') && data.deliveryNotion) { cfg.notionPageId = data.deliveryNotion; cfg.notionToken = data.deliveryNotionToken }
+    return JSON.stringify(cfg)
+  }
+
+  function startEdit(agent: AutopilotAgent) {
+    let channels = ['in_app']
+    let deliveryEmail = ''
+    let deliveryNotion = ''
+    let deliveryNotionToken = ''
+    try {
+      const cfg = JSON.parse(agent.deliveryChannels)
+      channels = cfg.channels || ['in_app']
+      deliveryEmail = cfg.email || ''
+      deliveryNotion = cfg.notionPageId || ''
+      deliveryNotionToken = cfg.notionToken || ''
+    } catch { /* ignore */ }
+    setAgentForm({
+      name: agent.name, description: agent.description || '',
+      role: agent.role || 'performance_manager', frequency: agent.frequency,
+      runMode: agent.runMode || 'report', analysisPeriod: agent.analysisPeriod || 'last_7d',
+      instructions: agent.instructions || '', outputFormat: agent.outputFormat || '',
+      deliveryEmail, deliveryNotion, deliveryNotionToken, channels,
+    })
+    setEditingAgentId(agent.id)
+    setShowCustomForm(true)
+    setTimeout(() => document.getElementById('custom-form-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
+  async function saveAgent() {
+    if (!editingAgentId) return
+    const deliveryChannels = buildDeliveryChannels(agentForm)
+    const res = await fetch('/api/autopilot', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editingAgentId, name: agentForm.name, description: agentForm.description, role: agentForm.role, frequency: agentForm.frequency, runMode: agentForm.runMode, analysisPeriod: agentForm.analysisPeriod, instructions: agentForm.instructions, outputFormat: agentForm.outputFormat, deliveryChannels }),
+    })
+    const json = await res.json()
+    if (json.agent) {
+      setAgents((prev) => prev.map((a) => a.id === editingAgentId ? json.agent : a))
+      toast.success('Agent modifié')
+      setEditingAgentId(null)
+      setShowCustomForm(false)
+      setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '', deliveryEmail: '', deliveryNotion: '', deliveryNotionToken: '', channels: ['in_app'] })
+    } else {
+      toast.error('Erreur modification agent')
+    }
+  }
+
   async function createAgent(data: typeof agentForm | typeof PRESET_AGENTS[0]) {
     if (!selectedAccount?.id) { toast.error('Sélectionnez un compte publicitaire'); return }
-    // Build deliveryChannels JSON for custom form
-    let deliveryChannels = 'in_app'
-    if ('channels' in data) {
-      const cfg: Record<string, unknown> = { channels: data.channels }
-      if (data.channels.includes('email') && data.deliveryEmail) cfg.email = data.deliveryEmail
-      if (data.channels.includes('notion') && data.deliveryNotion) { cfg.notionPageId = data.deliveryNotion; cfg.notionToken = data.deliveryNotionToken }
-      deliveryChannels = JSON.stringify(cfg)
-    }
+    const deliveryChannels = 'channels' in data ? buildDeliveryChannels(data as typeof agentForm) : 'in_app'
     const payload = { ...data, deliveryChannels }
     const res = await fetch('/api/autopilot', {
       method: 'POST',
@@ -339,6 +385,7 @@ export default function AutopilotPage() {
       setAgents((prev) => [json.agent, ...prev])
       toast.success(`Agent "${data.name}" créé`)
       setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '', deliveryEmail: '', deliveryNotion: '', deliveryNotionToken: '', channels: ['in_app'] })
+      setShowCustomForm(false)
     } else {
       toast.error(json.error || 'Erreur création agent')
     }
@@ -721,6 +768,9 @@ export default function AutopilotPage() {
                         >
                           {agent.isActive ? 'Actif' : 'Inactif'}
                         </button>
+                        <button onClick={() => startEdit(agent)} className="p-1.5 text-gray-300 hover:text-[#3434ef] transition-colors rounded-lg hover:bg-blue-50">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </button>
                         <button onClick={() => deleteAgent(agent.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
@@ -772,18 +822,23 @@ export default function AutopilotPage() {
           </div>
 
           {/* 3. Formulaire personnalisé (collapsible) */}
-          <div className="card p-0 overflow-hidden">
+          <div id="custom-form-section" className="card p-0 overflow-hidden">
             <button
-              onClick={() => setShowCustomForm((v) => !v)}
+              onClick={() => { setShowCustomForm((v) => !v); if (showCustomForm) { setEditingAgentId(null); setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '', deliveryEmail: '', deliveryNotion: '', deliveryNotionToken: '', channels: ['in_app'] }) } }}
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#f8f9fc] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center', editingAgentId ? 'bg-blue-50' : 'bg-gray-100')}>
+                  <svg className={clsx('w-4 h-4', editingAgentId ? 'text-[#3434ef]' : 'text-gray-500')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {editingAgentId
+                      ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+                    }
+                  </svg>
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-[#0d0d12]">Créer un agent personnalisé</p>
-                  <p className="text-xs text-gray-400">Configurez un agent sur-mesure pour vos besoins spécifiques</p>
+                  <p className="text-sm font-semibold text-[#0d0d12]">{editingAgentId ? `Modifier "${agentForm.name}"` : 'Créer un agent personnalisé'}</p>
+                  <p className="text-xs text-gray-400">{editingAgentId ? 'Modifiez les paramètres et la livraison de cet agent' : 'Configurez un agent sur-mesure pour vos besoins spécifiques'}</p>
                 </div>
               </div>
               <svg className={clsx('w-4 h-4 text-gray-400 transition-transform', showCustomForm && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
@@ -881,13 +936,21 @@ export default function AutopilotPage() {
                   )}
                 </div>
 
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-between pt-1">
+                  {editingAgentId && (
+                    <button
+                      onClick={() => { setEditingAgentId(null); setShowCustomForm(false); setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '', deliveryEmail: '', deliveryNotion: '', deliveryNotionToken: '', channels: ['in_app'] }) }}
+                      className="text-sm text-gray-400 hover:text-gray-600"
+                    >
+                      Annuler
+                    </button>
+                  )}
                   <button
-                    onClick={() => createAgent(agentForm)}
-                    disabled={!agentForm.name || !selectedAccount}
-                    className="btn-primary"
+                    onClick={() => editingAgentId ? saveAgent() : createAgent(agentForm)}
+                    disabled={!agentForm.name || (!selectedAccount && !editingAgentId)}
+                    className="btn-primary ml-auto"
                   >
-                    Créer l&apos;agent
+                    {editingAgentId ? 'Enregistrer les modifications' : 'Créer l\'agent'}
                   </button>
                 </div>
               </div>
