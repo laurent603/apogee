@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from 'react-hot-toast'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   title: 'Metanalyzer — Meta Ads Intelligence',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}
           />
         </Providers>
+        <Analytics />
       </body>
     </html>
   )
