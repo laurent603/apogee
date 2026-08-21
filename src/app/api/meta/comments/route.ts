@@ -224,6 +224,58 @@ export async function GET(req: NextRequest) {
       if (pageToIgId[pageId]) igActorIdsFromPages.add(pageToIgId[pageId])
     }
 
+    // The per-ad comment counter aggregates Facebook and Instagram, so an ad whose
+    // Facebook post is empty is running its comments on Instagram. Reaching them
+    // needs an IG identity, which the page edge did not provide — try the other
+    // documented routes and record which one answers.
+    const igResolution: Record<string, unknown> = {}
+
+    try {
+      const r = await metaFetch(`/${metaAccountId}/instagram_accounts`, token, { fields: 'id,username' })
+      const accs = (r.data || []) as { id: string; username?: string }[]
+      igResolution.adAccountInstagram = accs
+      for (const a of accs) {
+        igActorIdsFromPages.add(a.id)
+        if (!igToPageToken[a.id]) igToPageToken[a.id] = pageTokens[[...pageIdsInAds][0]] || token
+      }
+    } catch (e) {
+      igResolution.adAccountInstagram = `err:${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`
+    }
+
+    for (const pageId of pageIdsInAds) {
+      try {
+        const r = await metaFetch(`/${pageId}/page_backed_instagram_accounts`, pageTokens[pageId] || token, { fields: 'id,username' })
+        const accs = (r.data || []) as { id: string; username?: string }[]
+        igResolution[`pageBacked:${pageId}`] = accs
+        for (const a of accs) {
+          igActorIdsFromPages.add(a.id)
+          if (!igToPageToken[a.id]) igToPageToken[a.id] = pageTokens[pageId] || token
+        }
+      } catch (e) {
+        igResolution[`pageBacked:${pageId}`] = `err:${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`
+      }
+    }
+
+    // Which Instagram identifier Meta actually exposes on an ad varies by API
+    // version; probe them one at a time so an invalid field cannot break the scan.
+    const probeAdId = adsWithComments[0]?.adId
+    if (probeAdId) {
+      for (const f of [
+        'creative{instagram_permalink_url}',
+        'creative{effective_instagram_media_id}',
+        'creative{instagram_actor_id}',
+        'creative{instagram_user_id}',
+        'creative{effective_instagram_story_id}',
+      ]) {
+        try {
+          const r = await metaFetch(`/${probeAdId}`, token, { fields: f })
+          igResolution[`probe:${f}`] = r.creative ?? null
+        } catch (e) {
+          igResolution[`probe:${f}`] = `err:${e instanceof Error ? e.message.slice(0, 100) : 'unknown'}`
+        }
+      }
+    }
+
     const posts: PostItem[] = []
     const seenPostIds = new Set<string>()
     function addPost(p: PostItem) {
@@ -354,6 +406,7 @@ export async function GET(req: NextRequest) {
         fbSummary: fbDebugSummary,
         igMediaFromPermalink: igMediaMap.size,
         igActorIds: [...igActorIdsFromPages],
+        igResolution,
         igDebugErrors: igDebugErrors.slice(0, 20),
       },
     })
