@@ -458,9 +458,16 @@ export async function GET(req: NextRequest) {
     // What Meta says exists, so a gap against totalComments is visible instead of silent
     const fbReportedTotal = Object.values(fbDebugSummary).reduce((s, n) => s + (n > 0 ? n : 0), 0)
 
+    // Meta counts comments on unpublished ad posts but will not serve their text,
+    // so the caller must be able to tell a complete scan from a partial one.
+    const unreadable = Math.max(expectedTotal - totalComments, 0)
+
     return NextResponse.json({
       posts,
       totalComments,
+      expectedComments: expectedTotal,
+      unreadableComments: unreadable,
+      coverage: expectedTotal > 0 ? Math.round((totalComments / expectedTotal) * 100) : 100,
       adsScanned: fbPostMap.size + igMediaMap.size,
       debug: {
         adsFetched: allAds.length,

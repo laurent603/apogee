@@ -47,6 +47,7 @@ export default function CommentAnalysisPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [totalComments, setTotalComments] = useState(0)
   const [adsScanned, setAdsScanned] = useState(0)
+  const [coverage, setCoverage] = useState({ expected: 0, unreadable: 0, pct: 100 })
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'insights' | 'briefs' | 'comments'>('insights')
@@ -69,6 +70,11 @@ export default function CommentAnalysisPage() {
       setPosts(data.posts)
       setTotalComments(data.totalComments)
       setAdsScanned(data.adsScanned)
+      setCoverage({
+        expected: data.expectedComments ?? 0,
+        unreadable: data.unreadableComments ?? 0,
+        pct: data.coverage ?? 100,
+      })
 
       if (data.totalComments === 0) {
         setStep('done')
@@ -178,7 +184,33 @@ export default function CommentAnalysisPage() {
       {step === 'done' && totalComments === 0 && (
         <div className="card text-center py-12">
           <p className="font-semibold text-[#0d0d12]">Aucun commentaire trouvé</p>
-          <p className="text-sm text-gray-400 mt-1">Les publicités du compte n&apos;ont pas encore de commentaires.</p>
+          <p className="text-sm text-gray-400 mt-1">
+            {coverage.expected > 0
+              ? `Meta recense ${coverage.expected} commentaires sur ces publicités, mais n'en expose le texte pour aucun.`
+              : 'Les publicités du compte n\'ont pas encore de commentaires.'}
+          </p>
+        </div>
+      )}
+
+      {/* Partial coverage — an analysis run on a fraction of the comments is
+          misleading unless the gap is stated up front */}
+      {step === 'done' && coverage.unreadable > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.33 16a2 2 0 001.74 3z" />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-900">
+                Analyse partielle : {totalComments} commentaires sur {coverage.expected} ({coverage.pct}%)
+              </p>
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                Meta recense {coverage.expected} commentaires sur ces publicités mais n&apos;expose pas le texte de {coverage.unreadable} d&apos;entre eux :
+                ils sont portés par des publications publicitaires non publiées, que l&apos;API refuse de servir.
+                Les conclusions ci-dessous ne portent que sur les {totalComments} commentaires lisibles — ne les généralisez pas.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -188,7 +220,12 @@ export default function CommentAnalysisPage() {
           {/* Stats bar */}
           <div className="grid grid-cols-3 gap-4">
             <div className="card text-center py-5">
-              <p className="text-2xl font-bold text-[#0d0d12]">{totalComments}</p>
+              <p className="text-2xl font-bold text-[#0d0d12]">
+                {totalComments}
+                {coverage.expected > totalComments && (
+                  <span className="text-base font-medium text-gray-400"> / {coverage.expected}</span>
+                )}
+              </p>
               <p className="text-xs text-gray-400 mt-0.5">Commentaires analysés</p>
             </div>
             <div className="card text-center py-5">
