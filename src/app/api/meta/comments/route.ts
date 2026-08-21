@@ -317,6 +317,48 @@ export async function GET(req: NextRequest) {
       }
     })
 
+    // === FACEBOOK : deuxième passe sur les posts que Meta dit commentés ===
+    // A page answers to several ids (the ad-manager page id, the profile id, the
+    // one in permalink_url). {page_id}_{story_id} resolves but reports nothing,
+    // so retry against the owner the permalink itself names.
+    const altIdAttempts: Record<string, string> = {}
+    const missing = adsWithComments.filter(a => a.postId && !seenPostIds.has(a.postId))
+
+    await mapLimit(missing, 4, async ({ postId, adName, expected }) => {
+      if (!postId) return
+      const [pageId, storyId] = postId.split('_')
+      const tok = pageTokens[pageId] || token
+      let permalinkOwner: string | null = null
+      try {
+        const node = await metaFetch(`/${postId}`, tok, { fields: 'permalink_url' })
+        const m = String(node.permalink_url || '').match(/facebook\.com\/(\d+)\/posts\/(\d+)/)
+        if (m && m[1] !== pageId) permalinkOwner = m[1]
+      } catch { /* pas de permalink exploitable */ }
+
+      const alts = [permalinkOwner ? `${permalinkOwner}_${storyId}` : null].filter(Boolean) as string[]
+      if (alts.length === 0) { altIdAttempts[postId] = `expected=${expected} no-alt-id`; return }
+
+      for (const alt of alts) {
+        try {
+          const first = await metaFetch(`/${alt}/comments`, tok, {
+            fields: 'id,message,created_time,like_count,from{name}',
+            filter: 'stream',
+            limit: '100',
+            summary: 'true',
+          })
+          const comments = parseFBComments(await drainPages(first))
+          const total = (first.summary as { total_count?: number } | undefined)?.total_count
+          altIdAttempts[postId] = `expected=${expected} ${alt} → summary=${total ?? '?'} read=${comments.length}`
+          if (comments.length > 0) {
+            addPost({ adId: postId, adName, postId, thumbnail: fbPostMap.get(postId)?.thumbnail, comments })
+            return
+          }
+        } catch (e) {
+          altIdAttempts[postId] = `expected=${expected} ${alt} → err:${e instanceof Error ? e.message.slice(0, 90) : 'unknown'}`
+        }
+      }
+    })
+
     // === FACEBOOK : dark posts via l'edge dédié ===
     // /{page}/posts hides unpublished posts; ads_posts is the edge that lists
     // them, and its nodes may expose comments the post id alone does not.
@@ -484,6 +526,7 @@ export async function GET(req: NextRequest) {
         pageLookupErrors: pageLookupErrors.slice(0, 10),
         fbTokenUsed,
         adsPosts: adsPostsDebug,
+        altIdAttempts,
         postProbe,
         fbSummary: fbDebugSummary,
         igMediaFromAds: igMediaMap.size,
