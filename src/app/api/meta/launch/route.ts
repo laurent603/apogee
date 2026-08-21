@@ -438,13 +438,15 @@ export async function POST(req: NextRequest) {
             const feedImage = imageAssets.find(a => !isVertical(a.ratio))
             const storyImage = imageAssets.find(a => isVertical(a.ratio))
 
-            // Poll until Meta video is ready and return thumbnail URL
+            // Poll until Meta video is ready and return thumbnail URL.
+            // Short interval early so a already-encoded video is picked up fast,
+            // widening after a few tries to avoid hammering the API.
             async function waitForVideo(videoId: string): Promise<string | undefined> {
-              for (let i = 0; i < 15; i++) {
+              for (let i = 0; i < 22; i++) {
                 const info = await metaFetch(`/${videoId}`, token, { fields: 'status,picture' })
                 const vs = (info.status as Record<string, unknown> | undefined)?.video_status as string | undefined
                 if (vs === 'ready' || (!vs && info.picture)) return info.picture as string | undefined
-                await new Promise(r => setTimeout(r, 2000))
+                await new Promise(r => setTimeout(r, i < 6 ? 700 : 2000))
               }
             }
 
@@ -567,10 +569,13 @@ export async function POST(req: NextRequest) {
                 ...afsCta,
               }
 
-              // Poll videos once — probing must not re-run the 30s wait per candidate
-              const thumbs = isVideo
-                ? await Promise.all((assets as { videoId: string }[]).map(a => waitForVideo(a.videoId).catch(() => undefined)))
-                : []
+              // Poll videos once — probing must not re-run the wait per candidate
+              let thumbs: (string | undefined)[] = []
+              if (isVideo) {
+                const t0 = Date.now()
+                thumbs = await Promise.all((assets as { videoId: string }[]).map(a => waitForVideo(a.videoId).catch(() => undefined)))
+                send(`⏱ Encodage Meta des vidéos : ${Math.round((Date.now() - t0) / 1000)}s`)
+              }
 
               function assetList(withLabels: boolean) {
                 if (isVideo) {
