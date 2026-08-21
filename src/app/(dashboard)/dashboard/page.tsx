@@ -76,7 +76,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!selectedAccount) return
-    fetch('/api/launch-history')
+    const metaId = selectedAccount.metaAccountId || selectedAccount.id
+    fetch(`/api/launch-history?metaAccountId=${metaId}`)
       .then(r => r.json())
       .then(data => setRecentLaunches(Array.isArray(data) ? data.slice(0, 5) : []))
       .catch(() => {})
