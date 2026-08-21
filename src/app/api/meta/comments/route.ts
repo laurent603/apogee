@@ -132,23 +132,52 @@ export async function GET(req: NextRequest) {
       meAccountsError = e instanceof Error ? e.message.slice(0, 150) : 'unknown'
     }
 
-    // Toutes les pubs du compte, pagination comprise
+    // Toutes les pubs du compte, quel que soit leur statut, pagination comprise.
+    // insights.actions donne le nombre de commentaires que Meta attribue à la pub :
+    // source indépendante du post, qui révèle un effective_object_story_id erroné.
+    const adFields =
+      'id,name,effective_status,' +
+      'creative{effective_object_story_id,object_story_id,thumbnail_url,instagram_permalink_url},' +
+      'insights.date_preset(maximum){actions}'
     const adsFirst = await metaFetch(`/${metaAccountId}/ads`, token, {
-      fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
+      fields: adFields,
       limit: '100',
-      date_preset: 'maximum',
+      filtering: JSON.stringify([{
+        field: 'ad.effective_status',
+        operator: 'IN',
+        value: ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED', 'PENDING_REVIEW',
+                'DISAPPROVED', 'PREAPPROVED', 'PENDING_BILLING_INFO', 'IN_PROCESS',
+                'WITH_ISSUES', 'ARCHIVED'],
+      }]),
     })
     const allAds = await drainPages(adsFirst)
+
+    /** Comments Meta attributes to an ad, whichever post they actually landed on. */
+    function adCommentCount(ad: Record<string, unknown>): number {
+      const rows = (ad.insights as { data?: Record<string, unknown>[] } | undefined)?.data?.[0]
+      const actions = rows?.actions as { action_type: string; value: string }[] | undefined
+      return Number(actions?.find(a => a.action_type === 'comment')?.value || 0)
+    }
 
     type AdMeta = { adName: string; thumbnail?: string }
     const fbPostMap = new Map<string, AdMeta>()    // FB postId → meta
     const igMediaMap = new Map<string, AdMeta>()   // IG media ID → meta
+
+    // Ads Meta says received comments, so a post returning 0 stands out
+    const adsWithComments: { adId: string; adName: string; expected: number; postId: string | null }[] = []
+    let expectedTotal = 0
 
     for (const ad of allAds) {
       const creative = ad.creative as Record<string, string> | undefined
       const adName = ad.name as string
       const thumbnail = creative?.thumbnail_url
       const postId = creative?.effective_object_story_id || creative?.object_story_id
+
+      const expected = adCommentCount(ad)
+      if (expected > 0) {
+        expectedTotal += expected
+        adsWithComments.push({ adId: ad.id as string, adName, expected, postId: postId || null })
+      }
 
       if (!postId) continue
       const parts = postId.split('_')
@@ -214,29 +243,32 @@ export async function GET(req: NextRequest) {
       if (pageToken) candidates.push(['page', pageToken])
       candidates.push(['user', token])
       for (const [kind, tok] of candidates) {
-        try {
-          const first = await metaFetch(`/${postId}/comments`, tok, {
-            fields: 'id,message,created_time,like_count,from{name}',
-            filter: 'stream',
-            limit: '100',
-            summary: 'true',
-          })
-          const raw = await drainPages(first)
-          const total = (first.summary as { total_count?: number } | undefined)?.total_count
-          if (total !== undefined) fbDebugSummary[postId] = total
-          const comments = parseFBComments(raw)
-          if (comments.length > 0) {
-            fbTokenUsed[postId] = kind
-            addPost({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
-            return
+        // stream carries replies, toplevel is the API default — try both before
+        // concluding a post has nothing
+        for (const filter of ['stream', 'toplevel']) {
+          try {
+            const first = await metaFetch(`/${postId}/comments`, tok, {
+              fields: 'id,message,created_time,like_count,from{name}',
+              filter,
+              limit: '100',
+              summary: 'true',
+            })
+            const raw = await drainPages(first)
+            const total = (first.summary as { total_count?: number } | undefined)?.total_count
+            if (total !== undefined) fbDebugSummary[postId] = Math.max(fbDebugSummary[postId] ?? 0, total)
+            const comments = parseFBComments(raw)
+            if (comments.length > 0) {
+              fbTokenUsed[postId] = `${kind}:${filter}`
+              addPost({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
+              return
+            }
+            fbTokenUsed[postId] = `${kind}:${filter}:empty`
+          } catch (e) {
+            fbTokenUsed[postId] = `${kind}:${filter}:err:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`
           }
-          // An empty result on a page token is trustworthy; on a user token it
-          // usually means the dark post is simply not readable that way.
-          if (kind === 'page') { fbTokenUsed[postId] = 'page:empty'; return }
-          fbTokenUsed[postId] = 'user:empty'
-        } catch (e) {
-          fbTokenUsed[postId] = `${kind}:err:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`
         }
+        // An empty result on a page token is trustworthy — no point retrying as user
+        if (kind === 'page') return
       }
     })
 
@@ -309,6 +341,10 @@ export async function GET(req: NextRequest) {
         adsFetched: allAds.length,
         fbPosts: fbPostMap.size,
         fbReportedTotal,
+        // Meta's own per-ad comment counts: the gap against totalComments says
+        // whether we are querying the wrong posts or the comments truly are gone
+        expectedTotal,
+        adsWithComments: adsWithComments.sort((a, b) => b.expected - a.expected).slice(0, 25),
         // The decisive signal: without page tokens, dark post comments read as 0
         pagesInAds: [...pageIdsInAds],
         pageTokensResolved: Object.keys(pageTokens).length,
