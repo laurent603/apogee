@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { metaFetch } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
+// Video launches wait on Meta's encoder (up to ~30s per ad group) on top of the
+// creative and ad calls, which blows past Vercel's default function timeout.
+export const maxDuration = 300
+
 /* ── Types matching the client payload ──────────────────────────────────────── */
 
 interface LaunchAsset {
