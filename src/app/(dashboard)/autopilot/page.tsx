@@ -331,7 +331,7 @@ export default function AutopilotPage() {
     const res = await fetch('/api/autopilot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dbAccountId: selectedAccount.id, ...payload }),
+      body: JSON.stringify({ dbAccountId: selectedAccount.id, metaAccountId: selectedAccount.metaAccountId || selectedAccount.id, accountName: selectedAccount.name, ...payload }),
     })
     const json = await res.json()
     if (json.agent) {

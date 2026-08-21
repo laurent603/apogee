@@ -23,7 +23,33 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { dbAccountId, name, description, role, frequency, runMode, analysisPeriod, instructions, outputFormat, deliveryChannels } = body
+  const { dbAccountId, metaAccountId, accountName, name, description, role, frequency, runMode, analysisPeriod, instructions, outputFormat, deliveryChannels } = body
+
+  // Resolve adAccountId: find by DB id, fallback to upsert by metaAccountId
+  let resolvedAccountId: string | null = null
+  try {
+    // Try direct DB id first (UUID)
+    if (dbAccountId && !dbAccountId.startsWith('act_')) {
+      const found = await prisma.adAccount.findUnique({ where: { id: dbAccountId } })
+      if (found) resolvedAccountId = found.id
+    }
+    // Fallback: upsert by metaAccountId (when dbAccountId is act_xxx or not found)
+    if (!resolvedAccountId) {
+      const metaId = metaAccountId || dbAccountId
+      if (metaId) {
+        const acc = await prisma.adAccount.upsert({
+          where: { userId_metaAccountId: { userId: session.user.id, metaAccountId: metaId } },
+          update: { name: accountName || metaId },
+          create: { metaAccountId: metaId, name: accountName || metaId, userId: session.user.id },
+        })
+        resolvedAccountId = acc.id
+      }
+    }
+  } catch { /* ignore, resolvedAccountId stays null */ }
+
+  if (!resolvedAccountId) {
+    return NextResponse.json({ error: 'Compte publicitaire introuvable' }, { status: 400 })
+  }
 
   const agent = await prisma.autopilotAgent.create({
     data: {
@@ -34,7 +60,7 @@ export async function POST(req: NextRequest) {
       outputFormat: outputFormat || '',
       deliveryChannels: deliveryChannels || 'in_app',
       userId: session.user.id,
-      adAccountId: dbAccountId,
+      adAccountId: resolvedAccountId,
     },
   })
 
