@@ -137,7 +137,8 @@ export async function GET(req: NextRequest) {
     // source indépendante du post, qui révèle un effective_object_story_id erroné.
     const adFields =
       'id,name,effective_status,' +
-      'creative{effective_object_story_id,object_story_id,thumbnail_url,instagram_permalink_url},' +
+      'creative{effective_object_story_id,object_story_id,thumbnail_url,' +
+      'effective_instagram_media_id,instagram_user_id},' +
       'insights.date_preset(maximum){actions}'
     const adsFirst = await metaFetch(`/${metaAccountId}/ads`, token, {
       fields: adFields,
@@ -167,11 +168,17 @@ export async function GET(req: NextRequest) {
     const adsWithComments: { adId: string; adName: string; expected: number; postId: string | null }[] = []
     let expectedTotal = 0
 
+    const igUserIds = new Set<string>()
+
     for (const ad of allAds) {
       const creative = ad.creative as Record<string, string> | undefined
       const adName = ad.name as string
       const thumbnail = creative?.thumbnail_url
       const postId = creative?.effective_object_story_id || creative?.object_story_id
+      // Meta hands the Instagram media id straight out — no need to guess it
+      // from the Facebook post id, which never produced a valid one.
+      const igMediaId = creative?.effective_instagram_media_id
+      if (creative?.instagram_user_id) igUserIds.add(creative.instagram_user_id)
 
       const expected = adCommentCount(ad)
       if (expected > 0) {
@@ -179,20 +186,9 @@ export async function GET(req: NextRequest) {
         adsWithComments.push({ adId: ad.id as string, adName, expected, postId: postId || null })
       }
 
-      if (!postId) continue
-      const parts = postId.split('_')
-      const firstPart = parts[0]
-      const postPart = parts[1]
-
-      if (igToPageToken[firstPart]) {
-        if (!igMediaMap.has(postId)) igMediaMap.set(postId, { adName, thumbnail })
-      } else if (pageToIgId[firstPart] && postPart) {
-        const igCompoundId = `${pageToIgId[firstPart]}_${postPart}`
-        if (!igMediaMap.has(igCompoundId)) igMediaMap.set(igCompoundId, { adName, thumbnail })
-        if (!fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail })
-      } else {
-        if (!fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail })
-      }
+      // An ad runs on both networks, so scan both rather than picking one
+      if (postId && !fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail })
+      if (igMediaId && !igMediaMap.has(igMediaId)) igMediaMap.set(igMediaId, { adName, thumbnail })
     }
 
     // Fallback when /me/accounts came back short: ask each page that actually
@@ -256,25 +252,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Which Instagram identifier Meta actually exposes on an ad varies by API
-    // version; probe them one at a time so an invalid field cannot break the scan.
-    const probeAdId = adsWithComments[0]?.adId
-    if (probeAdId) {
-      for (const f of [
-        'creative{instagram_permalink_url}',
-        'creative{effective_instagram_media_id}',
-        'creative{instagram_actor_id}',
-        'creative{instagram_user_id}',
-        'creative{effective_instagram_story_id}',
-      ]) {
-        try {
-          const r = await metaFetch(`/${probeAdId}`, token, { fields: f })
-          igResolution[`probe:${f}`] = r.creative ?? null
-        } catch (e) {
-          igResolution[`probe:${f}`] = `err:${e instanceof Error ? e.message.slice(0, 100) : 'unknown'}`
-        }
-      }
+    // IG accounts named directly by the creatives, mapped to a page token so
+    // their media can be read
+    const anyPageToken = pageTokens[[...pageIdsInAds][0]] || token
+    for (const igId of igUserIds) {
+      igActorIdsFromPages.add(igId)
+      if (!igToPageToken[igId]) igToPageToken[igId] = anyPageToken
     }
+    igResolution.igUserIdsFromCreatives = [...igUserIds]
 
     const posts: PostItem[] = []
     const seenPostIds = new Set<string>()
@@ -326,7 +311,7 @@ export async function GET(req: NextRequest) {
 
     // === INSTAGRAM : médias issus des ads ===
     const igDebugErrors: string[] = []
-    const pageTokensIG = Object.values(igToPageToken)
+    const pageTokensIG = [...new Set([...Object.values(igToPageToken), token])]
 
     await mapLimit(Array.from(igMediaMap.entries()), 6, async ([igMediaId, meta]) => {
       if (pageTokensIG.length === 0) { igDebugErrors.push(`${igMediaId}:no-token`); return }
@@ -404,7 +389,7 @@ export async function GET(req: NextRequest) {
         pageLookupErrors: pageLookupErrors.slice(0, 10),
         fbTokenUsed,
         fbSummary: fbDebugSummary,
-        igMediaFromPermalink: igMediaMap.size,
+        igMediaFromAds: igMediaMap.size,
         igActorIds: [...igActorIdsFromPages],
         igResolution,
         igDebugErrors: igDebugErrors.slice(0, 20),
