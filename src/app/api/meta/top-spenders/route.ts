@@ -33,9 +33,13 @@ export async function GET(req: NextRequest) {
         const purchases = parseFloat(
           actions?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0'
         )
-        const leads = parseFloat(
-          actions?.find(a => a.action_type === 'lead' || a.action_type === 'offsite_conversion.fb_pixel_lead')?.value || '0'
-        )
+        // `lead` is Meta's total; when absent, sum its website and instant-form
+        // sources rather than picking whichever matches first
+        const actionVal = (type: string) => parseFloat(actions?.find(a => a.action_type === type)?.value || '0')
+        const leads =
+          actionVal('lead') ||
+          actionVal('offsite_conversion.fb_pixel_lead') +
+            (actionVal('onsite_conversion.lead_grouped') || actionVal('leadgen.other'))
         const purchaseValue = parseFloat(
           actionValues?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0'
         )

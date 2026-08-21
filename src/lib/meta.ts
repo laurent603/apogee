@@ -66,7 +66,12 @@ export function computeKPIs(d: Record<string, unknown>) {
   const addToCart = extractAction(actions, 'add_to_cart') || extractAction(actions, 'offsite_conversion.fb_pixel_add_to_cart')
   const initiateCheckout = extractAction(actions, 'initiate_checkout') || extractAction(actions, 'offsite_conversion.fb_pixel_initiate_checkout')
   const purchases = extractAction(actions, 'purchase') || extractAction(actions, 'offsite_conversion.fb_pixel_purchase')
-  const leads = extractAction(actions, 'lead') || extractAction(actions, 'offsite_conversion.fb_pixel_lead') || extractAction(actions, 'onsite_conversion.lead_grouped')
+  // Meta reports leads as three separate rows: the `lead` total plus its two
+  // sources. Chaining them with || undercounts an account that has both, so keep
+  // the sources apart and only derive the total when Meta omits it.
+  const leadsWebsite = extractAction(actions, 'offsite_conversion.fb_pixel_lead')
+  const leadsMeta = extractAction(actions, 'onsite_conversion.lead_grouped') || extractAction(actions, 'leadgen.other')
+  const leads = extractAction(actions, 'lead') || (leadsWebsite + leadsMeta)
   const purchaseValue = extractActionValue(actionValues, 'purchase') || extractActionValue(actionValues, 'offsite_conversion.fb_pixel_purchase')
 
   // Video
@@ -94,6 +99,8 @@ export function computeKPIs(d: Record<string, unknown>) {
     'Achats': purchases || null,
     'Ajouts au panier': addToCart || null,
     'Prospects (leads)': leads || null,
+    'Prospects site web': leadsWebsite || null,
+    'Prospects Meta': leadsMeta || null,
     'Paiements initiés': initiateCheckout || null,
     'Vues page destination': landingPageViews || null,
     'Clics sur lien': linkClicks || null,
@@ -101,7 +108,7 @@ export function computeKPIs(d: Record<string, unknown>) {
     // Costs from API
     'Coût par achat': extractAction(costPer, 'purchase') || extractAction(costPer, 'offsite_conversion.fb_pixel_purchase') || null,
     'Coût par ATC': extractAction(costPer, 'add_to_cart') || extractAction(costPer, 'offsite_conversion.fb_pixel_add_to_cart') || null,
-    'Coût par prospect': extractAction(costPer, 'lead') || extractAction(costPer, 'offsite_conversion.fb_pixel_lead') || null,
+    'Coût par prospect': extractAction(costPer, 'lead') || (leads > 0 ? spend / leads : null),
     'Coût par vue LP': (d.cost_per_outbound_click as {value:string}[])?.[0]?.value || null,
   }
 }
