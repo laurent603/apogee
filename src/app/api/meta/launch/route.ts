@@ -478,93 +478,128 @@ export async function POST(req: NextRequest) {
               launchAdCount++
             }
 
-            // Valid Meta positions from API (facebook_positions)
-            const FB_FEED_POS = ['feed', 'marketplace', 'video_feeds', 'right_hand_column', 'search', 'instant_article', 'suggested_video', 'biz_disco_feed', 'profile_feed']
-            const FB_STORY_POS = ['story', 'facebook_reels', 'instream_video', 'story_sticker', 'facebook_reels_overlay', 'profile_reels']
+            // Placement positions accepted inside asset_customization_rules.customization_spec
+            const FB_FEED_POS = ['feed', 'marketplace', 'video_feeds', 'right_hand_column', 'search', 'instream_video']
+            const FB_STORY_POS = ['story', 'facebook_reels']
             const IG_FEED_POS = ['stream', 'explore', 'explore_home', 'profile_feed']
-            const IG_STORY_POS = ['story', 'reels', 'profile_reels']
+            const IG_STORY_POS = ['story', 'reels']
 
-            // Build asset_feed_spec for multi-format (feed + story in one ad)
-            // No asset_customization_rules — Meta auto-routes each asset to the right placement by ratio
+            const FEED_LABEL = 'apogee_feed'
+            const STORY_LABEL = 'apogee_story'
+
+            // Rules binding each labelled asset to its placements. Without these,
+            // Meta treats the assets as a dynamic-creative pool and rotates them
+            // across every placement — which is why a feed crea showed up in Stories.
+            function buildCustomizationRules(labelKey: 'video_label' | 'image_label') {
+              return [
+                {
+                  customization_spec: {
+                    publisher_platforms: ['facebook', 'instagram'],
+                    facebook_positions: FB_FEED_POS,
+                    instagram_positions: IG_FEED_POS,
+                  },
+                  [labelKey]: { name: FEED_LABEL },
+                },
+                {
+                  customization_spec: {
+                    publisher_platforms: ['facebook', 'instagram'],
+                    facebook_positions: FB_STORY_POS,
+                    instagram_positions: IG_STORY_POS,
+                  },
+                  [labelKey]: { name: STORY_LABEL },
+                },
+              ]
+            }
+
+            // Build asset_feed_spec for multi-format (feed + story in one ad).
+            // `withRules` = false reproduces the legacy no-routing body, used as a
+            // fallback if Meta rejects the customization rules.
             async function buildAssetFeedSpec(
-              assets: { type: 'video'; videoId: string }[] | { type: 'image'; hash: string }[]
+              assets: { type: 'video'; videoId: string; label: string }[] | { type: 'image'; hash: string; label: string }[],
+              withRules: boolean
             ): Promise<Record<string, unknown>> {
               const afsCta = leadGenFormId
                 ? { call_to_actions: [{ type: ctaType || 'SIGN_UP', value: { lead_gen_form_id: leadGenFormId, link: destinationUrl || 'https://example.com' } }] }
                 : { call_to_action_types: [ctaType || 'LEARN_MORE'], link_urls: [{ website_url: destinationUrl || 'https://example.com' }] }
 
+              const common = {
+                bodies: [{ text: primaryText }],
+                ...(headline ? { titles: [{ text: headline }] } : {}),
+                ...(description ? { descriptions: [{ text: description }] } : {}),
+                ...afsCta,
+              }
+
               if ((assets[0] as { type: string }).type === 'video') {
-                const videoAssetList = assets as { type: 'video'; videoId: string }[]
+                const videoAssetList = assets as { type: 'video'; videoId: string; label: string }[]
                 const thumbs = await Promise.all(videoAssetList.map(a => waitForVideo(a.videoId).catch(() => undefined)))
                 return {
                   videos: videoAssetList.map((a, i) => ({
                     video_id: a.videoId,
                     ...(thumbs[i] ? { thumbnail_url: thumbs[i] } : {}),
+                    ...(withRules ? { adlabels: [{ name: a.label }] } : {}),
                   })),
-                  bodies: [{ text: primaryText }],
-                  ...(headline ? { titles: [{ text: headline }] } : {}),
-                  ...(description ? { descriptions: [{ text: description }] } : {}),
-                  ...afsCta,
+                  ...common,
+                  ...(withRules ? { ad_formats: ['SINGLE_VIDEO'], asset_customization_rules: buildCustomizationRules('video_label') } : {}),
                 }
               } else {
-                const imgList = assets as { type: 'image'; hash: string }[]
+                const imgList = assets as { type: 'image'; hash: string; label: string }[]
                 return {
-                  images: imgList.map(a => ({ hash: a.hash })),
-                  bodies: [{ text: primaryText }],
-                  ...(headline ? { titles: [{ text: headline }] } : {}),
-                  ...(description ? { descriptions: [{ text: description }] } : {}),
-                  ...afsCta,
+                  images: imgList.map(a => ({
+                    hash: a.hash,
+                    ...(withRules ? { adlabels: [{ name: a.label }] } : {}),
+                  })),
+                  ...common,
+                  ...(withRules ? { ad_formats: ['SINGLE_IMAGE'], asset_customization_rules: buildCustomizationRules('image_label') } : {}),
                 }
               }
             }
 
-            // Multi-format (feed + story) → 1 ad with asset_feed_spec
+            // Create the multi-format creative + ad. Tries placement routing first;
+            // if Meta rejects the rules, retries without them so the launch still ships.
+            async function postMultiFormatAd(
+              assets: { type: 'video'; videoId: string; label: string }[] | { type: 'image'; hash: string; label: string }[],
+              adName: string
+            ) {
+              send(`Création du créatif "${adName}"...`)
+              let creativeId: string | undefined
+              let routed = true
+
+              for (const withRules of [true, false]) {
+                const afs = await buildAssetFeedSpec(assets, withRules)
+                const creativeBody: Record<string, unknown> = {
+                  name: adName,
+                  object_type: 'SHARE',
+                  page_id: pageId,
+                  asset_feed_spec: afs,
+                  ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+                }
+                console.log(`[launch] creative body (multi, rules=${withRules}):`, JSON.stringify(creativeBody))
+                const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
+                if (!creativeData.error) { creativeId = creativeData.id as string; routed = withRules; break }
+                if (!withRules) throw new Error(`Créatif "${adName}" : ${metaError(creativeData)}`)
+                send(`⚠ Placements par format refusés par Meta (${metaError(creativeData)}) — nouvel essai sans routage`)
+              }
+
+              const adData = await metaPost(`/${accountId}/ads`, token, {
+                name: adName, adset_id: adsetId, creative: { creative_id: creativeId }, status: adsetStatus,
+                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              })
+              if (adData.error) throw new Error(`Ad "${adName}" : ${metaError(adData)}`)
+              send(routed ? `✓ Ad créée : "${adName}" (feed → Feed, story → Stories/Reels)` : `✓ Ad créée : "${adName}" (sans routage par placement)`)
+              launchAdCount++
+            }
+
+            // Multi-format (feed + story) → 1 ad with asset_feed_spec + placement routing
             if (feedVideo?.videoId && storyVideo?.videoId) {
-              send(`Création du créatif "${ag.adName}"...`)
-              const afs = await buildAssetFeedSpec([
-                { type: 'video', videoId: feedVideo.videoId },
-                { type: 'video', videoId: storyVideo.videoId },
-              ])
-              const creativeBody: Record<string, unknown> = {
-                name: ag.adName,
-                object_type: 'SHARE',
-                page_id: pageId,
-                asset_feed_spec: afs,
-                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
-              }
-              console.log('[launch] creative body (multi-video):', JSON.stringify(creativeBody))
-              const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
-              if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${metaError(creativeData)}`)
-              const adData = await metaPost(`/${accountId}/ads`, token, {
-                name: ag.adName, adset_id: adsetId, creative: { creative_id: creativeData.id }, status: adsetStatus,
-                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
-              })
-              if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
-              send(`✓ Ad créée : "${ag.adName}"`)
-              launchAdCount++
+              await postMultiFormatAd([
+                { type: 'video', videoId: feedVideo.videoId, label: FEED_LABEL },
+                { type: 'video', videoId: storyVideo.videoId, label: STORY_LABEL },
+              ], ag.adName)
             } else if (feedImage?.hash && storyImage?.hash) {
-              send(`Création du créatif "${ag.adName}"...`)
-              const afs = await buildAssetFeedSpec([
-                { type: 'image', hash: feedImage.hash },
-                { type: 'image', hash: storyImage.hash },
-              ])
-              const creativeBody: Record<string, unknown> = {
-                name: ag.adName,
-                object_type: 'SHARE',
-                page_id: pageId,
-                asset_feed_spec: afs,
-                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
-              }
-              console.log('[launch] creative body (multi-image):', JSON.stringify(creativeBody))
-              const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
-              if (creativeData.error) throw new Error(`Créatif "${ag.adName}" : ${metaError(creativeData)}`)
-              const adData = await metaPost(`/${accountId}/ads`, token, {
-                name: ag.adName, adset_id: adsetId, creative: { creative_id: creativeData.id }, status: adsetStatus,
-                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
-              })
-              if (adData.error) throw new Error(`Ad "${ag.adName}" : ${metaError(adData)}`)
-              send(`✓ Ad créée : "${ag.adName}"`)
-              launchAdCount++
+              await postMultiFormatAd([
+                { type: 'image', hash: feedImage.hash, label: FEED_LABEL },
+                { type: 'image', hash: storyImage.hash, label: STORY_LABEL },
+              ], ag.adName)
             } else {
               // Single asset
               const vid = videoAssets[0]
