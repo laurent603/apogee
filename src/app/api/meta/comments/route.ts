@@ -275,37 +275,44 @@ export async function GET(req: NextRequest) {
     const fbTokenUsed: Record<string, string> = {}
 
     await mapLimit(Array.from(fbPostMap.entries()), 6, async ([postId, meta]) => {
-      const pageToken = pageTokens[postId.split('_')[0]]
+      const [ownerId, storyId] = postId.split('_')
+      const pageToken = pageTokens[ownerId]
       const candidates: [string, string][] = []
       if (pageToken) candidates.push(['page', pageToken])
       candidates.push(['user', token])
+      // The ad-manager page id is not always the post's owner: a post surfaced as
+      // /100063627366611/posts/1244... is not reachable as {page_id}_{story_id}.
+      const idForms = [postId, storyId].filter(Boolean) as string[]
       for (const [kind, tok] of candidates) {
         // stream carries replies, toplevel is the API default — try both before
         // concluding a post has nothing
         for (const filter of ['stream', 'toplevel']) {
-          try {
-            const first = await metaFetch(`/${postId}/comments`, tok, {
-              fields: 'id,message,created_time,like_count,from{name}',
-              filter,
-              limit: '100',
-              summary: 'true',
-            })
-            const raw = await drainPages(first)
-            const total = (first.summary as { total_count?: number } | undefined)?.total_count
-            if (total !== undefined) fbDebugSummary[postId] = Math.max(fbDebugSummary[postId] ?? 0, total)
-            const comments = parseFBComments(raw)
-            if (comments.length > 0) {
-              fbTokenUsed[postId] = `${kind}:${filter}`
-              addPost({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
-              return
+          for (const idForm of idForms) {
+            const shape = idForm === postId ? 'composite' : 'story'
+            try {
+              const first = await metaFetch(`/${idForm}/comments`, tok, {
+                fields: 'id,message,created_time,like_count,from{name}',
+                filter,
+                limit: '100',
+                summary: 'true',
+              })
+              const raw = await drainPages(first)
+              const total = (first.summary as { total_count?: number } | undefined)?.total_count
+              if (total !== undefined) fbDebugSummary[postId] = Math.max(fbDebugSummary[postId] ?? 0, total)
+              const comments = parseFBComments(raw)
+              if (comments.length > 0) {
+                fbTokenUsed[postId] = `${kind}:${filter}:${shape}`
+                addPost({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
+                return
+              }
+              fbTokenUsed[postId] = `${kind}:${filter}:${shape}:empty`
+            } catch (e) {
+              fbTokenUsed[postId] = `${kind}:${filter}:${shape}:err:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`
             }
-            fbTokenUsed[postId] = `${kind}:${filter}:empty`
-          } catch (e) {
-            fbTokenUsed[postId] = `${kind}:${filter}:err:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`
           }
         }
-        // An empty result on a page token is trustworthy — no point retrying as user
-        if (kind === 'page') return
+        // Only fall through to the user token when the page token was unusable
+        if (kind === 'page' && !fbTokenUsed[postId]?.includes('err')) return
       }
     })
 
@@ -378,6 +385,30 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
 
+    // What does Meta consider the canonical node for the ad post that visibly
+    // carries the most comments? permalink_url and from{id} expose the real owner.
+    const postProbe: Record<string, unknown> = {}
+    const topPost = adsWithComments[0]?.postId
+    if (topPost) {
+      const [ownerId, storyId] = topPost.split('_')
+      const tok = pageTokens[ownerId] || token
+      for (const idForm of [topPost, storyId]) {
+        try {
+          const r = await metaFetch(`/${idForm}`, tok, {
+            fields: 'id,permalink_url,from{id,name},comments.summary(true).limit(0)',
+          })
+          postProbe[idForm] = {
+            id: r.id,
+            permalink_url: r.permalink_url,
+            from: r.from,
+            commentCount: (r.comments as { summary?: { total_count?: number } } | undefined)?.summary?.total_count,
+          }
+        } catch (e) {
+          postProbe[idForm] = `err:${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`
+        }
+      }
+    }
+
     const totalComments = posts.reduce((s, p) => s + p.comments.length, 0)
     // What Meta says exists, so a gap against totalComments is visible instead of silent
     const fbReportedTotal = Object.values(fbDebugSummary).reduce((s, n) => s + (n > 0 ? n : 0), 0)
@@ -400,6 +431,7 @@ export async function GET(req: NextRequest) {
         meAccountsError,
         pageLookupErrors: pageLookupErrors.slice(0, 10),
         fbTokenUsed,
+        postProbe,
         fbSummary: fbDebugSummary,
         igMediaFromAds: igMediaMap.size,
         igReportedTotal: Object.values(igReported).reduce((s, n) => s + Math.max(n, 0), 0),
