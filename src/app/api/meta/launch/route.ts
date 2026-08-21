@@ -482,9 +482,6 @@ export async function POST(req: NextRequest) {
               const creativeBody: Record<string, unknown> = {
                 name: adName,
                 object_story_spec: spec,
-                degrees_of_freedom_spec: {
-                  creative_features_spec: { standard_enhancements: { enroll_status: 'OPT_OUT' } },
-                },
                 ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
               }
               console.log('[launch] creative body:', JSON.stringify(creativeBody))
@@ -601,14 +598,9 @@ export async function POST(req: NextRequest) {
                 ...(igUserId ? { instagram_user_id: igUserId } : {}),
               }
 
-              // This tool is for creative testing: keep Meta from altering the assets
-              const NO_ADVANTAGE = {
-                degrees_of_freedom_spec: {
-                  creative_features_spec: {
-                    standard_enhancements: { enroll_status: 'OPT_OUT' },
-                  },
-                },
-              }
+              // No degrees_of_freedom_spec: since API v22 the standard_enhancements
+              // bundle is rejected (subcode 3858504) and each Advantage+ feature is
+              // opt-in, so sending nothing leaves the uploaded assets untouched.
 
               // Ordered by preference: first that Meta accepts wins.
               const candidates: { label: string; routed: boolean; body: Record<string, unknown> }[] = [
@@ -623,7 +615,6 @@ export async function POST(req: NextRequest) {
                       ad_formats: [adFormat],
                       asset_customization_rules: buildCustomizationRules(labelKey, true),
                     },
-                    ...NO_ADVANTAGE,
                     ...leadGen,
                   },
                 }] : []),
@@ -638,7 +629,6 @@ export async function POST(req: NextRequest) {
                       ad_formats: [adFormat],
                       asset_customization_rules: buildCustomizationRules(labelKey, false),
                     },
-                    ...NO_ADVANTAGE,
                     ...leadGen,
                   },
                 },
