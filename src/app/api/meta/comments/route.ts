@@ -317,6 +317,40 @@ export async function GET(req: NextRequest) {
       }
     })
 
+    // === FACEBOOK : dark posts via l'edge dédié ===
+    // /{page}/posts hides unpublished posts; ads_posts is the edge that lists
+    // them, and its nodes may expose comments the post id alone does not.
+    const adsPostsDebug: Record<string, unknown> = {}
+    for (const pageId of pageIdsInAds) {
+      const tok = pageTokens[pageId] || token
+      try {
+        const first = await metaFetch(`/${pageId}/ads_posts`, tok, {
+          fields: 'id,created_time,is_published,comments.filter(stream).summary(true).limit(100){id,message,created_time,like_count,from{name}}',
+          limit: '50',
+        })
+        const nodes = await drainPages(first, 10)
+        let withComments = 0
+        for (const node of nodes) {
+          const nodeId = node.id as string
+          const edge = node.comments as { data?: Record<string, unknown>[]; summary?: { total_count: number } } | undefined
+          const comments = parseFBComments(edge?.data || [])
+          if (comments.length === 0) continue
+          withComments++
+          const known = fbPostMap.get(nodeId)
+          addPost({
+            adId: nodeId,
+            adName: known?.adName || `Publication publicitaire ${nodeId.split('_')[1] ?? nodeId}`,
+            postId: nodeId,
+            thumbnail: known?.thumbnail,
+            comments,
+          })
+        }
+        adsPostsDebug[pageId] = { nodes: nodes.length, withComments }
+      } catch (e) {
+        adsPostsDebug[pageId] = `err:${e instanceof Error ? e.message.slice(0, 130) : 'unknown'}`
+      }
+    }
+
     // === INSTAGRAM : médias issus des ads ===
     const igDebugErrors: string[] = []
     const pageTokensIG = [...new Set([...Object.values(igToPageToken), token])]
@@ -442,6 +476,7 @@ export async function GET(req: NextRequest) {
         meAccountsError,
         pageLookupErrors: pageLookupErrors.slice(0, 10),
         fbTokenUsed,
+        adsPosts: adsPostsDebug,
         postProbe,
         fbSummary: fbDebugSummary,
         igMediaFromAds: igMediaMap.size,
