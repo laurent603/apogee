@@ -288,9 +288,25 @@ export default function AutopilotPage() {
   const [agentForm, setAgentForm] = useState({
     name: '', description: '', role: 'performance_manager', frequency: 'daily',
     runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '',
+    deliveryEmail: '', deliveryNotion: '', deliveryNotionToken: '',
+    channels: ['in_app'] as string[],
   })
   const [running, setRunning] = useState<string | null>(null)
   const [agentResults, setAgentResults] = useState<Record<string, string>>({})
+
+  // --- History ---
+  type Report = { id: string; title: string; content: string; createdAt: string; agent: { name: string } | null }
+  const [reports, setReports] = useState<Report[]>([])
+  const [expandedReport, setExpandedReport] = useState<string | null>(null)
+
+  const loadReports = useCallback(async () => {
+    if (!selectedAccount?.id) return
+    const res = await fetch(`/api/autopilot/report?dbAccountId=${selectedAccount.id}`)
+    const data = await res.json()
+    setReports(data.reports || [])
+  }, [selectedAccount?.id])
+
+  useEffect(() => { if (tab === 'history') loadReports() }, [tab, loadReports])
 
   const loadAgents = useCallback(async () => {
     if (!selectedAccount?.id) return
@@ -303,16 +319,27 @@ export default function AutopilotPage() {
 
   async function createAgent(data: typeof agentForm | typeof PRESET_AGENTS[0]) {
     if (!selectedAccount?.id) { toast.error('Sélectionnez un compte publicitaire'); return }
+    // Build deliveryChannels JSON for custom form
+    let deliveryChannels = 'in_app'
+    if ('channels' in data) {
+      const cfg: Record<string, unknown> = { channels: data.channels }
+      if (data.channels.includes('email') && data.deliveryEmail) cfg.email = data.deliveryEmail
+      if (data.channels.includes('notion') && data.deliveryNotion) { cfg.notionPageId = data.deliveryNotion; cfg.notionToken = data.deliveryNotionToken }
+      deliveryChannels = JSON.stringify(cfg)
+    }
+    const payload = { ...data, deliveryChannels }
     const res = await fetch('/api/autopilot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dbAccountId: selectedAccount.id, ...data }),
+      body: JSON.stringify({ dbAccountId: selectedAccount.id, ...payload }),
     })
     const json = await res.json()
     if (json.agent) {
       setAgents((prev) => [json.agent, ...prev])
       toast.success(`Agent "${data.name}" créé`)
-      setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '' })
+      setAgentForm({ name: '', description: '', role: 'performance_manager', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_7d', instructions: '', outputFormat: '', deliveryEmail: '', deliveryNotion: '', deliveryNotionToken: '', channels: ['in_app'] })
+    } else {
+      toast.error(json.error || 'Erreur création agent')
     }
   }
 
@@ -350,6 +377,8 @@ export default function AutopilotPage() {
           datePreset: agent.analysisPeriod,
           brandSettings: bsData.settings,
           customPrompt: agent.instructions,
+          agentRole: agent.role,
+          outputFormat: agent.outputFormat,
         }),
       })
       if (!res.ok || !res.body) throw new Error()
@@ -364,6 +393,13 @@ export default function AutopilotPage() {
         setAgentResults((prev) => ({ ...prev, [agent.id]: acc }))
       }
       toast.success(`Agent "${agent.name}" terminé`)
+      // Save report to DB
+      const title = `${agent.name} — ${new Date().toLocaleDateString('fr-FR')}`
+      await fetch('/api/autopilot/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: agent.id, dbAccountId: selectedAccount.id, title, content: acc }),
+      })
     } catch { toast.error('Erreur lors de l\'exécution') }
     setRunning(null)
   }
@@ -689,6 +725,34 @@ export default function AutopilotPage() {
                 <label className="label">Format de sortie attendu</label>
                 <input type="text" className="input" placeholder="Ex: Tableau compact avec les 5 ads à couper + justification" value={agentForm.outputFormat} onChange={(e) => setAgentForm((f) => ({ ...f, outputFormat: e.target.value }))} />
               </div>
+              <div className="col-span-2">
+                <label className="label">Canaux de livraison</label>
+                <div className="flex gap-3 mb-2">
+                  {[{ id: 'in_app', label: 'Dans l\'app' }, { id: 'email', label: 'Email' }, { id: 'notion', label: 'Notion' }].map((ch) => (
+                    <label key={ch.id} className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={agentForm.channels.includes(ch.id)}
+                        onChange={(e) => setAgentForm((f) => ({
+                          ...f,
+                          channels: e.target.checked ? [...f.channels, ch.id] : f.channels.filter((c) => c !== ch.id),
+                        }))}
+                        className="rounded"
+                      />
+                      {ch.label}
+                    </label>
+                  ))}
+                </div>
+                {agentForm.channels.includes('email') && (
+                  <input type="email" className="input mb-2" placeholder="Adresse email de réception" value={agentForm.deliveryEmail} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryEmail: e.target.value }))} />
+                )}
+                {agentForm.channels.includes('notion') && (
+                  <div className="space-y-2">
+                    <input type="text" className="input" placeholder="Notion Integration Token (secret_xxx)" value={agentForm.deliveryNotionToken} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryNotionToken: e.target.value }))} />
+                    <input type="text" className="input" placeholder="ID de la page Notion parent" value={agentForm.deliveryNotion} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryNotion: e.target.value }))} />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-4 flex justify-end">
               <button onClick={() => createAgent(agentForm)} disabled={!agentForm.name || !selectedAccount} className="btn-primary">
@@ -747,70 +811,103 @@ export default function AutopilotPage() {
 
       {/* --- TAB: Historique --- */}
       {tab === 'history' && (
-        <div className="card">
-          <p className="text-sm font-semibold text-[#0d0d12] mb-4">Historique des actions</p>
-          {agents.length === 0 ? (
-            <div className="text-center py-12">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-[#0d0d12]">Rapports générés ({reports.length})</p>
+            <button onClick={loadReports} className="text-xs text-[#3434ef] hover:underline">Actualiser</button>
+          </div>
+          {reports.length === 0 ? (
+            <div className="card text-center py-12">
               <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </div>
-              <p className="text-sm text-gray-500">Aucun historique disponible</p>
-              <p className="text-xs text-gray-400 mt-1">Les exécutions des agents apparaîtront ici</p>
+              <p className="text-sm text-gray-500">Aucun rapport enregistré</p>
+              <p className="text-xs text-gray-400 mt-1">Lancez un agent pour voir ses rapports ici</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[#E5E7EB]">
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Agent</th>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Rôle</th>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Fréquence</th>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Statut</th>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Dernière exéc.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {agents.map((agent) => (
-                    <tr key={agent.id} className="border-b border-[#E5E7EB] hover:bg-[#f8f9fc]">
-                      <td className="px-3 py-3 font-medium text-[#0d0d12]">{agent.name}</td>
-                      <td className="px-3 py-3 text-gray-500">{ROLE_OPTIONS.find((r) => r.value === agent.role)?.label || agent.role}</td>
-                      <td className="px-3 py-3 text-gray-500">{FREQ_OPTIONS.find((f) => f.value === agent.frequency)?.label || agent.frequency}</td>
-                      <td className="px-3 py-3">
-                        <span className={agent.isActive ? 'badge-green' : 'badge-gray'}>
-                          {agent.isActive ? 'Actif' : 'Inactif'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-gray-400 text-xs">
-                        {agent.lastRunAt ? new Date(agent.lastRunAt).toLocaleString('fr-FR') : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            reports.map((report) => (
+              <div key={report.id} className="card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-[#0d0d12] truncate">{report.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {report.agent && <span className="text-xs text-[#3434ef]">{report.agent.name}</span>}
+                      <span className="text-xs text-gray-400">{new Date(report.createdAt).toLocaleString('fr-FR')}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setExpandedReport(expandedReport === report.id ? null : report.id)}
+                    className="text-xs text-gray-500 hover:text-[#3434ef] flex-shrink-0"
+                  >
+                    {expandedReport === report.id ? 'Réduire ▲' : 'Voir ▼'}
+                  </button>
+                </div>
+                {expandedReport === report.id && (
+                  <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
+                    <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(report.content) }} />
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(report.content); toast.success('Copié !') }}
+                      className="mt-3 text-xs text-gray-400 hover:text-[#0d0d12]"
+                    >
+                      Copier le rapport
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
       )}
 
       {/* --- TAB: Paramètres --- */}
       {tab === 'settings' && (
-        <div className="card">
-          <p className="text-sm font-semibold text-[#0d0d12] mb-1">Paramètres du compte publicitaire</p>
-          <p className="text-xs text-gray-500 mb-4">Ces paramètres sont partagés avec le module Brand Settings.</p>
-          {!selectedAccount ? (
-            <p className="text-sm text-gray-400">Sélectionnez un compte publicitaire dans la barre de navigation.</p>
-          ) : (
-            <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="card">
+            <p className="text-sm font-semibold text-[#0d0d12] mb-1">Exécution automatique (cron)</p>
+            <p className="text-xs text-gray-500 mb-4">
+              Les agents actifs sont déclenchés automatiquement chaque jour à 7h00 via <code className="bg-gray-100 px-1 rounded">/api/cron/agents</code>.
+              Sur Vercel, le <code className="bg-gray-100 px-1 rounded">vercel.json</code> est déjà configuré.
+              En local ou sur un autre hébergeur, appelez l&apos;endpoint avec le header <code className="bg-gray-100 px-1 rounded">x-cron-secret: {'{CRON_SECRET}'}</code>.
+            </p>
+            <div className="space-y-2">
               <div>
-                <label className="label">Compte actif</label>
-                <input type="text" className="input" value={selectedAccount.name || selectedAccount.id} readOnly />
+                <label className="label">CRON_SECRET (à ajouter dans .env.local)</label>
+                <input type="text" className="input font-mono text-xs" value="CRON_SECRET=votre-secret-ici" readOnly />
               </div>
-              <p className="text-xs text-gray-400">
-                Pour modifier les paramètres de marque (CPA cible, budget, etc.), rendez-vous dans{' '}
-                <a href="/brand-settings" className="text-[#3434ef] hover:underline">Brand Settings</a>.
-              </p>
             </div>
-          )}
+            <div className="mt-3">
+              <p className="text-xs text-gray-400 mb-2">Agents actifs programmés :</p>
+              {agents.filter((a) => a.isActive).length === 0 ? (
+                <p className="text-xs text-gray-400">Aucun agent actif</p>
+              ) : (
+                <div className="space-y-1">
+                  {agents.filter((a) => a.isActive).map((a) => (
+                    <div key={a.id} className="flex items-center justify-between text-xs border border-[#E5E7EB] rounded-lg px-3 py-2">
+                      <span className="font-medium text-[#0d0d12]">{a.name}</span>
+                      <div className="flex items-center gap-3 text-gray-400">
+                        <span>{FREQ_OPTIONS.find((f) => f.value === a.frequency)?.label}</span>
+                        <span>Prochain : {a.nextRunAt ? new Date(a.nextRunAt).toLocaleDateString('fr-FR') : '—'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="card">
+            <p className="text-sm font-semibold text-[#0d0d12] mb-1">Canaux de livraison</p>
+            <p className="text-xs text-gray-500 mb-3">Configurez les canaux sur chaque agent lors de sa création.</p>
+            <div className="space-y-2 text-xs text-gray-600">
+              <div className="flex items-start gap-2 p-3 bg-[#f8f9fc] rounded-lg border border-[#E5E7EB]">
+                <span className="font-semibold w-16 flex-shrink-0">Email</span>
+                <span>Utilise <a href="https://resend.com" target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">Resend</a>. Ajoutez <code className="bg-gray-100 px-1 rounded">RESEND_API_KEY</code> dans .env.local.</span>
+              </div>
+              <div className="flex items-start gap-2 p-3 bg-[#f8f9fc] rounded-lg border border-[#E5E7EB]">
+                <span className="font-semibold w-16 flex-shrink-0">Notion</span>
+                <span>Créez une intégration sur <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">notion.so/my-integrations</a>, copiez le token et l&apos;ID de la page parente dans les paramètres de l&apos;agent.</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

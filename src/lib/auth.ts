@@ -16,6 +16,8 @@ export const authOptions: NextAuthOptions = {
             'business_management',
             'pages_read_engagement',
             'pages_read_user_content',
+            'instagram_basic',
+            'instagram_manage_comments',
           ].join(','),
         },
       },

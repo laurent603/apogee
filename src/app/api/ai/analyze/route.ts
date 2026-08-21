@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -40,8 +40,17 @@ export async function POST(req: NextRequest) {
           getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
         ])
 
+        const rolePersonas: Record<string, string> = {
+          performance_manager: 'Tu es un Performance Manager Meta Ads expert. Tu analyses les données avec un focus sur le ROAS, CPM, CPA et la rentabilité globale. Tu prends des décisions data-driven et identifies les leviers de performance prioritaires.',
+          media_buyer: 'Tu es un Media Buyer Meta Ads expert. Tu analyses les enchères, budgets, audiences et placements. Tu optimises l\'allocation budgétaire et identifies les opportunités de scaling.',
+          creative_strategist: 'Tu es un Creative Strategist Meta Ads expert. Tu analyses les performances créatives : hook rate, hold rate, angles créatifs, fatigue publicitaire. Tu recommandes des briefs créatifs et des angles de communication qui convertissent.',
+          copywriter: 'Tu es un Copywriter spécialisé Meta Ads. Tu analyses les accroches, descriptions et CTA. Tu proposes des variantes de copy optimisées pour la conversion.',
+        }
+        const rolePrompt = agentRole ? (rolePersonas[agentRole] || rolePersonas.performance_manager) : null
+        const outputInstruction = outputFormat ? `\n\nFormat de sortie attendu : ${outputFormat}` : ''
+
         const systemPrompt = customPrompt
-          ? `Tu es un expert Meta Ads et consultant en marketing digital. Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la question de l'utilisateur. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes pour structurer tes réponses.`
+          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes.${outputInstruction}`
           : getPrompt(category as PromptCategory, analysisType)
 
         const dataContext = `

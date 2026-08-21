@@ -23,10 +23,19 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { dbAccountId, ...data } = body
+  const { dbAccountId, name, description, role, frequency, runMode, analysisPeriod, instructions, outputFormat, deliveryChannels } = body
 
   const agent = await prisma.autopilotAgent.create({
-    data: { ...data, userId: session.user.id, adAccountId: dbAccountId },
+    data: {
+      name, description, role, frequency,
+      runMode: runMode || 'report',
+      analysisPeriod: analysisPeriod || 'last_7d',
+      instructions: instructions || '',
+      outputFormat: outputFormat || '',
+      deliveryChannels: deliveryChannels || 'in_app',
+      userId: session.user.id,
+      adAccountId: dbAccountId,
+    },
   })
 
   return NextResponse.json({ agent })

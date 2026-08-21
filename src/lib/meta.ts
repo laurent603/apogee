@@ -1,17 +1,23 @@
 const META_API_VERSION = process.env.META_API_VERSION || 'v21.0'
 const BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`
 
-export async function metaFetch(path: string, token: string, params: Record<string, string> = {}) {
+export async function metaFetch(path: string, token: string, params: Record<string, string> = {}, timeoutMs = 15000) {
   const url = new URL(`${BASE_URL}${path}`)
   url.searchParams.set('access_token', token)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
 
-  const res = await fetch(url.toString())
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err?.error?.message || 'Meta API error')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url.toString(), { signal: controller.signal })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err?.error?.message || 'Meta API error')
+    }
+    return res.json()
+  } finally {
+    clearTimeout(timer)
   }
-  return res.json()
 }
 
 export async function getAdAccounts(token: string) {
