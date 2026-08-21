@@ -320,9 +320,11 @@ export default function BrandSettingsPage() {
                   ]} />
                   <SelectField label="CRM" field="crmIntegration" settings={settings} onChange={handleChange} options={[
                     { value: 'none', label: 'Aucun' },
+                    { value: 'gohighlevel', label: 'GoHighLevel' },
                     { value: 'hubspot', label: 'HubSpot' },
                     { value: 'salesforce', label: 'Salesforce' },
                     { value: 'pipedrive', label: 'Pipedrive' },
+                    { value: 'brevo', label: 'Brevo' },
                     { value: 'other', label: 'Autre' },
                   ]} />
                 </div>
