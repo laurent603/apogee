@@ -313,9 +313,20 @@ export async function GET(req: NextRequest) {
     const igDebugErrors: string[] = []
     const pageTokensIG = [...new Set([...Object.values(igToPageToken), token])]
 
+    // Meta's own count per media, so an empty /comments reply can be told apart
+    // from a media that genuinely has none
+    const igReported: Record<string, number> = {}
+
     await mapLimit(Array.from(igMediaMap.entries()), 6, async ([igMediaId, meta]) => {
       if (pageTokensIG.length === 0) { igDebugErrors.push(`${igMediaId}:no-token`); return }
       for (const pt of pageTokensIG) {
+        try {
+          const info = await metaFetch(`/${igMediaId}`, pt, { fields: 'comments_count,media_type' })
+          const count = Number(info.comments_count ?? -1)
+          if (count >= 0) igReported[igMediaId] = count
+        } catch (e) {
+          igDebugErrors.push(`${igMediaId}:info:${e instanceof Error ? e.message.slice(0, 110) : 'unknown'}`)
+        }
         try {
           const first = await metaFetch(`/${igMediaId}/comments`, pt, {
             fields: 'id,text,timestamp,like_count,username,replies{id,text,timestamp,like_count,username}',
@@ -326,8 +337,9 @@ export async function GET(req: NextRequest) {
             addPost({ adId: igMediaId, adName: meta.adName, postId: igMediaId, thumbnail: meta.thumbnail, comments })
             return
           }
+          igDebugErrors.push(`${igMediaId}:empty(reported=${igReported[igMediaId] ?? '?'})`)
         } catch (e) {
-          igDebugErrors.push(`${igMediaId}:err:${e instanceof Error ? e.message.slice(0, 80) : 'unknown'}`)
+          igDebugErrors.push(`${igMediaId}:comments:${e instanceof Error ? e.message.slice(0, 110) : 'unknown'}`)
         }
       }
     })
@@ -390,9 +402,11 @@ export async function GET(req: NextRequest) {
         fbTokenUsed,
         fbSummary: fbDebugSummary,
         igMediaFromAds: igMediaMap.size,
+        igReportedTotal: Object.values(igReported).reduce((s, n) => s + Math.max(n, 0), 0),
+        igReported,
         igActorIds: [...igActorIdsFromPages],
         igResolution,
-        igDebugErrors: igDebugErrors.slice(0, 20),
+        igDebugErrors: igDebugErrors.slice(0, 30),
       },
     })
   } catch (e) {
