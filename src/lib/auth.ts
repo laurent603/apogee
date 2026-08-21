@@ -17,6 +17,11 @@ export const authOptions: NextAuthOptions = {
             'pages_show_list',
             'pages_read_engagement',
             'pages_read_user_content',
+            // Comments on unpublished ad posts are not served by the read-only
+            // page permissions alone
+            'pages_manage_posts',
+            'pages_manage_engagement',
+            'pages_manage_ads',
             'instagram_basic',
             'instagram_manage_comments',
           ].join(','),
