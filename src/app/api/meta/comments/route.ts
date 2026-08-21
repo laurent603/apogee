@@ -280,9 +280,10 @@ export async function GET(req: NextRequest) {
       const candidates: [string, string][] = []
       if (pageToken) candidates.push(['page', pageToken])
       candidates.push(['user', token])
-      // The ad-manager page id is not always the post's owner: a post surfaced as
-      // /100063627366611/posts/1244... is not reachable as {page_id}_{story_id}.
-      const idForms = [postId, storyId].filter(Boolean) as string[]
+      // Bare story ids are rejected outright ("(#12) singular statuses API is
+      // deprecated"), so the composite is the only addressable form.
+      void storyId
+      const idForms = [postId]
       for (const [kind, tok] of candidates) {
         // stream carries replies, toplevel is the API default — try both before
         // concluding a post has nothing
@@ -388,24 +389,34 @@ export async function GET(req: NextRequest) {
     // What does Meta consider the canonical node for the ad post that visibly
     // carries the most comments? permalink_url and from{id} expose the real owner.
     const postProbe: Record<string, unknown> = {}
-    const topPost = adsWithComments[0]?.postId
-    if (topPost) {
-      const [ownerId, storyId] = topPost.split('_')
+    // Probe the ad Meta credits with the most comments, not whichever came first
+    const busiest = [...adsWithComments].sort((a, b) => b.expected - a.expected)[0]
+    if (busiest?.postId) {
+      const ownerId = busiest.postId.split('_')[0]
       const tok = pageTokens[ownerId] || token
-      for (const idForm of [topPost, storyId]) {
+      postProbe._target = { adName: busiest.adName, expected: busiest.expected, postId: busiest.postId }
+      for (const [label, fields] of [
+        ['node', 'id,permalink_url,from{id,name},created_time,is_published,promotion_status'],
+        ['toplevel', 'comments.summary(true).limit(0)'],
+        ['stream', 'comments.filter(stream).summary(true).limit(0)'],
+      ] as [string, string][]) {
         try {
-          const r = await metaFetch(`/${idForm}`, tok, {
-            fields: 'id,permalink_url,from{id,name},comments.summary(true).limit(0)',
-          })
-          postProbe[idForm] = {
-            id: r.id,
-            permalink_url: r.permalink_url,
-            from: r.from,
-            commentCount: (r.comments as { summary?: { total_count?: number } } | undefined)?.summary?.total_count,
-          }
+          const r = await metaFetch(`/${busiest.postId}`, tok, { fields })
+          postProbe[label] = label === 'node'
+            ? { id: r.id, permalink_url: r.permalink_url, from: r.from, created_time: r.created_time, is_published: r.is_published, promotion_status: r.promotion_status }
+            : (r.comments as { summary?: { total_count?: number } } | undefined)?.summary?.total_count ?? null
         } catch (e) {
-          postProbe[idForm] = `err:${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`
+          postProbe[label] = `err:${e instanceof Error ? e.message.slice(0, 130) : 'unknown'}`
         }
+      }
+      // Does the ad itself expose a different story than its creative claims?
+      try {
+        const r = await metaFetch(`/${busiest.adId}`, token, {
+          fields: 'creative{effective_object_story_id,object_story_id,effective_instagram_media_id}',
+        })
+        postProbe.adCreative = r.creative
+      } catch (e) {
+        postProbe.adCreative = `err:${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`
       }
     }
 
