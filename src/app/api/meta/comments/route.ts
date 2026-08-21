@@ -317,95 +317,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Is readability tied to publication status? If every post that answers is
-    // published and every silent one is not, ads built on existing published
-    // posts keep their comments reachable.
-    const publishState: Record<string, string> = {}
-    await mapLimit(Array.from(fbPostMap.keys()), 6, async (postId) => {
-      const tok = pageTokens[postId.split('_')[0]] || token
-      try {
-        const r = await metaFetch(`/${postId}`, tok, { fields: 'is_published' })
-        publishState[postId] = `${r.is_published === true ? 'published' : 'unpublished'}/read=${seenPostIds.has(postId) ? 'yes' : 'no'}`
-      } catch {
-        publishState[postId] = 'unknown'
-      }
-    })
 
-    // === FACEBOOK : deuxième passe sur les posts que Meta dit commentés ===
-    // A page answers to several ids (the ad-manager page id, the profile id, the
-    // one in permalink_url). {page_id}_{story_id} resolves but reports nothing,
-    // so retry against the owner the permalink itself names.
-    const altIdAttempts: Record<string, string> = {}
-    const missing = adsWithComments.filter(a => a.postId && !seenPostIds.has(a.postId))
-
-    await mapLimit(missing, 4, async ({ postId, adName, expected }) => {
-      if (!postId) return
-      const [pageId, storyId] = postId.split('_')
-      const tok = pageTokens[pageId] || token
-      let permalinkOwner: string | null = null
-      try {
-        const node = await metaFetch(`/${postId}`, tok, { fields: 'permalink_url' })
-        const m = String(node.permalink_url || '').match(/facebook\.com\/(\d+)\/posts\/(\d+)/)
-        if (m && m[1] !== pageId) permalinkOwner = m[1]
-      } catch { /* pas de permalink exploitable */ }
-
-      const alts = [permalinkOwner ? `${permalinkOwner}_${storyId}` : null].filter(Boolean) as string[]
-      if (alts.length === 0) { altIdAttempts[postId] = `expected=${expected} no-alt-id`; return }
-
-      for (const alt of alts) {
-        try {
-          const first = await metaFetch(`/${alt}/comments`, tok, {
-            fields: 'id,message,created_time,like_count,from{name}',
-            filter: 'stream',
-            limit: '100',
-            summary: 'true',
-          })
-          const comments = parseFBComments(await drainPages(first))
-          const total = (first.summary as { total_count?: number } | undefined)?.total_count
-          altIdAttempts[postId] = `expected=${expected} ${alt} → summary=${total ?? '?'} read=${comments.length}`
-          if (comments.length > 0) {
-            addPost({ adId: postId, adName, postId, thumbnail: fbPostMap.get(postId)?.thumbnail, comments })
-            return
-          }
-        } catch (e) {
-          altIdAttempts[postId] = `expected=${expected} ${alt} → err:${e instanceof Error ? e.message.slice(0, 90) : 'unknown'}`
-        }
-      }
-    })
-
-    // === FACEBOOK : dark posts via l'edge dédié ===
-    // /{page}/posts hides unpublished posts; ads_posts is the edge that lists
-    // them, and its nodes may expose comments the post id alone does not.
-    const adsPostsDebug: Record<string, unknown> = {}
-    for (const pageId of pageIdsInAds) {
-      const tok = pageTokens[pageId] || token
-      try {
-        const first = await metaFetch(`/${pageId}/ads_posts`, tok, {
-          fields: 'id,created_time,is_published,comments.filter(stream).summary(true).limit(100){id,message,created_time,like_count,from{name}}',
-          limit: '50',
-        })
-        const nodes = await drainPages(first, 10)
-        let withComments = 0
-        for (const node of nodes) {
-          const nodeId = node.id as string
-          const edge = node.comments as { data?: Record<string, unknown>[]; summary?: { total_count: number } } | undefined
-          const comments = parseFBComments(edge?.data || [])
-          if (comments.length === 0) continue
-          withComments++
-          const known = fbPostMap.get(nodeId)
-          addPost({
-            adId: nodeId,
-            adName: known?.adName || `Publication publicitaire ${nodeId.split('_')[1] ?? nodeId}`,
-            postId: nodeId,
-            thumbnail: known?.thumbnail,
-            comments,
-          })
-        }
-        adsPostsDebug[pageId] = { nodes: nodes.length, withComments }
-      } catch (e) {
-        adsPostsDebug[pageId] = `err:${e instanceof Error ? e.message.slice(0, 130) : 'unknown'}`
-      }
-    }
 
     // === INSTAGRAM : médias issus des ads ===
     const igDebugErrors: string[] = []
@@ -476,80 +388,37 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
 
-    // What does Meta consider the canonical node for the ad post that visibly
-    // carries the most comments? permalink_url and from{id} expose the real owner.
-    const postProbe: Record<string, unknown> = {}
-    // Probe the ad Meta credits with the most comments, not whichever came first
-    const busiest = [...adsWithComments].sort((a, b) => b.expected - a.expected)[0]
-    if (busiest?.postId) {
-      const ownerId = busiest.postId.split('_')[0]
-      const tok = pageTokens[ownerId] || token
-      postProbe._target = { adName: busiest.adName, expected: busiest.expected, postId: busiest.postId }
-      for (const [label, fields] of [
-        ['node', 'id,permalink_url,from{id,name},created_time,is_published,promotion_status'],
-        ['toplevel', 'comments.summary(true).limit(0)'],
-        ['stream', 'comments.filter(stream).summary(true).limit(0)'],
-      ] as [string, string][]) {
-        try {
-          const r = await metaFetch(`/${busiest.postId}`, tok, { fields })
-          postProbe[label] = label === 'node'
-            ? { id: r.id, permalink_url: r.permalink_url, from: r.from, created_time: r.created_time, is_published: r.is_published, promotion_status: r.promotion_status }
-            : (r.comments as { summary?: { total_count?: number } } | undefined)?.summary?.total_count ?? null
-        } catch (e) {
-          postProbe[label] = `err:${e instanceof Error ? e.message.slice(0, 130) : 'unknown'}`
-        }
-      }
-      // Does the ad itself expose a different story than its creative claims?
-      try {
-        const r = await metaFetch(`/${busiest.adId}`, token, {
-          fields: 'creative{effective_object_story_id,object_story_id,effective_instagram_media_id}',
-        })
-        postProbe.adCreative = r.creative
-      } catch (e) {
-        postProbe.adCreative = `err:${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`
-      }
-    }
-
     const totalComments = posts.reduce((s, p) => s + p.comments.length, 0)
     // What Meta says exists, so a gap against totalComments is visible instead of silent
     const fbReportedTotal = Object.values(fbDebugSummary).reduce((s, n) => s + (n > 0 ? n : 0), 0)
 
-    // Meta counts comments on unpublished ad posts but will not serve their text,
-    // so the caller must be able to tell a complete scan from a partial one.
-    const unreadable = Math.max(expectedTotal - totalComments, 0)
+    // `attributedComments` is the insights `comment` action, an attribution
+    // metric — not a count of comments sitting on the post. It has been observed
+    // both far above the readable text (dark posts serve none) and far below it
+    // (organic Instagram comments are read but attributed to no ad). Report it as
+    // context, never as a denominator.
+    const silentAds = adsWithComments
+      .filter(a => a.postId && !seenPostIds.has(a.postId))
+      .sort((a, b) => b.expected - a.expected)
 
     return NextResponse.json({
       posts,
       totalComments,
-      expectedComments: expectedTotal,
-      unreadableComments: unreadable,
-      coverage: expectedTotal > 0 ? Math.round((totalComments / expectedTotal) * 100) : 100,
+      attributedComments: expectedTotal,
+      adsWithUnreadableComments: silentAds.length,
       adsScanned: fbPostMap.size + igMediaMap.size,
       debug: {
         adsFetched: allAds.length,
         fbPosts: fbPostMap.size,
-        fbReportedTotal,
-        // Meta's own per-ad comment counts: the gap against totalComments says
-        // whether we are querying the wrong posts or the comments truly are gone
-        expectedTotal,
-        adsWithComments: adsWithComments.sort((a, b) => b.expected - a.expected).slice(0, 25),
-        // The decisive signal: without page tokens, dark post comments read as 0
-        pagesInAds: [...pageIdsInAds],
-        pageTokensResolved: Object.keys(pageTokens).length,
-        meAccountsError,
-        pageLookupErrors: pageLookupErrors.slice(0, 10),
-        fbTokenUsed,
-        adsPosts: adsPostsDebug,
-        publishState,
-        altIdAttempts,
-        postProbe,
-        fbSummary: fbDebugSummary,
+        fbReadable: fbReportedTotal,
         igMediaFromAds: igMediaMap.size,
-        igReportedTotal: Object.values(igReported).reduce((s, n) => s + Math.max(n, 0), 0),
-        igReported,
+        igReadable: Object.values(igReported).reduce((s, n) => s + Math.max(n, 0), 0),
+        pageTokensResolved: Object.keys(pageTokens).length,
         igActorIds: [...igActorIdsFromPages],
-        igResolution,
-        igDebugErrors: igDebugErrors.slice(0, 30),
+        silentAds: silentAds.slice(0, 15),
+        meAccountsError,
+        pageLookupErrors: pageLookupErrors.slice(0, 5),
+        igDebugErrors: igDebugErrors.slice(0, 10),
       },
     })
   } catch (e) {

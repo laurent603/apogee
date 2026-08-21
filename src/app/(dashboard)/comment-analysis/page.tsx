@@ -47,7 +47,7 @@ export default function CommentAnalysisPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [totalComments, setTotalComments] = useState(0)
   const [adsScanned, setAdsScanned] = useState(0)
-  const [coverage, setCoverage] = useState({ expected: 0, unreadable: 0, pct: 100 })
+  const [coverage, setCoverage] = useState({ attributed: 0, silentAds: 0 })
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'insights' | 'briefs' | 'comments'>('insights')
@@ -71,9 +71,8 @@ export default function CommentAnalysisPage() {
       setTotalComments(data.totalComments)
       setAdsScanned(data.adsScanned)
       setCoverage({
-        expected: data.expectedComments ?? 0,
-        unreadable: data.unreadableComments ?? 0,
-        pct: data.coverage ?? 100,
+        attributed: data.attributedComments ?? 0,
+        silentAds: data.adsWithUnreadableComments ?? 0,
       })
 
       if (data.totalComments === 0) {
@@ -101,7 +100,17 @@ export default function CommentAnalysisPage() {
         setRawBuffer(buffer)
       }
 
-      const parsed = JSON.parse(buffer) as Analysis
+      // The model sometimes wraps the object in a code fence, and a truncated
+      // stream yields a raw "Unterminated string" that means nothing to the user.
+      const cleaned = buffer.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
+      let parsed: Analysis
+      try {
+        parsed = JSON.parse(cleaned) as Analysis
+      } catch {
+        throw new Error(
+          "La réponse de l'IA est incomplète et n'a pas pu être lue. Relancez l'analyse — si cela se répète, le compte a trop de commentaires pour un seul passage."
+        )
+      }
       setAnalysis(parsed)
       setStep('done')
     } catch (e) {
@@ -185,16 +194,17 @@ export default function CommentAnalysisPage() {
         <div className="card text-center py-12">
           <p className="font-semibold text-[#0d0d12]">Aucun commentaire trouvé</p>
           <p className="text-sm text-gray-400 mt-1">
-            {coverage.expected > 0
-              ? `Meta recense ${coverage.expected} commentaires sur ces publicités, mais n'en expose le texte pour aucun.`
+            {coverage.silentAds > 0
+              ? `${coverage.silentAds} publicités ont reçu des commentaires, mais l'API n'en expose le texte pour aucune.`
               : 'Les publicités du compte n\'ont pas encore de commentaires.'}
           </p>
         </div>
       )}
 
-      {/* Partial coverage — an analysis run on a fraction of the comments is
-          misleading unless the gap is stated up front */}
-      {step === 'done' && coverage.unreadable > 0 && (
+      {/* Ads that received comments the API will not hand over. The attributed
+          figure is not a denominator — it has been seen both above and below the
+          readable text — so state the ad count, not a coverage percentage. */}
+      {step === 'done' && coverage.silentAds > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
           <div className="flex items-start gap-3">
             <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -202,12 +212,12 @@ export default function CommentAnalysisPage() {
             </svg>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-900">
-                Analyse partielle : {totalComments} commentaires sur {coverage.expected} ({coverage.pct}%)
+                Analyse incomplète : {coverage.silentAds} publicité{coverage.silentAds > 1 ? 's' : ''} ont des commentaires illisibles
               </p>
               <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                Meta recense {coverage.expected} commentaires sur ces publicités mais n&apos;expose pas le texte de {coverage.unreadable} d&apos;entre eux :
-                ils sont portés par des publications publicitaires non publiées, que l&apos;API refuse de servir.
-                Les conclusions ci-dessous ne portent que sur les {totalComments} commentaires lisibles — ne les généralisez pas.
+                Meta attribue des commentaires à {coverage.silentAds} publicité{coverage.silentAds > 1 ? 's' : ''} dont il refuse de servir le texte via l&apos;API —
+                leurs publications publicitaires ne sont pas publiées sur la Page. L&apos;analyse ci-dessous porte donc
+                sur {totalComments} commentaire{totalComments > 1 ? 's' : ''} lisible{totalComments > 1 ? 's' : ''}, pas sur la totalité du compte.
               </p>
             </div>
           </div>
@@ -220,12 +230,7 @@ export default function CommentAnalysisPage() {
           {/* Stats bar */}
           <div className="grid grid-cols-3 gap-4">
             <div className="card text-center py-5">
-              <p className="text-2xl font-bold text-[#0d0d12]">
-                {totalComments}
-                {coverage.expected > totalComments && (
-                  <span className="text-base font-medium text-gray-400"> / {coverage.expected}</span>
-                )}
-              </p>
+              <p className="text-2xl font-bold text-[#0d0d12]">{totalComments}</p>
               <p className="text-xs text-gray-400 mt-0.5">Commentaires analysés</p>
             </div>
             <div className="card text-center py-5">

@@ -58,7 +58,9 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
 
   const stream = await anthropic.messages.stream({
     model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
+    // The schema has six sections with nested examples; 4096 truncated the JSON
+    // mid-string on accounts with a few dozen comments.
+    max_tokens: 16000,
     system: SYSTEM,
     messages: [{ role: 'user', content: userMessage }],
   })
