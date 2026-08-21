@@ -293,6 +293,7 @@ export default function AutopilotPage() {
   })
   const [running, setRunning] = useState<string | null>(null)
   const [newReportId, setNewReportId] = useState<string | null>(null)
+  const [showCustomForm, setShowCustomForm] = useState(false)
 
   // --- History ---
   type Report = { id: string; title: string; content: string; createdAt: string; agent: { name: string } | null }
@@ -655,26 +656,112 @@ export default function AutopilotPage() {
       {/* --- TAB: Nouvel agent --- */}
       {tab === 'agent' && (
         <div className="space-y-4">
-          {/* Templates */}
+
+          {/* 1. Mes agents actifs (en premier) */}
+          <div className="card p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]">
+              <div>
+                <p className="text-sm font-semibold text-[#0d0d12]">Mes agents {agents.length > 0 && <span className="text-gray-400 font-normal">({agents.length})</span>}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Les rapports automatiques arrivent dans l&apos;onglet <button onClick={() => setTab('history')} className="text-[#3434ef] hover:underline">Historique</button></p>
+              </div>
+            </div>
+            {agents.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm text-gray-400">Aucun agent encore — ajoutez un template ci-dessous ou créez le vôtre</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E5E7EB]">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      {/* Status dot */}
+                      <div className={clsx('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', agent.isActive ? 'bg-green-500' : 'bg-gray-300')} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-[#0d0d12] text-sm">{agent.name}</span>
+                          <span className={clsx('text-[10px] font-medium px-2 py-0.5 rounded-full border',
+                            agent.runMode === 'propose' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            agent.runMode === 'auto_execute' ? 'bg-red-50 text-red-700 border-red-200' :
+                            'bg-gray-50 text-gray-500 border-gray-200'
+                          )}>
+                            {MODE_OPTIONS.find((m) => m.value === agent.runMode)?.label}
+                          </span>
+                          <span className="text-[10px] text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                            {FREQ_OPTIONS.find((f) => f.value === agent.frequency)?.label}
+                          </span>
+                        </div>
+                        {agent.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{agent.description}</p>}
+                        {running === agent.id ? (
+                          <div className="flex items-center gap-1.5 mt-1 text-xs text-[#3434ef]">
+                            <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            Analyse en cours…
+                          </div>
+                        ) : agent.lastRunAt ? (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Dernier : {new Date(agent.lastRunAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            <button onClick={() => setTab('history')} className="text-[#3434ef] hover:underline ml-1">Voir →</button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-1">Jamais lancé</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => runAgent(agent)}
+                          disabled={running !== null || !selectedAccount}
+                          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#3434ef] text-white hover:bg-[#2525cc] disabled:opacity-40 transition-colors"
+                        >
+                          {running === agent.id ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> : <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>}
+                          Lancer
+                        </button>
+                        <button
+                          onClick={() => toggleAgent(agent)}
+                          className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border', agent.isActive ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100')}
+                        >
+                          {agent.isActive ? 'Actif' : 'Inactif'}
+                        </button>
+                        <button onClick={() => deleteAgent(agent.id)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Templates */}
           <div className="card">
             <p className="text-sm font-semibold text-[#0d0d12] mb-3">Templates préconfigurés</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {PRESET_AGENTS.map((preset) => {
                 const exists = presetNames.includes(preset.name)
                 return (
-                  <div key={preset.name} className="border border-[#E5E7EB] rounded-xl p-4 flex flex-col gap-2 bg-[#f8f9fc]">
+                  <div key={preset.name} className={clsx('border rounded-xl p-4 flex flex-col gap-2 transition-colors', exists ? 'border-green-200 bg-green-50' : 'border-[#E5E7EB] bg-[#f8f9fc] hover:border-[#3434ef]/30 hover:bg-blue-50/30')}>
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{preset.icon}</span>
+                      <span className="text-lg">{preset.icon}</span>
                       <span className="font-semibold text-[#0d0d12] text-sm">{preset.name}</span>
                     </div>
-                    <p className="text-xs text-gray-500 flex-1">{preset.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="badge-gray">{FREQ_OPTIONS.find((f) => f.value === preset.frequency)?.label}</span>
+                    <p className="text-xs text-gray-500 flex-1 leading-relaxed">{preset.description}</p>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                        {FREQ_OPTIONS.find((f) => f.value === preset.frequency)?.label}
+                      </span>
                       {exists ? (
-                        <span className="text-xs text-green-600 font-medium">✓ Créé</span>
+                        <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                          Créé
+                        </span>
                       ) : (
-                        <button onClick={() => createAgent(preset)} disabled={!selectedAccount} className="text-xs text-[#3434ef] hover:underline font-medium">
-                          + Ajouter
+                        <button
+                          onClick={() => createAgent(preset)}
+                          disabled={!selectedAccount}
+                          className="text-xs font-semibold text-[#3434ef] hover:text-[#2525cc] disabled:opacity-40 flex items-center gap-1"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
+                          Ajouter
                         </button>
                       )}
                     </div>
@@ -684,139 +771,128 @@ export default function AutopilotPage() {
             </div>
           </div>
 
-          {/* Formulaire création */}
-          <div className="card">
-            <p className="text-sm font-semibold text-[#0d0d12] mb-4">Créer un agent personnalisé</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="label">Nom de l&apos;agent</label>
-                <input type="text" className="input" placeholder="Ex: Budget Optimizer" value={agentForm.name} onChange={(e) => setAgentForm((f) => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div className="col-span-2">
-                <label className="label">Description</label>
-                <input type="text" className="input" placeholder="Ce que fait cet agent en une phrase" value={agentForm.description} onChange={(e) => setAgentForm((f) => ({ ...f, description: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Rôle IA</label>
-                <select className="select" value={agentForm.role} onChange={(e) => setAgentForm((f) => ({ ...f, role: e.target.value }))}>
-                  {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Fréquence</label>
-                <select className="select" value={agentForm.frequency} onChange={(e) => setAgentForm((f) => ({ ...f, frequency: e.target.value }))}>
-                  {FREQ_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Mode d&apos;exécution</label>
-                <select className="select" value={agentForm.runMode} onChange={(e) => setAgentForm((f) => ({ ...f, runMode: e.target.value }))}>
-                  {MODE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Période d&apos;analyse</label>
-                <select className="select" value={agentForm.analysisPeriod} onChange={(e) => setAgentForm((f) => ({ ...f, analysisPeriod: e.target.value }))}>
-                  {PERIOD_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="label">Instructions de l&apos;agent</label>
-                <textarea rows={4} className="input resize-none" placeholder="Décrivez précisément ce que l'agent doit analyser et faire…" value={agentForm.instructions} onChange={(e) => setAgentForm((f) => ({ ...f, instructions: e.target.value }))} />
-              </div>
-              <div className="col-span-2">
-                <label className="label">Format de sortie attendu</label>
-                <input type="text" className="input" placeholder="Ex: Tableau compact avec les 5 ads à couper + justification" value={agentForm.outputFormat} onChange={(e) => setAgentForm((f) => ({ ...f, outputFormat: e.target.value }))} />
-              </div>
-              <div className="col-span-2">
-                <label className="label">Canaux de livraison</label>
-                <div className="flex gap-3 mb-2">
-                  {[{ id: 'in_app', label: 'Dans l\'app' }, { id: 'email', label: 'Email' }, { id: 'notion', label: 'Notion' }].map((ch) => (
-                    <label key={ch.id} className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={agentForm.channels.includes(ch.id)}
-                        onChange={(e) => setAgentForm((f) => ({
-                          ...f,
-                          channels: e.target.checked ? [...f.channels, ch.id] : f.channels.filter((c) => c !== ch.id),
-                        }))}
-                        className="rounded"
-                      />
-                      {ch.label}
-                    </label>
-                  ))}
+          {/* 3. Formulaire personnalisé (collapsible) */}
+          <div className="card p-0 overflow-hidden">
+            <button
+              onClick={() => setShowCustomForm((v) => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#f8f9fc] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                 </div>
-                {agentForm.channels.includes('email') && (
-                  <input type="email" className="input mb-2" placeholder="Adresse email de réception" value={agentForm.deliveryEmail} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryEmail: e.target.value }))} />
-                )}
-                {agentForm.channels.includes('notion') && (
-                  <div className="space-y-2">
-                    <input type="text" className="input" placeholder="Notion Integration Token (secret_xxx)" value={agentForm.deliveryNotionToken} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryNotionToken: e.target.value }))} />
-                    <input type="text" className="input" placeholder="ID de la page Notion parent" value={agentForm.deliveryNotion} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryNotion: e.target.value }))} />
-                  </div>
-                )}
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-[#0d0d12]">Créer un agent personnalisé</p>
+                  <p className="text-xs text-gray-400">Configurez un agent sur-mesure pour vos besoins spécifiques</p>
+                </div>
               </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button onClick={() => createAgent(agentForm)} disabled={!agentForm.name || !selectedAccount} className="btn-primary">
-                Créer l&apos;agent
-              </button>
-            </div>
-          </div>
+              <svg className={clsx('w-4 h-4 text-gray-400 transition-transform', showCustomForm && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+            </button>
 
-          {/* Agents actifs */}
-          {agents.length > 0 && (
-            <div className="card">
-              <p className="text-sm font-semibold text-[#0d0d12] mb-3">Mes agents ({agents.length})</p>
-              <div className="space-y-2">
-                {agents.map((agent) => (
-                  <div key={agent.id} className="border border-[#E5E7EB] rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-[#0d0d12] text-sm">{agent.name}</span>
-                          <span className={clsx('badge-gray', agent.runMode === 'propose' && 'bg-amber-50 text-amber-700 border-amber-200', agent.runMode === 'auto_execute' && 'bg-red-50 text-red-700 border-red-200')}>
-                            {MODE_OPTIONS.find((m) => m.value === agent.runMode)?.label}
-                          </span>
-                          <span className="badge-gray">{FREQ_OPTIONS.find((f) => f.value === agent.frequency)?.label}</span>
-                        </div>
-                        {agent.description && <p className="text-xs text-gray-500 mt-1">{agent.description}</p>}
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => runAgent(agent)} disabled={running === agent.id || !selectedAccount} className="btn-secondary py-1 text-xs">
-                          {running === agent.id ? (
-                            <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                          ) : '▶ Lancer'}
-                        </button>
-                        <button
-                          onClick={() => toggleAgent(agent)}
-                          className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border', agent.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200')}
-                        >
-                          {agent.isActive ? 'Actif' : 'Inactif'}
-                        </button>
-                        <button onClick={() => deleteAgent(agent.id)} className="text-gray-400 hover:text-red-500 transition-colors">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      </div>
+            {showCustomForm && (
+              <div className="border-t border-[#E5E7EB] px-5 pb-5 pt-4 space-y-5">
+
+                {/* Section Identité */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Identité</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="label">Nom de l&apos;agent</label>
+                      <input type="text" className="input" placeholder="Ex: Budget Optimizer Hebdo" value={agentForm.name} onChange={(e) => setAgentForm((f) => ({ ...f, name: e.target.value }))} />
                     </div>
-                    {running === agent.id && (
-                      <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex items-center gap-2 text-xs text-[#3434ef]">
-                        <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                        Analyse en cours… le rapport apparaîtra dans l&apos;onglet Historique
-                      </div>
-                    )}
-                    {agent.lastRunAt && running !== agent.id && (
-                      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Dernier rapport : {new Date(agent.lastRunAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        <button onClick={() => setTab('history')} className="text-[#3434ef] hover:underline ml-1">→ Voir dans Historique</button>
-                      </div>
-                    )}
+                    <div>
+                      <label className="label">Description <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                      <input type="text" className="input" placeholder="Ce que fait cet agent en une phrase" value={agentForm.description} onChange={(e) => setAgentForm((f) => ({ ...f, description: e.target.value }))} />
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Section Comportement */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Comportement</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Rôle IA</label>
+                      <select className="select" value={agentForm.role} onChange={(e) => setAgentForm((f) => ({ ...f, role: e.target.value }))}>
+                        {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Fréquence</label>
+                      <select className="select" value={agentForm.frequency} onChange={(e) => setAgentForm((f) => ({ ...f, frequency: e.target.value }))}>
+                        {FREQ_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Mode</label>
+                      <select className="select" value={agentForm.runMode} onChange={(e) => setAgentForm((f) => ({ ...f, runMode: e.target.value }))}>
+                        {MODE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Période</label>
+                      <select className="select" value={agentForm.analysisPeriod} onChange={(e) => setAgentForm((f) => ({ ...f, analysisPeriod: e.target.value }))}>
+                        {PERIOD_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="label">Instructions</label>
+                      <textarea rows={3} className="input resize-none" placeholder="Décrivez précisément ce que l'agent doit analyser et faire…" value={agentForm.instructions} onChange={(e) => setAgentForm((f) => ({ ...f, instructions: e.target.value }))} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="label">Format de sortie <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                      <input type="text" className="input" placeholder="Ex: Tableau des 5 ads à couper avec justification" value={agentForm.outputFormat} onChange={(e) => setAgentForm((f) => ({ ...f, outputFormat: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section Livraison */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Livraison des rapports</p>
+                  <div className="flex gap-2 mb-3">
+                    {[{ id: 'in_app', label: 'Dans l\'app', icon: '🖥️' }, { id: 'email', label: 'Email', icon: '✉️' }, { id: 'notion', label: 'Notion', icon: '📝' }].map((ch) => (
+                      <button
+                        key={ch.id}
+                        onClick={() => setAgentForm((f) => ({
+                          ...f,
+                          channels: f.channels.includes(ch.id) && ch.id !== 'in_app'
+                            ? f.channels.filter((c) => c !== ch.id)
+                            : [...f.channels.filter((c) => c !== ch.id), ch.id],
+                        }))}
+                        className={clsx(
+                          'flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors',
+                          agentForm.channels.includes(ch.id)
+                            ? 'bg-[#3434ef]/5 border-[#3434ef]/30 text-[#3434ef]'
+                            : 'border-[#E5E7EB] text-gray-500 hover:border-gray-300'
+                        )}
+                      >
+                        <span>{ch.icon}</span> {ch.label}
+                      </button>
+                    ))}
+                  </div>
+                  {agentForm.channels.includes('email') && (
+                    <input type="email" className="input mb-2" placeholder="Adresse email de réception" value={agentForm.deliveryEmail} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryEmail: e.target.value }))} />
+                  )}
+                  {agentForm.channels.includes('notion') && (
+                    <div className="space-y-2">
+                      <input type="text" className="input" placeholder="Notion Integration Token (secret_xxx)" value={agentForm.deliveryNotionToken} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryNotionToken: e.target.value }))} />
+                      <input type="text" className="input" placeholder="ID de la page Notion parent" value={agentForm.deliveryNotion} onChange={(e) => setAgentForm((f) => ({ ...f, deliveryNotion: e.target.value }))} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => createAgent(agentForm)}
+                    disabled={!agentForm.name || !selectedAccount}
+                    className="btn-primary"
+                  >
+                    Créer l&apos;agent
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
