@@ -14,7 +14,7 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  .max-w-5xl, .max-w-6xl, .max-w-7xl { margin-left: auto; margin-right: auto; }
+  .max-w-xs, .max-w-sm, .max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl, .max-w-3xl, .max-w-4xl, .max-w-5xl, .max-w-6xl, .max-w-7xl { margin-left: auto; margin-right: auto; }
   body {
     background-color: #f8f9fc;
     color: #0d0d12;

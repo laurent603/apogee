@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useStore } from '@/lib/store'
 
 interface LaunchRecord {
   id: string
@@ -17,22 +18,33 @@ interface LaunchRecord {
 }
 
 export default function HistoryPage() {
+  const { selectedAccount } = useStore()
   const [launches, setLaunches] = useState<LaunchRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/launch-history')
+  const load = useCallback(() => {
+    setLoading(true)
+    const metaId = selectedAccount?.metaAccountId || selectedAccount?.id
+    const url = metaId ? `/api/launch-history?metaAccountId=${metaId}` : '/api/launch-history'
+    fetch(url)
       .then(r => r.json())
       .then(data => { setLaunches(Array.isArray(data) ? data : []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [selectedAccount?.id])
+
+  useEffect(() => { load() }, [load])
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="page-title">Historique des lancements</h1>
-        <p className="page-subtitle mt-0.5">Tous vos lancements de campagnes Meta Ads</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="page-title">Historique des lancements</h1>
+          <p className="page-subtitle mt-0.5">
+            Lancements pour <strong>{selectedAccount?.name || 'tous les comptes'}</strong>
+          </p>
+        </div>
+        <button onClick={load} className="text-xs text-[#3434ef] hover:underline mt-1">Actualiser</button>
       </div>
 
       {loading && (
@@ -46,11 +58,11 @@ export default function HistoryPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-base font-semibold text-[#0d0d12] mb-2">Pas encore de lancement</h2>
+          <h2 className="text-base font-semibold text-[#0d0d12] mb-2">Aucun lancement pour ce compte</h2>
           <p className="text-sm text-gray-400 mb-5 max-w-sm mx-auto">
-            L&apos;historique de vos lancements de campagnes Meta Ads apparaîtra ici après votre premier upload.
+            Les lancements de campagnes Meta Ads pour <strong>{selectedAccount?.name}</strong> apparaîtront ici.
           </p>
-          <a href="/upload" className="btn-primary inline-block">Lancer une première campagne</a>
+          <a href="/upload" className="btn-primary inline-block">Lancer une campagne</a>
         </div>
       )}
 

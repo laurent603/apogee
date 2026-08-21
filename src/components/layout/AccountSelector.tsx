@@ -15,9 +15,10 @@ export function AccountSelector() {
     fetch('/api/meta/accounts')
       .then((r) => r.json())
       .then((d) => {
-        const fresh: AdAccountMeta[] = (d.accounts || []).filter(
-          (a: AdAccountMeta) => !a.name?.toLowerCase().includes('read only') && !a.name?.toLowerCase().includes('read_only')
-        )
+        const fresh: AdAccountMeta[] = (d.accounts || []).filter((a: AdAccountMeta) => {
+          const n = (a.name || '').toLowerCase()
+          return !(n.includes('read') && (n.includes('only') || n.includes('-only')))
+        })
         setAccounts(fresh)
         const current = useStore.getState().selectedAccount
         const stillValid = current && fresh.find((a: AdAccountMeta) => a.id === current.id)

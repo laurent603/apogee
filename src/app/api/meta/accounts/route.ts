@@ -11,7 +11,14 @@ export async function GET() {
   }
 
   try {
-    const accounts = await getAdAccounts(session.accessToken as string)
+    const rawAccounts = await getAdAccounts(session.accessToken as string)
+    // Filter out read-only accounts: status !== 1 (ACTIVE) or name contains "read"
+    const accounts = rawAccounts.filter((acc: Record<string, string>) => {
+      if (acc.account_status && String(acc.account_status) !== '1') return false
+      const nameLower = (acc.name || '').toLowerCase()
+      if (nameLower.includes('read') && (nameLower.includes('only') || nameLower.includes('-only'))) return false
+      return true
+    })
 
     // Try to upsert + read from DB; fall back to raw Meta accounts if DB fails
     try {
