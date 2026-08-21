@@ -109,6 +109,10 @@ export async function GET(req: NextRequest) {
     const pageToIgId: Record<string, string> = {}
     const igToPageToken: Record<string, string> = {}
 
+    // Dark post comments are only readable with a PAGE token; a user token
+    // returns an empty list rather than an error, so losing these tokens looks
+    // exactly like "this ad has no comments".
+    let meAccountsError: string | null = null
     try {
       const pagesFirst = await metaFetch('/me/accounts', token, {
         fields: 'id,access_token,instagram_business_account{id}',
@@ -118,13 +122,15 @@ export async function GET(req: NextRequest) {
       for (const page of pages as unknown as {
         id: string; access_token: string; instagram_business_account?: { id: string }
       }[]) {
-        pageTokens[page.id] = page.access_token
+        if (page.access_token) pageTokens[page.id] = page.access_token
         if (page.instagram_business_account?.id) {
           pageToIgId[page.id] = page.instagram_business_account.id
-          igToPageToken[page.instagram_business_account.id] = page.access_token
+          if (page.access_token) igToPageToken[page.instagram_business_account.id] = page.access_token
         }
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      meAccountsError = e instanceof Error ? e.message.slice(0, 150) : 'unknown'
+    }
 
     // Toutes les pubs du compte, pagination comprise
     const adsFirst = await metaFetch(`/${metaAccountId}/ads`, token, {
@@ -160,10 +166,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Fallback when /me/accounts came back short: ask each page that actually
+    // owns an ad post for its own token and IG link.
+    const pageIdsInAds = new Set<string>()
+    for (const postId of fbPostMap.keys()) pageIdsInAds.add(postId.split('_')[0])
+    const pageLookupErrors: string[] = []
+    await mapLimit(
+      [...pageIdsInAds].filter(pid => !pageTokens[pid]),
+      4,
+      async (pageId) => {
+        try {
+          const p = await metaFetch(`/${pageId}`, token, { fields: 'access_token,instagram_business_account{id}' })
+          const at = p.access_token as string | undefined
+          if (at) pageTokens[pageId] = at
+          const ig = (p.instagram_business_account as { id?: string } | undefined)?.id
+          if (ig) {
+            pageToIgId[pageId] = ig
+            if (at) igToPageToken[ig] = at
+          }
+        } catch (e) {
+          pageLookupErrors.push(`${pageId}:${e instanceof Error ? e.message.slice(0, 90) : 'unknown'}`)
+        }
+      },
+    )
+
     const igActorIdsFromPages = new Set<string>()
-    for (const postId of fbPostMap.keys()) {
-      const fbPageId = postId.split('_')[0]
-      if (pageToIgId[fbPageId]) igActorIdsFromPages.add(pageToIgId[fbPageId])
+    for (const pageId of pageIdsInAds) {
+      if (pageToIgId[pageId]) igActorIdsFromPages.add(pageToIgId[pageId])
     }
 
     const posts: PostItem[] = []
@@ -177,10 +206,14 @@ export async function GET(req: NextRequest) {
     // === FACEBOOK : commentaires des dark posts ===
     // filter=stream inclut les réponses, que le défaut (toplevel) omet.
     const fbDebugSummary: Record<string, number> = {}
+    const fbTokenUsed: Record<string, string> = {}
 
     await mapLimit(Array.from(fbPostMap.entries()), 6, async ([postId, meta]) => {
       const pageToken = pageTokens[postId.split('_')[0]]
-      for (const tok of [pageToken, token].filter(Boolean) as string[]) {
+      const candidates: [string, string][] = []
+      if (pageToken) candidates.push(['page', pageToken])
+      candidates.push(['user', token])
+      for (const [kind, tok] of candidates) {
         try {
           const first = await metaFetch(`/${postId}/comments`, tok, {
             fields: 'id,message,created_time,like_count,from{name}',
@@ -193,10 +226,17 @@ export async function GET(req: NextRequest) {
           if (total !== undefined) fbDebugSummary[postId] = total
           const comments = parseFBComments(raw)
           if (comments.length > 0) {
+            fbTokenUsed[postId] = kind
             addPost({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
             return
           }
-        } catch { /* essayer le token suivant */ }
+          // An empty result on a page token is trustworthy; on a user token it
+          // usually means the dark post is simply not readable that way.
+          if (kind === 'page') { fbTokenUsed[postId] = 'page:empty'; return }
+          fbTokenUsed[postId] = 'user:empty'
+        } catch (e) {
+          fbTokenUsed[postId] = `${kind}:err:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`
+        }
       }
     })
 
@@ -269,6 +309,12 @@ export async function GET(req: NextRequest) {
         adsFetched: allAds.length,
         fbPosts: fbPostMap.size,
         fbReportedTotal,
+        // The decisive signal: without page tokens, dark post comments read as 0
+        pagesInAds: [...pageIdsInAds],
+        pageTokensResolved: Object.keys(pageTokens).length,
+        meAccountsError,
+        pageLookupErrors: pageLookupErrors.slice(0, 10),
+        fbTokenUsed,
         fbSummary: fbDebugSummary,
         igMediaFromPermalink: igMediaMap.size,
         igActorIds: [...igActorIdsFromPages],
