@@ -140,6 +140,28 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${msg}\n\n`))
       }
 
+      // Instagram identity for the page, required as soon as a creative targets
+      // instagram_positions (Meta error subcode 1772103). Read-only lookup: the
+      // linked IG business account first, then an existing page-backed account.
+      // Never creates one — a missing identity degrades to Facebook-only routing.
+      const igAccountCache = new Map<string, string | null>()
+      async function getInstagramUserId(pageId: string): Promise<string | null> {
+        if (igAccountCache.has(pageId)) return igAccountCache.get(pageId)!
+        let igId: string | null = null
+        try {
+          const info = await metaFetch(`/${pageId}`, token, { fields: 'instagram_business_account{id}' })
+          igId = (info?.instagram_business_account as { id?: string } | undefined)?.id || null
+        } catch { /* fall through */ }
+        if (!igId) {
+          try {
+            const pbia = await metaFetch(`/${pageId}/page_backed_instagram_accounts`, token, { fields: 'id' })
+            igId = ((pbia?.data as { id?: string }[] | undefined)?.[0]?.id) || null
+          } catch { /* fall through */ }
+        }
+        igAccountCache.set(pageId, igId)
+        return igId
+      }
+
       try {
         /* ── 1. Campaign ───────────────────────────────────────────────────── */
         const budgetCents = Math.round(Number(budget || 50) * 100)
@@ -490,21 +512,24 @@ export async function POST(req: NextRequest) {
             // Rules binding each labelled asset to its placements. Without these,
             // Meta treats the assets as a dynamic-creative pool and rotates them
             // across every placement — which is why a feed crea showed up in Stories.
-            function buildCustomizationRules(labelKey: 'video_label' | 'image_label') {
+            // Instagram positions are only claimed when an IG identity exists,
+            // otherwise Meta rejects the ad with subcode 1772103.
+            function buildCustomizationRules(labelKey: 'video_label' | 'image_label', withInstagram: boolean) {
+              const platforms = withInstagram ? ['facebook', 'instagram'] : ['facebook']
               return [
                 {
                   customization_spec: {
-                    publisher_platforms: ['facebook', 'instagram'],
+                    publisher_platforms: platforms,
                     facebook_positions: FB_FEED_POS,
-                    instagram_positions: IG_FEED_POS,
+                    ...(withInstagram ? { instagram_positions: IG_FEED_POS } : {}),
                   },
                   [labelKey]: { name: FEED_LABEL },
                 },
                 {
                   customization_spec: {
-                    publisher_platforms: ['facebook', 'instagram'],
+                    publisher_platforms: platforms,
                     facebook_positions: FB_STORY_POS,
-                    instagram_positions: IG_STORY_POS,
+                    ...(withInstagram ? { instagram_positions: IG_STORY_POS } : {}),
                   },
                   [labelKey]: { name: STORY_LABEL },
                 },
@@ -561,89 +586,96 @@ export async function POST(req: NextRequest) {
 
               const leadGen = leadGenFormId ? { destination_type: 'ON_AD' } : {}
 
+              // Claiming instagram_positions requires an IG identity on the creative
+              const igUserId = await getInstagramUserId(pageId)
+              if (!igUserId) {
+                send(`⚠ Aucun compte Instagram rattaché à la page — routage limité à Facebook`)
+              }
+              const storySpec = {
+                page_id: pageId,
+                ...(igUserId ? { instagram_user_id: igUserId } : {}),
+              }
+
               // Ordered by preference: first that Meta accepts wins.
               const candidates: { label: string; routed: boolean; body: Record<string, unknown> }[] = [
-                {
-                  label: 'object_story_spec + ad_formats + routage placements',
+                ...(igUserId ? [{
+                  label: 'routage Facebook + Instagram',
                   routed: true,
                   body: {
                     name: adName,
-                    object_story_spec: { page_id: pageId },
+                    object_story_spec: storySpec,
                     asset_feed_spec: {
                       ...assetList(true), ...copy,
                       ad_formats: [adFormat],
-                      asset_customization_rules: buildCustomizationRules(labelKey),
+                      asset_customization_rules: buildCustomizationRules(labelKey, true),
+                    },
+                    ...leadGen,
+                  },
+                }] : []),
+                {
+                  label: 'routage Facebook uniquement',
+                  routed: true,
+                  body: {
+                    name: adName,
+                    object_story_spec: storySpec,
+                    asset_feed_spec: {
+                      ...assetList(true), ...copy,
+                      ad_formats: [adFormat],
+                      asset_customization_rules: buildCustomizationRules(labelKey, false),
                     },
                     ...leadGen,
                   },
                 },
                 {
-                  label: 'SHARE + ad_formats + routage placements',
-                  routed: true,
-                  body: {
-                    name: adName,
-                    object_type: 'SHARE',
-                    page_id: pageId,
-                    asset_feed_spec: {
-                      ...assetList(true), ...copy,
-                      ad_formats: [adFormat],
-                      asset_customization_rules: buildCustomizationRules(labelKey),
-                    },
-                    ...leadGen,
-                  },
-                },
-                {
-                  label: 'object_story_spec + ad_formats, sans routage',
+                  label: 'sans routage par placement',
                   routed: false,
                   body: {
                     name: adName,
-                    object_story_spec: { page_id: pageId },
+                    object_story_spec: storySpec,
                     asset_feed_spec: { ...assetList(false), ...copy, ad_formats: [adFormat] },
-                    ...leadGen,
-                  },
-                },
-                {
-                  label: 'SHARE sans ad_formats ni routage (ancien comportement)',
-                  routed: false,
-                  body: {
-                    name: adName,
-                    object_type: 'SHARE',
-                    page_id: pageId,
-                    asset_feed_spec: { ...assetList(false), ...copy },
                     ...leadGen,
                   },
                 },
               ]
 
-              let creativeId: string | undefined
-              let routed = false
+              // A creative Meta accepts can still be refused at the ad step (e.g.
+              // subcode 1772103 on a missing IG identity), so a candidate only counts
+              // as successful once the ad itself is created.
               const failures: string[] = []
+              let placed = false
 
               for (const c of candidates) {
                 console.log(`[launch] creative candidate "${c.label}":`, JSON.stringify(c.body))
                 const creativeData = await metaPost(`/${accountId}/adcreatives`, token, c.body)
-                if (!creativeData.error) {
-                  creativeId = creativeData.id as string
-                  routed = c.routed
-                  send(`✓ Créatif accepté par Meta — variante « ${c.label} »`)
-                  break
+                if (creativeData.error) {
+                  const msg = metaError(creativeData)
+                  failures.push(`${c.label} (créatif) → ${msg}`)
+                  send(`⚠ Variante « ${c.label} » refusée au créatif : ${msg}`)
+                  continue
                 }
-                const msg = metaError(creativeData)
-                failures.push(`${c.label} → ${msg}`)
-                send(`⚠ Variante « ${c.label} » refusée : ${msg}`)
+
+                const adData = await metaPost(`/${accountId}/ads`, token, {
+                  name: adName, adset_id: adsetId, creative: { creative_id: creativeData.id }, status: adsetStatus,
+                  ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+                })
+                if (adData.error) {
+                  const msg = metaError(adData)
+                  failures.push(`${c.label} (ad) → ${msg}`)
+                  send(`⚠ Variante « ${c.label} » refusée à l'ad : ${msg}`)
+                  continue
+                }
+
+                send(c.routed
+                  ? `✓ Ad créée : "${adName}" — ${c.label} (feed → Feed, story → Stories/Reels)`
+                  : `✓ Ad créée : "${adName}" — sans routage par placement`)
+                launchAdCount++
+                placed = true
+                break
               }
 
-              if (!creativeId) {
-                throw new Error(`Créatif "${adName}" : aucune variante acceptée par Meta.\n${failures.join('\n')}`)
+              if (!placed) {
+                throw new Error(`Ad "${adName}" : aucune variante acceptée par Meta.\n${failures.join('\n')}`)
               }
-
-              const adData = await metaPost(`/${accountId}/ads`, token, {
-                name: adName, adset_id: adsetId, creative: { creative_id: creativeId }, status: adsetStatus,
-                ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
-              })
-              if (adData.error) throw new Error(`Ad "${adName}" : ${metaError(adData)}`)
-              send(routed ? `✓ Ad créée : "${adName}" (feed → Feed, story → Stories/Reels)` : `✓ Ad créée : "${adName}" (sans routage par placement)`)
-              launchAdCount++
             }
 
             // Multi-format (feed + story) → 1 ad with asset_feed_spec + placement routing
