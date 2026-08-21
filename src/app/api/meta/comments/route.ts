@@ -4,31 +4,85 @@ import { authOptions } from '@/lib/auth'
 import { metaFetch } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
+// Walking every ad's comment pages takes far longer than a single Graph call.
+export const maxDuration = 300
+
 type CommentItem = { message: string; createdTime: string; likeCount: number; author: string }
 type PostItem = { adId: string; adName: string; postId: string; thumbnail?: string; comments: CommentItem[] }
 
+/** Follow Graph API `paging.next` links, which already carry the token. */
+async function drainPages(
+  first: Record<string, unknown>,
+  maxPages = 25,
+): Promise<Record<string, unknown>[]> {
+  const out = [...((first.data as Record<string, unknown>[]) || [])]
+  let next = (first.paging as { next?: string } | undefined)?.next
+  let pages = 1
+  while (next && pages < maxPages) {
+    try {
+      const res = await fetch(next)
+      if (!res.ok) break
+      const page = await res.json()
+      out.push(...((page.data as Record<string, unknown>[]) || []))
+      next = page.paging?.next
+      pages++
+    } catch { break }
+  }
+  return out
+}
+
+/** Bounded-concurrency map, so scanning 200 ads does not fire 200 calls at once. */
+async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (cursor < items.length) await fn(items[cursor++])
+    }),
+  )
+}
+
 function parseFBComments(raw: Record<string, unknown>[]): CommentItem[] {
-  return raw
-    .filter((c) => ((c.message as string) || '').trim().length >= 2)
-    .map((c) => ({
-      message: (c.message as string).trim(),
+  const seen = new Set<string>()
+  const out: CommentItem[] = []
+  for (const c of raw) {
+    const message = ((c.message as string) || '').trim()
+    if (!message) continue
+    const id = (c.id as string) || message
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push({
+      message,
       createdTime: c.created_time as string,
       likeCount: Number(c.like_count || 0),
       author: (c.from as Record<string, string>)?.name || 'Anonyme',
-    }))
+    })
+  }
+  return out
 }
 
 function parseIGComments(raw: Record<string, unknown>[]): CommentItem[] {
-  return raw
-    .filter((c) => ((c.text as string) || '').trim().length >= 2)
-    .map((c) => ({
-      message: (c.text as string).trim(),
-      createdTime: c.timestamp as string,
-      likeCount: Number(c.like_count || 0),
-      author: (c.username as string) || 'Anonyme',
-    }))
+  const seen = new Set<string>()
+  const out: CommentItem[] = []
+  for (const c of raw) {
+    const text = ((c.text as string) || '').trim()
+    if (text) {
+      const id = (c.id as string) || text
+      if (!seen.has(id)) {
+        seen.add(id)
+        out.push({
+          message: text,
+          createdTime: c.timestamp as string,
+          likeCount: Number(c.like_count || 0),
+          author: (c.username as string) || 'Anonyme',
+        })
+      }
+    }
+    // Replies are a nested edge, not part of the parent list
+    const replies = (c.replies as { data?: Record<string, unknown>[] } | undefined)?.data
+    if (replies?.length) out.push(...parseIGComments(replies))
+  }
+  return out
 }
-
 
 export async function GET(req: NextRequest) {
   try {
@@ -56,11 +110,12 @@ export async function GET(req: NextRequest) {
     const igToPageToken: Record<string, string> = {}
 
     try {
-      const pagesData = await metaFetch('/me/accounts', token, {
+      const pagesFirst = await metaFetch('/me/accounts', token, {
         fields: 'id,access_token,instagram_business_account{id}',
-        limit: '50',
+        limit: '100',
       })
-      for (const page of (pagesData.data || []) as {
+      const pages = await drainPages(pagesFirst)
+      for (const page of pages as unknown as {
         id: string; access_token: string; instagram_business_account?: { id: string }
       }[]) {
         pageTokens[page.id] = page.access_token
@@ -71,18 +126,19 @@ export async function GET(req: NextRequest) {
       }
     } catch { /* ignore */ }
 
-    // Pubs avec champs étendus pour récupérer instagram_permalink_url
-    const adsData = await metaFetch(`/${metaAccountId}/ads`, token, {
+    // Toutes les pubs du compte, pagination comprise
+    const adsFirst = await metaFetch(`/${metaAccountId}/ads`, token, {
       fields: 'id,name,creative{effective_object_story_id,object_story_id,thumbnail_url}',
-      limit: '200',
+      limit: '100',
       date_preset: 'maximum',
     })
+    const allAds = await drainPages(adsFirst)
 
     type AdMeta = { adName: string; thumbnail?: string }
     const fbPostMap = new Map<string, AdMeta>()    // FB postId → meta
     const igMediaMap = new Map<string, AdMeta>()   // IG media ID → meta
 
-    for (const ad of (adsData.data || []) as Record<string, unknown>[]) {
+    for (const ad of allAds) {
       const creative = ad.creative as Record<string, string> | undefined
       const adName = ad.name as string
       const thumbnail = creative?.thumbnail_url
@@ -94,21 +150,16 @@ export async function GET(req: NextRequest) {
       const postPart = parts[1]
 
       if (igToPageToken[firstPart]) {
-        // Actor Instagram direct — ID composé IG natif
         if (!igMediaMap.has(postId)) igMediaMap.set(postId, { adName, thumbnail })
       } else if (pageToIgId[firstPart] && postPart) {
-        // Page Facebook avec IG connecté → essayer {ig_user_id}_{post_part}
         const igCompoundId = `${pageToIgId[firstPart]}_${postPart}`
         if (!igMediaMap.has(igCompoundId)) igMediaMap.set(igCompoundId, { adName, thumbnail })
-        // Garder aussi le postId FB original
         if (!fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail })
       } else {
-        // Facebook post pur
         if (!fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail })
       }
     }
 
-    // Collecter les IG account IDs des pages utilisées dans les ads FB
     const igActorIdsFromPages = new Set<string>()
     for (const postId of fbPostMap.keys()) {
       const fbPageId = postId.split('_')[0]
@@ -116,110 +167,112 @@ export async function GET(req: NextRequest) {
     }
 
     const posts: PostItem[] = []
+    const seenPostIds = new Set<string>()
+    function addPost(p: PostItem) {
+      if (seenPostIds.has(p.postId)) return
+      seenPostIds.add(p.postId)
+      posts.push(p)
+    }
 
-    // === FACEBOOK : commentaires sur dark posts (ads) via expansion de champs ===
+    // === FACEBOOK : commentaires des dark posts ===
+    // filter=stream inclut les réponses, que le défaut (toplevel) omet.
     const fbDebugSummary: Record<string, number> = {}
 
-    await Promise.allSettled(
-      Array.from(fbPostMap.entries()).slice(0, 30).map(async ([postId, meta]) => {
-        const pageToken = pageTokens[postId.split('_')[0]]
-        const tokens = [pageToken, token].filter(Boolean) as string[]
-        for (const tok of tokens) {
-          try {
-            // Expansion de champs inline + summary pour connaître le vrai count
-            const postData = await metaFetch(`/${postId}`, tok, {
-              fields: 'id,comments.limit(100).summary(true){message,created_time,like_count,from{name}}',
-            })
-            const commentsSummary = (postData.comments as { data?: Record<string, unknown>[]; summary?: { total_count: number } } | undefined)
-            const totalCount = commentsSummary?.summary?.total_count ?? -1
-            const rawComments = commentsSummary?.data || []
-            fbDebugSummary[postId] = totalCount
-            const comments = parseFBComments(rawComments)
-            if (comments.length > 0 && !posts.some(p => p.postId === postId)) {
-              posts.push({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
-              return
-            }
-          } catch { /* ignore */ }
-        }
-      })
-    )
+    await mapLimit(Array.from(fbPostMap.entries()), 6, async ([postId, meta]) => {
+      const pageToken = pageTokens[postId.split('_')[0]]
+      for (const tok of [pageToken, token].filter(Boolean) as string[]) {
+        try {
+          const first = await metaFetch(`/${postId}/comments`, tok, {
+            fields: 'id,message,created_time,like_count,from{name}',
+            filter: 'stream',
+            limit: '100',
+            summary: 'true',
+          })
+          const raw = await drainPages(first)
+          const total = (first.summary as { total_count?: number } | undefined)?.total_count
+          if (total !== undefined) fbDebugSummary[postId] = total
+          const comments = parseFBComments(raw)
+          if (comments.length > 0) {
+            addPost({ adId: postId, adName: meta.adName, postId, thumbnail: meta.thumbnail, comments })
+            return
+          }
+        } catch { /* essayer le token suivant */ }
+      }
+    })
 
-    // === INSTAGRAM : médias obtenus depuis instagram_permalink_url ===
+    // === INSTAGRAM : médias issus des ads ===
     const igDebugErrors: string[] = []
     const pageTokensIG = Object.values(igToPageToken)
 
-    await Promise.allSettled(
-      Array.from(igMediaMap.entries()).slice(0, 5).map(async ([igMediaId, meta]) => {
-        if (pageTokensIG.length === 0) { igDebugErrors.push(`${igMediaId}:no-token`); return }
-
-        for (const pt of pageTokensIG) {
-          try {
-            const commentsData = await metaFetch(`/${igMediaId}/comments`, pt, {
-              fields: 'text,timestamp,like_count,username',
-              limit: '100',
-            })
-            const comments = parseIGComments(commentsData.data || [])
-            igDebugErrors.push(`${igMediaId}:comments:${comments.length}`)
-            if (comments.length > 0) {
-              posts.push({ adId: igMediaId, adName: meta.adName, postId: igMediaId, thumbnail: meta.thumbnail, comments })
-              return
-            }
-          } catch (e) {
-            igDebugErrors.push(`${igMediaId}:err:${e instanceof Error ? e.message.slice(0, 80) : 'unknown'}`)
+    await mapLimit(Array.from(igMediaMap.entries()), 6, async ([igMediaId, meta]) => {
+      if (pageTokensIG.length === 0) { igDebugErrors.push(`${igMediaId}:no-token`); return }
+      for (const pt of pageTokensIG) {
+        try {
+          const first = await metaFetch(`/${igMediaId}/comments`, pt, {
+            fields: 'id,text,timestamp,like_count,username,replies{id,text,timestamp,like_count,username}',
+            limit: '100',
+          })
+          const comments = parseIGComments(await drainPages(first))
+          if (comments.length > 0) {
+            addPost({ adId: igMediaId, adName: meta.adName, postId: igMediaId, thumbnail: meta.thumbnail, comments })
+            return
           }
+        } catch (e) {
+          igDebugErrors.push(`${igMediaId}:err:${e instanceof Error ? e.message.slice(0, 80) : 'unknown'}`)
         }
-      })
-    )
+      }
+    })
 
-    // === INSTAGRAM organiques depuis les pages connectées aux ads FB ===
+    // === INSTAGRAM organiques des pages liées aux ads ===
     for (const igActorId of igActorIdsFromPages) {
       const pageToken = igToPageToken[igActorId]
       if (!pageToken) continue
       try {
-        const mediaData = await metaFetch(`/${igActorId}/media`, pageToken, {
+        const mediaFirst = await metaFetch(`/${igActorId}/media`, pageToken, {
           fields: 'id,caption,timestamp,media_type,comments_count,thumbnail_url,media_url',
-          limit: '50',
+          limit: '100',
         })
-        await Promise.allSettled(
-          ((mediaData.data || []) as { id: string; caption?: string; comments_count: number; thumbnail_url?: string; media_url?: string }[])
-            .filter((m) => m.comments_count > 0)
-            .slice(0, 50)
-            .map(async (media) => {
-              if (posts.some(p => p.postId === media.id)) return
-              try {
-                const commentsData = await metaFetch(`/${media.id}/comments`, pageToken, {
-                  fields: 'text,timestamp,like_count,username',
-                  limit: '100',
-                })
-                const comments = parseIGComments(commentsData.data || [])
-                if (comments.length > 0) {
-                  posts.push({
-                    adId: media.id,
-                    adName: (media.caption || '').slice(0, 60) || `Post Instagram ${media.id}`,
-                    postId: media.id,
-                    thumbnail: media.thumbnail_url || media.media_url,
-                    comments,
-                  })
-                }
-              } catch { /* ignore */ }
+        const media = (await drainPages(mediaFirst)) as unknown as {
+          id: string; caption?: string; comments_count: number; thumbnail_url?: string; media_url?: string
+        }[]
+        await mapLimit(media.filter(m => m.comments_count > 0), 6, async (m) => {
+          if (seenPostIds.has(m.id)) return
+          try {
+            const first = await metaFetch(`/${m.id}/comments`, pageToken, {
+              fields: 'id,text,timestamp,like_count,username,replies{id,text,timestamp,like_count,username}',
+              limit: '100',
             })
-        )
+            const comments = parseIGComments(await drainPages(first))
+            if (comments.length > 0) {
+              addPost({
+                adId: m.id,
+                adName: (m.caption || '').slice(0, 60) || `Post Instagram ${m.id}`,
+                postId: m.id,
+                thumbnail: m.thumbnail_url || m.media_url,
+                comments,
+              })
+            }
+          } catch { /* ignore */ }
+        })
       } catch { /* ignore */ }
     }
 
     const totalComments = posts.reduce((s, p) => s + p.comments.length, 0)
+    // What Meta says exists, so a gap against totalComments is visible instead of silent
+    const fbReportedTotal = Object.values(fbDebugSummary).reduce((s, n) => s + (n > 0 ? n : 0), 0)
 
     return NextResponse.json({
       posts,
       totalComments,
       adsScanned: fbPostMap.size + igMediaMap.size,
       debug: {
+        adsFetched: allAds.length,
         fbPosts: fbPostMap.size,
+        fbReportedTotal,
         fbSummary: fbDebugSummary,
         igMediaFromPermalink: igMediaMap.size,
         igActorIds: [...igActorIdsFromPages],
-        igPermalinkSample: [...igMediaMap.keys()].slice(0, 3),
-        igDebugErrors,
+        igDebugErrors: igDebugErrors.slice(0, 20),
       },
     })
   } catch (e) {
