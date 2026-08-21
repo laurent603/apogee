@@ -292,7 +292,7 @@ export default function AutopilotPage() {
     channels: ['in_app'] as string[],
   })
   const [running, setRunning] = useState<string | null>(null)
-  const [agentResults, setAgentResults] = useState<Record<string, string>>({})
+  const [newReportId, setNewReportId] = useState<string | null>(null)
 
   // --- History ---
   type Report = { id: string; title: string; content: string; createdAt: string; agent: { name: string } | null }
@@ -390,16 +390,19 @@ export default function AutopilotPage() {
         const { done, value } = await reader.read()
         if (done) break
         acc += decoder.decode(value, { stream: true })
-        setAgentResults((prev) => ({ ...prev, [agent.id]: acc }))
       }
-      toast.success(`Agent "${agent.name}" terminé`)
       // Save report to DB
       const title = `${agent.name} — ${new Date().toLocaleDateString('fr-FR')}`
-      await fetch('/api/autopilot/report', {
+      const saveRes = await fetch('/api/autopilot/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentId: agent.id, dbAccountId: selectedAccount.id, title, content: acc }),
       })
+      const saveData = await saveRes.json()
+      if (saveData.report?.id) setNewReportId(saveData.report.id)
+      await loadReports()
+      setTab('history')
+      toast.success(`Rapport "${agent.name}" généré`)
     } catch { toast.error('Erreur lors de l\'exécution') }
     setRunning(null)
   }
@@ -796,9 +799,17 @@ export default function AutopilotPage() {
                         </button>
                       </div>
                     </div>
-                    {agentResults[agent.id] && (
-                      <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
-                        <div className="report-content text-xs" dangerouslySetInnerHTML={{ __html: agentResults[agent.id].replace(/\n/g, '<br/>') }} />
+                    {running === agent.id && (
+                      <div className="mt-3 pt-3 border-t border-[#E5E7EB] flex items-center gap-2 text-xs text-[#3434ef]">
+                        <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        Analyse en cours… le rapport apparaîtra dans l&apos;onglet Historique
+                      </div>
+                    )}
+                    {agent.lastRunAt && running !== agent.id && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Dernier rapport : {new Date(agent.lastRunAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        <button onClick={() => setTab('history')} className="text-[#3434ef] hover:underline ml-1">→ Voir dans Historique</button>
                       </div>
                     )}
                   </div>
@@ -813,48 +824,76 @@ export default function AutopilotPage() {
       {tab === 'history' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#0d0d12]">Rapports générés ({reports.length})</p>
-            <button onClick={loadReports} className="text-xs text-[#3434ef] hover:underline">Actualiser</button>
+            <div>
+              <p className="text-sm font-semibold text-[#0d0d12]">Rapports générés</p>
+              <p className="text-xs text-gray-400 mt-0.5">Les rapports de vos agents autopilot sont sauvegardés ici automatiquement</p>
+            </div>
+            <button onClick={loadReports} className="text-xs text-[#3434ef] hover:underline flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              Actualiser
+            </button>
           </div>
           {reports.length === 0 ? (
-            <div className="card text-center py-12">
-              <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            <div className="card text-center py-16">
+              <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </div>
-              <p className="text-sm text-gray-500">Aucun rapport enregistré</p>
-              <p className="text-xs text-gray-400 mt-1">Lancez un agent pour voir ses rapports ici</p>
+              <p className="text-sm font-medium text-gray-500">Aucun rapport encore</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">Cliquez sur <strong>▶ Lancer</strong> depuis un agent dans l&apos;onglet Nouvel agent — le rapport apparaîtra ici.</p>
+              <button onClick={() => setTab('agent')} className="mt-4 text-xs text-[#3434ef] hover:underline">→ Aller aux agents</button>
             </div>
           ) : (
-            reports.map((report) => (
-              <div key={report.id} className="card">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-[#0d0d12] truncate">{report.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {report.agent && <span className="text-xs text-[#3434ef]">{report.agent.name}</span>}
-                      <span className="text-xs text-gray-400">{new Date(report.createdAt).toLocaleString('fr-FR')}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setExpandedReport(expandedReport === report.id ? null : report.id)}
-                    className="text-xs text-gray-500 hover:text-[#3434ef] flex-shrink-0"
-                  >
-                    {expandedReport === report.id ? 'Réduire ▲' : 'Voir ▼'}
-                  </button>
-                </div>
-                {expandedReport === report.id && (
-                  <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
-                    <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(report.content) }} />
+            <div className="space-y-3">
+              {reports.map((report, idx) => {
+                const isNew = report.id === newReportId
+                const isExpanded = expandedReport === report.id
+                return (
+                  <div key={report.id} className={clsx('card p-0 overflow-hidden transition-shadow', isNew && 'ring-2 ring-[#3434ef] ring-offset-1')}>
+                    {/* Card header */}
                     <button
-                      onClick={() => { navigator.clipboard.writeText(report.content); toast.success('Copié !') }}
-                      className="mt-3 text-xs text-gray-400 hover:text-[#0d0d12]"
+                      onClick={() => { setExpandedReport(isExpanded ? null : report.id); if (isNew) setNewReportId(null) }}
+                      className="w-full text-left px-5 py-4 flex items-center gap-3 hover:bg-[#f8f9fc] transition-colors"
                     >
-                      Copier le rapport
+                      <div className={clsx('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0', isNew ? 'bg-[#3434ef]' : 'bg-gray-100')}>
+                        <svg className={clsx('w-4 h-4', isNew ? 'text-white' : 'text-gray-400')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-[#0d0d12]">{report.title}</span>
+                          {isNew && <span className="text-[10px] font-bold bg-[#3434ef] text-white px-2 py-0.5 rounded-full">Nouveau</span>}
+                          {idx === 0 && !isNew && <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Dernier</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {report.agent && (
+                            <span className="text-xs font-medium text-[#3434ef] bg-blue-50 px-2 py-0.5 rounded-md">{report.agent.name}</span>
+                          )}
+                          <span className="text-xs text-gray-400">{new Date(report.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                      <svg className={clsx('w-4 h-4 text-gray-400 transition-transform flex-shrink-0', isExpanded && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     </button>
+
+                    {/* Report content */}
+                    {isExpanded && (
+                      <div className="border-t border-[#E5E7EB]">
+                        <div className="px-5 py-5">
+                          <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(report.content) }} />
+                        </div>
+                        <div className="px-5 pb-4 flex items-center gap-3">
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(report.content); toast.success('Rapport copié !') }}
+                            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#0d0d12] transition-colors border border-[#E5E7EB] rounded-lg px-3 py-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            Copier
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))
+                )
+              })}
+            </div>
           )}
         </div>
       )}
