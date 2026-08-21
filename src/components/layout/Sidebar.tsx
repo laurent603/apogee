@@ -5,16 +5,9 @@ import { signOut, useSession } from 'next-auth/react'
 import Image from 'next/image'
 import { clsx } from 'clsx'
 
-const nav = [
-  {
-    href: '/upload',
-    label: 'Upload',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-      </svg>
-    ),
-  },
+type NavItem = { href: string; label: string; icon: React.ReactNode } | { divider: true }
+
+const nav: NavItem[] = [
   {
     href: '/dashboard',
     label: 'Dashboard',
@@ -25,32 +18,24 @@ const nav = [
     ),
   },
   {
-    href: '/brand-settings',
-    label: 'Brand Settings',
+    href: '/upload',
+    label: 'Upload',
     icon: (
       <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
       </svg>
     ),
   },
   {
-    href: '/notifications',
-    label: 'Notifications',
+    href: '/history',
+    label: 'Historique',
     icon: (
       <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   },
-  {
-    href: '/comment-analysis',
-    label: 'Analyse commentaires',
-    icon: (
-      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-    ),
-  },
+  { divider: true },
   {
     href: '/autopilot',
     label: 'Autopilot Agent IA',
@@ -70,11 +55,30 @@ const nav = [
     ),
   },
   {
-    href: '/history',
-    label: 'Historique',
+    href: '/comment-analysis',
+    label: 'Analyse commentaires',
     icon: (
       <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    ),
+  },
+  { divider: true },
+  {
+    href: '/brand-settings',
+    label: 'Brand Settings',
+    icon: (
+      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+  },
+  {
+    href: '/notifications',
+    label: 'Notifications',
+    icon: (
+      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
       </svg>
     ),
   },
@@ -99,25 +103,30 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {nav.map((item) => {
-          const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
-                active
-                  ? 'bg-white/20 text-white'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
-              )}
-            >
-              <span className="flex-shrink-0">{item.icon}</span>
-              {item.label}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <div className="space-y-0.5">
+          {nav.map((item, i) => {
+            if ('divider' in item) {
+              return <div key={`div-${i}`} className="my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
+            }
+            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={clsx(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                  active
+                    ? 'bg-white/20 text-white'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                )}
+              >
+                <span className="flex-shrink-0">{item.icon}</span>
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
       </nav>
 
       {/* User */}
