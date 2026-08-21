@@ -511,73 +511,130 @@ export async function POST(req: NextRequest) {
               ]
             }
 
-            // Build asset_feed_spec for multi-format (feed + story in one ad).
-            // `withRules` = false reproduces the legacy no-routing body, used as a
-            // fallback if Meta rejects the customization rules.
-            async function buildAssetFeedSpec(
+            // Create the multi-format creative + ad.
+            // Meta's rejection of asset_feed_spec surfaces as an opaque "(#3) Application
+            // does not have the capability" regardless of cause, so we probe several
+            // documented body shapes in order and report which one Meta accepted.
+            async function postMultiFormatAd(
               assets: { type: 'video'; videoId: string; label: string }[] | { type: 'image'; hash: string; label: string }[],
-              withRules: boolean
-            ): Promise<Record<string, unknown>> {
+              adName: string
+            ) {
+              send(`Création du créatif "${adName}"...`)
+
+              const isVideo = (assets[0] as { type: string }).type === 'video'
+              const adFormat = isVideo ? 'SINGLE_VIDEO' : 'SINGLE_IMAGE'
+              const labelKey = isVideo ? 'video_label' : 'image_label'
+
               const afsCta = leadGenFormId
                 ? { call_to_actions: [{ type: ctaType || 'SIGN_UP', value: { lead_gen_form_id: leadGenFormId, link: destinationUrl || 'https://example.com' } }] }
                 : { call_to_action_types: [ctaType || 'LEARN_MORE'], link_urls: [{ website_url: destinationUrl || 'https://example.com' }] }
 
-              const common = {
+              const copy = {
                 bodies: [{ text: primaryText }],
                 ...(headline ? { titles: [{ text: headline }] } : {}),
                 ...(description ? { descriptions: [{ text: description }] } : {}),
                 ...afsCta,
               }
 
-              if ((assets[0] as { type: string }).type === 'video') {
-                const videoAssetList = assets as { type: 'video'; videoId: string; label: string }[]
-                const thumbs = await Promise.all(videoAssetList.map(a => waitForVideo(a.videoId).catch(() => undefined)))
-                return {
-                  videos: videoAssetList.map((a, i) => ({
-                    video_id: a.videoId,
-                    ...(thumbs[i] ? { thumbnail_url: thumbs[i] } : {}),
-                    ...(withRules ? { adlabels: [{ name: a.label }] } : {}),
-                  })),
-                  ...common,
-                  ...(withRules ? { ad_formats: ['SINGLE_VIDEO'], asset_customization_rules: buildCustomizationRules('video_label') } : {}),
+              // Poll videos once — probing must not re-run the 30s wait per candidate
+              const thumbs = isVideo
+                ? await Promise.all((assets as { videoId: string }[]).map(a => waitForVideo(a.videoId).catch(() => undefined)))
+                : []
+
+              function assetList(withLabels: boolean) {
+                if (isVideo) {
+                  return {
+                    videos: (assets as { videoId: string; label: string }[]).map((a, i) => ({
+                      video_id: a.videoId,
+                      ...(thumbs[i] ? { thumbnail_url: thumbs[i] } : {}),
+                      ...(withLabels ? { adlabels: [{ name: a.label }] } : {}),
+                    })),
+                  }
                 }
-              } else {
-                const imgList = assets as { type: 'image'; hash: string; label: string }[]
                 return {
-                  images: imgList.map(a => ({
+                  images: (assets as { hash: string; label: string }[]).map(a => ({
                     hash: a.hash,
-                    ...(withRules ? { adlabels: [{ name: a.label }] } : {}),
+                    ...(withLabels ? { adlabels: [{ name: a.label }] } : {}),
                   })),
-                  ...common,
-                  ...(withRules ? { ad_formats: ['SINGLE_IMAGE'], asset_customization_rules: buildCustomizationRules('image_label') } : {}),
                 }
               }
-            }
 
-            // Create the multi-format creative + ad. Tries placement routing first;
-            // if Meta rejects the rules, retries without them so the launch still ships.
-            async function postMultiFormatAd(
-              assets: { type: 'video'; videoId: string; label: string }[] | { type: 'image'; hash: string; label: string }[],
-              adName: string
-            ) {
-              send(`Création du créatif "${adName}"...`)
+              const leadGen = leadGenFormId ? { destination_type: 'ON_AD' } : {}
+
+              // Ordered by preference: first that Meta accepts wins.
+              const candidates: { label: string; routed: boolean; body: Record<string, unknown> }[] = [
+                {
+                  label: 'object_story_spec + ad_formats + routage placements',
+                  routed: true,
+                  body: {
+                    name: adName,
+                    object_story_spec: { page_id: pageId },
+                    asset_feed_spec: {
+                      ...assetList(true), ...copy,
+                      ad_formats: [adFormat],
+                      asset_customization_rules: buildCustomizationRules(labelKey),
+                    },
+                    ...leadGen,
+                  },
+                },
+                {
+                  label: 'SHARE + ad_formats + routage placements',
+                  routed: true,
+                  body: {
+                    name: adName,
+                    object_type: 'SHARE',
+                    page_id: pageId,
+                    asset_feed_spec: {
+                      ...assetList(true), ...copy,
+                      ad_formats: [adFormat],
+                      asset_customization_rules: buildCustomizationRules(labelKey),
+                    },
+                    ...leadGen,
+                  },
+                },
+                {
+                  label: 'object_story_spec + ad_formats, sans routage',
+                  routed: false,
+                  body: {
+                    name: adName,
+                    object_story_spec: { page_id: pageId },
+                    asset_feed_spec: { ...assetList(false), ...copy, ad_formats: [adFormat] },
+                    ...leadGen,
+                  },
+                },
+                {
+                  label: 'SHARE sans ad_formats ni routage (ancien comportement)',
+                  routed: false,
+                  body: {
+                    name: adName,
+                    object_type: 'SHARE',
+                    page_id: pageId,
+                    asset_feed_spec: { ...assetList(false), ...copy },
+                    ...leadGen,
+                  },
+                },
+              ]
+
               let creativeId: string | undefined
-              let routed = true
+              let routed = false
+              const failures: string[] = []
 
-              for (const withRules of [true, false]) {
-                const afs = await buildAssetFeedSpec(assets, withRules)
-                const creativeBody: Record<string, unknown> = {
-                  name: adName,
-                  object_type: 'SHARE',
-                  page_id: pageId,
-                  asset_feed_spec: afs,
-                  ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+              for (const c of candidates) {
+                console.log(`[launch] creative candidate "${c.label}":`, JSON.stringify(c.body))
+                const creativeData = await metaPost(`/${accountId}/adcreatives`, token, c.body)
+                if (!creativeData.error) {
+                  creativeId = creativeData.id as string
+                  routed = c.routed
+                  send(`✓ Créatif accepté par Meta — variante « ${c.label} »`)
+                  break
                 }
-                console.log(`[launch] creative body (multi, rules=${withRules}):`, JSON.stringify(creativeBody))
-                const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
-                if (!creativeData.error) { creativeId = creativeData.id as string; routed = withRules; break }
-                if (!withRules) throw new Error(`Créatif "${adName}" : ${metaError(creativeData)}`)
-                send(`⚠ Placements par format refusés par Meta (${metaError(creativeData)}) — nouvel essai sans routage`)
+                const msg = metaError(creativeData)
+                failures.push(`${c.label} → ${msg}`)
+                send(`⚠ Variante « ${c.label} » refusée : ${msg}`)
+              }
+
+              if (!creativeId) {
+                throw new Error(`Créatif "${adName}" : aucune variante acceptée par Meta.\n${failures.join('\n')}`)
               }
 
               const adData = await metaPost(`/${accountId}/ads`, token, {
