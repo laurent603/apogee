@@ -642,18 +642,10 @@ export async function POST(req: NextRequest) {
                     ...leadGen,
                   },
                 },
-                {
-                  label: 'sans routage par placement',
-                  routed: false,
-                  body: {
-                    name: adName,
-                    object_story_spec: storySpec,
-                    asset_feed_spec: { ...assetList(false), ...copy, ad_formats: [adFormat] },
-                    ...NO_ADVANTAGE,
-                    ...leadGen,
-                  },
-                },
               ]
+              // No unrouted fallback: a multi-asset asset_feed_spec without
+              // customization rules is a dynamic creative, which turns the adset into
+              // a DCO one capped at a single active ad (subcode 1885553).
 
               // A creative Meta accepts can still be refused at the ad step (e.g.
               // subcode 1772103 on a missing IG identity), so a candidate only counts
