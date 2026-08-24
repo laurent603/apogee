@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { anthropic } from '@/lib/anthropic'
+import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
 
@@ -97,8 +97,9 @@ export async function GET(req: NextRequest) {
 
       let content = ''
       const stream = await anthropic.messages.stream({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        model: MODEL_REPORT,
+        max_tokens: 16000,
+        ...REPORT_REASONING,
         system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
         messages: [{ role: 'user', content: userMessage }],
       })

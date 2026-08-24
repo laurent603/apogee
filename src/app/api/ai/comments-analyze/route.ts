@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { anthropic } from '@/lib/anthropic'
+import { anthropic, MODEL_CHAT } from '@/lib/anthropic'
 
 const SYSTEM = `Tu es un expert en stratégie créative publicitaire Meta (Facebook/Instagram).
 Tu analyses des commentaires de publicités pour extraire des insights actionnables qui permettront de créer de meilleures publicités — textes, hooks, angles créatifs, briefs vidéo/image.
@@ -57,7 +57,7 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
 }`
 
   const stream = await anthropic.messages.stream({
-    model: 'claude-sonnet-4-6',
+    model: MODEL_CHAT,
     // The schema has six sections with nested examples; 4096 truncated the JSON
     // mid-string on accounts with a few dozen comments.
     max_tokens: 16000,

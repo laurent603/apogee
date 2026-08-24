@@ -332,17 +332,51 @@ export default function AutopilotPage() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [search, setSearch] = useState('')
-  const [promptCategory, setPromptCategory] = useState<keyof typeof PROMPT_BANK>('Performance')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [openCategory, setOpenCategory] = useState<keyof typeof PROMPT_BANK | null>(null)
+  const [chatRole, setChatRole] = useState('performance_manager')
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const filteredPrompts = PROMPT_BANK[promptCategory].filter((p) =>
-    p.label.toLowerCase().includes(search.toLowerCase()) ||
-    p.prompt.toLowerCase().includes(search.toLowerCase())
-  )
+  // Close the library on an outside click, not only on re-clicking "+"
+  useEffect(() => {
+    if (!pickerOpen) return
+    function handler(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [pickerOpen])
+
+  const searchResults = search.trim()
+    ? (Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).flatMap((cat) =>
+        PROMPT_BANK[cat]
+          .filter((p) =>
+            p.label.toLowerCase().includes(search.toLowerCase()) ||
+            p.prompt.toLowerCase().includes(search.toLowerCase())
+          )
+          .map((p) => ({ ...p, category: cat as string }))
+      )
+    : []
+
+  /** Load the prompt into the field rather than running it — it stays editable. */
+  function pickPrompt(prompt: string) {
+    setInput(prompt)
+    setPickerOpen(false)
+    setSearch('')
+    setOpenCategory(null)
+    setTimeout(() => {
+      const el = inputRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    }, 0)
+  }
 
   async function sendMessage(text?: string) {
     const msg = text || input.trim()
@@ -368,6 +402,7 @@ export default function AutopilotPage() {
           datePreset: 'last_7d',
           brandSettings: bsData.settings,
           customPrompt: msg,
+          agentRole: chatRole,
         }),
       })
 
@@ -538,6 +573,7 @@ export default function AutopilotPage() {
           customPrompt: agent.instructions,
           agentRole: agent.role,
           outputFormat: agent.outputFormat,
+          deep: true,
         }),
       })
       if (!res.ok || !res.body) throw new Error()
@@ -616,201 +652,211 @@ export default function AutopilotPage() {
 
       {/* --- TAB: Nouvelle session --- */}
       {tab === 'session' && (
-        <div className="flex gap-4" style={{ minHeight: 600 }}>
+        <div className="flex flex-col" style={{ minHeight: 620 }}>
 
-          {/* ── Prompt bank (left column) ── */}
-          <div className="flex-shrink-0 w-56">
-            <div className="card p-3 sticky top-4">
-              <p className="text-xs font-bold text-[#0d0d12] mb-2 uppercase tracking-wide">Prompts</p>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher…"
-                className="input mb-2 py-1 text-xs"
-              />
-              <div className="flex gap-1 flex-wrap mb-2">
-                {(Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setPromptCategory(cat)}
-                    className={clsx(
-                      'text-[10px] px-2 py-0.5 rounded font-semibold transition-colors',
-                      promptCategory === cat
-                        ? 'bg-[#3434ef] text-white'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    )}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-              <div className="space-y-0.5 max-h-[520px] overflow-y-auto">
-                {filteredPrompts.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => sendMessage(p.prompt)}
-                    disabled={streaming}
-                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-blue-50 hover:text-[#3434ef] transition-colors text-[11px] text-gray-600 leading-snug"
-                  >
-                    {p.label}
-                  </button>
-                ))}
-                {filteredPrompts.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-4">Aucun résultat</p>
-                )}
-              </div>
+          {/* Top bar */}
+          <div className="card p-3 mb-3 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-sm font-semibold text-[#0d0d12]">Session d&apos;analyse</span>
+              <span className="text-xs text-gray-400">·</span>
+              <span className="text-xs text-gray-400">{selectedAccount?.name || 'Aucun compte'}</span>
             </div>
+            {messages.length > 0 && (
+              <button onClick={() => setMessages([])} className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                Effacer
+              </button>
+            )}
           </div>
 
-          {/* ── Chat (right, full width) ── */}
-          <div className="flex-1 flex flex-col min-w-0">
-
-            {/* Top bar */}
-            <div className="card p-3 mb-3 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-sm font-semibold text-[#0d0d12]">Session d&apos;analyse</span>
-                <span className="text-xs text-gray-400">·</span>
-                <span className="text-xs text-gray-400">{selectedAccount?.name || 'Aucun compte'}</span>
+          {/* Messages */}
+          <div className="flex-1 space-y-4 overflow-y-auto pb-4">
+            {messages.length === 0 && (
+              <div className="card text-center py-16">
+                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1" />
+                  </svg>
+                </div>
+                <p className="font-semibold text-[#0d0d12]">Démarrez une analyse</p>
+                <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto">
+                  Posez votre question, ou ouvrez la bibliothèque avec le bouton <strong>+</strong> pour partir d&apos;un prompt existant — vous pourrez l&apos;ajuster avant de l&apos;envoyer.
+                </p>
               </div>
-              {messages.length > 0 && (
-                <button
-                  onClick={() => setMessages([])}
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  Effacer
-                </button>
-              )}
-            </div>
+            )}
 
-            {/* Messages */}
-            <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-              {messages.length === 0 && (
-                <div className="card text-center py-16">
-                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-7 h-7 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1" />
-                    </svg>
+            {messages.map((m, i) => (
+              <div key={i}>
+                {m.role === 'user' ? (
+                  <div className="flex justify-end">
+                    <div className="max-w-[75%] bg-[#3434ef] text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                      {m.content}
+                    </div>
                   </div>
-                  <p className="font-semibold text-[#0d0d12]">Démarrez une analyse</p>
-                  <p className="text-sm text-gray-400 mt-1 max-w-xs mx-auto">
-                    Choisissez un prompt dans la bibliothèque ou tapez votre question ci-dessous
-                  </p>
-                  <div className="flex flex-wrap gap-2 justify-center mt-4">
-                    {['Analyse du funnel complet', 'Top / Flop des publicités', 'Rapport hebdomadaire'].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          const found = Object.values(PROMPT_BANK).flat().find((p) => p.label === s)
-                          if (found) sendMessage(found.prompt)
+                ) : (
+                  <div className="card p-0 overflow-hidden">
+                    <div className="flex items-center gap-2 px-5 py-3 border-b border-[#E5E7EB] bg-[#f8f9fc]">
+                      <div className="w-6 h-6 rounded-md bg-[#3434ef] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <span className="text-xs font-semibold text-[#0d0d12]">
+                        {ROLE_OPTIONS.find((r) => r.value === chatRole)?.label || 'Analyse'}
+                      </span>
+                      {streaming && i === messages.length - 1 && (
+                        <div className="flex gap-0.5 ml-1">
+                          <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      )}
+                      {!streaming && (
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(m.content); toast.success('Copié !') }}
+                          className="ml-auto text-[10px] text-gray-400 hover:text-[#0d0d12] transition-colors"
+                        >
+                          Copier
+                        </button>
+                      )}
+                    </div>
+                    <div className="px-5 py-5">
+                      <div
+                        className="chat-report"
+                        dangerouslySetInnerHTML={{
+                          __html: m.content ? markdownToHtml(m.content) : '<p class="text-gray-400 text-sm">Analyse en cours…</p>',
                         }}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-[#3434ef] border border-blue-200 hover:bg-blue-100 transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Composer */}
+          <div className="card p-3 mt-3 flex-shrink-0 relative">
+            {/* Prompt library — inserts into the field so the prompt can be read
+                and adjusted before it runs, instead of firing on click */}
+            {pickerOpen && (
+              <div ref={pickerRef} className="absolute bottom-full left-3 mb-2 z-50 w-[420px] bg-white border border-[#E5E7EB] rounded-xl shadow-xl overflow-hidden">
+                <div className="p-2 border-b border-[#E5E7EB]">
+                  <div className="relative">
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Rechercher un prompt…"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3434ef]/20 focus:border-[#3434ef]"
+                    />
+                  </div>
+                </div>
+
+                {search.trim() ? (
+                  <div className="max-h-80 overflow-y-auto py-1">
+                    {searchResults.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-6">Aucun résultat</p>
+                    ) : searchResults.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => pickPrompt(p.prompt)}
+                        className="w-full text-left px-3 py-2 hover:bg-[#f8f9fc] transition-colors"
                       >
-                        {s}
+                        <span className="text-sm text-[#0d0d12]">{p.label}</span>
+                        <span className="block text-[10px] text-gray-400 mt-0.5">{p.category}</span>
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {messages.map((m, i) => (
-                <div key={i}>
-                  {m.role === 'user' ? (
-                    /* ── User question chip ── */
-                    <div className="flex justify-end">
-                      <div className="max-w-[75%] bg-[#3434ef] text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed">
-                        {m.content}
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── AI response — full width card ── */
-                    <div className="card p-0 overflow-hidden">
-                      {/* Card header */}
-                      <div className="flex items-center gap-2 px-5 py-3 border-b border-[#E5E7EB] bg-[#f8f9fc]">
-                        <div className="w-6 h-6 rounded-md bg-[#3434ef] flex items-center justify-center flex-shrink-0">
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-semibold text-[#0d0d12]">Analyse Metanalyzer</span>
-                        {streaming && i === messages.length - 1 && (
-                          <div className="flex gap-0.5 ml-1">
-                            <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1 h-1 bg-[#3434ef] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </div>
-                        )}
-                        {!streaming && (
-                          <button
-                            onClick={() => { navigator.clipboard.writeText(m.content); toast.success('Copié !') }}
-                            className="ml-auto text-[10px] text-gray-400 hover:text-[#0d0d12] transition-colors"
-                          >
-                            Copier
-                          </button>
-                        )}
-                      </div>
-                      {/* Card body — full width, proper spacing */}
-                      <div className="px-5 py-5">
-                        <div
-                          className="chat-report"
-                          dangerouslySetInnerHTML={{
-                            __html: m.content
-                              ? markdownToHtml(m.content)
-                              : '<p class="text-gray-400 text-sm">Analyse en cours…</p>',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Input bar */}
-            <div className="card p-3 mt-3 flex-shrink-0">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  placeholder="Posez votre question ou collez un prompt…"
-                  className="input flex-1 py-2"
-                  disabled={streaming}
-                />
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={streaming || !input.trim()}
-                  className="btn-primary px-4 py-2 flex-shrink-0 flex items-center gap-2"
-                >
-                  {streaming ? (
-                    <>
-                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      <span>Analyse…</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                      <span>Envoyer</span>
-                    </>
-                  )}
-                </button>
+                ) : openCategory ? (
+                  <div className="max-h-80 overflow-y-auto py-1">
+                    <button
+                      onClick={() => setOpenCategory(null)}
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 text-xs text-gray-500 hover:text-[#0d0d12] border-b border-[#E5E7EB]"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+                      {openCategory}
+                    </button>
+                    {PROMPT_BANK[openCategory].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => pickPrompt(p.prompt)}
+                        className="w-full text-left px-3 py-2 text-sm text-[#0d0d12] hover:bg-[#f8f9fc] transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    <p className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bibliothèque</p>
+                    {(Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setOpenCategory(cat)}
+                        className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-[#f8f9fc] transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                        <span className="text-sm text-[#0d0d12] flex-1">{cat}</span>
+                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{PROMPT_BANK[cat].length}</span>
+                        <svg className="w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <p className="text-[10px] text-gray-400 mt-1.5 text-center">
-                L&apos;IA accède à vos données Meta Ads en temps réel · 20-40 secondes
-              </p>
+            )}
+
+            <textarea
+              ref={inputRef}
+              rows={2}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+              placeholder="Posez votre question sur ce compte…"
+              className="w-full bg-transparent text-sm text-[#0d0d12] placeholder-gray-400 resize-none focus:outline-none px-1 py-1"
+              disabled={streaming}
+            />
+
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={() => { setPickerOpen((v) => !v); setSearch(''); setOpenCategory(null) }}
+                title="Bibliothèque de prompts"
+                className={clsx(
+                  'w-8 h-8 rounded-lg border flex items-center justify-center transition-colors flex-shrink-0',
+                  pickerOpen ? 'bg-[#3434ef] border-[#3434ef] text-white' : 'border-[#E5E7EB] text-gray-500 hover:border-gray-300 hover:text-[#0d0d12]'
+                )}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+              </button>
+
+              <select
+                value={chatRole}
+                onChange={(e) => setChatRole(e.target.value)}
+                className="text-xs text-gray-500 bg-transparent border-none focus:outline-none cursor-pointer hover:text-[#0d0d12]"
+              >
+                {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+
+              <span className="text-xs text-gray-300 ml-auto">Sonnet 5</span>
+
+              <button
+                onClick={() => sendMessage()}
+                disabled={streaming || !input.trim()}
+                className="w-8 h-8 rounded-lg bg-[#3434ef] text-white flex items-center justify-center disabled:opacity-30 hover:bg-[#2525cc] transition-colors flex-shrink-0"
+              >
+                {streaming ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
-
       {/* --- TAB: Nouvel agent --- */}
       {tab === 'agent' && (
         <div className="space-y-4">

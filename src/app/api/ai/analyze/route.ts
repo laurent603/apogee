@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { anthropic } from '@/lib/anthropic'
+import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING } from '@/lib/anthropic'
 import { PROMPTS } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -103,12 +103,15 @@ ${JSON.stringify(previous.ads, null, 2)}`
           ? `${dataContext}\n\n---\n\nQuestion de l'utilisateur : ${customPrompt}`
           : `${dataContext}\n\n---\nLance maintenant l'analyse demandée avec ces données réelles.`
 
+        // A scheduled report wants depth; a chat turn wants to come back quickly.
+        // Keyed off an explicit flag, not the persona — chat picks a persona too.
         let fullResult = ''
         const claudeStream = anthropic.messages.stream({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 8192,
+          model: deep ? MODEL_REPORT : MODEL_CHAT,
+          max_tokens: 16000,
           system: systemPrompt,
           messages: [{ role: 'user', content: userMessage }],
+          ...(deep ? REPORT_REASONING : {}),
         })
 
         for await (const chunk of claudeStream) {
