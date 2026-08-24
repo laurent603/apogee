@@ -323,6 +323,26 @@ const PERIOD_OPTIONS = [
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
+/** Reads an agent's delivery config for display. Templates store the bare
+ *  string 'in_app', custom agents store JSON — both must render. */
+function deliveryLabels(raw: string | undefined): string[] {
+  if (!raw) return ['🖥️ App']
+  let channels: string[] = []
+  let email: string | undefined
+  try {
+    const cfg = JSON.parse(raw)
+    channels = cfg.channels || []
+    email = cfg.email
+  } catch {
+    channels = [raw]
+  }
+  const out: string[] = []
+  if (channels.includes('in_app') || channels.length === 0) out.push('🖥️ App')
+  if (channels.includes('email')) out.push(email ? `📮 ${email}` : '📮 Email — adresse manquante')
+  if (channels.includes('notion')) out.push('📝 Notion')
+  return out
+}
+
 export default function AutopilotPage() {
   const { selectedAccount } = useStore()
   const [tab, setTab] = useState<Tab>('session')
@@ -885,6 +905,13 @@ export default function AutopilotPage() {
                           <span className="text-[10px] text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
                             {FREQ_OPTIONS.find((f) => f.value === agent.frequency)?.label}
                           </span>
+                          {/* Where the report goes — an agent left on in_app looked
+                              identical to one wired up to email */}
+                          {deliveryLabels(agent.deliveryChannels).map((d) => (
+                            <span key={d} className="text-[10px] text-gray-500 bg-white border border-[#E5E7EB] px-2 py-0.5 rounded-full">
+                              {d}
+                            </span>
+                          ))}
                         </div>
                         {agent.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{agent.description}</p>}
                         {running === agent.id ? (

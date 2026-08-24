@@ -191,6 +191,110 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
   }))
 }
 
+/* ── Ad copy ──────────────────────────────────────────────────────────────
+   The creative node's own `title`/`body` are empty on Advantage+ and
+   multi-placement ads: the copy lives in asset_feed_spec, and on ordinary ads
+   in object_story_spec. Reading only the node meant the creative analyses were
+   working off ad names. */
+
+const CREATIVE_COPY_FIELDS = [
+  'id', 'name', 'title', 'body', 'image_url', 'thumbnail_url', 'video_id',
+  'call_to_action_type',
+  'object_story_spec{link_data{message,name,description,caption,call_to_action{type},child_attachments{name,description,link}},video_data{message,title,link_description,call_to_action{type}}}',
+  'asset_feed_spec{bodies,titles,descriptions,call_to_action_types}',
+].join(',')
+
+type TextItem = { text?: string }
+
+function texts(items: unknown): string[] {
+  return Array.isArray(items)
+    ? (items as TextItem[]).map(i => (i?.text || '').trim()).filter(Boolean)
+    : []
+}
+
+/** One flat shape whatever the creative type, so prompts never branch on it. */
+function extractCopy(creative: Record<string, unknown> | undefined) {
+  if (!creative) return null
+  const oss = creative.object_story_spec as Record<string, unknown> | undefined
+  const afs = creative.asset_feed_spec as Record<string, unknown> | undefined
+  const link = oss?.link_data as Record<string, unknown> | undefined
+  const video = oss?.video_data as Record<string, unknown> | undefined
+
+  const cta =
+    (link?.call_to_action as { type?: string } | undefined)?.type ||
+    (video?.call_to_action as { type?: string } | undefined)?.type ||
+    (Array.isArray(afs?.call_to_action_types) ? (afs!.call_to_action_types as string[])[0] : undefined) ||
+    (creative.call_to_action_type as string | undefined) ||
+    null
+
+  const bodies = texts(afs?.bodies)
+  const titles = texts(afs?.titles)
+  const descriptions = texts(afs?.descriptions)
+
+  const carousel = Array.isArray(link?.child_attachments)
+    ? (link!.child_attachments as Record<string, string>[]).map((c, i) => ({
+        carte: i + 1, titre: c.name || null, description: c.description || null,
+      }))
+    : null
+
+  const copy = {
+    texte_principal: (link?.message as string) || (video?.message as string) || bodies[0] || (creative.body as string) || null,
+    titre: (link?.name as string) || (video?.title as string) || titles[0] || (creative.title as string) || null,
+    description: (link?.description as string) || (video?.link_description as string) || descriptions[0] || null,
+    cta,
+    // Advantage+ rotates several variants; the extras matter for copy analysis
+    variantes_texte: bodies.length > 1 ? bodies.slice(1) : null,
+    variantes_titre: titles.length > 1 ? titles.slice(1) : null,
+    cartes_carrousel: carousel?.length ? carousel : null,
+  }
+
+  return Object.values(copy).some(Boolean) ? copy : null
+}
+
+/**
+ * Ads with their real copy, for the creative analyses.
+ * Falls back to `getAds` if Meta rejects the richer field set, so a field that
+ * stops being served degrades the output instead of breaking the request.
+ */
+export async function getAdsWithCopy(
+  accountId: string,
+  token: string,
+  datePreset = 'last_7d',
+  leadSource: LeadSource = 'total',
+) {
+  try {
+    const data = await metaFetch(`/${accountId}/ads`, token, {
+      fields: [
+        'id', 'name', 'status', 'adset_id', 'campaign_id',
+        `creative{${CREATIVE_COPY_FIELDS}}`,
+        `insights{${INSIGHT_FIELDS_NESTED}}`,
+      ].join(','),
+      date_preset: datePreset,
+      limit: '200',
+    }, 25000)
+
+    return (data.data || []).map((a: Record<string, unknown>) => {
+      const creative = a.creative as Record<string, unknown> | undefined
+      return {
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        adset_id: a.adset_id,
+        campaign_id: a.campaign_id,
+        // The normalised copy only — the raw specs are large and redundant
+        _copy: extractCopy(creative),
+        _thumbnail: creative?.thumbnail_url || creative?.image_url || null,
+        _isVideo: Boolean(creative?.video_id),
+        _computed: a.insights ? computeKPIs((a.insights as { data: Record<string, unknown>[] }).data?.[0] || {}, leadSource) : null,
+        _video: a.insights ? computeVideoMetrics(a) : null,
+      }
+    })
+  } catch (e) {
+    console.error('[meta] getAdsWithCopy a échoué, repli sur getAds :', e instanceof Error ? e.message : e)
+    return getAds(accountId, token, datePreset, leadSource)
+  }
+}
+
 const PRESET_DAYS: Record<string, number> = {
   last_3d: 3, last_7d: 7, last_14d: 14, last_30d: 30,
 }

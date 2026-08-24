@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getPreviousPeriod, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
 import { deliverReport } from '@/lib/deliver'
 
@@ -52,7 +52,9 @@ export async function GET(req: NextRequest) {
         getAccountOverview(metaAccountId, token, datePreset, leadSource),
         getCampaigns(metaAccountId, token, datePreset, leadSource),
         getAdSets(metaAccountId, token, datePreset, leadSource),
-        getAds(metaAccountId, token, datePreset, leadSource),
+        agent.role === 'creative_strategist' || agent.role === 'copywriter'
+          ? getAdsWithCopy(metaAccountId, token, datePreset, leadSource)
+          : getAds(metaAccountId, token, datePreset, leadSource),
         getPreviousPeriod(metaAccountId, token, datePreset, leadSource).catch(() => null),
       ])
 

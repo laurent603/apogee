@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING } from '@/lib/anthropic'
 import { PROMPTS } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
 type PromptCategory = keyof typeof PROMPTS
@@ -33,11 +33,16 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const leadSource = (brandSettings?.leadSource as LeadSource) || 'total'
+        // Creative work needs the actual copy; everything else keeps the lighter
+        // payload it already had
+        const needsCopy = category === 'creativeStrategy' || agentRole === 'creative_strategist' || agentRole === 'copywriter'
         const [overview, campaigns, adsets, ads, daily, previous] = await Promise.all([
           getAccountOverview(accountId, token, datePreset, leadSource),
           getCampaigns(accountId, token, datePreset, leadSource),
           getAdSets(accountId, token, datePreset, leadSource),
-          getAds(accountId, token, datePreset, leadSource),
+          needsCopy
+            ? getAdsWithCopy(accountId, token, datePreset, leadSource)
+            : getAds(accountId, token, datePreset, leadSource),
           getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
           // Fatigue and trend prompts need a real baseline to subtract from
           getPreviousPeriod(accountId, token, datePreset, leadSource).catch(() => null),
@@ -80,7 +85,11 @@ ${JSON.stringify(campaigns, null, 2)}
 ## Ad Sets
 ${JSON.stringify(adsets, null, 2)}
 
-## Ads
+## Ads${needsCopy ? ` — le champ _copy contient le texte réel de chaque publicité
+(texte_principal, titre, description, cta, variantes, cartes de carrousel).
+Cite-le mot pour mot quand tu analyses une créa ; ne paraphrase pas et n'invente
+aucun texte. Une publicité dont _copy est null n'a pas de texte exploitable — dis-le
+au lieu de raisonner sur son nom de fichier.` : ''}
 ${JSON.stringify(ads, null, 2)}
 
 ## Données journalières
