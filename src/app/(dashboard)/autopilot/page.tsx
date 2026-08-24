@@ -181,6 +181,46 @@ const PRESET_AGENTS = [
   { name: 'Creative Fatigue Scanner', description: 'Détecte tous les 3 jours les créas fatiguées et propose des remplacements.', role: 'creative_strategist', frequency: 'every_3_days', runMode: 'propose', analysisPeriod: 'last_14d', instructions: 'Lance un scan de fatigue créative. Pour chaque ad fatiguée (fréquence > 3 + CTR en baisse > 20%), propose un brief de remplacement.', outputFormat: 'Liste les ads fatiguées avec métriques puis brief de remplacement.', icon: '😴' },
   { name: 'Weekly Performance Report', description: 'Dashboard de performance complet chaque lundi matin.', role: 'performance_manager', frequency: 'weekly', runMode: 'report', analysisPeriod: 'last_7d', instructions: 'Fais un review de performance complet. Inclus : résumé, tableau daily, top/bottom 3, alertes, et 3 actions prioritaires.', outputFormat: 'Dashboard HTML visuel.', icon: '📊' },
   { name: 'Monthly Strategic Review', description: 'Bilan stratégique mensuel complet, présentable à un client.', role: 'performance_manager', frequency: 'monthly', runMode: 'report', analysisPeriod: 'last_30d', instructions: 'Fais un bilan stratégique mensuel complet incluant executive summary, analyse créative et plan d\'action.', outputFormat: 'Dashboard HTML complet présentable à un client.', icon: '📅' },
+  {
+    name: 'Audit Niveaux de Conscience',
+    description: 'Classe les créas selon Eugene Schwartz et repère les niveaux sous-représentés.',
+    role: 'creative_strategist', frequency: 'weekly', runMode: 'report', analysisPeriod: 'last_14d',
+    instructions: `Audite les créas actives selon le framework Eugene Schwartz (niveaux de conscience).
+
+Niveaux : Unaware / Problem Aware / Solution Aware / Product Aware / Most Aware
+
+Pour chaque ad : identifier, hook d'ouverture, niveau de conscience, preuve (citation du hook), stade funnel.
+
+Puis :
+- % créas par niveau + % budget par niveau
+- Diagnostic : top-heavy / bottom-heavy / équilibré
+- Gaps : niveaux sous-représentés → implications pour le scaling
+- Top 3 briefs à écrire en priorité`,
+    outputFormat: 'Tableau par ad (niveau + preuve), puis répartition en % et top 3 briefs prioritaires.',
+    icon: '🧠',
+  },
+  {
+    name: 'Banque d\'Angles',
+    description: 'Bibliothèque d\'angles créatifs structurés, prêts à briefer.',
+    role: 'creative_strategist', frequency: 'monthly', runMode: 'report', analysisPeriod: 'last_30d',
+    instructions: `Construis une banque d'angles créatifs pour ce compte Meta Ads.
+
+Pour chaque angle :
+- NOM (label interne)
+- SOURCE (citation directe)
+- IDÉE CENTRALE (une phrase)
+- PERSONA CIBLE (personne spécifique dans une situation)
+- NIVEAU DE CONSCIENCE + justification
+- DÉCLENCHEUR ÉMOTIONNEL (frustration/culpabilité/soulagement/embarras/fierté/aspiration/peur)
+- FORMATS ADAPTÉS + pourquoi
+- DIRECTION DE HOOK (exemple directionnel)
+- PRIORITÉ CRÉATIVE : HIGH/MEDIUM/LOW + justification
+- STATUT : Frais / Actif / Fatigué
+
+Termine avec SYNTHÈSE : total, distribution par niveau conscience, top 3 à briefer immédiatement.`,
+    outputFormat: 'Une fiche par angle, puis synthèse avec distribution et top 3 à briefer.',
+    icon: '💡',
+  },
 ]
 
 const ROLE_OPTIONS = [
