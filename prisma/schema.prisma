@@ -69,6 +69,7 @@ model AdAccount {
   autopilotAgents AutopilotAgent[]
   reports         Report[]
   knowledge       CreativeKnowledge?
+  copyGenerations CopyGeneration[]
   createdAt       DateTime @default(now())
   @@unique([userId, metaAccountId])
 }
@@ -87,6 +88,26 @@ model CreativeKnowledge {
   syncedAt       DateTime?
   syncError      String?
   updatedAt      DateTime  @updatedAt
+}
+
+/// Generated ad copy. Deliberately its own table rather than a Report subtype:
+/// it belongs to the Creative Strategist page and must never surface in the
+/// reports history, which a type filter could silently stop enforcing.
+model CopyGeneration {
+  id          String    @id @default(cuid())
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  mode        String
+  awareness   String?
+  product     String
+  offer       String?
+  audience    String?
+  tone        String?
+  cta         String?
+  /// The generated variants as JSON
+  result      String
+  createdAt   DateTime  @default(now())
+  @@index([adAccountId, createdAt])
 }
 
 model BrandSettings {

@@ -1,6 +1,7 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/lib/store'
+import toast from 'react-hot-toast'
 
 const COPY_MODES = [
   { id: 'direct', label: 'Direct Response', desc: 'Copy orientée conversion directe' },
@@ -11,6 +12,27 @@ const COPY_MODES = [
 ]
 
 const CTAS = ['En savoir plus', 'Acheter maintenant', 'S\'inscrire', 'Découvrir', 'Essayer gratuitement', 'Commander', 'Obtenir un devis']
+
+/* Schwartz levels, to match the taxonomy used in the account's own copy library
+   — TOFU/MOFU/BOFU alone cannot line up with it. */
+const AWARENESS = [
+  { id: '', label: 'Non précisé' },
+  { id: 'unaware', label: 'Unaware — ignore le problème' },
+  { id: 'problem', label: 'Problem Aware — ressent le problème' },
+  { id: 'solution', label: 'Solution Aware — cherche une solution' },
+  { id: 'product', label: 'Product Aware — compare les offres' },
+  { id: 'most', label: 'Most Aware — prêt à acheter' },
+]
+
+interface Generation {
+  id: string
+  mode: string
+  awareness: string | null
+  product: string
+  offer: string | null
+  result: string
+  createdAt: string
+}
 
 interface GeneratedCopy {
   primary_texts: string[]
@@ -32,27 +54,84 @@ export default function CreativeStrategistPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<GeneratedCopy | null>(null)
   const [rawStream, setRawStream] = useState('')
+  const [error, setError] = useState('')
+  const [awareness, setAwareness] = useState('')
+  const [prefilled, setPrefilled] = useState(false)
+  const [generations, setGenerations] = useState<Generation[]>([])
+  const [openGen, setOpenGen] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Brand Settings already holds the product, audience and positioning — no
+  // reason to retype them, differently, on every generation
+  useEffect(() => {
+    if (!selectedAccount?.id) return
+    setPrefilled(false)
+    fetch(`/api/brand-settings?dbAccountId=${selectedAccount.id}`)
+      .then(r => r.json())
+      .then(d => {
+        const b = d.settings
+        if (!b) return
+        let used = false
+        setProduct(p => { if (p || !b.productDescription) return p; used = true; return b.productDescription })
+        setAudience(a => {
+          const v = b.targetPersona || b.targetAudience
+          if (a || !v) return a; used = true; return v
+        })
+        setTone(t => { if (t || !b.marketPositioning) return t; used = true; return b.marketPositioning })
+        if (used) setPrefilled(true)
+      })
+      .catch(() => {})
+  }, [selectedAccount?.id])
+
+  const loadGenerations = useCallback(async () => {
+    if (!selectedAccount?.id) { setGenerations([]); return }
+    const res = await fetch(`/api/copy-generations?dbAccountId=${selectedAccount.id}`)
+    const data = await res.json()
+    setGenerations(data.generations || [])
+  }, [selectedAccount?.id])
+
+  useEffect(() => { loadGenerations() }, [loadGenerations])
+
+  async function removeGeneration(id: string) {
+    await fetch(`/api/copy-generations?id=${id}`, { method: 'DELETE' })
+    setGenerations(g => g.filter(x => x.id !== id))
+  }
 
   async function generate() {
     if (!product) return
     setLoading(true)
     setResult(null)
     setRawStream('')
+    setError('')
 
-    const prompt = `Tu es un expert en copywriting publicitaire Meta Ads. Génère des copies publicitaires de haute qualité.
+    const awarenessLabel = AWARENESS.find(a => a.id === awareness)?.label
 
+    const prompt = `Tu es un copywriter publicitaire Meta Ads. Écris des copies prêtes à diffuser.
+
+## Brief
 Mode : ${COPY_MODES.find(m => m.id === mode)?.label}
-Produit/Service : ${product}
-Offre : ${offer || 'Non précisé'}
+Produit / Service : ${product}
+Offre : ${offer || 'Non précisée'}
 Audience cible : ${audience || 'Non précisée'}
 Ton : ${tone || 'Professionnel et persuasif'}
 CTA : ${cta}
-${examples ? `\nExemples de référence :\n${examples}` : ''}
+${awareness ? `Niveau de conscience visé : ${awarenessLabel}` : ''}
+${examples ? `\nExemples fournis par l'utilisateur :\n${examples}` : ''}
 
-Génère exactement ${nbPrimary} Primary Texts (accroche principale, 125 caractères max), ${nbHeadline} Headlines (titre court, 40 caractères max), et 2 Descriptions (25 caractères max).
+## Ce sur quoi tu dois t'appuyer
+Les données du compte te sont fournies plus haut. Utilise-les vraiment :
+- **Le champ _copy des publicités** contient le texte réel actuellement diffusé, avec ses résultats dans _computed. Repère les accroches qui obtiennent le meilleur coût par résultat et décline ce qui fonctionne — ne pars pas d'une page blanche.
+- **Le référentiel créatif du compte**, s'il est présent, fixe le style et la taxonomie. Tes textes doivent pouvoir s'y insérer sans détonner.
+- **Les Brand Settings** donnent le positionnement, la proposition de valeur et les objections connues. Réponds aux objections dans le corps du texte.
 
-Réponds UNIQUEMENT avec ce JSON (pas de texte avant ou après) :
+N'invente aucun chiffre, aucune promesse et aucun élément de preuve qui ne figure pas dans ces données.
+${awareness ? `Chaque texte doit s'adresser à une audience « ${awarenessLabel} » — ni plus avancée, ni moins.` : ''}
+
+## Sortie
+Exactement ${nbPrimary} Primary Texts (125 caractères max), ${nbHeadline} Headlines (40 caractères max) et 2 Descriptions (25 caractères max).
+Varie les angles entre les propositions : elles ne doivent pas être des reformulations les unes des autres.
+
+Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
 {
   "primary_texts": ["...", "...", "..."],
   "headlines": ["...", "...", "..."],
@@ -70,6 +149,11 @@ Réponds UNIQUEMENT avec ce JSON (pas de texte avant ou après) :
           category: 'creative',
           analysisType: 'copy',
           customPrompt: prompt,
+          // Pulls in the real ad copy and the account's Notion library, and
+          // routes to the reasoning model — writing in a constrained style
+          // against performance data is not a quick-recall task
+          agentRole: 'copywriter',
+          deep: true,
         }),
         signal: abortRef.current.signal,
       })
@@ -84,28 +168,59 @@ Réponds UNIQUEMENT avec ce JSON (pas de texte avant ou après) :
         setRawStream(text)
       }
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        try {
-          setResult(JSON.parse(jsonMatch[0]))
-        } catch {
-          setResult(null)
-        }
+      // Take the outermost object and strip any fence — a truncated stream
+      // otherwise fails silently and leaves a blank panel
+      const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
+      const start = cleaned.indexOf('{')
+      const end = cleaned.lastIndexOf('}')
+      let parsed: GeneratedCopy | null = null
+      if (start !== -1 && end > start) {
+        try { parsed = JSON.parse(cleaned.slice(start, end + 1)) } catch { parsed = null }
       }
-    } catch {}
+
+      if (!parsed?.primary_texts?.length) {
+        setError("La réponse de l'IA n'a pas pu être lue. Relancez la génération.")
+      } else {
+        setResult(parsed)
+        // Kept here rather than in the reports history, which is for reports
+        const saved = await fetch('/api/copy-generations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dbAccountId: selectedAccount?.id, mode, awareness, product,
+            offer, audience, tone, cta, result: JSON.stringify(parsed),
+          }),
+        }).then(r => r.json()).catch(() => null)
+        if (saved?.generation) setGenerations(g => [saved.generation, ...g])
+      }
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') setError('La génération a échoué. Réessayez.')
+    }
     setLoading(false)
   }
 
   function copy(text: string) {
     navigator.clipboard.writeText(text)
+    toast.success('Copié !')
   }
 
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="page-title">Creative Strategist</h1>
-        <p className="page-subtitle mt-0.5">Génération de copies publicitaires par IA</p>
+        <p className="page-subtitle mt-0.5">
+          Génération de copies publicitaires, ancrée sur vos créas en cours et votre référentiel
+        </p>
       </div>
+
+      {prefilled && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 flex items-center gap-2.5">
+          <svg className="w-4 h-4 text-[#3434ef] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <p className="text-xs text-[#1e3a8a]">
+            Brief pré-rempli depuis vos <strong>Brand Settings</strong> — modifiez librement, rien n&apos;est écrasé.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-5">
         {/* Config panel */}
@@ -151,6 +266,71 @@ Réponds UNIQUEMENT avec ce JSON (pas de texte avant ou après) :
               </div>
             </div>
           </div>
+
+          {/* Générations précédentes — gardées ici, pas dans l'Historique des rapports */}
+          {generations.length > 0 && (
+            <div className="card space-y-2">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Générations ({generations.length})
+              </h2>
+              <div className="space-y-1 max-h-[340px] overflow-y-auto -mx-1 px-1">
+                {generations.map((g) => {
+                  const open = openGen === g.id
+                  let saved: GeneratedCopy | null = null
+                  try { saved = JSON.parse(g.result) } catch { saved = null }
+                  return (
+                    <div key={g.id} className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setOpenGen(open ? null : g.id)}
+                          className="flex-1 text-left px-2.5 py-2 hover:bg-[#f8f9fc] transition-colors min-w-0"
+                        >
+                          <p className="text-xs font-medium text-[#0d0d12] truncate">{g.product}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {COPY_MODES.find(m => m.id === g.mode)?.label || g.mode}
+                            {' · '}
+                            {new Date(g.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </button>
+                        <button
+                          onClick={() => removeGeneration(g.id)}
+                          title="Supprimer"
+                          className="p-1.5 mr-1 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                      {open && saved && (
+                        <div className="border-t border-[#E5E7EB] px-2.5 py-2 space-y-2 bg-[#f8f9fc]">
+                          {([
+                            ['Primary', saved.primary_texts],
+                            ['Headlines', saved.headlines],
+                            ['Descriptions', saved.descriptions],
+                          ] as [string, string[]][]).map(([label, list]) => (
+                            list?.length ? (
+                              <div key={label}>
+                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+                                {list.map((t, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => copy(t)}
+                                    title="Copier"
+                                    className="w-full text-left text-[11px] text-gray-600 leading-snug py-1 hover:text-[#3434ef] transition-colors"
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main form + output */}
@@ -175,15 +355,26 @@ Réponds UNIQUEMENT avec ce JSON (pas de texte avant ou après) :
                 <input className="input" placeholder="ex: Inspirant, premium, direct" value={tone} onChange={e => setTone(e.target.value)} />
               </div>
             </div>
-            <div>
-              <label className="label">Call to Action</label>
-              <select className="select" value={cta} onChange={e => setCta(e.target.value)}>
-                {CTAS.map(c => <option key={c}>{c}</option>)}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Call to Action</label>
+                <select className="select" value={cta} onChange={e => setCta(e.target.value)}>
+                  {CTAS.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Niveau de conscience</label>
+                <select className="select" value={awareness} onChange={e => setAwareness(e.target.value)}>
+                  {AWARENESS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                </select>
+              </div>
             </div>
             <div>
               <label className="label">Exemples de référence (optionnel)</label>
-              <textarea className="input resize-none" rows={3} placeholder="Collez ici vos meilleures copies existantes pour guider le ton..." value={examples} onChange={e => setExamples(e.target.value)} />
+              <textarea className="input resize-none" rows={3} placeholder="Ponctuellement, une copie précise à imiter…" value={examples} onChange={e => setExamples(e.target.value)} />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Inutile de recoller votre bibliothèque : le référentiel Notion synchronisé dans Brand Settings est déjà transmis.
+              </p>
             </div>
             <button
               onClick={generate}
@@ -205,6 +396,12 @@ Réponds UNIQUEMENT avec ce JSON (pas de texte avant ou après) :
           </div>
 
           {/* Results */}
+          {error && (
+            <div className="card border-red-200 bg-red-50">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           {loading && !result && rawStream && (
             <div className="card">
               <p className="text-xs text-gray-400 mb-2">Génération en cours...</p>
