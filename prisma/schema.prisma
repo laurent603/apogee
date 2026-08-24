@@ -68,8 +68,25 @@ model AdAccount {
   brandSettings   BrandSettings?
   autopilotAgents AutopilotAgent[]
   reports         Report[]
+  knowledge       CreativeKnowledge?
   createdAt       DateTime @default(now())
   @@unique([userId, metaAccountId])
+}
+
+/// Reference ad copy pulled from the account's Notion workspace. Synced on
+/// demand, never per analysis: ~100 pages is ~100 Notion calls at ~3 req/s.
+model CreativeKnowledge {
+  id             String    @id @default(cuid())
+  adAccountId    String    @unique
+  adAccount      AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  notionToken    String?
+  notionSourceId String?
+  /// Normalised items as JSON, injected into the creative prompts
+  content        String?
+  itemCount      Int       @default(0)
+  syncedAt       DateTime?
+  syncError      String?
+  updatedAt      DateTime  @updatedAt
 }
 
 model BrandSettings {

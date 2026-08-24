@@ -83,7 +83,15 @@ function SelectField({ label, field, options, settings, onChange }: SelectProps)
   )
 }
 
-const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Marché']
+const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Marché', 'Référentiel créatif']
+
+type KnowledgeState = {
+  notionSourceId: string | null
+  hasToken: boolean
+  itemCount: number
+  syncedAt: string | null
+  syncError: string | null
+} | null
 
 export default function BrandSettingsPage() {
   const { selectedAccount } = useStore()
@@ -99,6 +107,53 @@ export default function BrandSettingsPage() {
   }, [selectedAccount?.id])
 
   useEffect(() => { load() }, [load])
+
+  // --- Référentiel créatif (Notion) ---
+  const [knowledge, setKnowledge] = useState<KnowledgeState>(null)
+  const [notionToken, setNotionToken] = useState('')
+  const [notionSourceId, setNotionSourceId] = useState('')
+  const [syncing, setSyncing] = useState(false)
+
+  const loadKnowledge = useCallback(async () => {
+    if (!selectedAccount?.id) return
+    const res = await fetch(`/api/knowledge?dbAccountId=${selectedAccount.id}`)
+    const data = await res.json()
+    setKnowledge(data.knowledge)
+    setNotionSourceId(data.knowledge?.notionSourceId || '')
+    setNotionToken('')
+  }, [selectedAccount?.id])
+
+  useEffect(() => { loadKnowledge() }, [loadKnowledge])
+
+  async function saveNotion() {
+    if (!selectedAccount?.id) return
+    const res = await fetch('/api/knowledge', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dbAccountId: selectedAccount.id, notionToken, notionSourceId }),
+    })
+    if (res.ok) { toast.success('Connexion enregistrée'); await loadKnowledge() }
+    else toast.error('Erreur d\'enregistrement')
+  }
+
+  async function syncNotion() {
+    if (!selectedAccount?.id) return
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dbAccountId: selectedAccount.id }),
+      })
+      const data = await res.json()
+      if (res.ok) toast.success(`${data.itemCount} textes importés`)
+      else toast.error(data.error || 'Échec de la synchronisation')
+    } catch {
+      toast.error('Échec de la synchronisation')
+    }
+    await loadKnowledge()
+    setSyncing(false)
+  }
 
   async function save() {
     if (!selectedAccount?.id) return
@@ -342,6 +397,109 @@ export default function BrandSettingsPage() {
                 </div>
                 <Field label="Événements trackés" field="trackedEvents" placeholder="ex : Purchase, Lead, ViewContent, AddToCart" settings={settings} onChange={handleChange} />
                 <Field label="URL Trustpilot" field="trustpilotUrl" placeholder="https://trustpilot.com/review/votresite.com" settings={settings} onChange={handleChange} />
+              </div>
+            </div>
+          )}
+
+          {/* Tab 4 — Référentiel créatif */}
+          {tab === 4 && (
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-semibold text-[#0d0d12] mb-1">Référentiel créatif Notion</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Vos textes publicitaires déjà écrits, classés par étape de tunnel et niveau de conscience.
+                  Une fois importés, les analyses créatives reprennent <strong>votre</strong> grille et votre style
+                  au lieu d&apos;en inventer une à chaque fois. Le contenu est copié dans l&apos;application :
+                  Notion n&apos;est interrogé qu&apos;à la synchronisation, jamais pendant une analyse.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Token d&apos;intégration Notion</label>
+                  <input
+                    type="password"
+                    className="input font-mono text-xs"
+                    placeholder={knowledge?.hasToken ? '•••••••• (enregistré)' : 'ntn_… ou secret_…'}
+                    value={notionToken}
+                    onChange={(e) => setNotionToken(e.target.value)}
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Laissez vide pour conserver le token déjà enregistré.
+                  </p>
+                </div>
+                <div>
+                  <label className="label">Base ou page source</label>
+                  <input
+                    type="text"
+                    className="input font-mono text-xs"
+                    placeholder="Collez l'URL ou l'ID Notion"
+                    value={notionSourceId}
+                    onChange={(e) => setNotionSourceId(e.target.value)}
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Base de données ou page contenant des sous-pages — les deux fonctionnent.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={saveNotion} className="btn-secondary">Enregistrer la connexion</button>
+                <button
+                  onClick={syncNotion}
+                  disabled={syncing || !knowledge?.notionSourceId || !knowledge?.hasToken}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {syncing && (
+                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  )}
+                  {syncing ? 'Import en cours…' : 'Synchroniser'}
+                </button>
+              </div>
+
+              {syncing && (
+                <p className="text-xs text-gray-400">
+                  Notion limite le rythme des requêtes : comptez une à deux minutes pour une centaine de textes.
+                </p>
+              )}
+
+              {knowledge?.syncError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-red-900">Échec de la dernière synchronisation</p>
+                  <p className="text-xs text-red-800 mt-1 font-mono break-all">{knowledge.syncError}</p>
+                  <p className="text-xs text-red-800 mt-2">
+                    Cause la plus fréquente : la page n&apos;est pas partagée avec l&apos;intégration.
+                    Dans Notion, ouvrez la source → menu <strong>•••</strong> → <strong>Connexions</strong> → ajoutez votre intégration.
+                  </p>
+                </div>
+              )}
+
+              {knowledge?.syncedAt && !knowledge.syncError && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3">
+                  <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <div>
+                    <p className="text-sm font-semibold text-green-900">
+                      {knowledge.itemCount} texte{knowledge.itemCount > 1 ? 's' : ''} importé{knowledge.itemCount > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-green-800 mt-0.5">
+                      Dernière synchronisation le {new Date(knowledge.syncedAt).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                      {' · '}utilisé par les agents Creative Strategist et Copywriter
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-xl bg-[#f8f9fc] border border-[#E5E7EB] px-4 py-3">
+                <p className="text-xs font-semibold text-[#0d0d12] mb-1.5">Créer le token dans Notion</p>
+                <ol className="text-xs text-gray-500 space-y-1 list-decimal pl-4 leading-relaxed">
+                  <li>Ouvrez <span className="font-mono">notion.so/my-integrations</span> → <strong>New integration</strong></li>
+                  <li>Donnez-lui un nom, sélectionnez votre espace de travail, validez</li>
+                  <li>Copiez le <strong>Internal Integration Secret</strong> dans le champ ci-dessus</li>
+                  <li>Ouvrez la base ou la page à importer → <strong>•••</strong> → <strong>Connexions</strong> → ajoutez l&apos;intégration</li>
+                </ol>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Sans la quatrième étape, Notion renvoie une erreur d&apos;accès même avec un token valide.
+                </p>
               </div>
             </div>
           )}

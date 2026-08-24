@@ -5,6 +5,7 @@ import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING } from '@/lib/ant
 import { PROMPTS } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
+import { renderKnowledgeForPrompt } from '@/lib/notion'
 
 type PromptCategory = keyof typeof PROMPTS
 
@@ -36,6 +37,15 @@ export async function POST(req: NextRequest) {
         // Creative work needs the actual copy; everything else keeps the lighter
         // payload it already had
         const needsCopy = category === 'creativeStrategy' || agentRole === 'creative_strategist' || agentRole === 'copywriter'
+        // Reference copy the account's own strategist wrote — only worth loading
+        // for creative work, and only if it has been synced
+        const knowledge = needsCopy && dbAccountId
+          ? renderKnowledgeForPrompt(
+              (await prisma.creativeKnowledge.findUnique({
+                where: { adAccountId: dbAccountId }, select: { content: true },
+              }).catch(() => null))?.content
+            )
+          : null
         const [overview, campaigns, adsets, ads, daily, previous] = await Promise.all([
           getAccountOverview(accountId, token, datePreset, leadSource),
           getCampaigns(accountId, token, datePreset, leadSource),
@@ -94,6 +104,20 @@ ${JSON.stringify(ads, null, 2)}
 
 ## Données journalières
 ${JSON.stringify(daily, null, 2)}
+${knowledge ? `
+## Référentiel créatif du compte
+Textes publicitaires écrits pour ce compte par son creative strategist, classés
+selon SA grille (étape de tunnel, niveau de conscience, angle…).
+
+Ce référentiel fait autorité sur trois points :
+- **La taxonomie** : reprends ses niveaux de conscience et ses étapes de tunnel tels quels. N'invente pas ta propre grille.
+- **Le style** : accroches, rythme, vocabulaire. Tout texte que tu produis doit pouvoir s'insérer dans ce corpus sans détonner.
+- **Le déjà-fait** : un angle présent ici mais absent des publicités actives est une piste à signaler, pas une découverte à présenter comme neuve.
+
+C'est une référence, pas des données de performance : ne lui attribue aucun chiffre.
+
+${knowledge}
+` : ''}
 
 ## Période précédente — base de comparaison
 ${previous

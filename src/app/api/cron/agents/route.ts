@@ -4,6 +4,7 @@ import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
 import { deliverReport } from '@/lib/deliver'
+import { renderKnowledgeForPrompt } from '@/lib/notion'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -48,11 +49,20 @@ export async function GET(req: NextRequest) {
         select: { leadSource: true },
       }).catch(() => null)
       const leadSource = (bs?.leadSource as LeadSource) || 'total'
+
+      const isCreative = agent.role === 'creative_strategist' || agent.role === 'copywriter'
+      const knowledge = isCreative
+        ? renderKnowledgeForPrompt(
+            (await prisma.creativeKnowledge.findUnique({
+              where: { adAccountId: agent.adAccountId }, select: { content: true },
+            }).catch(() => null))?.content
+          )
+        : null
       const [overview, campaigns, adsets, ads, previous] = await Promise.all([
         getAccountOverview(metaAccountId, token, datePreset, leadSource),
         getCampaigns(metaAccountId, token, datePreset, leadSource),
         getAdSets(metaAccountId, token, datePreset, leadSource),
-        agent.role === 'creative_strategist' || agent.role === 'copywriter'
+        isCreative
           ? getAdsWithCopy(metaAccountId, token, datePreset, leadSource)
           : getAds(metaAccountId, token, datePreset, leadSource),
         getPreviousPeriod(metaAccountId, token, datePreset, leadSource).catch(() => null),
@@ -62,7 +72,7 @@ export async function GET(req: NextRequest) {
         ? `\n## Période précédente (${previous.periode})\nCalcule toute variation entre cette période et la période courante — ne l'affirme jamais sans ce calcul.\n### Vue d'ensemble\n${JSON.stringify(previous.overview, null, 2)}\n### Ads\n${JSON.stringify(previous.ads.slice(0, 20), null, 2)}`
         : `\n## Période précédente\nIndisponible — n'affirme aucune tendance ni fatigue, et dis-le explicitement.`
 
-      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${agent.outputFormat || 'Markdown structuré'}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}`
+      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${agent.outputFormat || 'Markdown structuré'}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
 
       let content = ''
       const stream = await anthropic.messages.stream({
