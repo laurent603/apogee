@@ -227,14 +227,23 @@ Termine avec SYNTHÈSE : total, distribution par niveau conscience, top 3 à bri
     role: 'performance_manager', frequency: 'weekly', runMode: 'propose', analysisPeriod: 'last_14d',
     instructions: `Analyse l'évolution du coût par résultat [coût] et remonte à sa cause.
 
+**Une seule base d'analyse.** Choisis-la en premier — compte entier, ou une campagne précise si le
+volume du compte est trop faible — annonce-la en une ligne, et tiens-t'y. Ne produis jamais deux
+tableaux de décomposition concurrents : un seul tableau, une seule lecture.
+
+**N'estime rien.** CPM, CTR, dépense et impressions sont fournis pour les deux périodes : lis-les.
+Si une valeur manque réellement, écris « non disponible » — n'écris jamais un chiffre précédé de
+« estimé » ou « ~ ».
+
 Décompose la variation en trois facteurs, chacun comparé à la période précédente :
 - **CPM** → pression concurrentielle sur les enchères
 - **CTR** → fatigue créative ou décalage message/audience
 - **Taux de conversion** (clics → [conv]) → page de destination, offre, formulaire
 
-Tableau : | Facteur | Période précédente | Période courante | Δ | Contribution à la variation du [coût] |
+Tableau : | Facteur | Période précédente | Période courante | Δ | Effet sur le [coût] |
 
 Désigne ensuite **le facteur dominant** — un seul — et explique en trois phrases ce qui a changé.
+Quand deux facteurs jouent en sens inverse, dis lequel l'emporte et de combien.
 Si le [coût] est stable ou en baisse, dis-le et n'invente pas de problème.
 
 Termine par 2 à 3 actions concrètes qui s'attaquent au facteur dominant, pas aux autres.`,

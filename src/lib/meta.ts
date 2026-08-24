@@ -233,14 +233,29 @@ export async function getPreviousPeriod(
     }),
   ])
 
+  // Keep the raw delivery metrics: _computed carries no spend, impressions, CPM
+  // or CTR, and without them the model reconstructs them from ratios and says
+  // "estimé" through half the comparison.
   const overview = overviewRaw.data?.[0] || {}
   const ads = ((adsRaw.data || []) as Record<string, unknown>[]).map((a) => ({
     ad_id: a.ad_id,
     ad_name: a.ad_name,
+    spend: a.spend,
+    impressions: a.impressions,
+    reach: a.reach,
+    frequency: a.frequency,
+    clicks: a.clicks,
+    ctr: a.ctr,
+    cpc: a.cpc,
+    cpm: a.cpm,
     _computed: computeKPIs(a, leadSource),
   }))
 
-  return { periode: `${since} → ${until} (${days} jours)`, overview: computeKPIs(overview, leadSource), ads }
+  return {
+    periode: `${since} → ${until} (${days} jours)`,
+    overview: { ...overview, _computed: computeKPIs(overview, leadSource) },
+    ads,
+  }
 }
 
 export async function getDailyBreakdown(accountId: string, token: string, days = 7) {
