@@ -221,6 +221,68 @@ Termine avec SYNTHÈSE : total, distribution par niveau conscience, top 3 à bri
     outputFormat: 'Une fiche par angle, puis synthèse avec distribution et top 3 à briefer.',
     icon: '💡',
   },
+  {
+    name: 'Analyse des causes du CPA',
+    description: 'Décompose CPM / CTR / CVR pour isoler ce qui fait dériver le coût par résultat.',
+    role: 'performance_manager', frequency: 'weekly', runMode: 'propose', analysisPeriod: 'last_14d',
+    instructions: `Analyse l'évolution du coût par résultat [coût] et remonte à sa cause.
+
+Décompose la variation en trois facteurs, chacun comparé à la période précédente :
+- **CPM** → pression concurrentielle sur les enchères
+- **CTR** → fatigue créative ou décalage message/audience
+- **Taux de conversion** (clics → [conv]) → page de destination, offre, formulaire
+
+Tableau : | Facteur | Période précédente | Période courante | Δ | Contribution à la variation du [coût] |
+
+Désigne ensuite **le facteur dominant** — un seul — et explique en trois phrases ce qui a changé.
+Si le [coût] est stable ou en baisse, dis-le et n'invente pas de problème.
+
+Termine par 2 à 3 actions concrètes qui s'attaquent au facteur dominant, pas aux autres.`,
+    outputFormat: 'Tableau de décomposition, facteur dominant nommé explicitement, puis 2-3 actions ciblées.',
+    icon: '🔍',
+  },
+  {
+    name: 'Audit des dépenses gaspillées',
+    description: 'Recense ce qui dépense sans convertir, avec exclusions prêtes à appliquer.',
+    role: 'media_buyer', frequency: 'weekly', runMode: 'propose', analysisPeriod: 'last_30d',
+    instructions: `Audite le compte pour identifier les dépenses sans retour.
+
+Passe en revue campagnes, adsets et ads. Retiens ceux qui ont dépensé de façon significative
+pour zéro ou quasi zéro [conv].
+
+Tableau, trié par dépense décroissante :
+| Élément | Niveau | Dépense | [conv] | [coût] | Diagnostic | Action |
+
+Pour chaque ligne : dis **pourquoi** ça ne convertit pas (audience, créa, offre, placement),
+pas seulement que ça ne convertit pas.
+
+Termine par :
+- Le montant total récupérable
+- Où le réallouer, en nommant les éléments performants du compte
+- Les exclusions à appliquer, formulées pour être copiées telles quelles`,
+    outputFormat: 'Tableau trié par dépense, montant total récupérable, et exclusions prêtes à appliquer.',
+    icon: '💸',
+  },
+  {
+    name: 'Rapport client hebdomadaire',
+    description: 'Rapport à ton agence→client, présentable tel quel. Ouvre sur les résultats.',
+    role: 'performance_manager', frequency: 'weekly', runMode: 'report', analysisPeriod: 'last_7d',
+    instructions: `Rédige le rapport hebdomadaire destiné au client, pas à l'équipe interne.
+
+**Ton** : professionnel et confiant, tourné vers l'avant. Commence par ce qui a bien marché.
+N'emploie jamais les mots « sous-performant », « gaspillage », « problème », « mettre en pause »,
+« réduire le budget ». Un point faible se formule comme un axe d'optimisation en cours.
+Ne masque pas un mauvais résultat pour autant : présente-le avec l'action déjà engagée.
+
+Structure :
+1. **Résumé** — 2 à 3 phrases : le meilleur résultat de la semaine, la campagne qui porte, la victoire à retenir.
+2. **Chiffres clés** — tableau semaine vs semaine précédente : Dépense, [conv], [coût], Impressions, CTR, CPM.
+3. **Campagnes** — les principales par dépense, avec une ou deux phrases sur celles qui performent.
+4. **Créatifs** — les meilleurs par [conv], et une phrase sur ce qui a résonné auprès de l'audience.
+5. **Prochaines étapes** — 3 puces d'actions à venir : tests lancés, optimisations en cours.`,
+    outputFormat: 'Rapport client structuré en 5 sections, ton agence→client, présentable sans retouche.',
+    icon: '📮',
+  },
 ]
 
 const ROLE_OPTIONS = [

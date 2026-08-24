@@ -191,6 +191,58 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
   }))
 }
 
+const PRESET_DAYS: Record<string, number> = {
+  last_3d: 3, last_7d: 7, last_14d: 14, last_30d: 30,
+}
+
+function ymd(d: Date) { return d.toISOString().split('T')[0] }
+
+/**
+ * The window of equal length immediately preceding `datePreset`.
+ * Prompts that ask for week-over-week decline are fiction without it.
+ */
+export function previousWindow(datePreset = 'last_7d'): { since: string; until: string; days: number } {
+  const days = PRESET_DAYS[datePreset] ?? 7
+  const until = new Date(); until.setDate(until.getDate() - days - 1)
+  const since = new Date(); since.setDate(since.getDate() - days * 2)
+  return { since: ymd(since), until: ymd(until), days }
+}
+
+/**
+ * Account totals and per-ad KPIs for the window before the current one, so the
+ * model can compute a real delta instead of asserting one.
+ */
+export async function getPreviousPeriod(
+  accountId: string,
+  token: string,
+  datePreset = 'last_7d',
+  leadSource: LeadSource = 'total',
+) {
+  const { since, until, days } = previousWindow(datePreset)
+  const time_range = JSON.stringify({ since, until })
+
+  const [overviewRaw, adsRaw] = await Promise.all([
+    metaFetch(`/${accountId}/insights`, token, { time_range, fields: INSIGHT_FIELDS }),
+    // level=ad on the account insights edge is the reliable way to scope per-ad
+    // rows to an arbitrary window
+    metaFetch(`/${accountId}/insights`, token, {
+      level: 'ad',
+      time_range,
+      fields: `ad_id,ad_name,${INSIGHT_FIELDS_NESTED}`,
+      limit: '200',
+    }),
+  ])
+
+  const overview = overviewRaw.data?.[0] || {}
+  const ads = ((adsRaw.data || []) as Record<string, unknown>[]).map((a) => ({
+    ad_id: a.ad_id,
+    ad_name: a.ad_name,
+    _computed: computeKPIs(a, leadSource),
+  }))
+
+  return { periode: `${since} → ${until} (${days} jours)`, overview: computeKPIs(overview, leadSource), ads }
+}
+
 export async function getDailyBreakdown(accountId: string, token: string, days = 7) {
   const since = new Date()
   since.setDate(since.getDate() - days)

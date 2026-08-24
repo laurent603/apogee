@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic } from '@/lib/anthropic'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getPreviousPeriod, type LeadSource } from '@/lib/meta'
+import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -80,20 +81,25 @@ export async function GET(req: NextRequest) {
         select: { leadSource: true },
       }).catch(() => null)
       const leadSource = (bs?.leadSource as LeadSource) || 'total'
-      const [overview, campaigns, adsets, ads] = await Promise.all([
+      const [overview, campaigns, adsets, ads, previous] = await Promise.all([
         getAccountOverview(metaAccountId, token, datePreset, leadSource),
         getCampaigns(metaAccountId, token, datePreset, leadSource),
         getAdSets(metaAccountId, token, datePreset, leadSource),
         getAds(metaAccountId, token, datePreset, leadSource),
+        getPreviousPeriod(metaAccountId, token, datePreset, leadSource).catch(() => null),
       ])
 
-      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${agent.outputFormat || 'Markdown structuré'}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}`
+      const comparison = previous
+        ? `\n## Période précédente (${previous.periode})\nCalcule toute variation entre cette période et la période courante — ne l'affirme jamais sans ce calcul.\n### Vue d'ensemble\n${JSON.stringify(previous.overview, null, 2)}\n### Ads\n${JSON.stringify(previous.ads.slice(0, 20), null, 2)}`
+        : `\n## Période précédente\nIndisponible — n'affirme aucune tendance ni fatigue, et dis-le explicitement.`
+
+      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${agent.outputFormat || 'Markdown structuré'}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}`
 
       let content = ''
       const stream = await anthropic.messages.stream({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        system: `Tu es un expert Meta Ads. Tu analyses les données du compte et tu génères des rapports précis et actionnables. Réponds en Markdown.`,
+        max_tokens: 8000,
+        system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
         messages: [{ role: 'user', content: userMessage }],
       })
       for await (const chunk of stream) {

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic } from '@/lib/anthropic'
 import { PROMPTS } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 
 type PromptCategory = keyof typeof PROMPTS
@@ -33,12 +33,14 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const leadSource = (brandSettings?.leadSource as LeadSource) || 'total'
-        const [overview, campaigns, adsets, ads, daily] = await Promise.all([
+        const [overview, campaigns, adsets, ads, daily, previous] = await Promise.all([
           getAccountOverview(accountId, token, datePreset, leadSource),
           getCampaigns(accountId, token, datePreset, leadSource),
           getAdSets(accountId, token, datePreset, leadSource),
           getAds(accountId, token, datePreset, leadSource),
           getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
+          // Fatigue and trend prompts need a real baseline to subtract from
+          getPreviousPeriod(accountId, token, datePreset, leadSource).catch(() => null),
         ])
 
         const rolePersonas: Record<string, string> = {
@@ -83,6 +85,18 @@ ${JSON.stringify(ads, null, 2)}
 
 ## Données journalières
 ${JSON.stringify(daily, null, 2)}
+
+## Période précédente — base de comparaison
+${previous
+  ? `Fenêtre de même durée précédant immédiatement la période courante : ${previous.periode}.
+Toute variation (fatigue, tendance, évolution) doit être calculée entre cette période et la période courante — jamais affirmée sans ce calcul. Une ad absente d'ici est trop récente pour être jugée : signale-la comme telle au lieu de lui inventer une tendance.
+
+### Vue d'ensemble (période précédente)
+${JSON.stringify(previous.overview, null, 2)}
+
+### Ads (période précédente)
+${JSON.stringify(previous.ads, null, 2)}`
+  : `Indisponible. N'affirme aucune variation, tendance ou fatigue : tu n'as qu'une seule période. Dis explicitement que la comparaison n'a pas pu être faite.`}
 `
 
         const userMessage = customPrompt
