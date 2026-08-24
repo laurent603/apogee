@@ -670,16 +670,18 @@ export default function AutopilotPage() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 space-y-4 overflow-y-auto pb-4">
+          <div className={clsx('flex-1 overflow-y-auto pb-4', messages.length === 0 ? 'flex items-center justify-center' : 'space-y-4')}>
             {messages.length === 0 && (
-              <div className="card text-center py-16">
+              /* Centred in the free space rather than a bordered box floating
+                 above a gap the flex container leaves under it */
+              <div className="text-center px-6">
                 <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <svg className="w-7 h-7 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1" />
                   </svg>
                 </div>
                 <p className="font-semibold text-[#0d0d12]">Démarrez une analyse</p>
-                <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto">
+                <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto leading-relaxed">
                   Posez votre question, ou ouvrez la bibliothèque avec le bouton <strong>+</strong> pour partir d&apos;un prompt existant — vous pourrez l&apos;ajuster avant de l&apos;envoyer.
                 </p>
               </div>
