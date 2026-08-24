@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
+import { deliverReport } from '@/lib/deliver'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -17,40 +18,6 @@ function calcNextRunAt(frequency: string): Date {
   return next
 }
 
-async function deliverReport(content: string, title: string, deliveryChannels: string) {
-  let config: Record<string, unknown> = {}
-  try { config = JSON.parse(deliveryChannels) } catch { config = { channels: ['in_app'] } }
-  const channels: string[] = (config.channels as string[]) || ['in_app']
-
-  if (channels.includes('email') && config.email && process.env.RESEND_API_KEY) {
-    try {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM || 'Metanalyzer <rapports@metanalyzer.app>',
-          to: [config.email],
-          subject: title,
-          html: `<div style="font-family:sans-serif;max-width:700px;margin:auto;padding:24px">${content.replace(/\n/g, '<br>')}</div>`,
-        }),
-      })
-    } catch { /* ignore */ }
-  }
-
-  if (channels.includes('notion') && config.notionToken && config.notionPageId) {
-    try {
-      await fetch('https://api.notion.com/v1/pages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.notionToken}`, 'Notion-Version': '2022-06-28' },
-        body: JSON.stringify({
-          parent: { page_id: config.notionPageId },
-          properties: { title: { title: [{ text: { content: title } }] } },
-          children: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: content.slice(0, 2000) } }] } }],
-        }),
-      })
-    } catch { /* ignore */ }
-  }
-}
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret')
@@ -62,7 +29,7 @@ export async function GET(req: NextRequest) {
   const dueAgents = await prisma.autopilotAgent.findMany({
     where: { isActive: true, OR: [{ nextRunAt: null }, { nextRunAt: { lte: now } }] },
     include: {
-      adAccount: { select: { metaAccountId: true } },
+      adAccount: { select: { metaAccountId: true, name: true } },
       user: { select: { accessToken: true } },
     },
   })
@@ -117,8 +84,13 @@ export async function GET(req: NextRequest) {
         where: { id: agent.id },
         data: { lastRunAt: now, nextRunAt: calcNextRunAt(agent.frequency) },
       })
-      await deliverReport(content, title, agent.deliveryChannels)
-      results.push({ agentId: agent.id, name: agent.name, status: 'ok' })
+      const delivery = await deliverReport(content, title, agent.deliveryChannels, agent.adAccount.name)
+      const failed = delivery.filter(d => !d.ok)
+      results.push({
+        agentId: agent.id,
+        name: agent.name,
+        status: failed.length ? `ok:livraison-partielle(${failed.map(f => `${f.channel}:${f.detail}`).join('; ')})` : 'ok',
+      })
     } catch (e) {
       results.push({ agentId: agent.id, name: agent.name, status: `error:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}` })
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { deliverReport } from '@/lib/deliver'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -16,50 +17,6 @@ function calcNextRunAt(frequency: string): Date {
   return next
 }
 
-async function deliverReport(content: string, title: string, deliveryChannels: string) {
-  let config: Record<string, unknown> = {}
-  try { config = JSON.parse(deliveryChannels) } catch { config = { channels: ['in_app'] } }
-  const channels: string[] = (config.channels as string[]) || ['in_app']
-
-  if (channels.includes('email') && config.email && process.env.RESEND_API_KEY) {
-    try {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM || 'Metanalyzer <rapports@metanalyzer.app>',
-          to: [config.email],
-          subject: title,
-          html: `<div style="font-family:sans-serif;max-width:700px;margin:auto;padding:24px">${content.replace(/\n/g, '<br>')}</div>`,
-        }),
-      })
-    } catch { /* delivery error — don't block */ }
-  }
-
-  if (channels.includes('notion') && config.notionToken && config.notionPageId) {
-    try {
-      await fetch('https://api.notion.com/v1/pages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.notionToken}`,
-          'Notion-Version': '2022-06-28',
-        },
-        body: JSON.stringify({
-          parent: { page_id: config.notionPageId },
-          properties: { title: { title: [{ text: { content: title } }] } },
-          children: [{
-            object: 'block', type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: content.slice(0, 2000) } }] },
-          }],
-        }),
-      })
-    } catch { /* delivery error */ }
-  }
-}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -88,16 +45,21 @@ export async function POST(req: NextRequest) {
     data: { title, content, type: 'autopilot', adAccountId: dbAccountId, agentId: agentId || null },
   })
 
+  let delivery: Awaited<ReturnType<typeof deliverReport>> = []
   if (agentId) {
-    const agent = await prisma.autopilotAgent.findUnique({ where: { id: agentId }, select: { frequency: true, deliveryChannels: true } })
+    const agent = await prisma.autopilotAgent.findUnique({
+      where: { id: agentId },
+      select: { frequency: true, deliveryChannels: true, adAccount: { select: { name: true } } },
+    })
     if (agent) {
       await prisma.autopilotAgent.update({
         where: { id: agentId },
         data: { lastRunAt: new Date(), nextRunAt: calcNextRunAt(agent.frequency) },
       })
-      await deliverReport(content, title, agent.deliveryChannels)
+      delivery = await deliverReport(content, title, agent.deliveryChannels, agent.adAccount?.name)
     }
   }
 
-  return NextResponse.json({ report })
+  // Returned so a failed send surfaces in the UI instead of vanishing
+  return NextResponse.json({ report, delivery })
 }
