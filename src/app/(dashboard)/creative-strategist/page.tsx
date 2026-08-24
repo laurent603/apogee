@@ -59,7 +59,18 @@ export default function CreativeStrategistPage() {
   const [prefilled, setPrefilled] = useState(false)
   const [generations, setGenerations] = useState<Generation[]>([])
   const [openGen, setOpenGen] = useState<string | null>(null)
+  const [kb, setKb] = useState<{ itemCount: number; syncedAt: string | null } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // The library is per account and silently absent otherwise — say so before a
+  // generation rather than after a disappointing result
+  useEffect(() => {
+    if (!selectedAccount?.id) { setKb(null); return }
+    fetch(`/api/knowledge?dbAccountId=${selectedAccount.id}`)
+      .then(r => r.json())
+      .then(d => setKb(d.knowledge ? { itemCount: d.knowledge.itemCount, syncedAt: d.knowledge.syncedAt } : null))
+      .catch(() => setKb(null))
+  }, [selectedAccount?.id])
 
   // Brand Settings already holds the product, audience and positioning — no
   // reason to retype them, differently, on every generation
@@ -376,6 +387,24 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
                 Inutile de recoller votre bibliothèque : le référentiel Notion synchronisé dans Brand Settings est déjà transmis.
               </p>
             </div>
+            {/* What actually feeds this generation, for the selected account */}
+            <div className={`rounded-lg border px-3 py-2.5 text-xs ${
+              kb?.itemCount ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'
+            }`}>
+              {kb?.itemCount ? (
+                <p className="text-green-900">
+                  <strong>Référentiel actif</strong> — {kb.itemCount} texte{kb.itemCount > 1 ? 's' : ''} de {selectedAccount?.name} guideront le style.
+                </p>
+              ) : (
+                <p className="text-amber-900">
+                  <strong>Aucun référentiel pour {selectedAccount?.name || 'ce compte'}.</strong> La génération s&apos;appuiera
+                  uniquement sur vos créas en cours et vos Brand Settings.{' '}
+                  <a href="/brand-settings" className="underline font-medium">Importer depuis Notion</a>
+                  {' '}— le référentiel est propre à chaque compte publicitaire.
+                </p>
+              )}
+            </div>
+
             <button
               onClick={generate}
               disabled={loading || !product}

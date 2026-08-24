@@ -463,6 +463,28 @@ export default function BrandSettingsPage() {
                 </p>
               )}
 
+              {/* A greyed-out button with no explanation is why a token was saved
+                  without a source and the sync was never run */}
+              {!syncing && (!knowledge?.hasToken || !knowledge?.notionSourceId) && (
+                <p className="text-xs text-amber-700">
+                  {!knowledge?.hasToken && !knowledge?.notionSourceId
+                    ? 'Renseignez le token et la source, puis enregistrez la connexion pour activer la synchronisation.'
+                    : !knowledge?.hasToken
+                      ? 'Token manquant — renseignez-le puis enregistrez la connexion.'
+                      : 'Source manquante — collez l\'URL de votre base ou page Notion, puis enregistrez la connexion.'}
+                </p>
+              )}
+
+              {knowledge && !knowledge.syncedAt && knowledge.hasToken && knowledge.notionSourceId && !knowledge.syncError && (
+                <p className="text-xs text-amber-700">
+                  Connexion enregistrée, mais aucun import n&apos;a encore été lancé — cliquez sur <strong>Synchroniser</strong>.
+                </p>
+              )}
+
+              <p className="text-[11px] text-gray-400">
+                Ce référentiel ne vaut que pour <strong>{selectedAccount?.name}</strong>. Chaque compte publicitaire a le sien.
+              </p>
+
               {knowledge?.syncError && (
                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
                   <p className="text-sm font-semibold text-red-900">Échec de la dernière synchronisation</p>
