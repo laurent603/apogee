@@ -34,10 +34,33 @@ interface Generation {
   createdAt: string
 }
 
+interface Variante {
+  angle?: string
+  hook: string
+  body: string
+  headline: string
+  description?: string
+  cta?: string
+}
+
+/** `variantes` is the current shape; the flat lists are kept so generations
+ *  saved before the change still render in the history. */
 interface GeneratedCopy {
-  primary_texts: string[]
-  headlines: string[]
-  descriptions: string[]
+  variantes?: Variante[]
+  primary_texts?: string[]
+  headlines?: string[]
+  descriptions?: string[]
+}
+
+/** Older generations stored three parallel lists with no hook. */
+function toVariantes(c: GeneratedCopy | null): Variante[] {
+  if (!c) return []
+  if (c.variantes?.length) return c.variantes
+  return (c.primary_texts || []).map((body, i) => ({
+    hook: '', body,
+    headline: c.headlines?.[i] || c.headlines?.[0] || '',
+    description: c.descriptions?.[i] || c.descriptions?.[0] || '',
+  }))
 }
 
 export default function CreativeStrategistPage() {
@@ -49,7 +72,6 @@ export default function CreativeStrategistPage() {
   const [tone, setTone] = useState('')
   const [cta, setCta] = useState('En savoir plus')
   const [nbPrimary, setNbPrimary] = useState(3)
-  const [nbHeadline, setNbHeadline] = useState(3)
   const [examples, setExamples] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<GeneratedCopy | null>(null)
@@ -139,14 +161,22 @@ N'invente aucun chiffre, aucune promesse et aucun élément de preuve qui ne fig
 ${awareness ? `Chaque texte doit s'adresser à une audience « ${awarenessLabel} » — ni plus avancée, ni moins.` : ''}
 
 ## Sortie
-Exactement ${nbPrimary} Primary Texts (125 caractères max), ${nbHeadline} Headlines (40 caractères max) et 2 Descriptions (25 caractères max).
-Varie les angles entre les propositions : elles ne doivent pas être des reformulations les unes des autres.
+Produis exactement ${nbPrimary} variantes complètes. Chacune contient :
+
+- **angle** — le ressort utilisé, en 3 à 5 mots (ex. « preuve par le chantier », « objection prix »)
+- **hook** — la première ligne du texte principal, 60 caractères max. C'est elle qui arrête le scroll : elle doit tenir seule, sans le reste. Pas de formule creuse, pas de question rhétorique molle.
+- **body** — la suite du texte principal, 250 caractères max. Elle prolonge le hook, développe la promesse et lève l'objection.
+- **headline** — le titre sous le visuel, 40 caractères max
+- **description** — 25 caractères max
+- **cta** — le bouton le plus adapté à cette variante, choisi STRICTEMENT dans cette liste : ${CTAS.join(' | ')}
+
+Chaque variante doit reposer sur un **angle différent** — pas de reformulation d'une même idée. Le hook et le body d'une variante forment un tout cohérent : ne les écris pas indépendamment.
 
 Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
 {
-  "primary_texts": ["...", "...", "..."],
-  "headlines": ["...", "...", "..."],
-  "descriptions": ["...", "..."]
+  "variantes": [
+    { "angle": "...", "hook": "...", "body": "...", "headline": "...", "description": "...", "cta": "..." }
+  ]
 }`
 
     abortRef.current = new AbortController()
@@ -189,7 +219,7 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
         try { parsed = JSON.parse(cleaned.slice(start, end + 1)) } catch { parsed = null }
       }
 
-      if (!parsed?.primary_texts?.length) {
+      if (!toVariantes(parsed).length) {
         setError("La réponse de l'IA n'a pas pu être lue. Relancez la génération.")
       } else {
         setResult(parsed)
@@ -260,21 +290,16 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Quantités</h2>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-600">Primary Texts</label>
+                <label className="text-xs text-gray-600">Variantes</label>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setNbPrimary(Math.max(1, nbPrimary - 1))} className="w-6 h-6 rounded border border-[#E5E7EB] text-gray-500 hover:border-gray-400 text-sm">-</button>
                   <span className="w-6 text-center text-sm font-medium">{nbPrimary}</span>
                   <button onClick={() => setNbPrimary(Math.min(5, nbPrimary + 1))} className="w-6 h-6 rounded border border-[#E5E7EB] text-gray-500 hover:border-gray-400 text-sm">+</button>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-600">Headlines</label>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setNbHeadline(Math.max(1, nbHeadline - 1))} className="w-6 h-6 rounded border border-[#E5E7EB] text-gray-500 hover:border-gray-400 text-sm">-</button>
-                  <span className="w-6 text-center text-sm font-medium">{nbHeadline}</span>
-                  <button onClick={() => setNbHeadline(Math.min(5, nbHeadline + 1))} className="w-6 h-6 rounded border border-[#E5E7EB] text-gray-500 hover:border-gray-400 text-sm">+</button>
-                </div>
-              </div>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Chaque variante contient son hook, son body, sa headline, sa description et son CTA.
+              </p>
             </div>
           </div>
 
@@ -312,27 +337,25 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
                         </button>
                       </div>
                       {open && saved && (
-                        <div className="border-t border-[#E5E7EB] px-2.5 py-2 space-y-2 bg-[#f8f9fc]">
-                          {([
-                            ['Primary', saved.primary_texts],
-                            ['Headlines', saved.headlines],
-                            ['Descriptions', saved.descriptions],
-                          ] as [string, string[]][]).map(([label, list]) => (
-                            list?.length ? (
-                              <div key={label}>
-                                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-                                {list.map((t, i) => (
-                                  <button
-                                    key={i}
-                                    onClick={() => copy(t)}
-                                    title="Copier"
-                                    className="w-full text-left text-[11px] text-gray-600 leading-snug py-1 hover:text-[#3434ef] transition-colors"
-                                  >
-                                    {t}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null
+                        <div className="border-t border-[#E5E7EB] px-2.5 py-2 space-y-2.5 bg-[#f8f9fc]">
+                          {toVariantes(saved).map((v, i) => (
+                            <div key={i} className="space-y-0.5">
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                                {v.angle || `Variante ${i + 1}`}
+                              </p>
+                              {v.hook && (
+                                <button onClick={() => copy(v.hook)} title="Copier le hook"
+                                  className="w-full text-left text-[11px] font-medium text-[#0d0d12] leading-snug hover:text-[#3434ef] transition-colors">
+                                  {v.hook}
+                                </button>
+                              )}
+                              {v.body && (
+                                <button onClick={() => copy(v.body)} title="Copier le body"
+                                  className="w-full text-left text-[11px] text-gray-500 leading-snug hover:text-[#3434ef] transition-colors line-clamp-2">
+                                  {v.body}
+                                </button>
+                              )}
+                            </div>
                           ))}
                         </div>
                       )}
@@ -442,59 +465,62 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
 
           {result && (
             <div className="space-y-4">
-              {/* Primary Texts */}
-              <div className="card space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-[#0d0d12]">Primary Texts</h3>
-                  <span className="badge-blue">{result.primary_texts?.length || 0} copies</span>
-                </div>
-                <div className="space-y-2">
-                  {(result.primary_texts || []).map((text, i) => (
-                    <div key={i} className="flex items-start gap-2 p-3 bg-[#f8f9fc] rounded-lg group">
-                      <p className="text-sm text-[#0d0d12] flex-1 leading-relaxed">{text}</p>
-                      <button onClick={() => copy(text)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded">
-                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Headlines */}
-              <div className="card space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-[#0d0d12]">Headlines</h3>
-                  <span className="badge-blue">{result.headlines?.length || 0} headlines</span>
-                </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {(result.headlines || []).map((h, i) => (
-                    <div key={i} className="flex items-center gap-2 p-3 bg-[#f8f9fc] rounded-lg group">
-                      <p className="text-sm font-semibold text-[#0d0d12] flex-1">{h}</p>
-                      <span className="text-xs text-gray-400 tabular-nums">{h.length}/40</span>
-                      <button onClick={() => copy(h)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded">
-                        <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Descriptions */}
-              {result.descriptions && result.descriptions.length > 0 && (
-                <div className="card space-y-3">
-                  <h3 className="text-sm font-semibold text-[#0d0d12]">Descriptions</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {result.descriptions.map((d, i) => (
-                      <div key={i} className="flex items-center gap-2 p-3 bg-[#f8f9fc] rounded-lg group">
-                        <p className="text-sm text-[#0d0d12] flex-1">{d}</p>
-                        <button onClick={() => copy(d)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded">
-                          <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                        </button>
-                      </div>
-                    ))}
+              {toVariantes(result).map((v, i) => (
+                <div key={i} className="card p-0 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f8f9fc] border-b border-[#E5E7EB]">
+                    <span className="w-5 h-5 rounded bg-[#3434ef] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                      {i + 1}
+                    </span>
+                    {v.angle && <span className="text-xs font-medium text-[#0d0d12]">{v.angle}</span>}
+                    {v.cta && (
+                      <span className="ml-auto text-[10px] text-gray-500 bg-white border border-[#E5E7EB] px-2 py-0.5 rounded-full">
+                        {v.cta}
+                      </span>
+                    )}
                   </div>
+
+                  <div className="divide-y divide-[#f0f0f3]">
+                    {([
+                      ['Hook', v.hook, 60],
+                      ['Body', v.body, 250],
+                      ['Headline', v.headline, 40],
+                      ['Description', v.description || '', 25],
+                    ] as [string, string, number][]).map(([label, text, max]) =>
+                      text ? (
+                        <div key={label} className="px-4 py-2.5 group">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{label}</span>
+                            <span className={`text-[10px] ${text.length > max ? 'text-red-500 font-medium' : 'text-gray-300'}`}>
+                              {text.length}/{max}
+                            </span>
+                            <button
+                              onClick={() => copy(text)}
+                              className="ml-auto text-[10px] text-gray-400 hover:text-[#3434ef] opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              Copier
+                            </button>
+                          </div>
+                          <p className={`text-sm leading-relaxed ${label === 'Hook' ? 'font-medium text-[#0d0d12]' : 'text-gray-700'}`}>
+                            {text}
+                          </p>
+                        </div>
+                      ) : null
+                    )}
+                  </div>
+
+                  {/* Meta takes hook and body as one field — copy them joined */}
+                  {(v.hook || v.body) && (
+                    <div className="px-4 py-2 border-t border-[#E5E7EB] bg-[#f8f9fc]">
+                      <button
+                        onClick={() => copy([v.hook, v.body].filter(Boolean).join('\n\n'))}
+                        className="text-xs text-[#3434ef] hover:underline font-medium"
+                      >
+                        Copier le texte principal (hook + body)
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
