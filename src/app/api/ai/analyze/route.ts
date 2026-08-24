@@ -6,6 +6,7 @@ import { PROMPTS } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
+import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
 
 type PromptCategory = keyof typeof PROMPTS
 
@@ -136,6 +137,13 @@ ${JSON.stringify(previous.ads, null, 2)}`
           ? `${dataContext}\n\n---\n\nQuestion de l'utilisateur : ${customPrompt}`
           : `${dataContext}\n\n---\nLance maintenant l'analyse demandée avec ces données réelles.`
 
+        // Creative work is judged on what the ad looks like, not only on what
+        // it says — send the visuals when the model is going to reason about them
+        const images = needsCopy ? await fetchAdImages(ads).catch(() => []) : []
+        const imageNote = images.length
+          ? `\n\n---\nLes visuels des ${images.length} publicités les plus dépensières sont joints. Regarde-les : composition, texte incrusté, cohérence entre l'accroche visuelle et le texte. Ne commente que ce que tu vois réellement.`
+          : ''
+
         // A scheduled report wants depth; a chat turn wants to come back quickly.
         // Keyed off an explicit flag, not the persona — chat picks a persona too.
         let fullResult = ''
@@ -143,7 +151,13 @@ ${JSON.stringify(previous.ads, null, 2)}`
           model: deep ? MODEL_REPORT : MODEL_CHAT,
           max_tokens: 16000,
           system: systemPrompt,
-          messages: [{ role: 'user', content: userMessage }],
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text' as const, text: userMessage + imageNote },
+              ...toImageBlocks(images),
+            ],
+          }],
           ...(deep ? REPORT_REASONING : {}),
         })
 

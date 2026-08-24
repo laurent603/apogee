@@ -49,14 +49,21 @@ export async function POST(req: NextRequest) {
   if (agentId) {
     const agent = await prisma.autopilotAgent.findUnique({
       where: { id: agentId },
-      select: { frequency: true, deliveryChannels: true, adAccount: { select: { name: true } } },
+      select: {
+        frequency: true, deliveryChannels: true,
+        adAccount: { select: { name: true, brandSettings: { select: { reportEmail: true, reportEmailEnabled: true } } } },
+      },
     })
     if (agent) {
       await prisma.autopilotAgent.update({
         where: { id: agentId },
         data: { lastRunAt: new Date(), nextRunAt: calcNextRunAt(agent.frequency) },
       })
-      delivery = await deliverReport(content, title, agent.deliveryChannels, agent.adAccount?.name)
+      const bs = agent.adAccount?.brandSettings
+      delivery = await deliverReport(
+        content, title, agent.deliveryChannels, agent.adAccount?.name,
+        bs?.reportEmailEnabled ? bs.reportEmail : null,
+      )
     }
   }
 

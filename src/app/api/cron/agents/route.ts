@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       const datePreset = agent.analysisPeriod || 'last_7d'
       const bs = await prisma.brandSettings.findUnique({
         where: { adAccountId: agent.adAccountId },
-        select: { leadSource: true },
+        select: { leadSource: true, reportEmail: true, reportEmailEnabled: true },
       }).catch(() => null)
       const leadSource = (bs?.leadSource as LeadSource) || 'total'
 
@@ -96,7 +96,10 @@ export async function GET(req: NextRequest) {
         where: { id: agent.id },
         data: { lastRunAt: now, nextRunAt: calcNextRunAt(agent.frequency) },
       })
-      const delivery = await deliverReport(content, title, agent.deliveryChannels, agent.adAccount.name)
+      const delivery = await deliverReport(
+        content, title, agent.deliveryChannels, agent.adAccount.name,
+        bs?.reportEmailEnabled ? bs.reportEmail : null,
+      )
       const failed = delivery.filter(d => !d.ok)
       results.push({
         agentId: agent.id,

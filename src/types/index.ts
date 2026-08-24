@@ -63,6 +63,9 @@ export interface BrandSettings {
   crmIntegration?: string
   /** 'total' | 'meta' | 'website' — which lead figure this account trusts */
   leadSource?: string
+  /** Account-wide report delivery address, so it is not retyped per agent */
+  reportEmail?: string
+  reportEmailEnabled?: boolean
   trackedEvents?: string
   trustpilotUrl?: string
 }

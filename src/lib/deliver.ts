@@ -14,6 +14,8 @@ export async function deliverReport(
   title: string,
   deliveryChannels: string,
   accountName?: string,
+  /** Account-wide address from Brand Settings, applied when enabled there. */
+  defaultEmail?: string | null,
 ): Promise<DeliveryResult[]> {
   const results: DeliveryResult[] = []
 
@@ -21,10 +23,14 @@ export async function deliverReport(
   try { config = JSON.parse(deliveryChannels) } catch { config = { channels: ['in_app'] } }
   const channels: string[] = (config.channels as string[]) || ['in_app']
 
-  if (channels.includes('email')) {
-    const to = config.email as string | undefined
+  // The account default is what makes template-created agents deliverable:
+  // they store the bare string 'in_app' and carry no address of their own
+  const wantsEmail = channels.includes('email') || Boolean(defaultEmail)
+
+  if (wantsEmail) {
+    const to = (config.email as string | undefined) || defaultEmail || undefined
     if (!to) {
-      results.push({ channel: 'email', ok: false, detail: 'Aucune adresse renseignée sur l\'agent' })
+      results.push({ channel: 'email', ok: false, detail: 'Aucune adresse renseignée sur l\'agent ni sur le compte' })
     } else if (!process.env.RESEND_API_KEY) {
       results.push({ channel: 'email', ok: false, detail: 'RESEND_API_KEY absente de l\'environnement' })
     } else {

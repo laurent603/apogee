@@ -397,6 +397,27 @@ export default function BrandSettingsPage() {
                 </div>
                 <Field label="Événements trackés" field="trackedEvents" placeholder="ex : Purchase, Lead, ViewContent, AddToCart" settings={settings} onChange={handleChange} />
                 <Field label="URL Trustpilot" field="trustpilotUrl" placeholder="https://trustpilot.com/review/votresite.com" settings={settings} onChange={handleChange} />
+
+                <div className="pt-4 border-t border-[#E5E7EB]">
+                  <p className="text-sm font-semibold text-[#0d0d12] mb-1">Livraison des rapports</p>
+                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                    Adresse commune à tous les agents de ce compte. Sans elle, seuls les agents créés
+                    via le formulaire personnalisé peuvent envoyer un email — ceux issus d&apos;un
+                    template n&apos;ont aucune adresse.
+                  </p>
+                  <label className="flex items-center gap-2 cursor-pointer mb-2">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.reportEmailEnabled)}
+                      onChange={(e) => handleChange('reportEmailEnabled', e.target.checked as unknown as string)}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-gray-700">Envoyer tous les rapports de ce compte par email</span>
+                  </label>
+                  {Boolean(settings.reportEmailEnabled) && (
+                    <Field label="Adresse de réception" field="reportEmail" type="email" placeholder="vous@exemple.fr" settings={settings} onChange={handleChange} />
+                  )}
+                </div>
               </div>
             </div>
           )}

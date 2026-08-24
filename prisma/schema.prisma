@@ -162,6 +162,10 @@ model BrandSettings {
   crmIntegration        String?
   // 'total' | 'meta' | 'website' — see LeadSource in src/lib/meta.ts
   leadSource            String?  @default("total")
+  /// Reports are emailed here for every agent on the account, so the address is
+  /// entered once instead of on each agent
+  reportEmail           String?
+  reportEmailEnabled    Boolean  @default(false)
   trackedEvents         String?
   trustpilotUrl         String?
   updatedAt             DateTime @updatedAt
