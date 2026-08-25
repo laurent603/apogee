@@ -151,17 +151,46 @@ export async function POST(req: NextRequest) {
       const igAccountCache = new Map<string, string | null>()
       async function getInstagramUserId(pageId: string): Promise<string | null> {
         if (igAccountCache.has(pageId)) return igAccountCache.get(pageId)!
-        let igId: string | null = null
+
+        // page_backed_instagram_accounts answers to a PAGE token, not the user
+        // token — querying it with the wrong one reports "no Instagram account"
+        // on pages that have one.
+        let pageToken = token
         try {
-          const info = await metaFetch(`/${pageId}`, token, { fields: 'instagram_business_account{id}' })
-          igId = (info?.instagram_business_account as { id?: string } | undefined)?.id || null
-        } catch { /* fall through */ }
-        if (!igId) {
+          const p = await metaFetch(`/${pageId}`, token, { fields: 'access_token' })
+          if (p?.access_token) pageToken = p.access_token as string
+        } catch { /* stay on the user token */ }
+
+        const attempts: [string, () => Promise<string | null>][] = [
+          ['instagram_business_account', async () => {
+            const r = await metaFetch(`/${pageId}`, pageToken, { fields: 'instagram_business_account{id}' })
+            return (r?.instagram_business_account as { id?: string } | undefined)?.id || null
+          }],
+          ['page_backed_instagram_accounts', async () => {
+            const r = await metaFetch(`/${pageId}/page_backed_instagram_accounts`, pageToken, { fields: 'id' })
+            return ((r?.data as { id?: string }[] | undefined)?.[0]?.id) || null
+          }],
+          ['instagram_accounts du compte pub', async () => {
+            const r = await metaFetch(`/${accountId}/instagram_accounts`, token, { fields: 'id' })
+            return ((r?.data as { id?: string }[] | undefined)?.[0]?.id) || null
+          }],
+        ]
+
+        let igId: string | null = null
+        const failures: string[] = []
+        for (const [label, run] of attempts) {
           try {
-            const pbia = await metaFetch(`/${pageId}/page_backed_instagram_accounts`, token, { fields: 'id' })
-            igId = ((pbia?.data as { id?: string }[] | undefined)?.[0]?.id) || null
-          } catch { /* fall through */ }
+            igId = await run()
+            if (igId) break
+            failures.push(`${label}: vide`)
+          } catch (e) {
+            failures.push(`${label}: ${e instanceof Error ? e.message.slice(0, 70) : 'erreur'}`)
+          }
         }
+        // Reporting why beats a bare "no Instagram account", which sent the last
+        // launch down a Facebook-only path Meta rejects anyway
+        if (!igId) send(`⚠ Identité Instagram introuvable pour la page ${pageId} — ${failures.join(' · ')}`)
+
         igAccountCache.set(pageId, igId)
         return igId
       }
@@ -682,7 +711,13 @@ export async function POST(req: NextRequest) {
               }
 
               if (!placed) {
-                throw new Error(`Ad "${adName}" : aucune variante acceptée par Meta.\n${failures.join('\n')}`)
+                // Facebook-only routing cannot rescue a missing IG identity: the
+                // requirement comes from the ad set's placements, not the rules
+                const igIssue = failures.some(f => f.includes('1772103'))
+                const hint = igIssue
+                  ? `\n\n→ L'adset diffuse sur Instagram, ce qui impose une identité Instagram sur l'ad, et la page ${pageId} n'en expose aucune. Deux issues : rattacher un compte Instagram professionnel à la page dans Meta Business Suite, ou restreindre les placements de l'adset à Facebook seul.`
+                  : ''
+                throw new Error(`Ad "${adName}" : aucune variante acceptée par Meta.\n${failures.join('\n')}${hint}`)
               }
             }
 
