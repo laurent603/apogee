@@ -70,6 +70,7 @@ model AdAccount {
   reports         Report[]
   knowledge       CreativeKnowledge?
   copyGenerations CopyGeneration[]
+  ghl             GhlConnection?
   createdAt       DateTime @default(now())
   @@unique([userId, metaAccountId])
 }
@@ -108,6 +109,28 @@ model CopyGeneration {
   result      String
   createdAt   DateTime  @default(now())
   @@index([adAccountId, createdAt])
+}
+
+/// GoHighLevel pipeline data joined to Meta ads through utmAdId, so a creative
+/// can be judged on the value of what it brings in and not only on lead cost.
+/// Synced on demand and cached: analyses must not wait on a third-party API.
+model GhlConnection {
+  id          String    @id @default(cuid())
+  adAccountId String    @unique
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  /// Private integration token — scoped to one GHL sub-account
+  token       String?
+  locationId  String?
+  /// Per-ad aggregates as JSON, keyed by Meta ad id
+  adStats     String?
+  totalOpps   Int       @default(0)
+  attributed  Int       @default(0)
+  wonCount    Int       @default(0)
+  wonValue    Float     @default(0)
+  valueFilled Int       @default(0)
+  syncedAt    DateTime?
+  syncError   String?
+  updatedAt   DateTime  @updatedAt
 }
 
 model BrandSettings {

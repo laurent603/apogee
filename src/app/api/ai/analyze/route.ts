@@ -7,6 +7,7 @@ import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, ge
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
+import { renderGhlForPrompt } from '@/lib/ghl'
 
 type PromptCategory = keyof typeof PROMPTS
 
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         const leadSource = (brandSettings?.leadSource as LeadSource) || 'total'
+
+        // What became of the leads. Relevant to every analysis that weighs a
+        // creative or a budget, not only to creative work.
+        const ghlRow = dbAccountId
+          ? await prisma.ghlConnection.findUnique({ where: { adAccountId: dbAccountId } }).catch(() => null)
+          : null
+        const ghl = ghlRow?.adStats
+          ? renderGhlForPrompt(ghlRow.adStats, {
+              totalOpps: ghlRow.totalOpps, attributed: ghlRow.attributed,
+              wonCount: ghlRow.wonCount, wonValue: ghlRow.wonValue, valueFilled: ghlRow.valueFilled,
+            })
+          : null
         // Creative work needs the actual copy; everything else keeps the lighter
         // payload it already had
         const needsCopy = category === 'creativeStrategy' || agentRole === 'creative_strategist' || agentRole === 'copywriter'
@@ -105,6 +118,9 @@ ${JSON.stringify(ads, null, 2)}
 
 ## Données journalières
 ${JSON.stringify(daily, null, 2)}
+${ghl ? `
+${ghl}
+` : ''}
 ${knowledge ? `
 ## Référentiel créatif du compte
 Textes publicitaires écrits pour ce compte par son creative strategist, classés

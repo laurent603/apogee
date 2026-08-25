@@ -83,7 +83,19 @@ function SelectField({ label, field, options, settings, onChange }: SelectProps)
   )
 }
 
-const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Marché', 'Référentiel créatif']
+const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Marché', 'Référentiel créatif', 'Pipeline CRM']
+
+type GhlState = {
+  hasToken: boolean
+  locationId: string | null
+  totalOpps: number
+  attributed: number
+  wonCount: number
+  wonValue: number
+  valueFilled: number
+  syncedAt: string | null
+  syncError: string | null
+} | null
 
 type KnowledgeState = {
   notionSourceId: string | null
@@ -153,6 +165,51 @@ export default function BrandSettingsPage() {
     }
     await loadKnowledge()
     setSyncing(false)
+  }
+
+  // --- Pipeline CRM (GoHighLevel) ---
+  const [ghl, setGhl] = useState<GhlState>(null)
+  const [ghlToken, setGhlToken] = useState('')
+  const [ghlLocation, setGhlLocation] = useState('')
+  const [ghlSyncing, setGhlSyncing] = useState(false)
+
+  const loadGhl = useCallback(async () => {
+    if (!selectedAccount?.id) return
+    const res = await fetch(`/api/ghl?dbAccountId=${selectedAccount.id}`)
+    const data = await res.json()
+    setGhl(data.ghl)
+    setGhlLocation(data.ghl?.locationId || '')
+    setGhlToken('')
+  }, [selectedAccount?.id])
+
+  useEffect(() => { loadGhl() }, [loadGhl])
+
+  async function saveGhl() {
+    if (!selectedAccount?.id) return
+    const res = await fetch('/api/ghl', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dbAccountId: selectedAccount.id, token: ghlToken, locationId: ghlLocation }),
+    })
+    if (res.ok) { toast.success('Connexion enregistrée'); await loadGhl() }
+    else toast.error('Erreur d\'enregistrement')
+  }
+
+  async function syncGhlNow() {
+    if (!selectedAccount?.id) return
+    setGhlSyncing(true)
+    try {
+      const res = await fetch('/api/ghl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dbAccountId: selectedAccount.id }),
+      })
+      const data = await res.json()
+      if (res.ok) toast.success(`${data.attributed} opportunités rattachées sur ${data.totalOpps}`)
+      else toast.error(data.error || 'Échec de la synchronisation')
+    } catch { toast.error('Échec de la synchronisation') }
+    await loadGhl()
+    setGhlSyncing(false)
   }
 
   async function save() {
@@ -543,6 +600,116 @@ export default function BrandSettingsPage() {
                 <p className="text-[11px] text-gray-400 mt-2">
                   Sans la quatrième étape, Notion renvoie une erreur d&apos;accès même avec un token valide.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 5 — Pipeline CRM */}
+          {tab === 5 && (
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-semibold text-[#0d0d12] mb-1">Pipeline commercial GoHighLevel</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Meta s&apos;arrête au prospect. GoHighLevel sait ce qu&apos;il devient. Les opportunités portent
+                  l&apos;identifiant Meta de la publicité, ce qui permet de juger une créa sur la <strong>valeur</strong>
+                  {' '}qu&apos;elle rapporte et non sur son seul coût par prospect.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Token d&apos;intégration privée</label>
+                  <input type="password" className="input font-mono text-xs"
+                    placeholder={ghl?.hasToken ? '•••••••• (enregistré)' : 'pit-…'}
+                    value={ghlToken} onChange={(e) => setGhlToken(e.target.value)} />
+                  <p className="text-[11px] text-gray-400 mt-1">Laissez vide pour conserver le token enregistré.</p>
+                </div>
+                <div>
+                  <label className="label">ID du sous-compte</label>
+                  <input type="text" className="input font-mono text-xs"
+                    placeholder="visible dans l'URL du sous-compte"
+                    value={ghlLocation} onChange={(e) => setGhlLocation(e.target.value)} />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Le token est lié à un sous-compte : celui d&apos;un autre client ne fonctionnera pas ici.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={saveGhl} className="btn-secondary">Enregistrer la connexion</button>
+                <button onClick={syncGhlNow} disabled={ghlSyncing || !ghl?.hasToken || !ghl?.locationId}
+                  className="btn-primary flex items-center gap-2">
+                  {ghlSyncing && (
+                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  )}
+                  {ghlSyncing ? 'Synchronisation…' : 'Synchroniser'}
+                </button>
+              </div>
+
+              {!ghlSyncing && (!ghl?.hasToken || !ghl?.locationId) && (
+                <p className="text-xs text-amber-700">
+                  Renseignez le token et l&apos;ID du sous-compte, puis enregistrez la connexion pour activer la synchronisation.
+                </p>
+              )}
+
+              {ghl?.syncError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-red-900">Échec de la dernière synchronisation</p>
+                  <p className="text-xs text-red-800 mt-1 font-mono break-all">{ghl.syncError}</p>
+                </div>
+              )}
+
+              {ghl?.syncedAt && !ghl.syncError && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-3">
+                    {([
+                      ['Opportunités', ghl.totalOpps.toLocaleString('fr-FR'), false],
+                      ['Rattachées à une pub', `${ghl.attributed}/${ghl.totalOpps}`, ghl.attributed / Math.max(ghl.totalOpps, 1) < 0.5],
+                      ['Affaires gagnées', String(ghl.wonCount), ghl.wonCount < 10],
+                      ['CA signé', `${Math.round(ghl.wonValue).toLocaleString('fr-FR')} €`, false],
+                    ] as [string, string, boolean][]).map(([label, value, warn]) => (
+                      <div key={label} className={`rounded-xl border px-3 py-2.5 ${warn ? 'border-amber-200 bg-amber-50' : 'border-[#E5E7EB] bg-[#f8f9fc]'}`}>
+                        <p className="text-lg font-bold text-[#0d0d12]">{value}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* The sample size travels with the figure: a ranking built on a
+                      handful of closed deals is not a verdict */}
+                  {ghl.wonCount < 10 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-xs text-amber-900 leading-relaxed">
+                        <strong>{ghl.wonCount} affaire{ghl.wonCount > 1 ? 's' : ''} gagnée{ghl.wonCount > 1 ? 's' : ''} seulement.</strong>{' '}
+                        Le CA par créa reste indicatif : une signature de plus peut inverser le classement.
+                        Passez vos affaires signées en <em>gagné</em> dans GoHighLevel et renseignez leur montant —
+                        le chiffre deviendra fiable sans développement supplémentaire.
+                      </p>
+                    </div>
+                  )}
+
+                  {ghl.valueFilled < ghl.totalOpps && (
+                    <p className="text-xs text-gray-500">
+                      Montant renseigné sur {ghl.valueFilled} opportunités sur {ghl.totalOpps} — les autres comptent
+                      dans le volume, pas dans la valeur.
+                    </p>
+                  )}
+
+                  <p className="text-xs text-gray-400">
+                    Synchronisé le {new Date(ghl.syncedAt).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                    {' · '}utilisé par toutes les analyses IA de ce compte
+                  </p>
+                </div>
+              )}
+
+              <div className="rounded-xl bg-[#f8f9fc] border border-[#E5E7EB] px-4 py-3">
+                <p className="text-xs font-semibold text-[#0d0d12] mb-1.5">Créer le token dans GoHighLevel</p>
+                <ol className="text-xs text-gray-500 space-y-1 list-decimal pl-4 leading-relaxed">
+                  <li>Placez-vous dans le <strong>sous-compte du client</strong>, pas dans l&apos;agence</li>
+                  <li><strong>Paramètres</strong> → <strong>Intégrations privées</strong> → créer une intégration</li>
+                  <li>Cochez <span className="font-mono">contacts.readonly</span>, <span className="font-mono">opportunities.readonly</span>, <span className="font-mono">locations.readonly</span></li>
+                  <li>Copiez le token, et relevez l&apos;ID du sous-compte dans l&apos;URL</li>
+                </ol>
               </div>
             </div>
           )}
