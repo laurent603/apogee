@@ -376,10 +376,13 @@ export async function getLifetimeAdSpend(
 ): Promise<Record<string, { adName: string; spend: number; leads: number }>> {
   const out: Record<string, { adName: string; spend: number; leads: number }> = {}
   try {
+    // Only spend and the lead actions are used here. The full insight set
+    // repeated `spend`, which Meta rejects outright ("Field spend specified more
+    // than once") — taking the whole call down for a column nobody could see.
     const data = await metaFetch(`/${accountId}/insights`, token, {
       level: 'ad',
       date_preset: 'maximum',
-      fields: `ad_id,ad_name,spend,${INSIGHT_FIELDS_NESTED}`,
+      fields: 'ad_id,ad_name,spend,actions',
       limit: '300',
     }, 25000)
     for (const row of (data.data || []) as Record<string, unknown>[]) {
