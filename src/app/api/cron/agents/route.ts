@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
 import { deliverReport } from '@/lib/deliver'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -52,11 +52,14 @@ export async function GET(req: NextRequest) {
       const leadSource = (bs?.leadSource as LeadSource) || 'total'
 
       const ghlRow = await prisma.ghlConnection.findUnique({ where: { adAccountId: agent.adAccountId } }).catch(() => null)
+      const lifetimeSpend = ghlRow?.adStats
+        ? await getLifetimeAdSpend(metaAccountId, token, leadSource)
+        : undefined
       const ghl = ghlRow?.adStats
         ? renderGhlForPrompt(ghlRow.adStats, {
             totalOpps: ghlRow.totalOpps, attributed: ghlRow.attributed,
             wonCount: ghlRow.wonCount, wonValue: ghlRow.wonValue, valueFilled: ghlRow.valueFilled,
-          })
+          }, lifetimeSpend)
         : null
 
       const isCreative = agent.role === 'creative_strategist' || agent.role === 'copywriter'

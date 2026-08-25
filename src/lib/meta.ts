@@ -362,6 +362,42 @@ export async function getPreviousPeriod(
   }
 }
 
+/**
+ * Lifetime spend and results per ad.
+ *
+ * The GoHighLevel pipeline counts deals over an ad's whole life, so dividing it
+ * by a 30-day spend produces a cost per sale off by an order of magnitude. This
+ * supplies the matching denominator.
+ */
+export async function getLifetimeAdSpend(
+  accountId: string,
+  token: string,
+  leadSource: LeadSource = 'total',
+): Promise<Record<string, { adName: string; spend: number; leads: number }>> {
+  const out: Record<string, { adName: string; spend: number; leads: number }> = {}
+  try {
+    const data = await metaFetch(`/${accountId}/insights`, token, {
+      level: 'ad',
+      date_preset: 'maximum',
+      fields: `ad_id,ad_name,spend,${INSIGHT_FIELDS_NESTED}`,
+      limit: '300',
+    }, 25000)
+    for (const row of (data.data || []) as Record<string, unknown>[]) {
+      const id = row.ad_id as string
+      if (!id) continue
+      const kpis = computeKPIs(row, leadSource)
+      out[id] = {
+        adName: (row.ad_name as string) || id,
+        spend: Number(row.spend || 0),
+        leads: Number(kpis['Prospects (leads)'] || 0),
+      }
+    }
+  } catch (e) {
+    console.error('[meta] getLifetimeAdSpend a échoué :', e instanceof Error ? e.message : e)
+  }
+  return out
+}
+
 export async function getDailyBreakdown(accountId: string, token: string, days = 7) {
   const since = new Date()
   since.setDate(since.getDate() - days)

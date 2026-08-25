@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING } from '@/lib/anthropic'
 import { PROMPTS } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
@@ -42,11 +42,16 @@ export async function POST(req: NextRequest) {
         const ghlRow = dbAccountId
           ? await prisma.ghlConnection.findUnique({ where: { adAccountId: dbAccountId } }).catch(() => null)
           : null
+        // All-time deals need an all-time denominator, or the cost per sale is
+        // out by an order of magnitude
+        const lifetimeSpend = ghlRow?.adStats
+          ? await getLifetimeAdSpend(accountId, token, leadSource)
+          : undefined
         const ghl = ghlRow?.adStats
           ? renderGhlForPrompt(ghlRow.adStats, {
               totalOpps: ghlRow.totalOpps, attributed: ghlRow.attributed,
               wonCount: ghlRow.wonCount, wonValue: ghlRow.wonValue, valueFilled: ghlRow.valueFilled,
-            })
+            }, lifetimeSpend)
           : null
         // Creative work needs the actual copy; everything else keeps the lighter
         // payload it already had
