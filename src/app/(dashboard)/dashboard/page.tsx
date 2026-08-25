@@ -41,6 +41,19 @@ function fmt(n: number, decimals = 0) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
+const PERIOD_LABEL: Record<string, string> = {
+  last_7d: '7 derniers jours',
+  last_14d: '14 derniers jours',
+  last_30d: '30 derniers jours',
+  this_month: 'Ce mois',
+  last_month: 'Mois dernier',
+}
+
+const LEAD_SOURCE_LABEL: Record<string, string> = {
+  meta: 'formulaires Meta uniquement',
+  website: 'site web uniquement',
+}
+
 function fmtCur(n: number) {
   return `${fmt(n, 0)}€`
 }
@@ -74,6 +87,7 @@ export default function DashboardPage() {
   const [datePreset, setDatePreset] = useState('last_7d')
   const [recentLaunches, setRecentLaunches] = useState<LaunchRecord[]>([])
   const [targets, setTargets] = useState<{ targetCpa?: number; maxCpa?: number }>({})
+  const [leadSource, setLeadSource] = useState<'total' | 'meta' | 'website'>('total')
 
   useEffect(() => {
     if (!selectedAccount) return
@@ -84,7 +98,10 @@ export default function DashboardPage() {
       .catch(() => {})
     fetch(`/api/brand-settings?dbAccountId=${selectedAccount.id}`)
       .then(r => r.json())
-      .then(d => setTargets({ targetCpa: d.settings?.targetCpa ?? undefined, maxCpa: d.settings?.maxCpa ?? undefined }))
+      .then(d => {
+        setTargets({ targetCpa: d.settings?.targetCpa ?? undefined, maxCpa: d.settings?.maxCpa ?? undefined })
+        setLeadSource((d.settings?.leadSource as 'total' | 'meta' | 'website') || 'total')
+      })
       .catch(() => setTargets({}))
   }, [selectedAccount])
 
@@ -251,7 +268,15 @@ export default function DashboardPage() {
             {/* Top Spenders */}
             <div className="card">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-[#0d0d12]">Top Spenders</h2>
+                <div>
+                  <h2 className="text-sm font-semibold text-[#0d0d12]">Top Spenders</h2>
+                  {/* The list is scoped to the selected range and to the account's
+                      lead definition — say so rather than leave it implied */}
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {PERIOD_LABEL[datePreset] || datePreset}
+                    {leadSource !== 'total' && ` · ${LEAD_SOURCE_LABEL[leadSource]}`}
+                  </p>
+                </div>
                 <span className="text-xs text-gray-400">Top 10 créatifs</span>
               </div>
               {spenders.length > 0 ? (
@@ -269,7 +294,11 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-[#0d0d12] truncate">{ad.name}</p>
                         <p className="text-xs text-gray-400">
-                          {ad.purchases > 0 ? `${ad.purchases} ventes` : ad.leads > 0 ? `${ad.leads} leads` : `${ad.impressions.toLocaleString('fr-FR')} imp.`}
+                          {ad.purchases > 0
+                            ? `${ad.purchases} ${ad.purchases > 1 ? 'achats' : 'achat'}`
+                            : ad.leads > 0
+                              ? `${ad.leads} ${ad.leads > 1 ? 'prospects' : 'prospect'}`
+                              : `${ad.impressions.toLocaleString('fr-FR')} imp.`}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -280,7 +309,10 @@ export default function DashboardPage() {
                           </p>
                         )}
                         {ad.cpa !== null && ad.cpa > 0 && ad.roas === null && (
-                          <p className="text-xs text-gray-400 tabular-nums">{fmtCur(ad.cpa)}/conv</p>
+                          <p className="text-xs text-gray-400 tabular-nums">
+                            {ad.cpa < 100 ? `${fmt(ad.cpa, 2)}€` : fmtCur(ad.cpa)}
+                            {ad.purchases > 0 ? '/achat' : '/prospect'}
+                          </p>
                         )}
                       </div>
                     </div>
