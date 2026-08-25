@@ -36,6 +36,15 @@ const INSIGHT_FIELDS = [
   'website_purchase_roas',
 ].join(',')
 
+/**
+ * Always request these through `insights.date_preset(X){…}`.
+ *
+ * A `date_preset` passed as a query parameter scopes the edge being listed, not
+ * the nested `insights` edge, which silently falls back to its own default
+ * window. Ads, campaigns and ad sets therefore reported ~30 days whatever period
+ * was selected — the dashboard showed 483 € against Meta's 38 €, and the
+ * period-over-period comparison measured a fixed window against a moving one.
+ */
 const INSIGHT_FIELDS_NESTED = [
   'spend', 'impressions', 'reach', 'frequency',
   'clicks', 'unique_clicks', 'ctr', 'unique_ctr', 'cpc', 'cpm',
@@ -148,9 +157,8 @@ export async function getCampaigns(accountId: string, token: string, datePreset 
   const data = await metaFetch(`/${accountId}/campaigns`, token, {
     fields: [
       'id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget',
-      `insights{${INSIGHT_FIELDS_NESTED}}`,
+      `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
-    date_preset: datePreset,
     limit: '50',
   })
   return (data.data || []).map((c: Record<string, unknown>) => ({
@@ -164,9 +172,8 @@ export async function getAdSets(accountId: string, token: string, datePreset = '
     fields: [
       'id', 'name', 'status', 'campaign_id', 'daily_budget', 'optimization_goal',
       'targeting', 'learning_stage_info',
-      `insights{${INSIGHT_FIELDS_NESTED}}`,
+      `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
-    date_preset: datePreset,
     limit: '100',
   })
   return (data.data || []).map((a: Record<string, unknown>) => ({
@@ -180,9 +187,8 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
     fields: [
       'id', 'name', 'status', 'adset_id', 'campaign_id',
       'creative{id,name,title,body,image_url,thumbnail_url,video_id}',
-      `insights{${INSIGHT_FIELDS_NESTED}}`,
+      `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
-    date_preset: datePreset,
     limit: '200',
   })
   return (data.data || []).map((a: Record<string, unknown>) => ({
@@ -267,9 +273,8 @@ export async function getAdsWithCopy(
       fields: [
         'id', 'name', 'status', 'adset_id', 'campaign_id',
         `creative{${CREATIVE_COPY_FIELDS}}`,
-        `insights{${INSIGHT_FIELDS_NESTED}}`,
+        `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
       ].join(','),
-      date_preset: datePreset,
       limit: '200',
     }, 25000)
 
