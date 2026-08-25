@@ -762,7 +762,10 @@ export async function POST(req: NextRequest) {
           } catch { /* keep existing */ }
         }
         if (userId) {
-          prisma.launchHistory.create({
+          // Awaited, not fire-and-forget: the serverless function can be frozen
+          // as soon as the stream closes, and an unawaited write never lands.
+          // That is why launches were reaching Meta but not the history.
+          await prisma.launchHistory.create({
             data: {
               userId,
               metaAccountId: accountId,
@@ -775,7 +778,10 @@ export async function POST(req: NextRequest) {
               status: historyStatus,
               logs: logLines.join('\n'),
             },
-          }).catch((e) => console.error('[launch] history save failed:', e))
+          }).catch((e) => {
+            console.error('[launch] history save failed:', e)
+            send(`⚠ Lancement effectué, mais non enregistré dans l'historique : ${e instanceof Error ? e.message.slice(0, 120) : 'erreur'}`)
+          })
         }
         controller.close()
       }
