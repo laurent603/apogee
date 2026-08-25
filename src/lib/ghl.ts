@@ -182,13 +182,24 @@ dis-le plutôt que de supposer qu'elle n'en a pas généré.
 N'utilise pas le montant d'une opportunité ouverte comme un revenu : seules les affaires gagnées
 comptent dans le CA.
 
+### Coût/vente — le critère qui tranche
+Quand cette colonne est renseignée, **c'est elle qui décide** d'un arbitrage budgétaire, pas le
+taux de gain ni le coût par prospect. Fais-la figurer dans ton tableau et classe tes
+recommandations dessus.
+
+Le taux de gain mesure la qualité des prospects, jamais ce qu'ils coûtent à obtenir : une créa peut
+transformer deux fois mieux et rester le pire investissement si ses prospects coûtent trois fois
+plus cher. Ne recommande jamais de pousser une créa sur son seul taux de gain sans vérifier son
+coût/vente, ni de réduire une créa dont le coût/vente est parmi les meilleurs.
+
+Si les deux se contredisent, dis-le explicitement et tranche sur le coût/vente.
+
 ### Périodes — règle impérative
 Ce tableau couvre **toute la vie de chaque publicité**. Les chiffres Meta présentés plus haut
 (dépense, CPL, impressions) ne couvrent que la **période d'analyse**.
 
 Ne divise jamais une dépense de la période d'analyse par un nombre d'affaires de ce tableau : le
-résultat serait faux d'un ordre de grandeur. La colonne « Dépense totale » ci-dessus est la seule
-compatible avec ces affaires, et « Coût/vente » en découle déjà — c'est le vrai indicateur
-d'efficacité, à préférer au coût par prospect. Si la colonne affiche « — », la dépense totale n'a
+résultat serait faux d'un ordre de grandeur. La colonne « Dépense totale » est la seule compatible
+avec ces affaires, et « Coût/vente » en découle déjà. Si elle affiche « — », la dépense totale n'a
 pas pu être récupérée : dis-le au lieu de reconstituer le ratio autrement.`
 }
