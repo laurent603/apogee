@@ -134,12 +134,20 @@ export function renderGhlForPrompt(json: string | null | undefined, summary: {
     .map(([adId, s]) => {
       const closed = s.won + s.lost
       const winRate = closed ? `${(s.won / closed * 100).toFixed(1)} %` : '—'
-      return `| ${s.adName} | ${adId} | ${s.opportunities} | ${s.won} | ${s.lost} | ${winRate} | ${Math.round(s.wonValue)} € |`
+      // A win rate over a handful of closed deals swings wildly; the account
+      // total says nothing about the confidence of any single row
+      const confidence = closed === 0 ? 'aucune affaire close'
+        : closed < 30 ? `⚠ ${closed} closes — très incertain`
+        : closed < 80 ? `${closed} closes — indicatif`
+        : `${closed} closes — solide`
+      return `| ${s.adName} | ${adId} | ${s.opportunities} | ${s.won} | ${s.lost} | ${winRate} | ${Math.round(s.wonValue)} € | ${confidence} |`
     })
 
-  const reliability = summary.wonCount < 10
-    ? `⚠ Seulement ${summary.wonCount} affaire(s) gagnée(s) sur l'ensemble du compte : le CA par créa est indicatif, jamais un verdict. Une signature de plus peut inverser le classement — dis-le si tu t'appuies dessus.`
-    : `${summary.wonCount} affaires gagnées : l'échantillon commence à être exploitable.`
+  // Deliberately not "the account total looks healthy": a comfortable total
+  // hides that each row may rest on a handful of closed deals
+  const reliability = `${summary.wonCount} affaires gagnées sur l'ensemble du compte — mais ce total ne dit rien de la fiabilité d'une ligne prise isolément. La colonne « Fiabilité » qualifie chaque créa séparément.
+
+Règle à respecter : un taux de gain calculé sur moins de 30 affaires closes ne permet pas de départager deux créas. Sur 7 gagnées et 43 perdues, le taux réel peut aller du simple au quadruple. Quand tu recommandes une créa sur son taux de gain, dis explicitement sur combien d'affaires closes il repose, et présente-la comme une piste à tester plutôt que comme la meilleure du compte.`
 
   const completeness = summary.totalOpps
     ? `${summary.attributed}/${summary.totalOpps} opportunités rattachées à une publicité, ${summary.valueFilled}/${summary.totalOpps} avec un montant renseigné.`
@@ -153,8 +161,8 @@ et peu d'affaires : juge la valeur, pas seulement le coût par prospect.
 ${completeness}
 ${reliability}
 
-| Créa | ID pub Meta | Opportunités | Gagnées | Perdues | Taux de gain | CA signé |
-|---|---|---|---|---|---|---|
+| Créa | ID pub Meta | Opportunités | Gagnées | Perdues | Taux de gain | CA signé | Fiabilité |
+|---|---|---|---|---|---|---|---|
 ${lines.join('\n')}
 
 Le taux de gain rapporte les affaires gagnées aux affaires closes (gagnées + perdues) : les
