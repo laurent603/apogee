@@ -16,6 +16,9 @@ export type AdStat = {
   opportunities: number
   won: number
   lost: number
+  /** Kept apart from `lost`: an abandoned deal is often a duplicate or a
+   *  disqualified contact, not a sale that was competed for and missed. */
+  abandoned?: number
   open: number
   wonValue: number
   pipelineValue: number
@@ -93,13 +96,14 @@ export function aggregateByAd(opps: Opportunity[]): GhlSummary {
 
     const s = adStats[attr.utmAdId] ??= {
       adName: attr.utmContent || attr.utmAdId,
-      opportunities: 0, won: 0, lost: 0, open: 0,
+      opportunities: 0, won: 0, lost: 0, abandoned: 0, open: 0,
       wonValue: 0, pipelineValue: 0, valueFilled: 0,
     }
     s.opportunities++
     if (hasValue) { s.valueFilled++; s.pipelineValue += value }
     if (o.status === 'won') { s.won++; s.wonValue += value }
-    else if (o.status === 'lost' || o.status === 'abandoned') s.lost++
+    else if (o.status === 'lost') s.lost++
+    else if (o.status === 'abandoned') s.abandoned = (s.abandoned || 0) + 1
     else s.open++
   }
 
@@ -135,18 +139,19 @@ export function renderGhlForPrompt(
     .sort((a, b) => b[1].wonValue - a[1].wonValue || b[1].opportunities - a[1].opportunities)
     .slice(0, 25)
     .map(([adId, s]) => {
-      const closed = s.won + s.lost
-      const winRate = closed ? `${(s.won / closed * 100).toFixed(1)} %` : '—'
-      // A win rate over a handful of closed deals swings wildly; the account
-      // total says nothing about the confidence of any single row
-      const confidence = closed === 0 ? 'aucune affaire close'
-        : closed < 30 ? `⚠ ${closed} closes — très incertain`
-        : closed < 80 ? `${closed} closes — indicatif`
-        : `${closed} closes — solide`
+      // Abandoned deals are excluded from the denominator: they are duplicates
+      // and disqualified contacts, not sales that were competed for and missed
+      const decided = s.won + s.lost
+      const winRate = decided ? `${(s.won / decided * 100).toFixed(1)} %` : '—'
+      const confidence = decided === 0 ? 'aucune affaire tranchée'
+        : decided < 30 ? `⚠ ${decided} affaires tranchées — très incertain`
+        : decided < 80 ? `${decided} affaires tranchées — indicatif`
+        : `${decided} affaires tranchées — solide`
       const lt = lifetime?.[adId]
       const spendCol = lt ? `${Math.round(lt.spend)} €` : '—'
       const costPerSale = lt && s.won > 0 ? `${Math.round(lt.spend / s.won)} €` : '—'
-      return `| ${s.adName} | ${adId} | ${spendCol} | ${s.opportunities} | ${s.won} | ${s.lost} | ${winRate} | ${Math.round(s.wonValue)} € | ${costPerSale} | ${confidence} |`
+      const ab = s.abandoned ?? 0
+      return `| ${s.adName} | ${adId} | ${spendCol} | ${s.opportunities} | ${s.won} | ${s.lost} | ${ab} | ${s.open} | ${winRate} | ${Math.round(s.wonValue)} € | ${costPerSale} | ${confidence} |`
     })
 
   // Deliberately not "the account total looks healthy": a comfortable total
@@ -155,8 +160,12 @@ export function renderGhlForPrompt(
 
 Règle à respecter : un taux de gain calculé sur moins de 30 affaires closes ne permet pas de départager deux créas. Sur 7 gagnées et 43 perdues, le taux réel peut aller du simple au quadruple. Quand tu recommandes une créa sur son taux de gain, dis explicitement sur combien d'affaires closes il repose, et présente-la comme une piste à tester plutôt que comme la meilleure du compte.`
 
+  const attributedWon = rows.reduce((n, [, s]) => n + s.won, 0)
+  const orphanWon = summary.wonCount - attributedWon
   const completeness = summary.totalOpps
-    ? `${summary.attributed}/${summary.totalOpps} opportunités rattachées à une publicité, ${summary.valueFilled}/${summary.totalOpps} avec un montant renseigné.`
+    ? `${summary.attributed}/${summary.totalOpps} opportunités rattachées à une publicité, ${summary.valueFilled}/${summary.totalOpps} avec un montant renseigné.
+
+**${summary.wonCount} affaires gagnées au total sur le compte, dont ${attributedWon} rattachées à une publicité.**${orphanWon > 0 ? ` Les ${orphanWon} autres n'ont aucune attribution et n'apparaissent dans aucune ligne du tableau : la somme de la colonne « Gagnées » est donc inférieure au total du compte, ce n'est pas une incohérence. Mentionne-le si tu additionnes cette colonne.` : ''}`
     : ''
 
   return `## Pipeline commercial (GoHighLevel)
@@ -167,12 +176,19 @@ et peu d'affaires : juge la valeur, pas seulement le coût par prospect.
 ${completeness}
 ${reliability}
 
-| Créa | ID pub Meta | Dépense totale | Opportunités | Gagnées | Perdues | Taux de gain | CA signé | Coût/vente | Fiabilité |
-|---|---|---|---|---|---|---|---|---|---|
+| Créa | ID pub Meta | Dépense totale | Opportunités | Gagnées | Perdues | Abandonnées | Ouvertes | Taux de gain | CA signé | Coût/vente | Fiabilité |
+|---|---|---|---|---|---|---|---|---|---|---|---|
 ${lines.join('\n')}
 
-Le taux de gain rapporte les affaires gagnées aux affaires closes (gagnées + perdues) : les
-opportunités encore ouvertes en sont exclues, elles ne sont pas encore un échec.
+### Lecture des colonnes
+Chaque ligne se décompose en **Gagnées + Perdues + Abandonnées + Ouvertes = Opportunités**.
+
+- **Taux de gain** = Gagnées ÷ (Gagnées + Perdues). Les *abandonnées* en sont exclues — ce sont
+  des doublons ou des contacts disqualifiés, pas des ventes disputées et manquées. Les *ouvertes*
+  aussi : elles ne sont pas encore un échec.
+- **Fiabilité** compte les affaires **tranchées** (gagnées + perdues), pas les ventes. Une créa à
+  « 462 affaires tranchées » n'a pas fait 462 ventes : elle en a fait 19 sur 462 dossiers conclus.
+  Ne présente jamais ce nombre comme un volume de ventes.
 
 Une créa peut dominer en volume d'opportunités et rester médiocre en taux de gain — c'est ce
 croisement qui décide où placer le budget, pas le coût par prospect seul. Rattache ces lignes aux
