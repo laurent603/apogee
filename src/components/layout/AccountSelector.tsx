@@ -45,21 +45,21 @@ export function AccountSelector() {
   if (accounts.length === 0) return <span className="text-sm text-gray-400">Aucun compte trouvé</span>
 
   return (
-    <div className="flex items-center gap-2" ref={ref}>
-      <span className="text-xs text-gray-400 font-medium">Compte</span>
+    <div className="flex items-center gap-2 min-w-0" ref={ref}>
+      <span className="hidden sm:inline text-xs text-gray-400 font-medium flex-shrink-0">Compte</span>
 
       {/* Custom dropdown */}
-      <div className="relative">
+      <div className="relative min-w-0">
         <button
           onClick={() => { setOpen((v) => !v); setSearch('') }}
-          className="flex items-center gap-2 bg-white border border-[#E5E7EB] text-[#0d0d12] text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3434ef]/20 focus:border-[#3434ef] max-w-[240px] hover:border-gray-300 transition-colors"
+          className="flex items-center gap-2 bg-white border border-[#E5E7EB] text-[#0d0d12] text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3434ef]/20 focus:border-[#3434ef] max-w-[52vw] sm:max-w-[240px] hover:border-gray-300 transition-colors"
         >
           <span className="truncate">{selectedAccount?.name || 'Sélectionner…'}</span>
           <svg className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
         </button>
 
         {open && (
-          <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#E5E7EB] rounded-xl shadow-lg w-72 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#E5E7EB] rounded-xl shadow-lg w-72 max-w-[90vw] overflow-hidden">
             {/* Search */}
             <div className="p-2 border-b border-[#E5E7EB]">
               <div className="relative">

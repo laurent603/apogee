@@ -228,7 +228,7 @@ export default function CommentAnalysisPage() {
       {step === 'done' && analysis && (
         <>
           {/* Stats bar */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="card text-center py-5">
               <p className="text-2xl font-bold text-[#0d0d12]">{totalComments}</p>
               <p className="text-xs text-gray-400 mt-0.5">Commentaires analysés</p>

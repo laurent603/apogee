@@ -102,12 +102,12 @@ export default function FunnelAnalyticsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Funnel Analytics</h1>
           <p className="page-subtitle mt-0.5">TOFU · MOFU · BOFU — {selectedAccount?.name || 'Sélectionnez un compte'}</p>
         </div>
-        <select value={datePreset} onChange={e => setDatePreset(e.target.value)} className="select w-auto">
+        <select value={datePreset} onChange={e => setDatePreset(e.target.value)} className="select w-full sm:w-auto">
           <option value="last_7d">7 jours</option>
           <option value="last_14d">14 jours</option>
           <option value="last_30d">30 jours</option>
@@ -120,13 +120,13 @@ export default function FunnelAnalyticsPage() {
       )}
 
       {selectedAccount && loading && (
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => <div key={i} className="space-y-3">{[...Array(3)].map((_, j) => <div key={j} className="card h-20 animate-pulse bg-gray-100" />)}</div>)}
         </div>
       )}
 
       {selectedAccount && !loading && overview && (
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {/* TOFU */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -180,7 +180,7 @@ export default function FunnelAnalyticsPage() {
 
       {/* Metric summary cards */}
       {selectedAccount && !loading && overview && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'CTR', value: overview?.ctr ? `${parseFloat(overview.ctr as string).toFixed(2)}%` : '—', desc: 'Clics / Impressions' },
             { label: 'LPVR', value: clicks > 0 && lpv > 0 ? `${((lpv / clicks) * 100).toFixed(1)}%` : '—', desc: 'LPV / Clics' },

@@ -135,8 +135,8 @@ function Confetti({ active }: { active: boolean }) {
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className={clsx('bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh]', wide ? 'w-[780px]' : 'w-[640px]')} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className={clsx('bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] w-full', wide ? 'sm:w-[780px]' : 'sm:w-[640px]')} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] flex-shrink-0">
           <h2 className="text-sm font-semibold text-[#0d0d12]">{title}</h2>
           <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 text-lg">×</button>
@@ -188,7 +188,7 @@ function CampaignNamingBuilder({ onNameChange, name, setName }: { onNameChange?:
       </div>
       {open && (
         <div className="bg-[#f8f9fc] rounded-xl p-3 space-y-2.5">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Brand</label><input className="input py-1.5 text-xs" value={brand} onChange={e => setBrand(e.target.value)} placeholder="[LDS]" /></div>
             <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Tunnel</label>
               <select className="input py-1.5 text-xs" value={tunnel} onChange={e => setTunnel(e.target.value)}>
@@ -201,7 +201,7 @@ function CampaignNamingBuilder({ onNameChange, name, setName }: { onNameChange?:
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Budget</label>
               <select className="input py-1.5 text-xs" value={budgetType} onChange={e => setBudgetType(e.target.value)}>
                 <option>CBO</option><option>ABO</option><option>Adv+</option>
@@ -326,7 +326,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
         </div>
       )}
 
-      {activeTab === 0 && <div className="grid grid-cols-2 gap-6">
+      {activeTab === 0 && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-5">
           <div className="space-y-2">
             <label className="label">Campaign Name <span className="text-red-500">*</span></label>
@@ -363,7 +363,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
         <div className="space-y-5">
           <div>
             <label className="label">Budget Optimization</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[{ val: false, label: 'CBO', sub: 'Campaign Budget' }, { val: true, label: 'ABO', sub: 'Ad Set Budget' }].map(o => (
                 <button key={String(o.val)} onClick={() => setIsCBO(!o.val)}
                   className={clsx('p-3.5 rounded-xl border-2 text-center transition-all', isCBO === !o.val ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-gray-300')}>
@@ -389,7 +389,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
           </div>
           <div>
             <label className="label">Campaign Status</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[{ id: 'PAUSED' as const, label: 'Paused' }, { id: 'ACTIVE' as const, label: 'Active' }].map(s => (
                 <button key={s.id} onClick={() => setStatus(s.id)}
                   className={clsx('p-3 rounded-xl border-2 text-center transition-all', status === s.id ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-gray-300')}>
@@ -579,7 +579,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
               {PERF_GOALS.map(g => <option key={g}>{g}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Dataset (Pixel) <span className="text-red-500">*</span></label>
               {pixels.length > 0
@@ -650,7 +650,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
           </div>
 
           {/* Age & Gender */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Age Range</label>
               <div className="flex items-center gap-2">
@@ -882,7 +882,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
       {/* SELECT FROM META TAB */}
       {activeTab === 1 && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Campagne</label>
               <select className="select" value={sfmCampaignId} onChange={e => setSfmCampaignId(e.target.value)}>
@@ -952,7 +952,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
               : <input className="input" placeholder="Nom de la Page Facebook" value={pageId} onChange={e => setPageId(e.target.value)} />
             }
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Instagram Account</label>
               <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">@</span><input className="input pl-7" placeholder="compte instagram" value={igAccount} onChange={e => setIgAccount(e.target.value)} /></div>
@@ -1567,13 +1567,13 @@ export default function UploadPage() {
     <div className="max-w-6xl mx-auto space-y-5">
       <Confetti active={confetti} />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Upload de créatifs</h1>
           <p className="page-subtitle mt-0.5">Importez, configurez et lancez vos créatifs Meta Ads</p>
         </div>
         {step === 3 && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {!adsetConfigured && <span className="text-xs text-red-500 font-medium">Paramètres d&apos;adset manquants</span>}
             <button onClick={() => setStep(2)} className="btn-secondary flex items-center gap-1.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -1643,7 +1643,7 @@ export default function UploadPage() {
                   </div>
                 ))}
               </div>
-              <div className="card bg-[#f0f0ff] border-[#c5c5ff] flex items-center gap-3">
+              <div className="card bg-[#f0f0ff] border-[#c5c5ff] flex items-center gap-3 flex-wrap">
                 <div className="w-8 h-8 bg-[#3434ef] rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                 </div>
@@ -1701,18 +1701,20 @@ export default function UploadPage() {
             </div>
           )}
           {nomenclatureMode === 'manual' && (
-            <div className="card space-y-2">
-              <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 pb-1 border-b border-[#E5E7EB]">
-                <span>Fichier</span><span>Concept</span><span>Itération</span><span>Format</span>
-              </div>
-              {files.map(f => (
-                <div key={f.id} className="grid grid-cols-4 gap-2 items-center p-2 rounded-lg hover:bg-[#f8f9fc]">
-                  <p className="text-xs text-gray-600 truncate">{f.file.name}</p>
-                  <input className="input py-1 text-xs" value={f.concept} onChange={e => updateFileField(f.id, 'concept', e.target.value)} />
-                  <input className="input py-1 text-xs" value={f.iteration} onChange={e => updateFileField(f.id, 'iteration', e.target.value)} />
-                  <input className="input py-1 text-xs" value={f.format} onChange={e => updateFileField(f.id, 'format', e.target.value)} />
+            <div className="card space-y-2 overflow-x-auto">
+              <div className="min-w-[560px] space-y-2">
+                <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 pb-1 border-b border-[#E5E7EB]">
+                  <span>Fichier</span><span>Concept</span><span>Itération</span><span>Format</span>
                 </div>
-              ))}
+                {files.map(f => (
+                  <div key={f.id} className="grid grid-cols-4 gap-2 items-center p-2 rounded-lg hover:bg-[#f8f9fc]">
+                    <p className="text-xs text-gray-600 truncate">{f.file.name}</p>
+                    <input className="input py-1 text-xs" value={f.concept} onChange={e => updateFileField(f.id, 'concept', e.target.value)} />
+                    <input className="input py-1 text-xs" value={f.iteration} onChange={e => updateFileField(f.id, 'iteration', e.target.value)} />
+                    <input className="input py-1 text-xs" value={f.format} onChange={e => updateFileField(f.id, 'format', e.target.value)} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {nomenclatureMode === 'bulk' && (
@@ -1741,7 +1743,7 @@ export default function UploadPage() {
 
             {adNamingOpen && (
               <div className="space-y-2.5 bg-[#f8f9fc] rounded-xl p-3">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Format</label>
                     <select className="input py-1.5 text-xs" value={adNamingFormat} onChange={e => setAdNamingFormat(e.target.value)}>
                       <option>Static</option><option>Carrousel</option><option>video</option>
@@ -1753,11 +1755,11 @@ export default function UploadPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Créateur</label><input className="input py-1.5 text-xs" placeholder="Laurent, Fabien…" value={adNamingCreateur} onChange={e => setAdNamingCreateur(e.target.value)} /></div>
                   <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Produit</label><input className="input py-1.5 text-xs" placeholder="3kWc - 4750…" value={adNamingProduit} onChange={e => setAdNamingProduit(e.target.value)} /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Angle marketing</label>
                     <select className="input py-1.5 text-xs" value={adNamingAngle} onChange={e => setAdNamingAngle(e.target.value)}>
                       <option value="">–</option><option>Offre/Promo</option><option>Education produit</option><option>Caractéristique</option><option>Prix</option><option>Démonstration produit</option>
@@ -1769,7 +1771,7 @@ export default function UploadPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div><label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Landing Page</label>
                     <select className="input py-1.5 text-xs" value={adNamingLP} onChange={e => setAdNamingLP(e.target.value)}>
                       <option value="">–</option><option>Page produit</option><option>LP</option><option>Leadform</option>
@@ -1804,12 +1806,12 @@ export default function UploadPage() {
 
       {/* STEP 3 */}
       {step === 3 && (
-        <div className="flex gap-0 border border-[#E5E7EB] rounded-xl overflow-hidden bg-white min-h-[600px]">
+        <div className="flex flex-col lg:flex-row gap-0 border border-[#E5E7EB] rounded-xl overflow-hidden bg-white lg:min-h-[600px]">
           {/* LEFT */}
-          <div className="w-60 border-r border-[#E5E7EB] p-4 space-y-5 flex-shrink-0">
+          <div className="w-full lg:w-60 border-b lg:border-b-0 lg:border-r border-[#E5E7EB] p-4 space-y-5 lg:flex-shrink-0">
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wider">Upload Structure</p>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {TEST_STRUCTURES.map(s => (
                   <button key={s.id} onClick={() => setTestStructure(s.id)}
                     className={clsx('text-left p-2.5 rounded-lg border transition-all', testStructure === s.id ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-gray-300')}>
@@ -1832,7 +1834,7 @@ export default function UploadPage() {
 
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wider">Launch Status</p>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {LAUNCH_STATUSES.map(s => (
                   <button key={s.id} onClick={() => setLaunchStatus(s.id)}
                     className={clsx('text-left p-2.5 rounded-lg border transition-all', launchStatus === s.id ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-gray-300')}>
@@ -1841,7 +1843,7 @@ export default function UploadPage() {
                 ))}
               </div>
               {(launchStatus === 'SCHEDULED_PAUSED' || launchStatus === 'SCHEDULED_LIVE') && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div><label className="text-xs text-gray-500 mb-1 block">Date</label><input type="date" className="input py-1.5 text-xs" value={launchDate} onChange={e => setLaunchDate(e.target.value)} /></div>
                   <div><label className="text-xs text-gray-500 mb-1 block">Heure</label><input type="time" className="input py-1.5 text-xs" value={launchTime} onChange={e => setLaunchTime(e.target.value)} /></div>
                 </div>
@@ -2005,7 +2007,7 @@ export default function UploadPage() {
 
                 {namingOpen && (
                   <div className="space-y-2.5 bg-[#f8f9fc] rounded-xl p-3">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Audience</label>
                         <select className="input py-1.5 text-xs" value={namingAudience} onChange={e => setNamingAudience(e.target.value)}>
@@ -2021,7 +2023,7 @@ export default function UploadPage() {
                         <input className="input py-1.5 text-xs" placeholder="ex: Energie photovoltaïque" value={namingStack} onChange={e => setNamingStack(e.target.value)} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
                         <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Genre</label>
                         <select className="input py-1.5 text-xs" value={namingGenre} onChange={e => setNamingGenre(e.target.value)}>
@@ -2040,7 +2042,7 @@ export default function UploadPage() {
                         <input className="input py-1.5 text-xs" placeholder="Sud + Paris / MTP" value={namingZone} onChange={e => setNamingZone(e.target.value)} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
                         <label className="text-[10px] text-gray-500 mb-1 block font-medium uppercase tracking-wide">Pays</label>
                         <input className="input py-1.5 text-xs" placeholder="FR" value={namingPays} onChange={e => setNamingPays(e.target.value)} />
@@ -2076,7 +2078,7 @@ export default function UploadPage() {
                   <svg className={clsx('w-3.5 h-3.5 ml-auto transition-transform', prefixOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 {prefixOpen && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><label className="text-xs text-gray-500 mb-1 block">Préfixe</label><input className="input py-1.5 text-xs" placeholder="[TEST]_" value={adsetPrefix} onChange={e => setAdsetPrefix(e.target.value)} /></div>
                     <div><label className="text-xs text-gray-500 mb-1 block">Suffixe</label><input className="input py-1.5 text-xs" placeholder="_2025" value={adsetSuffix} onChange={e => setAdsetSuffix(e.target.value)} /></div>
                   </div>
@@ -2146,7 +2148,7 @@ export default function UploadPage() {
         <div className="space-y-4">
           <div className="card space-y-4">
             <h3 className="text-sm font-semibold text-[#0d0d12]">Récapitulatif</h3>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[{ label: 'Ads', value: totalAds }, { label: 'Adsets', value: treeNodes.length }, { label: 'Assets', value: files.length }, { label: 'Formats', value: [...new Set(files.map(f => f.ratio).filter(Boolean))].length }].map(s => (
                 <div key={s.label} className="bg-[#f8f9fc] rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-[#3434ef]">{s.value}</p>

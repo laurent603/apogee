@@ -263,9 +263,9 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Config panel */}
-        <div className="col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
           {/* Mode */}
           <div className="card space-y-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</h2>
@@ -368,7 +368,7 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
         </div>
 
         {/* Main form + output */}
-        <div className="col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-4">
           <div className="card space-y-4">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Brief</h2>
             <div>
@@ -379,7 +379,7 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
               <label className="label">Offre / Proposition de valeur</label>
               <input className="input" placeholder="ex: -30% ce week-end · Livraison gratuite" value={offer} onChange={e => setOffer(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">Audience cible</label>
                 <input className="input" placeholder="ex: Femmes 25-45 ans, sportives" value={audience} onChange={e => setAudience(e.target.value)} />
@@ -389,7 +389,7 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
                 <input className="input" placeholder="ex: Inspirant, premium, direct" value={tone} onChange={e => setTone(e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">Call to Action</label>
                 <select className="select" value={cta} onChange={e => setCta(e.target.value)}>

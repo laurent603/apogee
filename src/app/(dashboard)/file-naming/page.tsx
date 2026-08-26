@@ -62,7 +62,7 @@ export default function FileNamingPage() {
       {/* Pattern selector */}
       <div className="card space-y-4">
         <h2 className="text-sm font-semibold text-[#0d0d12]">Pattern de nommage</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {DEFAULT_PATTERNS.map(p => (
             <button
               key={p.id}

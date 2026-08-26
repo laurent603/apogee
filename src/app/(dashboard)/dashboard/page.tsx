@@ -160,12 +160,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 max-w-7xl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle mt-0.5">{selectedAccount?.name || 'Sélectionnez un compte'}</p>
         </div>
-        <select value={datePreset} onChange={(e) => setDatePreset(e.target.value)} className="select w-auto">
+        <select value={datePreset} onChange={(e) => setDatePreset(e.target.value)} className="select w-full sm:w-auto">
           <option value="last_7d">7 derniers jours</option>
           <option value="last_14d">14 derniers jours</option>
           <option value="last_30d">30 derniers jours</option>
@@ -185,7 +185,7 @@ export default function DashboardPage() {
       )}
 
       {selectedAccount && loading && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => <div key={i} className="card h-20 animate-pulse bg-gray-100" />)}
         </div>
       )}

@@ -198,7 +198,7 @@ export default function CreativeStudioPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">Call to action</label>
                 <select

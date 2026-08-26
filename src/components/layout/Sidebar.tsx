@@ -84,14 +84,21 @@ const nav: NavItem[] = [
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
 
   return (
-    <aside className="w-64 flex flex-col h-screen sticky top-0 flex-shrink-0" style={{ background: '#3434ef' }}>
+    <aside
+      className={clsx(
+        'fixed inset-y-0 left-0 z-40 w-72 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-200 ease-in-out',
+        'md:static md:z-auto md:w-64 md:translate-x-0',
+        open ? 'translate-x-0' : '-translate-x-full'
+      )}
+      style={{ background: '#3434ef' }}
+    >
       {/* Logo */}
-      <div className="px-5 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+      <div className="px-5 py-5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -100,6 +107,15 @@ export function Sidebar() {
           </div>
           <span className="font-bold text-white text-base tracking-tight">Metanalyzer</span>
         </div>
+        <button
+          onClick={onNavigate}
+          className="md:hidden p-1.5 -mr-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
+          aria-label="Fermer le menu"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
       {/* Nav */}
@@ -114,6 +130,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onNavigate}
                 className={clsx(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
                   active

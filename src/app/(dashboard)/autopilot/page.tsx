@@ -652,13 +652,13 @@ export default function AutopilotPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#f8f9fc] rounded-xl p-1 border border-[#E5E7EB] w-fit">
+      <div className="flex gap-1 bg-[#f8f9fc] rounded-xl p-1 border border-[#E5E7EB] w-full sm:w-fit overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={clsx(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0',
               tab === t.id
                 ? 'bg-white text-[#3434ef] shadow-sm border border-[#E5E7EB]'
                 : 'text-gray-500 hover:text-[#0d0d12]'
@@ -701,7 +701,7 @@ export default function AutopilotPage() {
               <div key={i}>
                 {m.role === 'user' ? (
                   <div className="flex justify-end">
-                    <div className="max-w-[75%] bg-[#3434ef] text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                    <div className="max-w-[90%] sm:max-w-[75%] bg-[#3434ef] text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
                       {m.content}
                     </div>
                   </div>
@@ -752,7 +752,7 @@ export default function AutopilotPage() {
             {/* Prompt library — inserts into the field so the prompt can be read
                 and adjusted before it runs, instead of firing on click */}
             {pickerOpen && (
-              <div ref={pickerRef} className="absolute bottom-full left-3 mb-2 z-50 w-[420px] bg-white border border-[#E5E7EB] rounded-xl shadow-xl overflow-hidden">
+              <div ref={pickerRef} className="absolute bottom-full left-3 right-3 sm:right-auto mb-2 z-50 w-auto sm:w-[420px] max-w-full bg-white border border-[#E5E7EB] rounded-xl shadow-xl overflow-hidden">
                 <div className="p-2 border-b border-[#E5E7EB]">
                   <div className="relative">
                     <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -889,9 +889,10 @@ export default function AutopilotPage() {
               <div className="divide-y divide-[#E5E7EB]">
                 {agents.map((agent) => (
                   <div key={agent.id} className="px-5 py-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
                       {/* Status dot */}
-                      <div className={clsx('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', agent.isActive ? 'bg-green-500' : 'bg-gray-300')} />
+                      <div className={clsx('w-2 h-2 rounded-full flex-shrink-0 mt-1.5', agent.isActive ? 'bg-green-500' : 'bg-gray-300')} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-[#0d0d12] text-sm">{agent.name}</span>
@@ -929,7 +930,8 @@ export default function AutopilotPage() {
                           <p className="text-xs text-gray-400 mt-1">Jamais lancé</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap pl-5 sm:pl-0">
                         <button
                           onClick={() => runAgent(agent)}
                           disabled={running !== null || !selectedAccount}
@@ -1041,7 +1043,7 @@ export default function AutopilotPage() {
                 {/* Section Comportement */}
                 <div>
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Comportement</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="label">Rôle IA</label>
                       <select className="select" value={agentForm.role} onChange={(e) => setAgentForm((f) => ({ ...f, role: e.target.value }))}>
@@ -1080,7 +1082,7 @@ export default function AutopilotPage() {
                 {/* Section Livraison */}
                 <div>
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Livraison des rapports</p>
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex flex-wrap gap-2 mb-3">
                     {[{ id: 'in_app', label: 'Dans l\'app', icon: '🖥️' }, { id: 'email', label: 'Email', icon: '✉️' }, { id: 'notion', label: 'Notion', icon: '📝' }].map((ch) => (
                       <button
                         key={ch.id}
@@ -1138,7 +1140,7 @@ export default function AutopilotPage() {
       {/* --- TAB: Historique --- */}
       {tab === 'history' && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <p className="text-sm font-semibold text-[#0d0d12]">Rapports générés</p>
               <p className="text-xs text-gray-400 mt-0.5">Les rapports de vos agents autopilot sont sauvegardés ici automatiquement</p>
@@ -1236,7 +1238,7 @@ export default function AutopilotPage() {
               ) : (
                 <div className="space-y-1">
                   {agents.filter((a) => a.isActive).map((a) => (
-                    <div key={a.id} className="flex items-center justify-between text-xs border border-[#E5E7EB] rounded-lg px-3 py-2">
+                    <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 text-xs border border-[#E5E7EB] rounded-lg px-3 py-2">
                       <span className="font-medium text-[#0d0d12]">{a.name}</span>
                       <div className="flex items-center gap-3 text-gray-400">
                         <span>{FREQ_OPTIONS.find((f) => f.value === a.frequency)?.label}</span>

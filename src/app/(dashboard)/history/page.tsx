@@ -37,7 +37,7 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
         <div>
           <h1 className="page-title">Historique des lancements</h1>
           <p className="page-subtitle mt-0.5">
@@ -73,7 +73,7 @@ export default function HistoryPage() {
             const isExpanded = expanded === l.id
             return (
               <div key={l.id} className="card">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <span className={`mt-0.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${l.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
                     <div className="min-w-0">
@@ -85,7 +85,7 @@ export default function HistoryPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3 flex-shrink-0 pl-5 sm:pl-0">
                     <span className="text-xs text-gray-400">
                       {date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       {' '}
