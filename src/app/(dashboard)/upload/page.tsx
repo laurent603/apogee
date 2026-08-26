@@ -2165,8 +2165,8 @@ export default function UploadPage() {
                 { label: 'Launch status', value: LAUNCH_STATUSES.find(s => s.id === launchStatus)?.label || '' },
                 { label: 'Budget', value: isCBO ? 'CBO' : `${campaignBudget}€/jour` },
               ].map(r => (
-                <div key={r.label} className="flex justify-between items-center text-sm py-1.5 border-b border-[#F3F4F6] last:border-0">
-                  <span className="text-gray-500">{r.label}</span>
+                <div key={r.label} className="flex justify-between items-center gap-6 text-sm py-1.5 border-b border-[#F3F4F6] last:border-0">
+                  <span className="text-gray-500 flex-shrink-0">{r.label}</span>
                   <span className="font-medium text-[#0d0d12] truncate max-w-xs text-right">{r.value}</span>
                 </div>
               ))}

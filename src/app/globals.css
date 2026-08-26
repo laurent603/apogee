@@ -14,7 +14,15 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  .max-w-xs, .max-w-sm, .max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl, .max-w-3xl, .max-w-4xl, .max-w-5xl, .max-w-6xl, .max-w-7xl { margin-left: auto; margin-right: auto; }
+  /* Centre les conteneurs de page, et eux seuls.
+     Sans le `main >`, cette règle s'appliquait à TOUT élément portant une
+     classe max-w-*, y compris profondément imbriqué. Sur un enfant de flex,
+     des marges automatiques l'emportent sur justify-content : une valeur
+     `max-w-xs text-right` dans une ligne `justify-between` se retrouvait
+     centrée au lieu d'être alignée à droite. */
+  main > .max-w-xs, main > .max-w-sm, main > .max-w-md, main > .max-w-lg,
+  main > .max-w-xl, main > .max-w-2xl, main > .max-w-3xl, main > .max-w-4xl,
+  main > .max-w-5xl, main > .max-w-6xl, main > .max-w-7xl { margin-left: auto; margin-right: auto; }
   body {
     background-color: #f8f9fc;
     color: #0d0d12;
