@@ -5,7 +5,9 @@ import { signOut, useSession } from 'next-auth/react'
 import Image from 'next/image'
 import { clsx } from 'clsx'
 
-type NavItem = { href: string; label: string; icon: React.ReactNode } | { divider: true }
+type NavItem =
+  | { href: string; label: string; icon: React.ReactNode; external?: boolean }
+  | { divider: true }
 
 const nav: NavItem[] = [
   {
@@ -82,6 +84,17 @@ const nav: NavItem[] = [
       </svg>
     ),
   },
+  { divider: true },
+  {
+    href: 'https://www.dashboard.leadscore.fr/',
+    label: 'Dashboard Leadscore',
+    external: true,
+    icon: (
+      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
 ]
 
 export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNavigate?: () => void }) {
@@ -125,6 +138,27 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
             if ('divider' in item) {
               return <div key={`div-${i}`} className="my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
             }
+            // Une autre application : lien externe classique, jamais marqué
+            // actif puisqu'il ne correspond à aucune route d'ici.
+            if (item.external) {
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={onNavigate}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                  <svg className="w-3.5 h-3.5 flex-shrink-0 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )
+            }
+
             const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
             return (
               <Link
