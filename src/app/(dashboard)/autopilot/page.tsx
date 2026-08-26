@@ -672,7 +672,10 @@ export default function AutopilotPage() {
 
       {/* --- TAB: Nouvelle session --- */}
       {tab === 'session' && (
-        <div className="flex flex-col" style={{ minHeight: 620 }}>
+        // La hauteur n'est réservée qu'une fois la conversation entamée :
+        // sinon un vide de 620 px s'installait entre l'en-tête et le champ
+        // de saisie, particulièrement pénalisant sur mobile.
+        <div className={clsx('flex flex-col', messages.length > 0 && 'min-h-[620px]')}>
 
           {/* Top bar */}
           <div className="card p-3 mb-3 flex items-center justify-between flex-shrink-0">
@@ -689,14 +692,10 @@ export default function AutopilotPage() {
             )}
           </div>
 
-          {/* Messages */}
-          <div className={clsx('flex-1 overflow-y-auto pb-4', messages.length === 0 ? 'flex items-center justify-center' : 'space-y-4')}>
-            {messages.length === 0 && (
-              <p className="text-xs text-gray-300">
-                Posez votre question, ou ouvrez la bibliothèque avec <strong className="font-semibold">+</strong>
-              </p>
-            )}
-
+          {/* Messages — se réduit à zéro tant qu'aucun échange n'a eu lieu.
+              Aucun texte d'accroche : le champ de saisie porte déjà sa propre
+              invite et le bouton « + » est visible juste à côté. */}
+          <div className={clsx('overflow-y-auto', messages.length > 0 && 'flex-1 pb-4 space-y-4')}>
             {messages.map((m, i) => (
               <div key={i}>
                 {m.role === 'user' ? (
