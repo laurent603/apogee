@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { buildAdsetName, hasDuplicateNames } from '@/lib/naming'
 import Image from 'next/image'
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -1386,28 +1387,46 @@ export default function UploadPage() {
   const buildAdNameFor = (concept: string) =>
     adNamingTemplate ? adNamingTemplate.replace('{créa}', concept) : ''
 
-  const builtAdsetName = (() => {
-    if (!namingEnabled) return ''
-    const parts = [
-      namingAudience,
-      namingStack || null,
-      namingGenre || null,
-      namingAge || null,
-      namingZone || null,
-      namingPays,
-      namingPlacement,
-      namingExclusion || null,
-    ].filter(Boolean)
-    return parts.join(' | ')
-  })()
+  /**
+   * Nom d'adset, paramétré par ce qui distingue cet adset des autres.
+   *
+   * Le builder produisait auparavant un nom unique appliqué à tous les adsets,
+   * qui écrasait le nom de repli (créa ou concept). Quatre adsets sortaient
+   * donc sous quatre fois « Broad | H/F | FR | Adv+ », illisible en test.
+   * Le discriminant est ici une partie du nom comme les autres : absent quand
+   * la structure ne produit qu'un seul adset, il disparaît sans laisser de
+   * séparateur orphelin.
+   */
+  const buildAdsetNameFor = (discriminant: string) =>
+    namingEnabled
+      ? buildAdsetName({
+          audience: namingAudience, stack: namingStack, genre: namingGenre,
+          age: namingAge, zone: namingZone, pays: namingPays,
+          placement: namingPlacement, exclusion: namingExclusion,
+        }, discriminant)
+      : ''
+
+  // Aperçu générique du builder, sans discriminant.
+  const builtAdsetName = buildAdsetNameFor('')
 
   const treeNodes: { adsetName: string; adGroups: AdGroup[] }[] = (() => {
-    const getName = (fallback: string) => builtAdsetName || fallback
-    if (testStructure === 'one-ad-one-adset') return adGroups.map(g => ({ adsetName: getName(g.adName), adGroups: [g] }))
-    if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: getName(g.concept), adGroups: groupByAd(g.iterations) }))
-    if (testStructure === 'all-in-one') return adGroups.length ? [{ adsetName: getName('Adset_1'), adGroups }] : []
-    return adGroups.length ? [{ adsetName: getName('Adset existant'), adGroups }] : []
+    // Le discriminant est ce que la structure fait varier : la créa quand
+    // chacune a son adset, le concept quand ils sont regroupés. Sans builder
+    // actif, il tient lieu de nom à lui seul — comportement d'origine.
+    const named = (discriminant: string, fallback: string) =>
+      buildAdsetNameFor(discriminant) || fallback
+    if (testStructure === 'one-ad-one-adset') return adGroups.map(g => ({ adsetName: named(g.adName, g.adName), adGroups: [g] }))
+    if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: named(g.concept, g.concept), adGroups: groupByAd(g.iterations) }))
+    if (testStructure === 'all-in-one') return adGroups.length ? [{ adsetName: named('', 'Adset_1'), adGroups }] : []
+    return adGroups.length ? [{ adsetName: named('', 'Adset existant'), adGroups }] : []
   })()
+
+  // Deux adsets de même nom sont indistinguables dans Ads Manager. Le cas
+  // reste possible si deux créas portent le même concept : autant le voir
+  // avant de lancer plutôt qu'après.
+  const adsetNameCollision = hasDuplicateNames(
+    treeNodes.map(n => `${adsetPrefix}${n.adsetName}${adsetSuffix}`)
+  )
 
   const totalAds = adGroups.length
   const adsetConfigured = adsetTemplate !== null
@@ -2062,10 +2081,28 @@ export default function UploadPage() {
                         <input className="input py-1.5 text-xs" placeholder="exclus_Leads 90j" value={namingExclusion} onChange={e => setNamingExclusion(e.target.value)} />
                       </div>
                     </div>
-                    {builtAdsetName && (
-                      <div className="mt-1 p-2 bg-white border border-[#3434ef]/20 rounded-lg">
-                        <p className="text-[10px] text-gray-400 mb-0.5">Prévisualisation :</p>
-                        <p className="text-xs font-mono font-medium text-[#0d0d12] break-all">{adsetPrefix}{builtAdsetName}{adsetSuffix}</p>
+                    {/* Les noms réels, un par adset. L'aperçu générique d'avant
+                        masquait justement le défaut qu'on vient de corriger. */}
+                    {builtAdsetName && treeNodes.length > 0 && (
+                      <div className="mt-1 space-y-1">
+                        <p className="text-[10px] text-gray-400">
+                          Prévisualisation — {treeNodes.length} adset{treeNodes.length > 1 ? 's' : ''} :
+                        </p>
+                        {treeNodes.slice(0, 8).map((n, i) => (
+                          <div key={i} className="p-2 bg-white border border-[#3434ef]/20 rounded-lg">
+                            <p className="text-xs font-mono font-medium text-[#0d0d12] break-all">
+                              {adsetPrefix}{n.adsetName}{adsetSuffix}
+                            </p>
+                          </div>
+                        ))}
+                        {treeNodes.length > 8 && (
+                          <p className="text-[10px] text-gray-400">+ {treeNodes.length - 8} autres</p>
+                        )}
+                        {adsetNameCollision && (
+                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                            ⚠ Plusieurs adsets porteraient le même nom — renommez les créas concernées à l&apos;étape 2 pour les distinguer.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
