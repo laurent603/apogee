@@ -4,7 +4,7 @@ import { Providers } from './providers'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
-  title: 'Metanalyzer — Meta Ads Intelligence',
+  title: 'Leadscore — Meta Ads Intelligence',
   description: 'Analysez et pilotez vos campagnes Meta Ads avec l\'IA',
 }
 

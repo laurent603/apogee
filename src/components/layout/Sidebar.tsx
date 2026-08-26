@@ -105,7 +105,7 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="font-bold text-white text-base tracking-tight">Metanalyzer</span>
+          <span className="font-bold text-white text-base tracking-tight">Leadscore</span>
         </div>
         <button
           onClick={onNavigate}

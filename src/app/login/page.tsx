@@ -21,7 +21,7 @@ export default function LoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-3">Metanalyzer</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight mb-3">Leadscore</h1>
           <p className="text-white/70 text-sm leading-relaxed">
             Analysez vos campagnes Meta Ads en profondeur et pilotez votre stratégie avec l&apos;intelligence artificielle.
           </p>
@@ -49,7 +49,7 @@ export default function LoginPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-[#0d0d12]">Metanalyzer</h1>
+            <h1 className="text-2xl font-bold text-[#0d0d12]">Leadscore</h1>
           </div>
 
           <div className="card">
@@ -69,7 +69,7 @@ export default function LoginPage() {
             </button>
 
             <p className="text-center text-xs text-gray-400 mt-4">
-              En vous connectant, vous autorisez Metanalyzer à lire et gérer vos comptes publicitaires Meta.
+              En vous connectant, vous autorisez Leadscore à lire et gérer vos comptes publicitaires Meta.
             </p>
           </div>
         </div>
