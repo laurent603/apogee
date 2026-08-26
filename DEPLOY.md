@@ -1,11 +1,11 @@
-# Déploiement APOGEE sur Plesk
+# Déploiement LEADSCORE sur Plesk
 
 ## Étape 1 — Préparer les variables d'environnement
 
 Créez un fichier `.env.local` à la racine du projet et remplissez ces valeurs :
 
 ```
-DATABASE_URL="file:./apogee.db"
+DATABASE_URL="file:./leadscore.db"
 NEXTAUTH_URL="https://votre-domaine.com"
 NEXTAUTH_SECRET="collez-ici-le-secret-généré-ci-dessous"
 FACEBOOK_CLIENT_ID="votre-facebook-app-id"
@@ -44,7 +44,7 @@ npm install -g pm2
 npm install
 npm run db:push
 npm run build
-pm2 start npm --name "apogee" -- start
+pm2 start npm --name "leadscore" -- start
 pm2 save
 pm2 startup
 ```
@@ -61,10 +61,10 @@ git pull  # ou re-uploadez les fichiers
 npm install
 npm run db:push
 npm run build
-pm2 restart apogee
+pm2 restart leadscore
 ```
 
 ## Notes importantes
-- La base de données SQLite est dans `apogee.db` — sauvegardez ce fichier régulièrement
+- La base de données SQLite est dans `leadscore.db` — sauvegardez ce fichier régulièrement
 - Ne commitez jamais le fichier `.env.local`
 - L'app tourne sur le port 3000 par défaut

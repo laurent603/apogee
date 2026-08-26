@@ -161,7 +161,7 @@ export function renderReportEmail(opts: { title: string; accountName?: string; c
       </td></tr>
       <tr><td style="padding:26px;font-family:${FONT}">${body}</td></tr>
       <tr><td style="padding:16px 26px;border-top:1px solid ${C.border};background:${C.head};font-family:${FONT};font-size:11px;color:${C.muted}">
-        Rapport généré automatiquement par Apogee à partir de vos données Meta Ads.
+        Rapport généré automatiquement par Leadscore à partir de vos données Meta Ads.
       </td></tr>
     </table>
   </td></tr>

@@ -85,7 +85,13 @@ export default function CommentAnalysisPage() {
       const analyzeRes = await fetch('/api/ai/comments-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ posts: data.posts }),
+        // Le compte voyage avec la requête : sans lui, un incident d'analyse
+        // remonterait dans les notifications de tous les autres comptes.
+        body: JSON.stringify({
+          posts: data.posts,
+          dbAccountId: selectedAccount.id,
+          accountName: selectedAccount.name,
+        }),
       })
       if (!analyzeRes.ok) throw new Error("Erreur lors de l'analyse IA")
 

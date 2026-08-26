@@ -45,16 +45,23 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all')
+  const [orphans, setOrphans] = useState(0)
+  const [showOrphans, setShowOrphans] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
-    const q = selectedAccount?.id ? `?dbAccountId=${selectedAccount.id}` : ''
+    const q = showOrphans
+      ? '?unassigned=1'
+      : selectedAccount?.id ? `?dbAccountId=${selectedAccount.id}` : ''
     fetch(`/api/notifications${q}`)
       .then((r) => r.json())
-      .then((d) => setItems(Array.isArray(d.items) ? d.items : []))
+      .then((d) => {
+        setItems(Array.isArray(d.items) ? d.items : [])
+        setOrphans(d.orphans || 0)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [selectedAccount?.id])
+  }, [selectedAccount?.id, showOrphans])
 
   useEffect(() => { load() }, [load])
 
@@ -70,7 +77,9 @@ export default function NotificationsPage() {
     setItems((prev) => prev.map((i) => ({ ...i, isRead: true })))
     await fetch('/api/notifications', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ allRead: true, dbAccountId: selectedAccount?.id }),
+      body: JSON.stringify(
+        showOrphans ? { allRead: true, unassigned: true } : { allRead: true, dbAccountId: selectedAccount?.id }
+      ),
     }).catch(() => {})
   }
 
@@ -91,7 +100,10 @@ export default function NotificationsPage() {
         <div>
           <h1 className="page-title">Notifications</h1>
           <p className="page-subtitle mt-0.5">
-            Incidents de lancement, d&apos;agents et d&apos;analyses — {selectedAccount?.name || 'tous les comptes'}
+            Incidents de lancement, d&apos;agents et d&apos;analyses —{' '}
+            {showOrphans
+              ? 'incidents non rattachés à un compte'
+              : selectedAccount?.name || 'tous les comptes'}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
@@ -123,6 +135,27 @@ export default function NotificationsPage() {
             </button>
           ))}
         </div>
+      )}
+
+      {/* Un incident sans compte n'est jamais affiché sous un autre : il
+          serait attribué à tort. Il reste atteignable ici. */}
+      {orphans > 0 && (
+        <button
+          onClick={() => setShowOrphans((v) => !v)}
+          className="w-full text-left rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2.5 hover:bg-amber-100/70 transition-colors"
+        >
+          <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-amber-900 flex-1">
+            {showOrphans
+              ? 'Vous consultez les incidents sans compte rattaché.'
+              : `${orphans} incident${orphans > 1 ? 's' : ''} sans compte rattaché — non affiché${orphans > 1 ? 's' : ''} ici pour ne pas l${orphans > 1 ? 'es' : "'"}attribuer à tort.`}
+          </p>
+          <span className="text-xs font-medium text-amber-700 flex-shrink-0">
+            {showOrphans ? 'Revenir au compte' : 'Les voir'}
+          </span>
+        </button>
       )}
 
       {loading && <div className="card text-center py-16 text-gray-400 text-sm">Chargement…</div>}

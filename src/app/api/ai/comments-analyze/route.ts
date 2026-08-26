@@ -14,8 +14,10 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
-  const { posts } = await req.json() as {
+  const { posts, dbAccountId, accountName } = await req.json() as {
     posts: Array<{ adName: string; comments: Array<{ message: string; likeCount: number }> }>
+    dbAccountId?: string
+    accountName?: string
   }
 
   // Flatten all comments
@@ -79,6 +81,8 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
       error: err,
       cause: 'L\'appel au modèle a été refusé avant tout traitement. Vérifiez la clé Anthropic et le quota du compte.',
       context,
+      adAccountId: dbAccountId,
+      accountName,
       email: true,
     })
     return new Response(JSON.stringify({ error: 'L\'analyse n\'a pas pu démarrer. L\'incident est enregistré dans Notifications.' }), {
@@ -104,6 +108,8 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
           error: err,
           cause: 'Le flux s\'est coupé pendant la génération. Le résultat affiché est incomplet ou illisible — relancez l\'analyse.',
           context,
+          adAccountId: dbAccountId,
+          accountName,
           email: true,
         })
         controller.enqueue(encoder.encode('\n{"__erreur__":"flux interrompu"}'))

@@ -544,8 +544,8 @@ export async function POST(req: NextRequest) {
             const IG_FEED_POS = ['stream', 'explore', 'explore_home', 'profile_feed']
             const IG_STORY_POS = ['story', 'reels']
 
-            const FEED_LABEL = 'apogee_feed'
-            const STORY_LABEL = 'apogee_story'
+            const FEED_LABEL = 'leadscore_feed'
+            const STORY_LABEL = 'leadscore_story'
 
             // Rules binding each labelled asset to its placements. Without these,
             // Meta treats the assets as a dynamic-creative pool and rotates them
@@ -792,21 +792,34 @@ export async function POST(req: NextRequest) {
         // que l'historique : la fonction gèle dès que le flux se ferme.
         // Encapsulé : une alerte qui échoue ne doit jamais salir un lancement.
         try {
+          // L'incident doit porter le compte auquel il appartient, sinon il
+          // remonterait sous n'importe quel autre compte dans Notifications.
+          // metaAccountId n'est unique que par utilisateur : la résolution se
+          // fait sur le couple, jamais sur le seul identifiant Meta.
+          const dbAccount = userId
+            ? await prisma.adAccount.findUnique({
+                where: { userId_metaAccountId: { userId, metaAccountId: accountId } },
+                select: { id: true, name: true },
+              }).catch(() => null)
+            : null
+
           const campaignLabel = campaign?.name || 'Campagne inconnue'
+          const accountLabel = dbAccount?.name || accountId
+
           if (historyStatus === 'error') {
             await notifyIncident({
               source: 'launch',
               title: `Échec du lancement — ${campaignLabel}`,
               error: launchError || 'Le lancement s\'est interrompu sans message d\'erreur.',
               context: logLines.join('\n'),
-              adAccountId: undefined,
-              accountName: accountId,
+              adAccountId: dbAccount?.id,
+              accountName: accountLabel,
               email: true,
             })
           } else {
             await notifyLaunchSuccess({
               campaignName: campaignLabel,
-              accountName: accountId,
+              accountName: accountLabel,
               adsetCount: launchAdsetCount,
               adCount: launchAdCount,
               journal: logLines.join('\n'),

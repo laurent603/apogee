@@ -1,6 +1,6 @@
 -- Ferme l'accès public au schéma `public`.
 --
--- Apogee ne passe jamais par l'API REST de Supabase (aucune dépendance
+-- Leadscore ne passe jamais par l'API REST de Supabase (aucune dépendance
 -- supabase-js, aucun import dans src/) : tout transite par Prisma sur la
 -- connexion Postgres, avec le rôle `postgres` qui a rolbypassrls = true.
 -- Les rôles `anon` / `authenticated` n'ont donc aucune raison d'exister

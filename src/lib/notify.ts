@@ -219,7 +219,7 @@ async function sendAlertEmail(o: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'Apogee <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || 'Leadscore <onboarding@resend.dev>',
         to: [MAIL_TO],
         subject: o.subject,
         html: renderAlertEmail(o),
@@ -258,7 +258,7 @@ export function renderAlertEmail(o: { headline: string; accent: string; accountN
       </td></tr>
       <tr><td style="padding:26px;font-family:${FONT}">${markdownToEmailHtml(o.body)}</td></tr>
       <tr><td style="padding:16px 26px;border-top:1px solid #e5e7eb;background:#f8f9fc;font-family:${FONT};font-size:11px;color:#6b7280">
-        Alerte automatique Apogee. Les identifiants et jetons d'accès sont masqués avant envoi.
+        Alerte automatique Leadscore. Les identifiants et jetons d'accès sont masqués avant envoi.
       </td></tr>
     </table>
   </td></tr>

@@ -42,7 +42,7 @@ export async function deliverReport(
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: process.env.RESEND_FROM || 'Apogee <onboarding@resend.dev>',
+            from: process.env.RESEND_FROM || 'Leadscore <onboarding@resend.dev>',
             to: [to],
             subject: title,
             html: renderReportEmail({ title, accountName, content }),

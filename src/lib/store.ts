@@ -18,6 +18,6 @@ export const useStore = create<AppStore>()(
       accounts: [],
       setAccounts: (accounts) => set({ accounts }),
     }),
-    { name: 'apogee-store' }
+    { name: 'leadscore-store' }
   )
 )
