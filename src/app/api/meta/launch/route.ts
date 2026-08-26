@@ -806,7 +806,21 @@ export async function POST(req: NextRequest) {
           const campaignLabel = campaign?.name || 'Campagne inconnue'
           const accountLabel = dbAccount?.name || accountId
 
-          if (historyStatus === 'error') {
+          // Un lancement peut se terminer sans exception et n'avoir rien créé :
+          // toutes les ads ignorées faute d'asset ou de page. Confirmer un
+          // « succès » à zéro publicité serait un faux positif.
+          if (historyStatus !== 'error' && launchAdCount === 0) {
+            await notifyIncident({
+              source: 'launch',
+              title: `Lancement sans effet — ${campaignLabel}`,
+              error: 'Le lancement s\'est terminé sans erreur, mais aucune publicité n\'a été créée.',
+              cause: 'Les publicités ont toutes été ignorées en cours de route. Le journal ci-dessous indique pourquoi — le plus souvent un asset non uploadé ou une page Facebook manquante.',
+              context: logLines.join('\n'),
+              adAccountId: dbAccount?.id,
+              accountName: accountLabel,
+              email: true,
+            })
+          } else if (historyStatus === 'error') {
             await notifyIncident({
               source: 'launch',
               title: `Échec du lancement — ${campaignLabel}`,
