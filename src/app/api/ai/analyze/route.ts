@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
 import { renderGhlForPrompt } from '@/lib/ghl'
+import { notifyIncident } from '@/lib/notify'
 
 type PromptCategory = keyof typeof PROMPTS
 
@@ -197,10 +198,32 @@ ${JSON.stringify(previous.ads, null, 2)}`
               content: fullResult,
               adAccountId: dbAccountId,
             },
-          }).catch(() => {})
+          }).catch(async (e) => {
+            // L'analyse s'est affichée à l'écran mais n'ira pas dans
+            // l'Historique : sans trace, elle est simplement perdue au refresh.
+            await notifyIncident({
+              level: 'warning',
+              source: 'agent_chat',
+              title: 'Analyse produite mais non enregistrée',
+              error: e,
+              cause: 'Le texte affiché à l\'écran n\'a pas été sauvegardé dans l\'Historique. Copiez-le avant de quitter la page si vous en avez besoin.',
+              adAccountId: dbAccountId,
+              email: false,
+            })
+          })
         }
       } catch (err) {
         controller.enqueue(encoder.encode(`\n\n**Erreur:** ${String(err)}`))
+        // Pas de mail : l'erreur est déjà sous les yeux de l'utilisateur.
+        // La trace sert à repérer les pannes récurrentes.
+        await notifyIncident({
+          source: 'agent_chat',
+          title: `Échec de l'analyse — ${category}`,
+          error: err,
+          context: `Catégorie : ${category}\nType : ${analysisType}`,
+          adAccountId: dbAccountId,
+          email: false,
+        })
       }
       controller.close()
     },

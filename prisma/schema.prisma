@@ -245,3 +245,33 @@ model Report {
   isRead         Boolean  @default(false)
   createdAt      DateTime @default(now())
 }
+
+/// Journal des incidents remontés dans l'onglet Notifications.
+///
+/// Volontairement sans clé étrangère : écrire un incident ne doit jamais
+/// échouer parce que le compte a disparu, et supprimer un compte ne doit pas
+/// effacer l'historique des pannes qu'il a provoquées.
+model ErrorLog {
+  id           String   @id @default(cuid())
+  level        String   @default("error") // error | warning
+  source       String   // launch | agent_cron | agent_chat | comments | delivery | enrichment
+  title        String
+  message      String   // toujours passé par redact() avant écriture
+  cause        String?  // interprétation lisible quand on sait la déduire
+  context      String?  // extrait de journal / détail, redacted lui aussi
+  adAccountId  String?
+  accountName  String?
+  agentName    String?
+  /// Regroupe les occurrences d'une même panne : source + compte + message
+  /// normalisé. C'est la clé de la déduplication du mail sur 24 h.
+  fingerprint  String
+  occurrences  Int      @default(1)
+  mailedAt     DateTime?
+  isRead       Boolean  @default(false)
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([fingerprint])
+  @@index([createdAt])
+  @@index([isRead])
+}

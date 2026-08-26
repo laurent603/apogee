@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_CHAT } from '@/lib/anthropic'
+import { notifyIncident } from '@/lib/notify'
 
 const SYSTEM = `Tu es un expert en stratégie créative publicitaire Meta (Facebook/Instagram).
 Tu analyses des commentaires de publicités pour extraire des insights actionnables qui permettront de créer de meilleures publicités — textes, hooks, angles créatifs, briefs vidéo/image.
@@ -56,22 +57,56 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
   ]
 }`
 
-  const stream = await anthropic.messages.stream({
-    model: MODEL_CHAT,
-    // The schema has six sections with nested examples; 4096 truncated the JSON
-    // mid-string on accounts with a few dozen comments.
-    max_tokens: 16000,
-    system: SYSTEM,
-    messages: [{ role: 'user', content: userMessage }],
-  })
+  const context = `${allComments.length} commentaires · ${posts.length} publicité${posts.length > 1 ? 's' : ''}\nPublicités : ${posts.map((p) => p.adName).slice(0, 10).join(', ')}`
+
+  // L'ouverture du flux peut échouer avant tout streaming (clé Anthropic,
+  // quota, modèle indisponible). Sans ce try, la requête partait en rejet
+  // non capturé et le client ne recevait qu'un 500 muet.
+  let stream
+  try {
+    stream = await anthropic.messages.stream({
+      model: MODEL_CHAT,
+      // The schema has six sections with nested examples; 4096 truncated the JSON
+      // mid-string on accounts with a few dozen comments.
+      max_tokens: 16000,
+      system: SYSTEM,
+      messages: [{ role: 'user', content: userMessage }],
+    })
+  } catch (err) {
+    await notifyIncident({
+      source: 'comments',
+      title: 'Analyse des commentaires impossible à démarrer',
+      error: err,
+      cause: 'L\'appel au modèle a été refusé avant tout traitement. Vérifiez la clé Anthropic et le quota du compte.',
+      context,
+      email: true,
+    })
+    return new Response(JSON.stringify({ error: 'L\'analyse n\'a pas pu démarrer. L\'incident est enregistré dans Notifications.' }), {
+      status: 502, headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   const encoder = new TextEncoder()
   const readable = new ReadableStream({
     async start(controller) {
-      for await (const chunk of stream) {
-        if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-          controller.enqueue(encoder.encode(chunk.delta.text))
+      try {
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            controller.enqueue(encoder.encode(chunk.delta.text))
+          }
         }
+      } catch (err) {
+        // Le flux s'est coupé en route : le client reçoit du JSON tronqué et
+        // n'affichera qu'une erreur de parsing, sans jamais dire pourquoi.
+        await notifyIncident({
+          source: 'comments',
+          title: 'Analyse des commentaires interrompue',
+          error: err,
+          cause: 'Le flux s\'est coupé pendant la génération. Le résultat affiché est incomplet ou illisible — relancez l\'analyse.',
+          context,
+          email: true,
+        })
+        controller.enqueue(encoder.encode('\n{"__erreur__":"flux interrompu"}'))
       }
       controller.close()
     },

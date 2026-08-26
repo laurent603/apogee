@@ -6,6 +6,7 @@ import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
 import { deliverReport } from '@/lib/deliver'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { renderGhlForPrompt } from '@/lib/ghl'
+import { notifyIncident } from '@/lib/notify'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -39,10 +40,32 @@ export async function GET(req: NextRequest) {
   const results: { agentId: string; name: string; status: string }[] = []
 
   for (const agent of dueAgents) {
+    // Ce que l'agent n'a pas réussi à charger. Un rapport peut se générer
+    // sans ces données et paraître normal : on le signale sans crier au feu.
+    const degraded: string[] = []
     try {
       const token = agent.user.accessToken
       const metaAccountId = agent.adAccount.metaAccountId
-      if (!token || !metaAccountId) { results.push({ agentId: agent.id, name: agent.name, status: 'skip:no-token' }); continue }
+      if (!token || !metaAccountId) {
+        results.push({ agentId: agent.id, name: agent.name, status: 'skip:no-token' })
+        // Un agent actif sans jeton ne tournera jamais : c'est une panne
+        // silencieuse, pas un cas normal à ignorer.
+        await notifyIncident({
+          source: 'agent_cron',
+          title: `Agent « ${agent.name} » ne peut pas démarrer`,
+          error: !token
+            ? 'Aucun jeton d\'accès Facebook sur le compte utilisateur rattaché à cet agent.'
+            : 'Le compte publicitaire rattaché à cet agent n\'a pas d\'identifiant Meta.',
+          cause: !token
+            ? 'La session Facebook du propriétaire a probablement expiré. Une reconnexion à l\'application régénère le jeton.'
+            : 'Le compte a été créé sans metaAccountId. Resélectionnez-le dans le sélecteur de compte.',
+          adAccountId: agent.adAccountId,
+          accountName: agent.adAccount.name,
+          agentName: agent.name,
+          email: true,
+        })
+        continue
+      }
 
       const datePreset = agent.analysisPeriod || 'last_7d'
       const bs = await prisma.brandSettings.findUnique({
@@ -52,8 +75,14 @@ export async function GET(req: NextRequest) {
       const leadSource = (bs?.leadSource as LeadSource) || 'total'
 
       const ghlRow = await prisma.ghlConnection.findUnique({ where: { adAccountId: agent.adAccountId } }).catch(() => null)
+      // Sans dépense lifetime, la colonne « Coût/vente » se vide et le modèle
+      // retombe sur le taux de gain seul — exactement l'erreur de classement
+      // qu'on cherche à éviter. À signaler, pas à avaler.
       const lifetimeSpend = ghlRow?.adStats
-        ? await getLifetimeAdSpend(metaAccountId, token, leadSource)
+        ? await getLifetimeAdSpend(metaAccountId, token, leadSource).catch((e) => {
+            degraded.push(`Dépense totale par publicité indisponible (${e instanceof Error ? e.message : 'erreur'}) — la colonne « Coût/vente » du tableau CRM sera vide.`)
+            return undefined
+          })
         : undefined
       const ghl = ghlRow?.adStats
         ? renderGhlForPrompt(ghlRow.adStats, {
@@ -77,7 +106,10 @@ export async function GET(req: NextRequest) {
         isCreative
           ? getAdsWithCopy(metaAccountId, token, datePreset, leadSource)
           : getAds(metaAccountId, token, datePreset, leadSource),
-        getPreviousPeriod(metaAccountId, token, datePreset, leadSource).catch(() => null),
+        getPreviousPeriod(metaAccountId, token, datePreset, leadSource).catch((e) => {
+          degraded.push(`Période de comparaison indisponible (${e instanceof Error ? e.message : 'erreur'}) — le rapport ne pourra affirmer aucune tendance.`)
+          return null
+        }),
       ])
 
       const comparison = previous
@@ -118,10 +150,58 @@ export async function GET(req: NextRequest) {
         name: agent.name,
         status: failed.length ? `ok:livraison-partielle(${failed.map(f => `${f.channel}:${f.detail}`).join('; ')})` : 'ok',
       })
+
+      // Le rapport existe en base mais n'est arrivé nulle part. C'est le
+      // scénario « j'ai lancé un audit et je n'ai jamais reçu le mail ».
+      if (failed.length) {
+        await notifyIncident({
+          source: 'delivery',
+          title: `Rapport « ${agent.name} » généré mais non livré`,
+          error: failed.map(f => `${f.channel} : ${f.detail || 'échec sans détail'}`).join('\n'),
+          cause: 'Le rapport est bien enregistré et reste consultable dans l\'onglet Historique de l\'Autopilot. Seul l\'acheminement a échoué.',
+          adAccountId: agent.adAccountId,
+          accountName: agent.adAccount.name,
+          agentName: agent.name,
+          email: true,
+        })
+      }
+
+      // Rapport livré, mais bâti sur des données incomplètes.
+      if (degraded.length) {
+        await notifyIncident({
+          level: 'warning',
+          source: 'enrichment',
+          title: `Rapport « ${agent.name} » généré avec des données manquantes`,
+          error: degraded.join('\n'),
+          cause: 'Le rapport a été produit et livré, mais il lui manque des données. Ses conclusions peuvent être incomplètes sans que rien ne le signale dans le texte.',
+          adAccountId: agent.adAccountId,
+          accountName: agent.adAccount.name,
+          agentName: agent.name,
+          email: false,
+        })
+      }
     } catch (e) {
       results.push({ agentId: agent.id, name: agent.name, status: `error:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}` })
+      await notifyIncident({
+        source: 'agent_cron',
+        title: `Échec de l'agent « ${agent.name} »`,
+        error: e,
+        cause: degraded.length
+          ? `L'agent avait déjà rencontré des problèmes de données avant de s'arrêter :\n${degraded.join('\n')}`
+          : undefined,
+        context: `Compte : ${agent.adAccount.name}\nRôle : ${agent.role}\nPériode : ${agent.analysisPeriod || 'last_7d'}\nFréquence : ${agent.frequency}`,
+        adAccountId: agent.adAccountId,
+        accountName: agent.adAccount.name,
+        agentName: agent.name,
+        email: true,
+      })
     }
   }
+
+  // Purge de rétention : sans elle le journal grossit indéfiniment.
+  await prisma.errorLog
+    .deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } } })
+    .catch(() => null)
 
   return NextResponse.json({ ran: results.length, results })
 }

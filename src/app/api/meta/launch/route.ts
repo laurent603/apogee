@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { metaFetch } from '@/lib/meta'
 import { prisma } from '@/lib/db'
+import { notifyIncident, notifyLaunchSuccess } from '@/lib/notify'
 
 // Video launches wait on Meta's encoder (up to ~30s per ad group) on top of the
 // creative and ad calls, which blows past Vercel's default function timeout.
@@ -138,6 +139,8 @@ export async function POST(req: NextRequest) {
       let launchAdsetCount = 0
       let launchAdCount = 0
       let historyStatus = 'success'
+      // Conservée hors du catch pour que le bloc finally puisse notifier.
+      let launchError: unknown = null
 
       function send(msg: string) {
         logLines.push(msg)
@@ -750,6 +753,7 @@ export async function POST(req: NextRequest) {
         send(`🎉 ${treeNodes.length} adset${treeNodes.length > 1 ? 's' : ''} et ${treeNodes.reduce((n, node) => n + node.adGroups.length, 0)} ad${treeNodes.reduce((n, node) => n + node.adGroups.length, 0) > 1 ? 's' : ''} publiés dans Meta Ads Manager !`)
       } catch (err) {
         historyStatus = 'error'
+        launchError = err
         send(`❌ ${err instanceof Error ? err.message : String(err)}`)
       } finally {
         // Save launch history (fire and forget)
@@ -783,6 +787,35 @@ export async function POST(req: NextRequest) {
             send(`⚠ Lancement effectué, mais non enregistré dans l'historique : ${e instanceof Error ? e.message.slice(0, 120) : 'erreur'}`)
           })
         }
+
+        // Notification — awaited avant controller.close() pour la même raison
+        // que l'historique : la fonction gèle dès que le flux se ferme.
+        // Encapsulé : une alerte qui échoue ne doit jamais salir un lancement.
+        try {
+          const campaignLabel = campaign?.name || 'Campagne inconnue'
+          if (historyStatus === 'error') {
+            await notifyIncident({
+              source: 'launch',
+              title: `Échec du lancement — ${campaignLabel}`,
+              error: launchError || 'Le lancement s\'est interrompu sans message d\'erreur.',
+              context: logLines.join('\n'),
+              adAccountId: undefined,
+              accountName: accountId,
+              email: true,
+            })
+          } else {
+            await notifyLaunchSuccess({
+              campaignName: campaignLabel,
+              accountName: accountId,
+              adsetCount: launchAdsetCount,
+              adCount: launchAdCount,
+              journal: logLines.join('\n'),
+            })
+          }
+        } catch (e) {
+          console.error('[launch] notification échouée (sans effet sur le lancement) :', e)
+        }
+
         controller.close()
       }
     },

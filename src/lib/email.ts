@@ -56,6 +56,22 @@ export function markdownToEmailHtml(md: string): string {
   while (i < lines.length) {
     const line = lines[i]
 
+    // Fenced code block. Must be tested before everything else: its content is
+    // verbatim, and a stack trace full of `*` or `|` would otherwise be parsed
+    // as emphasis or as a table. Alert emails lean on this for error messages.
+    const fence = line.match(/^\s*```/)
+    if (fence) {
+      flushPara(); closeList()
+      i++
+      const code: string[] = []
+      while (i < lines.length && !/^\s*```/.test(lines[i])) { code.push(lines[i]); i++ }
+      i++ // closing fence, or end of input
+      out.push(
+        `<pre style="margin:0 0 16px;padding:12px 14px;background:${C.head};border:1px solid ${C.border};border-radius:8px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.55;color:${C.text};white-space:pre-wrap;word-break:break-word">${esc(code.join('\n'))}</pre>`
+      )
+      continue
+    }
+
     // Table: header row, separator, then body rows
     if (isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
       flushPara(); closeList()
