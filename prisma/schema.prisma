@@ -246,6 +246,116 @@ model Report {
   createdAt      DateTime @default(now())
 }
 
+/// Campagnes, adsets et publicités Meta, avec leur nom et leur statut.
+///
+/// Séparé des chiffres : un nom se répète à l'identique sur 365 jours, le
+/// stocker dans la table de faits gonflerait celle-ci pour rien. L'objectif
+/// est ici parce que `resolvePrimaryResult` en a besoin — sans lui, impossible
+/// de savoir si le « résultat » d'une campagne est un prospect, un itinéraire
+/// ou une personne touchée.
+model MetaEntity {
+  id            String   @id @default(cuid())
+  adAccountId   String
+  level         String   // campaign | adset | ad
+  metaId        String
+  name          String
+  status        String?
+  effectiveStatus String?
+  objective     String?  // campagnes seulement
+  parentMetaId  String?  // ad -> adset, adset -> campaign
+  dailyBudget   Float?
+  lifetimeBudget Float?
+  createdTime   DateTime?
+  syncedAt      DateTime @default(now())
+
+  @@unique([level, metaId])
+  @@index([adAccountId, level])
+  @@index([parentMetaId])
+}
+
+/// Un enregistrement par publicité, par jour et par fenêtre d'attribution.
+///
+/// Deux règles portent cette table :
+///
+/// 1. **Aucun ratio n'est stocké.** CPL, CTR, hook rate et compagnie se
+///    recalculent à la lecture depuis les numérateurs et dénominateurs. Un
+///    CPL de période ne s'obtient pas en moyennant des CPL journaliers : il
+///    faut diviser la dépense totale par les prospects totaux. Stocker le
+///    ratio, c'est garantir des chiffres faux dès qu'on agrège.
+/// 2. **L'attribution fait partie de la clé.** Le même jour, la même pub, ne
+///    déclare pas les mêmes conversions en 1d_click et en 7d_click. Seule la
+///    fenêtre par défaut du compte est synchronisée au départ ; les autres se
+///    peuplent à la demande, sans changer le schéma.
+model MetaDailyAd {
+  id            String   @id @default(cuid())
+  adAccountId   String   // AdAccount.id interne
+  metaAccountId String   // act_xxx, pour les requêtes directes
+  date          DateTime @db.Date
+  adId          String
+  adsetId       String?
+  campaignId    String?
+  attribution   String   @default("default") // default | 1d_click | 7d_click | 1d_view
+
+  spend            Float @default(0)
+  impressions      Int   @default(0)
+  reach            Int   @default(0)
+  clicks           Int   @default(0)
+  linkClicks       Int   @default(0)
+  outboundClicks   Int   @default(0)
+
+  // Tunnel du clic à l'achat
+  landingPageViews Int   @default(0)
+  addToCart        Int   @default(0)
+  initiateCheckout Int   @default(0)
+  purchases        Int   @default(0)
+  revenue          Float @default(0)
+
+  // Prospects : trois sources tenues séparées, Meta les déclarant sur trois
+  // lignes distinctes. Les fusionner sous-compte les comptes qui ont les deux.
+  formLeads        Int   @default(0)
+  pixelLeads       Int   @default(0)
+  totalLeads       Int   @default(0)
+
+  // Résultats alternatifs, pour les objectifs qui ne comptent ni prospect ni achat
+  directions       Int   @default(0)
+  postEngagement   Int   @default(0)
+
+  videoStarts      Int   @default(0)
+  video3s          Int   @default(0)
+  video15s         Int   @default(0)
+  thruplays        Int   @default(0)
+  video25          Int   @default(0)
+  video50          Int   @default(0)
+  video75          Int   @default(0)
+  video95          Int   @default(0)
+
+  syncedAt      DateTime @default(now())
+
+  @@unique([adId, date, attribution])
+  @@index([adAccountId, date])
+  @@index([campaignId, date])
+  @@index([adsetId, date])
+  @@index([date])
+}
+
+/// Où en est la synchronisation de chaque compte.
+///
+/// `lastSyncedAt` ne suffit pas : Meta réattribue les conversions pendant
+/// plusieurs jours, donc chaque passage réécrit une fenêtre glissante récente
+/// plutôt que d'ajouter aveuglément à la suite.
+model MetaSyncState {
+  id            String   @id @default(cuid())
+  adAccountId   String   @unique
+  metaAccountId String
+  /// Jour le plus ancien déjà récupéré — la reprise d'historique remonte
+  /// progressivement pour ne pas se faire limiter par Meta.
+  backfilledFrom DateTime? @db.Date
+  lastSyncedAt  DateTime?
+  lastError     String?
+  rowsTotal     Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
 /// Journal des incidents remontés dans l'onglet Notifications.
 ///
 /// Volontairement sans clé étrangère : écrire un incident ne doit jamais
