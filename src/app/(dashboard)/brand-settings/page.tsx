@@ -649,9 +649,10 @@ export default function BrandSettingsPage() {
                 <p className="text-xs font-semibold text-[#0d0d12]">Étiquettes du tunnel</p>
                 <p className="text-[11px] text-gray-400 mt-0.5 mb-2">
                   GoHighLevel ne connaît pas d&apos;étape « rendez-vous » ou « devis » : ce sont des
-                  étiquettes posées sur le contact, dont le libellé vous appartient. Recopiez-les
-                  exactement — la casse et les accents n&apos;ont pas d&apos;importance, l&apos;orthographe si.
-                  Une étiquette laissée vide garde son compteur à zéro.
+                  étiquettes posées sur le contact, dont le libellé vous appartient. Copiez-collez-les
+                  depuis GoHighLevel. Les emoji sont acceptés, ainsi que la casse, les accents et les
+                  espaces en trop — seule l&apos;orthographe compte. Une étiquette laissée vide garde son
+                  compteur à zéro.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                   {([

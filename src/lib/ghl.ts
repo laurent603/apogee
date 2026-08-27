@@ -257,9 +257,34 @@ function jour(v: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
 }
 
-/** Comparaison indulgente : GHL rend les étiquettes telles qu'elles ont été
- *  saisies, à la casse et aux espaces près. */
-const normalise = (s: unknown) => String(s ?? '').trim().toLowerCase()
+/**
+ * Compare deux étiquettes comme un humain les lirait.
+ *
+ * Une étiquette est recopiée à la main dans les réglages, et trois écarts
+ * invisibles à l'œil suffisent à la faire manquer :
+ *
+ * - **Le sélecteur de variante.** `🏷` et `🏷️` sont deux chaînes différentes —
+ *   la seconde porte un U+FE0F qui demande le rendu couleur. Selon l'endroit
+ *   d'où l'emoji est copié, il est là ou non.
+ * - **Les accents composés ou décomposés.** « signé » s'écrit avec un `é`
+ *   unique, ou avec un `e` suivi d'un accent combinant. Les deux s'affichent
+ *   pareil et ne sont pas égaux.
+ * - **Les espaces.** Insécables, fines, ou simplement doublés autour d'un
+ *   tiret.
+ *
+ * Chacun de ces cas produirait un compteur à zéro sans rien signaler, et
+ * chercher pourquoi coûterait une heure. Aucun n'est un choix de l'utilisateur :
+ * on les efface tous.
+ */
+const normalise = (s: unknown) =>
+  String(s ?? '')
+    .normalize('NFC')
+    // Sélecteurs de variante et marques invisibles.
+    .replace(/[\uFE0F\uFE0E\u200B\uFEFF]/g, '')
+    // Toute forme d'espace — insécable, fine, tabulation — devient une espace.
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .toLowerCase()
 
 function porte(contact: Contact, etiquette: string | null): boolean {
   if (!etiquette) return false
