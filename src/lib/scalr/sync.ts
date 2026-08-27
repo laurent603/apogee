@@ -18,6 +18,7 @@
  */
 
 import { prisma } from '@/lib/db'
+import { CREATIVE_FIELDS, detectCreativeType, thumbnailUrl } from './creative'
 import {
   INSIGHT_FIELDS, fallbackFieldsFor, isRetryableInsightsError, withAttribution,
   extractActionValue, extractActionValueByKeyword,
@@ -275,7 +276,7 @@ async function enrichStatuses(
   const edges: [string, string, string][] = [
     ['campaign', 'campaigns', 'id,status,effective_status,daily_budget,lifetime_budget,created_time'],
     ['adset', 'adsets', 'id,status,effective_status,daily_budget,lifetime_budget,created_time'],
-    ['ad', 'ads', 'id,status,effective_status,created_time'],
+    ['ad', 'ads', `id,name,status,effective_status,created_time,${CREATIVE_FIELDS}`],
   ]
   for (const [level, edge, fields] of edges) {
     const ids = [...drafts.values()].filter((d) => d.level === level).map((d) => d.metaId)
@@ -321,6 +322,10 @@ async function persistEntities(
           dailyBudget: x.daily_budget ? num(x.daily_budget) / 100 : null,
           lifetimeBudget: x.lifetime_budget ? num(x.lifetime_budget) / 100 : null,
           createdTime: x.created_time ? new Date(String(x.created_time)) : null,
+          // Publicités seulement : de quoi peupler la galerie de créas.
+          thumbnailUrl: d.level === 'ad' ? thumbnailUrl(x.creative as never) : null,
+          creativeType: d.level === 'ad' ? detectCreativeType(x.creative as never, d.name) : null,
+          creativeId: d.level === 'ad' && x.creative ? String((x.creative as Record<string, unknown>).id ?? '') || null : null,
           syncedAt: new Date(),
         }
         return prisma.metaEntity.upsert({

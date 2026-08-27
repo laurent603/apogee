@@ -266,6 +266,11 @@ model MetaEntity {
   dailyBudget   Float?
   lifetimeBudget Float?
   createdTime   DateTime?
+  /// Publicités seulement : de quoi afficher la galerie de créas. Le format
+  /// se déduit d'abord du nom, la convention primant sur l'emballage Meta.
+  thumbnailUrl  String?
+  creativeType  String?
+  creativeId    String?
   syncedAt      DateTime @default(now())
 
   @@unique([level, metaId])

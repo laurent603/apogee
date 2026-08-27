@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
   const [entites, agg, aggPrev, joursRows, reglages, portees] = await Promise.all([
     prisma.metaEntity.findMany({
       where: { adAccountId: dbAccountId, level: niveauEntite },
-      select: { metaId: true, name: true, objective: true, status: true, effectiveStatus: true, dailyBudget: true, createdTime: true, parentMetaId: true },
+      select: { metaId: true, name: true, objective: true, status: true, effectiveStatus: true, dailyBudget: true, createdTime: true, parentMetaId: true, thumbnailUrl: true, creativeType: true },
     }),
     prisma.metaDailyAd.groupBy({ by: [cle], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
     prisma.metaDailyAd.groupBy({ by: [cle], where: { ...base, date: { gte: prev.since, lte: prev.until } }, _sum: SUM }),
@@ -128,6 +128,8 @@ export async function GET(req: NextRequest) {
       status: e.effectiveStatus || e.status,
       dailyBudget: e.dailyBudget,
       createdTime: e.createdTime,
+      thumbnailUrl: e.thumbnailUrl,
+      creativeType: e.creativeType,
       ...m,
       reachSum: reach ?? m.reachSum,
       reachIsApproximate: reach === null,

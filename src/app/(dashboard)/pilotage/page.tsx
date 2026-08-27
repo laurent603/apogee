@@ -6,6 +6,7 @@ import {
   METRICS, METRIC_BY_KEY, GROUPES, COLONNES_DEFAUT, formatMetric, senseVariation,
   type MetricDef,
 } from '@/lib/scalr/metrics'
+import { GalerieCreas } from '@/components/scalr/GalerieCreas'
 
 /**
  * Le tableau de pilotage.
@@ -30,6 +31,7 @@ const NIVEAUX = [
   { id: 'campaign', label: 'Campagnes' },
   { id: 'adset', label: 'Ad Sets' },
   { id: 'ad', label: 'Publicités' },
+  { id: 'crea', label: 'Créas' },
 ] as const
 
 const PERIODES = [
@@ -221,7 +223,11 @@ export default function PilotagePage() {
       {!selectedAccount && <div className="card text-center py-16 text-gray-400 text-sm">Sélectionnez un compte publicitaire.</div>}
       {selectedAccount && loading && <div className="card text-center py-16 text-gray-400 text-sm">Chargement…</div>}
 
-      {selectedAccount && !loading && data && (
+      {selectedAccount && !loading && data && niveau === 'crea' && (
+        <GalerieCreas lignes={lignes as never} />
+      )}
+
+      {selectedAccount && !loading && data && niveau !== 'crea' && (
         <div className="card p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
