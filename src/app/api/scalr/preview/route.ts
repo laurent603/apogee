@@ -55,9 +55,21 @@ export async function GET(req: NextRequest) {
     const html: string = json.data?.[0]?.body || ''
     // On ne garde que la source : le reste du fragment n'est pas exécuté ici.
     const src = html.match(/src="([^"]+)"/)?.[1]?.replace(/&amp;/g, '&') || null
+
+    // Les dimensions naturelles du rendu, telles que Meta les déclare. Sans
+    // elles il faudrait supposer une largeur, et toute erreur laisse une bande
+    // blanche dans la vignette ou rogne la créa. Elles varient selon le
+    // placement : un fil mobile et une story n'ont pas la même forme.
+    const entier = (attr: string) => {
+      const v = Number(html.match(new RegExp(`${attr}="(\\d+)"`))?.[1])
+      return Number.isFinite(v) && v > 0 ? v : null
+    }
+
     return NextResponse.json({
       src,
       format,
+      largeur: entier('width'),
+      hauteur: entier('height'),
       error: src ? null : 'Aucun aperçu disponible pour ce placement',
     })
   } catch (e) {

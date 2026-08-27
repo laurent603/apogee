@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
+import { ApercuMeta } from './ApercuMeta'
 import { Camembert, BarresDoubles, AgeGenre, PAR_CLE, fmt, type Vent } from './graphes'
 
 /**
@@ -29,18 +30,6 @@ const FORMATS = [
 
 function Apercu({ adId }: { adId: string }) {
   const [format, setFormat] = useState(FORMATS[0].id)
-  const [src, setSrc] = useState<string | null>(null)
-  const [etat, setEtat] = useState<'charge' | 'absent'>('charge')
-
-  useEffect(() => {
-    let vivant = true
-    setSrc(null); setEtat('charge')
-    fetch(`/api/scalr/preview?adId=${adId}&format=${format}`)
-      .then((r) => r.json())
-      .then((d) => { if (!vivant) return; if (d.src) setSrc(d.src); else setEtat('absent') })
-      .catch(() => { if (vivant) setEtat('absent') })
-    return () => { vivant = false }
-  }, [adId, format])
 
   return (
     <div className="flex flex-col gap-2 min-h-0">
@@ -53,14 +42,8 @@ function Apercu({ adId }: { adId: string }) {
           </button>
         ))}
       </div>
-      <div className="bg-[#f8f9fc] rounded-xl border border-[#E5E7EB] overflow-hidden flex-1 min-h-[420px]">
-        {src ? (
-          <iframe src={src} className="w-full h-full border-0" sandbox="allow-scripts allow-same-origin" title="Aperçu de la publicité" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">
-            {etat === 'absent' ? 'Aucun aperçu pour ce placement' : 'Chargement…'}
-          </div>
-        )}
+      <div className="rounded-xl border border-[#E5E7EB] overflow-hidden">
+        <ApercuMeta adId={adId} format={format} mode="entier" interactif />
       </div>
     </div>
   )

@@ -1,8 +1,9 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { METRIC_BY_KEY, formatMetric, senseVariation, type MetricDef } from '@/lib/scalr/metrics'
 import { DetailCrea } from './DetailCrea'
+import { ApercuMeta } from './ApercuMeta'
 
 /**
  * La galerie de créas.
@@ -13,88 +14,9 @@ import { DetailCrea } from './DetailCrea'
  *
  * L'image est l'aperçu officiel de Meta, pas la vignette du créatif : celle-ci
  * plafonne à 64×64, et l'image de la publication n'existe pas pour des dark
- * posts.
+ * posts. Le rendu, sa mise à l'échelle et le décalage des appels vivent dans
+ * `ApercuMeta`, partagé avec le détail créa.
  */
-
-/**
- * Largeur naturelle du rendu Meta pour un fil mobile.
- *
- * Le document servi par Meta ne se remet pas en page : rétréci, il est rogné,
- * pas reflué. À six cartes par ligne la vignette passe sous cette largeur, donc
- * on rend l'aperçu à sa taille réelle et on le met à l'échelle.
- */
-const LARGEUR_META = 320
-
-/**
- * Charge l'aperçu Meta, en décalant les appels.
- *
- * La première version n'appelait qu'à l'entrée dans le champ de vision, via un
- * IntersectionObserver. Élégant sur le papier, fragile en pratique : là où
- * l'observateur ne se déclenche pas, la carte reste en chargement pour
- * toujours, sans erreur ni trace. Un affichage ne doit pas dépendre d'un signal
- * qui peut ne jamais venir.
- *
- * On charge donc systématiquement, en étalant les requêtes de 120 ms par carte
- * pour ne pas envoyer vingt appels d'un coup à l'ouverture.
- */
-function Apercu({ adId, rang }: { adId: string; rang: number }) {
-  const [src, setSrc] = useState<string | null>(null)
-  const [etat, setEtat] = useState<'charge' | 'absent'>('charge')
-  const cadre = useRef<HTMLDivElement>(null)
-  const [boite, setBoite] = useState({ l: 0, h: 0 })
-
-  useEffect(() => {
-    const el = cadre.current
-    if (!el) return
-    const mesurer = () => setBoite({ l: el.clientWidth, h: el.clientHeight })
-    mesurer()
-    const ro = new ResizeObserver(mesurer)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  useEffect(() => {
-    let vivant = true
-    const t = setTimeout(() => {
-      fetch(`/api/scalr/preview?adId=${adId}&format=MOBILE_FEED_STANDARD`)
-        .then((r) => r.json())
-        .then((d) => { if (!vivant) return; if (d.src) setSrc(d.src); else setEtat('absent') })
-        .catch(() => { if (vivant) setEtat('absent') })
-    }, Math.min(rang, 24) * 120)
-    return () => { vivant = false; clearTimeout(t) }
-  }, [adId, rang])
-
-  // Ne jamais agrandir : au-delà de sa largeur naturelle le rendu Meta
-  // deviendrait flou pour rien.
-  const echelle = boite.l ? Math.min(1, boite.l / LARGEUR_META) : 1
-
-  if (src) {
-    return (
-      <div ref={cadre} className="w-full h-full overflow-hidden">
-        <iframe src={src} title="Aperçu de la publicité"
-          sandbox="allow-scripts allow-same-origin" loading="lazy"
-          className="border-0 pointer-events-none"
-          style={{
-            width: LARGEUR_META,
-            height: echelle ? boite.h / echelle : '100%',
-            transform: `scale(${echelle})`,
-            transformOrigin: 'top left',
-          }} />
-      </div>
-    )
-  }
-  return (
-    <div ref={cadre} className="w-full h-full flex items-center justify-center text-gray-300">
-      {etat === 'absent' ? (
-        <span className="text-[10px] text-gray-400 px-2 text-center">Aperçu indisponible</span>
-      ) : (
-        <svg className="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      )}
-    </div>
-  )
-}
 
 type Ligne = Record<string, unknown> & {
   id: string
@@ -256,13 +178,13 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
         {creas.map((r, i) => (
           <div key={r.id} onClick={() => setOuvert(r.id)}
             className={clsx('card p-0 overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-shadow',
               r.id === meilleure?.id && 'ring-2 ring-[#3434ef] ring-offset-1')}>
             <div className="relative bg-[#f8f9fc] aspect-[4/5] overflow-hidden">
-              <Apercu adId={r.id} rang={i} />
+              <ApercuMeta adId={r.id} delai={Math.min(i, 24) * 120} />
               <span className={clsx('absolute top-2 left-2 w-2 h-2 rounded-full ring-2 ring-white',
                 r.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-300')} />
               {r.creativeType && (
