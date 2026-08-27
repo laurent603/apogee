@@ -17,9 +17,11 @@ import { CadreApercu, type Apercu } from './ApercuMeta'
  * posts. Le rendu et sa mise à l'échelle vivent dans `CadreApercu`, partagé
  * avec le détail créa.
  *
- * **Le mur se pagine, et tire ses aperçus par lots.** Un compte de cent créas
- * lançait cent requêtes, donc cent fonctions serverless et cent appels à Meta.
- * Une page en demande un seul, groupé.
+ * **Le mur se pagine, tire ses aperçus par lots, et ne monte ses iframes qu'à
+ * l'approche de l'écran.** Ces trois points portent trois coûts distincts : le
+ * nombre de requêtes, l'attente avant la première carte, et le poids réel du
+ * rendu — une iframe d'aperçu est un document Meta complet, pas une image.
+ * C'est ce dernier qui domine, et c'est celui que j'avais manqué.
  */
 
 /** Cinq rangées de six sur un grand écran. */
@@ -142,21 +144,33 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
   // sur du vide.
   useEffect(() => { setPage(1) }, [lignes, classement])
 
-  // Les aperçus de la page, en un appel. La clé évite de redemander ce qu'on
-  // a déjà quand on revient sur une page.
+  /**
+   * Les aperçus de la page, en quelques lots parallèles.
+   *
+   * Un lot unique faisait attendre les trente URLs avant d'afficher la
+   * moindre carte : plus efficient sur le papier, plus lent à l'œil. Des lots
+   * courts se remplissent au fur et à mesure, tout en gardant quatre requêtes
+   * là où il y en avait trente.
+   */
   const cle = visibles.map((c) => c.id).join(',')
   useEffect(() => {
     const manquants = visibles.map((c) => c.id).filter((id) => !apercus[id])
     if (!manquants.length) return
     let vivant = true
-    fetch('/api/scalr/previews', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adIds: manquants, format: 'MOBILE_FEED_STANDARD' }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (vivant && d.apercus) setApercus((prev) => ({ ...prev, ...d.apercus })) })
-      .catch(() => {})
+
+    const lots: string[][] = []
+    for (let i = 0; i < manquants.length; i += 8) lots.push(manquants.slice(i, i + 8))
+
+    for (const adIds of lots) {
+      fetch('/api/scalr/previews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adIds, format: 'MOBILE_FEED_STANDARD' }),
+      })
+        .then((r) => r.json())
+        .then((d) => { if (vivant && d.apercus) setApercus((prev) => ({ ...prev, ...d.apercus })) })
+        .catch(() => {})
+    }
     return () => { vivant = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle])
@@ -224,7 +238,7 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
             className={clsx('card p-0 overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-shadow',
               r.id === meilleure?.id && 'ring-2 ring-[#3434ef] ring-offset-1')}>
             <div className="relative bg-[#f8f9fc] aspect-[4/5] overflow-hidden">
-              <CadreApercu apercu={apercus[r.id] ?? null}
+              <CadreApercu apercu={apercus[r.id] ?? null} paresseux
                 etat={!apercus[r.id] ? 'charge' : apercus[r.id].src ? 'pret' : 'absent'} />
               <span className={clsx('absolute top-2 left-2 w-2 h-2 rounded-full ring-2 ring-white',
                 r.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-300')} />

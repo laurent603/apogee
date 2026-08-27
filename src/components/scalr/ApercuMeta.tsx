@@ -34,14 +34,25 @@ export type Apercu = { src: string | null; largeur: number | null; hauteur: numb
  * n'a donc rien à charger ici. Le détail créa, lui, en veut un seul et change
  * de placement : `ApercuMeta` l'enveloppe pour ça.
  */
-export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir' }: {
+export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir', paresseux = false }: {
   apercu: Apercu | null
   etat: Etat
   interactif?: boolean
   mode?: 'remplir' | 'entier'
+  /**
+   * N'insère l'iframe qu'à l'approche de l'écran.
+   *
+   * Une iframe d'aperçu n'est pas une image : c'est un document Meta entier,
+   * avec ses scripts, ses feuilles de style et la créa. En monter trente d'un
+   * coup, c'est des dizaines de mégaoctets et des centaines de connexions
+   * ouvertes ensemble — le mur rame quelle que soit la vitesse à laquelle on a
+   * obtenu les URLs.
+   */
+  paresseux?: boolean
 }) {
   const cadre = useRef<HTMLDivElement>(null)
   const [boite, setBoite] = useState({ l: 0, h: 0 })
+  const [aPortee, setAPortee] = useState(!paresseux)
 
   useEffect(() => {
     const el = cadre.current
@@ -52,6 +63,26 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (!paresseux) { setAPortee(true); return }
+    const el = cadre.current
+    if (!el) return
+
+    // Un observateur qui ne se déclenche pas laisserait la carte en
+    // chargement pour toujours, sans erreur ni trace — c'est ce qui était
+    // arrivé la première fois. Le minuteur garantit l'affichage même si le
+    // signal ne vient jamais.
+    const secours = setTimeout(() => setAPortee(true), 4000)
+    const io = new IntersectionObserver((entrees) => {
+      if (!entrees.some((e) => e.isIntersecting)) return
+      setAPortee(true)
+      clearTimeout(secours)
+      io.disconnect()
+    }, { rootMargin: '600px' })
+    io.observe(el)
+    return () => { clearTimeout(secours); io.disconnect() }
+  }, [paresseux])
 
   const largeur = apercu?.largeur || LARGEUR_DEFAUT
   const hauteur = apercu?.hauteur || 0
@@ -69,7 +100,7 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
 
   return (
     <div ref={cadre} className="w-full h-full overflow-hidden bg-[#f8f9fc]" style={{ height: hauteurCadre }}>
-      {apercu?.src ? (
+      {apercu?.src && aPortee ? (
         <iframe src={apercu.src} title="Aperçu de la publicité"
           sandbox="allow-scripts allow-same-origin" loading="lazy"
           className={interactif ? 'border-0' : 'border-0 pointer-events-none'}
