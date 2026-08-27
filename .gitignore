@@ -1,7 +1,7 @@
-.env
-.env.save
-.env*.local
-.env.local
+# Tout fichier d'environnement, sauf le gabarit sans valeurs
+.env*
+!.env.example
+
 tsconfig.tsbuildinfo
 .next/
 node_modules/
