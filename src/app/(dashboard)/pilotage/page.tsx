@@ -90,6 +90,20 @@ export default function PilotagePage() {
 
   const set = useCallback((patch: Partial<Reglages>) => setR((prev) => ({ ...prev, ...patch })), [])
 
+  /**
+   * Le cockpit renvoie ici avec un niveau et une pastille — « voir les
+   * 3 publicités à couper » doit ouvrir ces trois lignes, pas le tableau
+   * complet. Lu depuis l'URL au montage plutôt qu'avec `useSearchParams`, qui
+   * imposerait une frontière Suspense pour rien.
+   */
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const n = q.get('niveau')
+    const p = q.get('pastille')
+    if (n && NIVEAUX.some((x) => x.id === n)) setNiveau(n)
+    if (p && PASTILLES.some((x) => x.id === p)) setPastille(p)
+  }, [])
+
   const [data, setData] = useState<{
     lignes: Ligne[]
     periode: { since: string; until: string }

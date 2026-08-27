@@ -8,7 +8,7 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'authenticated') router.push('/dashboard')
+    if (status === 'authenticated') router.push('/cockpit')
   }, [status, router])
 
   return (
@@ -59,7 +59,7 @@ export default function LoginPage() {
             </p>
 
             <button
-              onClick={() => signIn('facebook', { callbackUrl: '/dashboard' })}
+              onClick={() => signIn('facebook', { callbackUrl: '/cockpit' })}
               className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#166FE5] text-white font-semibold py-3 px-4 rounded-xl transition-colors"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

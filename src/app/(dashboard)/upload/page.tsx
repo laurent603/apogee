@@ -2263,7 +2263,7 @@ export default function UploadPage() {
                   </div>
                   <p className="text-base font-bold text-green-800 mb-1">Campagne lancée !</p>
                   <div className="flex gap-2 justify-center mt-4">
-                    <a href="/dashboard" className="btn-secondary text-xs">Voir le Dashboard</a>
+                    <a href="/cockpit" className="btn-secondary text-xs">Voir le Cockpit</a>
                     <button onClick={resetAll} className="btn-primary text-xs">Nouveau upload</button>
                   </div>
                 </div>

@@ -367,7 +367,12 @@ export async function syncPeriodReach(opts: {
   })
   if (recent) return 0
 
-  const niveaux: [string, string][] = [['campaign', 'campaign'], ['adset', 'adset'], ['ad', 'ad']]
+  // Le niveau compte porte la fréquence globale du cockpit. Additionner la
+  // portée des campagnes compterait plusieurs fois la même personne : c'est
+  // Meta qui doit dédoublonner, et il ne le fait qu'à l'échelle demandée.
+  const niveaux: [string, string][] = [
+    ['account', 'account'], ['campaign', 'campaign'], ['adset', 'adset'], ['ad', 'ad'],
+  ]
   let ecrits = 0
 
   for (const jours of FENETRES) {

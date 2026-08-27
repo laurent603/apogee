@@ -1,125 +1,173 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { clsx } from 'clsx'
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, ComposedChart,
+} from 'recharts'
+import type { Sante, Signal } from '@/lib/scalr/cockpit'
 
-/* ─── Types ─────────────────────────────────────────────────────────────── */
+/**
+ * Le cockpit du compte.
+ *
+ * Une seule page là où il y en avait deux : l'ancien Dashboard et l'ancien
+ * Cockpit montraient les mêmes totaux, la même tendance journalière et la même
+ * répartition — laquelle refaisait déjà le tableau de pilotage.
+ *
+ * Ce qui reste répond à une question que Pilotage ne pose pas : **est-ce que
+ * ce compte va bien, et qu'est-ce que je traite en premier ?** Le détail par
+ * campagne, par créa et par placement vit à côté, dans Pilotage, et n'est pas
+ * dupliqué ici.
+ *
+ * Les verdicts sont ceux du tableau : « 3 publicités à couper » ouvre bien
+ * trois lignes là-bas.
+ */
 
-type Metrics = {
-  spend: number; impressions: number; clicks: number
-  reachSum: number; reachIsApproximate: boolean; frequency: number | null
-  leads: number; purchases: number; revenue: number
-  resultValue: number; resultLabel: string; resultType: string; costPerResult: number | null
-  cpl: number | null; cpa: number | null; roas: number | null
-  ctr: number | null; linkCtr: number | null; cpm: number | null; cpc: number | null
-  hasVideo: boolean; hookRate: number | null; holdRate: number | null
-  funnel: {
-    linkClicks: number; landingPageViews: number; addToCart: number
-    initiateCheckout: number; purchases: number
-    lpvRate: number | null; atcRate: number | null
-    checkoutRate: number | null; purchaseRate: number | null
-  }
-}
+const PERIODES = [
+  { id: '7d', label: '7 J' }, { id: '14d', label: '14 J' },
+  { id: '30d', label: '30 J' }, { id: '60d', label: '60 J' }, { id: '90d', label: '90 J' },
+]
 
-type Campagne = Metrics & {
-  campaignId: string | null; name: string; objective: string | null
-  status: string | null; dailyBudget: number | null
-}
+const eur = (v: number | null | undefined, d = 2) =>
+  v == null || !Number.isFinite(v) ? '—'
+    : `${v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })} €`
+const nb = (v: number | null | undefined) =>
+  v == null || !Number.isFinite(v) ? '—' : Math.round(v).toLocaleString('fr-FR')
+const pct = (v: number | null | undefined, d = 2) =>
+  v == null || !Number.isFinite(v) ? '—' : `${v.toFixed(d)}%`
 
-type Overview = {
+type Donnees = {
   periode: { since: string; until: string; jours: number }
   precedente: { since: string; until: string }
   fraicheur: string | null
-  courant: Metrics
-  precedent: Metrics
+  goals: { targetCpl: number | null; maxCpl: number | null }
+  courant: Record<string, number | null>
   evolutions: Record<string, number | null>
-  serie: { date: string; spend: number; leads: number; clicks: number; cpl: number | null }[]
-  campagnes: Campagne[]
+  frequenceIndisponible: boolean
+  sante: Sante
+  signaux: Signal[]
+  verdicts: Record<string, number>
+  crm: { connecte: boolean; opportunites: number; attribuees: number; signees: number; ca: number } | null
+  serie: { date: string; spend: number; leads: number; cpl: number | null }[]
+  nbPubs: number
 }
 
-/* ─── Format ────────────────────────────────────────────────────────────── */
+type Lancement = { id: string; campaignName: string; adsetCount: number; adCount: number; status: string; createdAt: string }
 
-const PERIODES = [
-  { id: '7d', label: '7 j' }, { id: '14d', label: '14 j' }, { id: '30d', label: '30 j' },
-  { id: '90d', label: '3 mois' }, { id: '180d', label: '6 mois' },
-]
-
-/* Les gardes testent `== null`, qui attrape null ET undefined.
-   Un `=== null` laissait passer une clé absente de la réponse — c'est
-   exactement ce qui a fait planter l'écran sur l'évolution du CPC, que
-   l'API ne renvoyait pas. Une métrique manquante doit s'afficher « — »,
-   jamais casser la page. */
-const eur = (n?: number | null, d = 0) =>
-  n == null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })} €`
-const nb = (n?: number | null) => (n == null ? '—' : n.toLocaleString('fr-FR'))
-const pc = (n?: number | null, d = 2) => (n == null ? '—' : `${n.toFixed(d)} %`)
-
-/** Une baisse de coût est une bonne nouvelle : le sens dépend de la métrique. */
-function Evolution({ value, inverse }: { value?: number | null; inverse?: boolean }) {
-  if (value == null || !Number.isFinite(value)) return <span className="text-xs text-gray-300">—</span>
-  const bon = inverse ? value < 0 : value > 0
-  const neutre = Math.abs(value) < 1
+/** Une hausse n'est pas une bonne nouvelle en soi : `inverse` dit dans quel
+ *  sens lire la métrique. */
+function Evo({ v, inverse }: { v: number | null | undefined; inverse?: boolean }) {
+  if (v == null || !Number.isFinite(v)) return <span className="text-[11px] text-gray-300">pas de référence</span>
+  if (Math.abs(v) < 1) return <span className="text-[11px] text-gray-400">stable</span>
+  const bon = inverse ? v < 0 : v > 0
   return (
-    <span className={clsx('text-xs font-medium tabular-nums',
-      neutre ? 'text-gray-400' : bon ? 'text-emerald-600' : 'text-red-500')}>
-      {value > 0 ? '+' : ''}{value.toFixed(1)} %
+    <span className={clsx('text-[11px] font-medium tabular-nums', bon ? 'text-emerald-600' : 'text-red-500')}>
+      {v > 0 ? '▲' : '▼'}{Math.abs(v).toFixed(0)}%
     </span>
   )
 }
 
-function Kpi({ label, value, evolution, inverse, sub }: {
-  label: string; value: string; evolution?: number | null; inverse?: boolean; sub?: string
+function Tuile({ label, valeur, evo, inverse, sous }: {
+  label: string; valeur: string; evo?: number | null; inverse?: boolean; sous?: string
 }) {
   return (
     <div className="card">
-      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">{label}</p>
-      <div className="flex items-baseline gap-2 mt-1.5">
-        <p className="text-2xl font-bold text-[#0d0d12] tabular-nums">{value}</p>
-        {evolution !== undefined && <Evolution value={evolution} inverse={inverse} />}
-      </div>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      <p className="text-[11px] text-gray-400 font-medium">{label}</p>
+      <p className="text-2xl font-bold text-[#0d0d12] tabular-nums leading-tight mt-0.5">{valeur}</p>
+      <div className="mt-0.5">{sous ? <span className="text-[11px] text-gray-400">{sous}</span> : <Evo v={evo} inverse={inverse} />}</div>
     </div>
   )
 }
 
-/* ─── Page ──────────────────────────────────────────────────────────────── */
+function Ligne({ label, valeur, evo, inverse, sous }: {
+  label: string; valeur: string; evo?: number | null; inverse?: boolean; sous?: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-gray-500">{label}</span>
+      <span className="flex items-center gap-1.5 whitespace-nowrap">
+        <strong className="text-[#0d0d12] tabular-nums font-semibold">{valeur}</strong>
+        {sous ? <span className="text-[11px] text-gray-400">{sous}</span> : <Evo v={evo} inverse={inverse} />}
+      </span>
+    </div>
+  )
+}
+
+/** Un panneau : trois lignes et une jauge qui résume leur tension. */
+function Panneau({ titre, badge, jauge, teinte, children }: {
+  titre: string; badge: string; jauge: number; teinte: string; children: React.ReactNode
+}) {
+  return (
+    <div className="card flex flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{titre}</p>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f8f9fc] border border-[#E5E7EB] text-gray-600 whitespace-nowrap">
+          {badge}
+        </span>
+      </div>
+      <div className="space-y-1.5">{children}</div>
+      <div className="h-1 bg-[#F3F4F6] rounded-full overflow-hidden mt-auto">
+        <div className={clsx('h-full rounded-full transition-all', teinte)}
+          style={{ width: `${Math.max(3, Math.min(100, jauge))}%` }} />
+      </div>
+    </div>
+  )
+}
+
+const TON_SIGNAL: Record<Signal['ton'], { carte: string; tag: string }> = {
+  bon: { carte: 'border-emerald-200 bg-emerald-50/40', tag: 'bg-emerald-100 text-emerald-700' },
+  attention: { carte: 'border-amber-200 bg-amber-50/40', tag: 'bg-amber-100 text-amber-700' },
+  mauvais: { carte: 'border-red-200 bg-red-50/40', tag: 'bg-red-100 text-red-700' },
+  info: { carte: 'border-[#E5E7EB] bg-[#f8f9fc]', tag: 'bg-gray-100 text-gray-600' },
+}
 
 export default function CockpitPage() {
   const { selectedAccount } = useStore()
   const [periode, setPeriode] = useState('30d')
-  const [data, setData] = useState<Overview | null>(null)
+  const [d, setD] = useState<Donnees | null>(null)
+  const [lancements, setLancements] = useState<Lancement[]>([])
   const [loading, setLoading] = useState(false)
 
-  const load = useCallback(() => {
+  const charger = useCallback(() => {
     if (!selectedAccount) return
     setLoading(true)
-    fetch(`/api/scalr/overview?dbAccountId=${selectedAccount.id}&periode=${periode}`)
+    fetch(`/api/scalr/cockpit?dbAccountId=${selectedAccount.id}&periode=${periode}`)
       .then((r) => r.json())
-      .then((d) => setData(d.error ? null : d))
-      .catch(() => setData(null))
+      .then((x) => setD(x.error ? null : x))
+      .catch(() => setD(null))
       .finally(() => setLoading(false))
   }, [selectedAccount, periode])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { charger() }, [charger])
 
-  const c = data?.courant
-  const e = data?.evolutions || {}
+  useEffect(() => {
+    if (!selectedAccount) return
+    const metaId = selectedAccount.metaAccountId || selectedAccount.id
+    fetch(`/api/launch-history?metaAccountId=${metaId}`)
+      .then((r) => r.json())
+      .then((x) => setLancements(Array.isArray(x) ? x : x.launches || []))
+      .catch(() => setLancements([]))
+  }, [selectedAccount])
+
+  const c = d?.courant
+  const e = d?.evolutions
+  const score = d?.sante.score ?? null
 
   return (
-    <div className="space-y-5 max-w-7xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="page-title">Cockpit</h1>
           <p className="page-subtitle mt-0.5">
             {selectedAccount?.name || 'Sélectionnez un compte'}
-            {data && ` · ${data.periode.since} → ${data.periode.until}`}
+            {d && ` · ${d.periode.since} → ${d.periode.until}`}
+            {d && <span className="text-gray-300"> · comparé au {d.precedente.since} → {d.precedente.until}</span>}
           </p>
         </div>
-        <div className="flex gap-1 bg-[#f8f9fc] rounded-xl p-1 border border-[#E5E7EB] w-full sm:w-fit overflow-x-auto">
+        <div className="flex gap-1 bg-[#f8f9fc] rounded-lg p-1 border border-[#E5E7EB]">
           {PERIODES.map((p) => (
             <button key={p.id} onClick={() => setPeriode(p.id)}
-              className={clsx('px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0',
+              className={clsx('px-3 py-1.5 rounded-md text-sm font-medium transition-all',
                 periode === p.id ? 'bg-white text-[#3434ef] shadow-sm border border-[#E5E7EB]' : 'text-gray-500 hover:text-[#0d0d12]')}>
               {p.label}
             </button>
@@ -127,147 +175,215 @@ export default function CockpitPage() {
         </div>
       </div>
 
-      {!selectedAccount && (
-        <div className="card text-center py-16 text-gray-400 text-sm">Sélectionnez un compte publicitaire.</div>
-      )}
+      {!selectedAccount && <div className="card text-center py-16 text-gray-400 text-sm">Sélectionnez un compte publicitaire.</div>}
+      {selectedAccount && loading && <div className="card text-center py-16 text-gray-400 text-sm">Chargement…</div>}
 
-      {selectedAccount && loading && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[...Array(8)].map((_, i) => <div key={i} className="card h-24 animate-pulse bg-gray-100" />)}
-        </div>
-      )}
+      {selectedAccount && !loading && d && c && (
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 items-start">
+          <div className="space-y-4 min-w-0">
 
-      {selectedAccount && !loading && c && (
-        <>
-          {/* Ce que le compte a produit — le résultat dépend de l'objectif */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Kpi label="Dépense" value={eur(c.spend)} evolution={e.spend} />
-            <Kpi label={c.resultLabel} value={nb(c.resultValue)} evolution={e.resultValue} />
-            <Kpi label={`Coût / ${c.resultLabel.toLowerCase()}`} value={eur(c.costPerResult, 2)}
-                 evolution={e.costPerResult} inverse />
-            {c.roas != null && c.revenue > 0
-              ? <Kpi label="ROAS" value={`${c.roas.toFixed(2)}×`} evolution={e.roas} sub={eur(c.revenue) + ' de CA'} />
-              : <Kpi label="CPM" value={eur(c.cpm, 2)} evolution={e.cpm} inverse />}
+            {/* ── Santé ── */}
+            <div className="card flex flex-wrap items-center gap-5">
+              <div className="relative w-24 h-24 flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
+                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="#F3F4F6" strokeWidth="3" />
+                  {score !== null && (
+                    <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="3" strokeLinecap="round"
+                      stroke={score >= 80 ? '#22c55e' : score >= 60 ? '#f59e0b' : '#ef4444'}
+                      strokeDasharray={`${score} 100`} />
+                  )}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-bold text-[#0d0d12] tabular-nums leading-none">
+                    {score ?? '—'}
+                  </span>
+                  <span className="text-[10px] text-gray-400">/ 100</span>
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-[240px]">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Santé du compte</p>
+                <p className="text-lg font-semibold text-[#0d0d12] leading-snug">{d.sante.ton}</p>
+                <p className="text-xs text-gray-500 leading-relaxed mt-1">{d.sante.texte}</p>
+
+                {/* Le détail plutôt que le seul nombre : « 62 » ne dit pas quoi
+                    faire, « −18 pour le budget qui part sans lead » se traite. */}
+                {d.sante.penalites.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                    {d.sante.penalites.map((x) => (
+                      <span key={x.libelle}
+                        className="text-[11px] px-2 py-1 rounded-lg bg-red-50 border border-red-100 text-red-700">
+                        −{x.points} · {x.libelle}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Tuiles ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Tuile label="Dépense" valeur={eur(c.spend)} evo={e?.spend} />
+              <Tuile label="Résultats" valeur={nb(c.resultValue)} evo={e?.resultValue} />
+              <Tuile label="Coût / résultat" valeur={eur(c.costPerResult)} evo={e?.costPerResult} inverse />
+              {d.crm?.connecte
+                ? <Tuile label="ROAS CRM"
+                    valeur={c.spend && d.crm.ca ? `${(d.crm.ca / c.spend).toFixed(2)}×` : '—'}
+                    sous={`${eur(d.crm.ca)} signés`} />
+                : <Tuile label="CPM" valeur={eur(c.cpm)} evo={e?.cpm} inverse />}
+            </div>
+
+            {/* ── Panneaux ── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Panneau titre="Efficacité leadgen"
+                badge={c.convRate != null ? `${pct(c.convRate, 1)} CVR` : 'signal faible'}
+                jauge={(c.convRate ?? 0) * 10} teinte="bg-[#3434ef]">
+                <Ligne label="Taux de conversion" valeur={pct(c.convRate)} evo={e?.convRate} />
+                <Ligne label="Link CTR" valeur={pct(c.linkCtr)} evo={e?.linkCtr} />
+                <Ligne label="CPL" valeur={eur(c.cpl)} evo={e?.cpl} inverse />
+              </Panneau>
+
+              <Panneau titre="Pression média"
+                badge={d.frequenceIndisponible ? 'fréquence en attente' : c.frequency ? `${c.frequency.toFixed(2)} fréq.` : '—'}
+                jauge={(c.frequency ?? 1) * 22} teinte={(c.frequency ?? 0) > 2.5 ? 'bg-amber-500' : 'bg-[#3434ef]'}>
+                <Ligne label="Fréquence"
+                  valeur={d.frequenceIndisponible ? '—' : c.frequency?.toFixed(2) ?? '—'}
+                  sous={d.frequenceIndisponible ? 'après la prochaine synchro' : undefined} />
+                <Ligne label="CPM" valeur={eur(c.cpm)} evo={e?.cpm} inverse />
+                <Ligne label="Publicités à couper" valeur={nb(d.verdicts.cut)}
+                  sous={d.verdicts.cut ? 'budget sans retour' : 'aucune'} />
+              </Panneau>
+
+              <Panneau titre="Créatif" badge={`${d.verdicts.decliner} winner${d.verdicts.decliner > 1 ? 's' : ''}`}
+                jauge={d.nbPubs ? (d.verdicts.decliner / d.nbPubs) * 100 * 3 : 0} teinte="bg-emerald-500">
+                <Ligne label="Winners confirmés" valeur={nb(d.verdicts.decliner)} sous="à décliner" />
+                <Ligne label="Créas en fatigue" valeur={nb(d.verdicts.fatigue)}
+                  sous={d.verdicts.fatigue ? 'à rafraîchir' : 'aucune'} />
+                <Ligne label="CTR global" valeur={pct(c.ctr)} evo={e?.ctr} />
+              </Panneau>
+
+              <Panneau titre="Qualité prospect"
+                badge={d.crm?.connecte ? 'CRM actif' : 'CRM non connecté'}
+                jauge={d.crm?.connecte && d.crm.opportunites ? (d.crm.signees / d.crm.opportunites) * 100 * 2 : 0}
+                teinte="bg-teal-500">
+                <Ligne label="Opportunités" valeur={d.crm?.connecte ? nb(d.crm.opportunites) : '—'}
+                  sous={d.crm?.connecte ? undefined : 'à connecter'} />
+                <Ligne label="Attribuées à Meta" valeur={d.crm?.connecte ? nb(d.crm.attribuees) : '—'}
+                  sous={d.crm?.connecte && d.crm.opportunites
+                    ? `${Math.round((d.crm.attribuees / d.crm.opportunites) * 100)}% du total` : undefined} />
+                <Ligne label="Signées" valeur={d.crm?.connecte ? nb(d.crm.signees) : '—'}
+                  sous={d.crm?.connecte ? eur(d.crm.ca) : undefined} />
+              </Panneau>
+            </div>
+
+            {/* ── Tendance ── */}
+            <div className="card">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-[#0d0d12]">Dépense et coût par résultat</h2>
+                <span className="text-[11px] text-gray-400">{d.serie.length} jours</span>
+              </div>
+              {d.serie.length > 1 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart data={d.serie} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false}
+                      tickFormatter={(v: string) => v.slice(5)} />
+                    <YAxis yAxisId="g" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="d" orientation="right" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
+                      formatter={(v: number, n: string) => [n === 'Dépense' ? eur(v) : eur(v), n]} />
+                    <Area yAxisId="g" type="monotone" dataKey="spend" name="Dépense" stroke="#3434ef"
+                      fill="#3434ef" fillOpacity={0.08} strokeWidth={2} />
+                    <Line yAxisId="d" type="monotone" dataKey="cpl" name="Coût / résultat" stroke="#f97316"
+                      strokeWidth={2} dot={false} connectNulls />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-12">Pas assez de jours pour tracer une tendance.</p>
+              )}
+            </div>
           </div>
 
-          {/* Comparaison éclatée : budget, engagement, conversions */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {[
-              { titre: 'Budget', lignes: [
-                ['Dépense', eur(c.spend), e.spend, false],
-                ['CPM', eur(c.cpm, 2), e.cpm, true],
-                ['CPC', eur(c.cpc, 2), e.cpc, true],
-              ] },
-              { titre: 'Engagement', lignes: [
-                ['Impressions', nb(c.impressions), e.impressions, false],
-                ['Clics', nb(c.clicks), e.clicks, false],
-                ['CTR', pc(c.ctr), e.ctr, false],
-              ] },
-              { titre: 'Conversions', lignes: [
-                [c.resultLabel, nb(c.resultValue), e.resultValue, false],
-                [`Coût / ${c.resultLabel.toLowerCase()}`, eur(c.costPerResult, 2), e.costPerResult, true],
-                ['Taux de conv.', pc(c.funnel.lpvRate ?? null, 1), null, false],
-              ] },
-            ].map((bloc) => (
-              <div key={bloc.titre} className="card">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">{bloc.titre}</p>
-                <div className="space-y-2.5">
-                  {bloc.lignes.map(([label, val, ev, inv]) => (
-                    <div key={String(label)} className="flex items-center justify-between gap-4">
-                      <span className="text-sm text-gray-500">{String(label)}</span>
-                      <div className="flex items-center gap-2.5 flex-shrink-0">
-                        <span className="text-sm font-semibold text-[#0d0d12] tabular-nums">{String(val)}</span>
-                        <Evolution value={ev as number | null} inverse={Boolean(inv)} />
+          {/* ── Rail ── */}
+          <aside className="space-y-3 xl:sticky xl:top-0">
+            <div className="card">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Signaux à traiter</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 mb-3">Classés par ce qui coûte le plus vite</p>
+              <div className="space-y-2.5">
+                {d.signaux.map((s, i) => (
+                  <div key={i} className={clsx('border rounded-xl p-3', TON_SIGNAL[s.ton].carte)}>
+                    <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide', TON_SIGNAL[s.ton].tag)}>
+                      {s.tag}
+                    </span>
+                    <p className="text-xs font-semibold text-[#0d0d12] leading-snug mt-1.5">{s.titre}</p>
+                    <p className="text-[11px] text-gray-500 leading-snug mt-1">{s.texte}</p>
+                    <div className="flex gap-4 mt-2">
+                      {s.kpis.map(([l, v]) => (
+                        <div key={l}>
+                          <p className="text-xs font-bold text-[#0d0d12] tabular-nums">{v}</p>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {s.vers && (
+                      <a href={`/pilotage?niveau=${s.vers.niveau}&pastille=${s.vers.pastille}`}
+                        className="inline-block mt-2.5 text-[11px] font-medium text-[#3434ef] hover:underline">
+                        {s.vers.libelle} →
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Diagnostic complet</p>
+              <p className="text-[11px] text-gray-500 leading-snug mb-3">
+                Une lecture stratégique de la période par l’agent, au-delà des seuls seuils.
+              </p>
+              <a href="/autopilot" className="btn-primary text-xs px-3 py-2 inline-block">Analyser avec l’agent →</a>
+            </div>
+
+            {/* Propre à Apogee : Scalr n'a pas d'outil de lancement. */}
+            <div className="card">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Derniers lancements</p>
+                <a href="/history" className="text-[11px] text-[#3434ef] hover:underline">Tout voir</a>
+              </div>
+              {lancements.length ? (
+                <div className="space-y-2">
+                  {lancements.slice(0, 5).map((l) => (
+                    <div key={l.id} className="flex items-center gap-2.5">
+                      <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0',
+                        l.status === 'success' ? 'bg-emerald-500' : 'bg-red-500')} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-[#0d0d12] truncate">{l.campaignName}</p>
+                        <p className="text-[10px] text-gray-400">{l.adsetCount} ad sets · {l.adCount} pubs</p>
                       </div>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">
+                        {new Date(l.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      </span>
                     </div>
                   ))}
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tendance */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[#0d0d12]">Tendance journalière</h2>
-                <p className="text-[11px] text-gray-400 mt-0.5">Dépense et {c.resultLabel.toLowerCase()} par jour</p>
-              </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-400">Aucun lancement pour l’instant.</p>
+                  <a href="/upload" className="btn-primary text-xs px-3 py-1.5 inline-block mt-2">Lancer une campagne</a>
+                </div>
+              )}
             </div>
-            {data.serie.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={data.serie} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="cockpitSpend" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3434ef" stopOpacity={0.16} />
-                      <stop offset="95%" stopColor="#3434ef" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => String(v).slice(5)} minTickGap={24} />
-                  <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => `${v}€`} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
-                    formatter={(v: number, k: string) => [k === 'spend' ? eur(v, 2) : nb(v), k === 'spend' ? 'Dépense' : 'Résultats']}
-                  />
-                  <Area type="monotone" dataKey="spend" stroke="#3434ef" strokeWidth={2} fill="url(#cockpitSpend)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-48 flex items-center justify-center text-gray-400 text-sm">Pas de données sur cette période</div>
-            )}
-          </div>
+          </aside>
+        </div>
+      )}
 
-          {/* Campagnes */}
-          <div className="card p-0 overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E5E7EB]">
-              <h2 className="text-sm font-semibold text-[#0d0d12]">Par campagne</h2>
-              <p className="text-[11px] text-gray-400 mt-0.5">{data.campagnes.length} campagnes sur la période</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-gray-400 uppercase tracking-wider bg-[#f8f9fc]">
-                    <th className="px-5 py-2.5 font-semibold">Campagne</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">Dépense</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">Résultats</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">Coût / rés.</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">CTR</th>
-                    <th className="px-5 py-2.5 font-semibold text-right">CPM</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.campagnes.map((k) => (
-                    <tr key={k.campaignId || k.name} className="border-t border-[#F3F4F6] hover:bg-[#f8f9fc]">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0',
-                            k.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-300')} />
-                          <span className="font-medium text-[#0d0d12] truncate max-w-[320px]">{k.name}</span>
-                        </div>
-                        <span className="text-[11px] text-gray-400 ml-3.5">{k.resultLabel}</span>
-                      </td>
-                      <td className="px-3 py-3 text-right tabular-nums">{eur(k.spend)}</td>
-                      <td className="px-3 py-3 text-right tabular-nums">{nb(k.resultValue)}</td>
-                      <td className="px-3 py-3 text-right tabular-nums font-medium">{eur(k.costPerResult, 2)}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-gray-500">{pc(k.ctr)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-gray-500">{eur(k.cpm, 2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Ce que les chiffres ne disent pas d'eux-mêmes */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-gray-400 px-1">
-            <span>Comparé au {data.precedente.since} → {data.precedente.until}</span>
-            {data.fraicheur && <span>Données du {new Date(data.fraicheur).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
-            {c.reachIsApproximate && <span>Portée non cumulable sur plusieurs jours — fréquence masquée</span>}
-          </div>
-        </>
+      {d && (
+        <p className="text-[11px] text-gray-400 px-1">
+          {d.goals.targetCpl
+            ? `Seuils du compte : CPL cible ${d.goals.targetCpl} €${d.goals.maxCpl ? `, plafond ${d.goals.maxCpl} €` : ''}.`
+            : 'Aucun objectif renseigné — les verdicts se calent sur la médiane du compte. Renseignez le CPL cible dans Brand Settings pour un score plus juste.'}
+          {d.fraicheur && ` · Données synchronisées le ${new Date(d.fraicheur).toLocaleString('fr-FR')}.`}
+        </p>
       )}
     </div>
   )
