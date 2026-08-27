@@ -39,6 +39,8 @@ export type Reglages = {
   afficherStatut: boolean
   variations: boolean
   wrapNames: boolean
+  /** Créas seulement : écarter celles qui n'ont pas dépensé. */
+  diffuseesSeulement: boolean
 }
 
 /**
@@ -58,6 +60,7 @@ export const REGLAGES_DEFAUT = (colonnes: string[]): Reglages => ({
   campagne: 'all', adset: 'all', statut: 'all', objectif: 'all', format: 'all',
   conditions: [], colonnes, colonnesCrea: COLONNES_CREA_DEFAUT,
   dateLancement: false, afficherStatut: true, variations: true, wrapNames: false,
+  diffuseesSeulement: true,
 })
 
 const PRESETS = [
@@ -293,6 +296,10 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
         </Champ>
 
         <div className="flex flex-wrap gap-1.5 ml-auto">
+          {niveau === 'crea' && (
+            <Bascule label="Diffusées seulement" actif={r.diffuseesSeulement}
+              onClick={() => set({ diffuseesSeulement: !r.diffuseesSeulement })} />
+          )}
           <Bascule label="Date lancement" actif={r.dateLancement} onClick={() => set({ dateLancement: !r.dateLancement })} />
           <Bascule label="Statut" actif={r.afficherStatut} onClick={() => set({ afficherStatut: !r.afficherStatut })} />
           <Bascule label="Variation" actif={r.variations} onClick={() => set({ variations: !r.variations })} />

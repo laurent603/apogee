@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { METRIC_BY_KEY, formatMetric, senseVariation, type MetricDef } from '@/lib/scalr/metrics'
 import { DetailCrea } from './DetailCrea'
@@ -13,9 +13,17 @@ import { DetailCrea } from './DetailCrea'
  *
  * L'image est l'aperçu officiel de Meta, pas la vignette du créatif : celle-ci
  * plafonne à 64×64, et l'image de la publication n'existe pas pour des dark
- * posts. Chaque aperçu coûte un appel, on ne le charge donc qu'au moment où la
- * carte entre à l'écran — sinon vingt appels partent d'un coup à l'ouverture.
+ * posts.
  */
+
+/**
+ * Largeur naturelle du rendu Meta pour un fil mobile.
+ *
+ * Le document servi par Meta ne se remet pas en page : rétréci, il est rogné,
+ * pas reflué. À six cartes par ligne la vignette passe sous cette largeur, donc
+ * on rend l'aperçu à sa taille réelle et on le met à l'échelle.
+ */
+const LARGEUR_META = 320
 
 /**
  * Charge l'aperçu Meta, en décalant les appels.
@@ -32,6 +40,18 @@ import { DetailCrea } from './DetailCrea'
 function Apercu({ adId, rang }: { adId: string; rang: number }) {
   const [src, setSrc] = useState<string | null>(null)
   const [etat, setEtat] = useState<'charge' | 'absent'>('charge')
+  const cadre = useRef<HTMLDivElement>(null)
+  const [boite, setBoite] = useState({ l: 0, h: 0 })
+
+  useEffect(() => {
+    const el = cadre.current
+    if (!el) return
+    const mesurer = () => setBoite({ l: el.clientWidth, h: el.clientHeight })
+    mesurer()
+    const ro = new ResizeObserver(mesurer)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     let vivant = true
@@ -44,14 +64,27 @@ function Apercu({ adId, rang }: { adId: string; rang: number }) {
     return () => { vivant = false; clearTimeout(t) }
   }, [adId, rang])
 
+  // Ne jamais agrandir : au-delà de sa largeur naturelle le rendu Meta
+  // deviendrait flou pour rien.
+  const echelle = boite.l ? Math.min(1, boite.l / LARGEUR_META) : 1
+
   if (src) {
     return (
-      <iframe src={src} className="w-full h-full border-0 pointer-events-none"
-        sandbox="allow-scripts allow-same-origin" loading="lazy" title="Aperçu de la publicité" />
+      <div ref={cadre} className="w-full h-full overflow-hidden">
+        <iframe src={src} title="Aperçu de la publicité"
+          sandbox="allow-scripts allow-same-origin" loading="lazy"
+          className="border-0 pointer-events-none"
+          style={{
+            width: LARGEUR_META,
+            height: echelle ? boite.h / echelle : '100%',
+            transform: `scale(${echelle})`,
+            transformOrigin: 'top left',
+          }} />
+      </div>
     )
   }
   return (
-    <div className="w-full h-full flex items-center justify-center text-gray-300">
+    <div ref={cadre} className="w-full h-full flex items-center justify-center text-gray-300">
       {etat === 'absent' ? (
         <span className="text-[10px] text-gray-400 px-2 text-center">Aperçu indisponible</span>
       ) : (
@@ -138,10 +171,11 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
   const [classement, setClassement] = useState(CLASSEMENTS[0])
   const [ouvert, setOuvert] = useState<string | null>(null)
 
+  // Le tri seulement : écarter les créas sans diffusion est décidé plus haut,
+  // par la bascule « Diffusées seulement ». Filtrer ici les rendait invisibles
+  // après que les pastilles les avaient comptées.
   const creas = useMemo(() => {
-    // Une créa sans diffusion n'a rien à dire : on ne la met pas au mur.
-    const actives = lignes.filter((l) => l.spend > 0)
-    return [...actives].sort((a, b) => {
+    return [...lignes].sort((a, b) => {
       const va = a[classement.cle] as number | null
       const vb = b[classement.cle] as number | null
       if (va == null && vb == null) return 0
@@ -170,14 +204,21 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
   const maxSpend = Math.max(...creas.map((c) => c.spend), 1)
 
   if (!creas.length) {
-    return <div className="card text-center py-16 text-gray-400 text-sm">Aucune créa diffusée sur cette période.</div>
+    return (
+      <div className="card text-center py-16 text-gray-400 text-sm">
+        Aucune créa pour ce filtre.
+        <span className="block text-xs mt-1 text-gray-300">
+          Décochez « Diffusées seulement » pour inclure celles qui n’ont pas dépensé.
+        </span>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-          Analyse créas <span className="text-gray-300 font-medium normal-case tracking-normal">· {creas.length} diffusées</span>
+          Analyse créas <span className="text-gray-300 font-medium normal-case tracking-normal">· {creas.length} créas</span>
         </p>
         <div className="flex gap-1 bg-[#f8f9fc] rounded-lg p-1 border border-[#E5E7EB]">
           {CLASSEMENTS.map((c) => (
@@ -215,7 +256,7 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
         {creas.map((r, i) => (
           <div key={r.id} onClick={() => setOuvert(r.id)}
             className={clsx('card p-0 overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-shadow',

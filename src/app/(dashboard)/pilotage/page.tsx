@@ -127,12 +127,18 @@ export default function PilotagePage() {
     if (r.statut !== 'all') l = l.filter((x) => (r.statut === 'active' ? estActif(x.status) : !estActif(x.status)))
     if (r.objectif !== 'all') l = l.filter((x) => x.objective === r.objectif)
     if (r.format !== 'all') l = l.filter((x) => x.creativeType === r.format)
+    // Ce filtre vivait dans la galerie, qui écartait les créas sans dépense
+    // après que les pastilles les avaient comptées : une pastille annonçait
+    // « 12 » et le mur restait vide. Compteur et affichage partent désormais
+    // de la même liste.
+    if (niveau === 'crea' && r.diffuseesSeulement) l = l.filter((x) => (x.spend as number) > 0)
     if (recherche.trim()) {
       const q = recherche.toLowerCase()
       l = l.filter((x) => x.name.toLowerCase().includes(q))
     }
     return appliqueConditions(l, r.conditions)
-  }, [data, r.campagne, r.adset, r.statut, r.objectif, r.format, r.conditions, recherche])
+  }, [data, niveau, r.campagne, r.adset, r.statut, r.objectif, r.format,
+      r.conditions, r.diffuseesSeulement, recherche])
 
   const lignes = useMemo(() => {
     let l = perimetre
@@ -160,7 +166,7 @@ export default function PilotagePage() {
   const nbColonnes = cols.length + 2 + (r.dateLancement ? 1 : 0)
 
   return (
-    <div className="space-y-3 max-w-[1600px]">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="page-title">Pilotage</h1>
