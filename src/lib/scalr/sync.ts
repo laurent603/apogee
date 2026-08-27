@@ -45,7 +45,29 @@ function daysAgo(n: number): Date {
 
 /* ─── Appel Meta, avec repli ────────────────────────────────────────────── */
 
-type MetaPage = { data?: unknown[]; paging?: { next?: string }; error?: { message?: string } }
+type MetaPage = { data?: unknown[]; paging?: { next?: string }; error?: { message?: string; code?: number } }
+
+/** Meta limite l'application, pas seulement le compte : passé un seuil, tous
+ *  les appels échouent quelques minutes. Attendre puis réessayer coûte moins
+ *  cher que de perdre un compte entier. */
+function isRateLimited(msg: string, code?: number): boolean {
+  const m = msg.toLowerCase()
+  return code === 17 || code === 4 || code === 613
+    || m.includes('request limit reached')
+    || m.includes('too many calls')
+    || m.includes('rate limit')
+}
+
+async function metaGet(url: string, attempt = 0): Promise<MetaPage> {
+  const json = (await fetch(url).then((r) => r.json())) as MetaPage
+  if (json.error && isRateLimited(json.error.message || '', json.error.code) && attempt < 4) {
+    // Palier croissant : 30 s, 60 s, 120 s, 240 s.
+    const wait = 30_000 * 2 ** attempt
+    await new Promise((r) => setTimeout(r, wait))
+    return metaGet(url, attempt + 1)
+  }
+  return json
+}
 
 /**
  * Récupère toutes les pages d'un endpoint insights.
@@ -57,7 +79,8 @@ type MetaPage = { data?: unknown[]; paging?: { next?: string }; error?: { messag
 /** Identité de la ligne. Absents de `INSIGHT_FIELDS`, qui ne décrit que les
  *  métriques — sans eux chaque enregistrement arriverait sans identifiant ni
  *  date, et serait écarté à l'insertion. */
-const IDENTITY_FIELDS = 'ad_id,ad_name,adset_id,campaign_id,date_start,date_stop'
+const IDENTITY_FIELDS =
+  'ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,objective,date_start,date_stop'
 
 async function fetchInsightsAll(
   path: string,
@@ -73,8 +96,7 @@ async function fetchInsightsAll(
 
     let guard = 0
     while (url && guard++ < 40) {
-      const res = await fetch(url)
-      const json = (await res.json()) as MetaPage
+      const json = await metaGet(url)
       if (json.error) throw new Error(json.error.message || 'erreur Meta')
       rows.push(...((json.data || []) as InsightRow[]))
       url = json.paging?.next || null
@@ -195,7 +217,9 @@ export async function syncAccountRange(opts: {
     written += chunk.length
   }
 
-  const entities = await syncEntities(opts.adAccountId, opts.metaAccountId, opts.token)
+  // Les entités se déduisent des lignes déjà reçues : aucun appel de plus
+  // pour les noms et l'objectif.
+  const entities = await persistEntities(opts.adAccountId, opts.metaAccountId, opts.token, rows)
 
   return {
     account: opts.metaAccountId,
@@ -207,58 +231,107 @@ export async function syncAccountRange(opts: {
   }
 }
 
-/** Noms, statuts et objectifs. L'objectif conditionne ce qui compte comme
- *  résultat, donc il ne peut pas manquer. */
-async function syncEntities(adAccountId: string, metaAccountId: string, token: string): Promise<number> {
-  const levels: { level: string; edge: string; fields: string }[] = [
-    { level: 'campaign', edge: 'campaigns', fields: 'id,name,status,effective_status,objective,daily_budget,lifetime_budget,created_time' },
-    { level: 'adset', edge: 'adsets', fields: 'id,name,status,effective_status,campaign_id,daily_budget,lifetime_budget,created_time' },
-    { level: 'ad', edge: 'ads', fields: 'id,name,status,effective_status,adset_id,created_time' },
+type EntityDraft = {
+  level: string; metaId: string; name: string
+  objective: string | null; parentMetaId: string | null
+}
+
+/**
+ * Noms, objectif et filiation — déduits des lignes d'insights elles-mêmes.
+ *
+ * Meta renvoie `ad_name`, `adset_name`, `campaign_name` et `objective` dans la
+ * même réponse que les chiffres : les redemander séparément serait payer deux
+ * fois. La première version parcourait les trois edges du compte entier —
+ * 1 856 entités rapatriées pour 375 lignes de données — et la seconde tentait
+ * un appel groupé par `ids`, paramètre que Meta a déprécié en v26.
+ */
+function draftEntitiesFromRows(rows: InsightRow[]): Map<string, EntityDraft> {
+  const out = new Map<string, EntityDraft>()
+  const put = (level: string, metaId: unknown, name: unknown, extra: Partial<EntityDraft> = {}) => {
+    if (!metaId) return
+    const id = String(metaId)
+    out.set(`${level}:${id}`, {
+      level, metaId: id, name: String(name || ''),
+      objective: null, parentMetaId: null, ...extra,
+    })
+  }
+  for (const r of rows) {
+    put('campaign', r.campaign_id, r.campaign_name, { objective: r.objective ? String(r.objective) : null })
+    put('adset', r.adset_id, r.adset_name, { parentMetaId: r.campaign_id ? String(r.campaign_id) : null })
+    put('ad', r.ad_id, r.ad_name, { parentMetaId: r.adset_id ? String(r.adset_id) : null })
+  }
+  return out
+}
+
+/**
+ * Complète les brouillons avec statut et budget, que les insights ne portent
+ * pas. Le filtrage par identifiants sur l'edge remplace l'appel groupé `ids`.
+ * Best-effort : un statut manquant n'invalide pas les chiffres.
+ */
+async function enrichStatuses(
+  metaAccountId: string, token: string, drafts: Map<string, EntityDraft>,
+): Promise<Map<string, Record<string, unknown>>> {
+  const extra = new Map<string, Record<string, unknown>>()
+  const edges: [string, string, string][] = [
+    ['campaign', 'campaigns', 'id,status,effective_status,daily_budget,lifetime_budget,created_time'],
+    ['adset', 'adsets', 'id,status,effective_status,daily_budget,lifetime_budget,created_time'],
+    ['ad', 'ads', 'id,status,effective_status,created_time'],
   ]
-
-  let count = 0
-  for (const { level, edge, fields } of levels) {
-    let url: string | null =
-      `${API}/${VERSION}/${metaAccountId}/${edge}?` +
-      new URLSearchParams({ fields, limit: '500', access_token: token }).toString()
-
-    let guard = 0
-    while (url && guard++ < 40) {
-      const json = (await fetch(url).then((r) => r.json())) as MetaPage
-      if (json.error) break
-      const items = (json.data || []) as Record<string, unknown>[]
-
-      for (let i = 0; i < items.length; i += 200) {
-        const chunk = items.slice(i, i + 200)
-        await prisma.$transaction(
-          chunk.map((it) => {
-            const data = {
-              adAccountId,
-              level,
-              metaId: String(it.id),
-              name: String(it.name || ''),
-              status: it.status ? String(it.status) : null,
-              effectiveStatus: it.effective_status ? String(it.effective_status) : null,
-              objective: it.objective ? String(it.objective) : null,
-              parentMetaId: it.campaign_id ? String(it.campaign_id) : it.adset_id ? String(it.adset_id) : null,
-              dailyBudget: it.daily_budget ? num(it.daily_budget) / 100 : null,
-              lifetimeBudget: it.lifetime_budget ? num(it.lifetime_budget) / 100 : null,
-              createdTime: it.created_time ? new Date(String(it.created_time)) : null,
-              syncedAt: new Date(),
-            }
-            return prisma.metaEntity.upsert({
-              where: { level_metaId: { level, metaId: String(it.id) } },
-              create: data,
-              update: data,
-            })
-          }),
-        )
-        count += chunk.length
+  for (const [level, edge, fields] of edges) {
+    const ids = [...drafts.values()].filter((d) => d.level === level).map((d) => d.metaId)
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50)
+      const url = `${API}/${VERSION}/${metaAccountId}/${edge}?` + new URLSearchParams({
+        fields,
+        filtering: JSON.stringify([{ field: 'id', operator: 'IN', value: batch }]),
+        limit: '100',
+        access_token: token,
+      }).toString()
+      const json = await metaGet(url)
+      if (json.error) continue
+      for (const it of (json.data || []) as Record<string, unknown>[]) {
+        extra.set(`${level}:${String(it.id)}`, it)
       }
-      url = json.paging?.next || null
     }
   }
-  return count
+  return extra
+}
+
+async function persistEntities(
+  adAccountId: string, metaAccountId: string, token: string, rows: InsightRow[],
+): Promise<number> {
+  const drafts = draftEntitiesFromRows(rows)
+  if (!drafts.size) return 0
+  const extra = await enrichStatuses(metaAccountId, token, drafts)
+
+  const list = [...drafts.entries()]
+  for (let i = 0; i < list.length; i += 200) {
+    await prisma.$transaction(
+      list.slice(i, i + 200).map(([key, d]) => {
+        const x = extra.get(key) || {}
+        const data = {
+          adAccountId,
+          level: d.level,
+          metaId: d.metaId,
+          name: d.name,
+          objective: d.objective,
+          parentMetaId: d.parentMetaId,
+          status: x.status ? String(x.status) : null,
+          effectiveStatus: x.effective_status ? String(x.effective_status) : null,
+          dailyBudget: x.daily_budget ? num(x.daily_budget) / 100 : null,
+          lifetimeBudget: x.lifetime_budget ? num(x.lifetime_budget) / 100 : null,
+          createdTime: x.created_time ? new Date(String(x.created_time)) : null,
+          syncedAt: new Date(),
+        }
+        return prisma.metaEntity.upsert({
+          where: { level_metaId: { level: d.level, metaId: d.metaId } },
+          create: data,
+          update: data,
+        })
+      }),
+    )
+  }
+  return drafts.size
 }
 
 /**
