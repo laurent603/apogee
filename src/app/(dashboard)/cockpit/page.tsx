@@ -5,7 +5,8 @@ import { clsx } from 'clsx'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, ComposedChart,
 } from 'recharts'
-import type { Sante, Signal } from '@/lib/scalr/cockpit'
+import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
+import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance } from '@/components/scalr/BlocsDetail'
 
 /**
  * Le cockpit du compte.
@@ -48,7 +49,11 @@ type Donnees = {
   signaux: Signal[]
   verdicts: Record<string, number>
   crm: { connecte: boolean; opportunites: number; attribuees: number; signees: number; ca: number } | null
-  serie: { date: string; spend: number; leads: number; cpl: number | null }[]
+  serie: { date: string; spend: number; leads: number; cpl: number | null; ctr: number | null; reach: number; impressions: number; cpm: number | null }[]
+  campagnes: { id: string; name: string; cpm: number | null; cpc: number | null; frequency: number | null }[]
+  saturation: Saturation
+  verdicts_blocs: { saturation: Verdict; leadgen: Verdict; media: Verdict; creatif: Verdict }
+  detail: { leadgen: string[]; media: string[]; creatif: string[] }
   nbPubs: number
 }
 
@@ -302,6 +307,19 @@ export default function CockpitPage() {
                 <p className="text-sm text-gray-400 text-center py-12">Pas assez de jours pour tracer une tendance.</p>
               )}
             </div>
+
+            <Bloc titre="Métriques détaillées" sous="Leadgen, média et créatif, avec leur évolution.">
+              <MetriquesDetaillees detail={d.detail} courant={d.courant} evolutions={d.evolutions}
+                verdicts={d.verdicts_blocs} reachDedoublonne={d.saturation.personnesTouchees} />
+            </Bloc>
+
+            <Bloc titre="Saturation audience" sous="Portée utile, fréquence et coût de saturation.">
+              <SaturationAudience s={d.saturation} verdict={d.verdicts_blocs.saturation} />
+            </Bloc>
+
+            <Bloc titre="Graphiques de tendance" sous="CPL, budget, leads, CTR, fréquence, CPM et CPC.">
+              <GraphiquesTendance serie={d.serie} campagnes={d.campagnes} />
+            </Bloc>
           </div>
 
           {/* ── Rail ── */}

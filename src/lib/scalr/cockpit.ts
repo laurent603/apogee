@@ -256,3 +256,164 @@ export function signaux(pubs: Pub[], t: Totaux, crm: {
 
   return s.slice(0, 5)
 }
+
+/* ─── Saturation d'audience ─────────────────────────────────────────────── */
+
+export type JourPortee = {
+  date: string
+  spend: number
+  reach: number
+  impressions: number
+  cpm: number | null
+}
+
+export type Saturation = {
+  /** Portée dédoublonnée de la période, telle que Meta la calcule. */
+  personnesTouchees: number | null
+  /** Somme des portées journalières : la même personne y compte une fois par
+   *  jour où elle a été touchée. */
+  expositionsCumulees: number
+  fraiches: number
+  partFraiche: number | null
+  coutSaturation: number | null
+  coutMilleFraiches: number | null
+  composition: { date: string; fraiches: number; revues: number; partFraiche: number; cout: number | null }[]
+}
+
+/**
+ * La pression exercée sur l'audience.
+ *
+ * Le proxy est celui de Scalr : sur une journée, la part d'expositions qui
+ * touche quelqu'un pour la première fois vaut à peu près `1 / fréquence du
+ * jour`. Ce n'est pas un décompte de personnes — Meta ne le donne pas — mais
+ * une tendance, et c'est ce qu'on lit.
+ *
+ * **Une correction, sur un point où Scalr se contredit à l'écran.** Son bloc
+ * annonce « personnes touchées » en additionnant les portées journalières :
+ * quelqu'un vu dix jours de suite y compte dix fois. Sur trente jours le
+ * chiffre vaut environ le double de la portée réelle, laquelle est affichée
+ * quelques centimètres plus haut. Les deux sont ici distingués et nommés pour
+ * ce qu'ils sont — la portée dédoublonnée d'un côté, le cumul des journées de
+ * l'autre.
+ */
+export function saturation(jours: JourPortee[], porteeDedoublonnee: number | null): Saturation {
+  const lignes = jours.map((j) => {
+    const reach = n(j.reach)
+    const impressions = n(j.impressions)
+    const freq = reach > 0 ? Math.max(impressions / reach, 1) : 1
+    const fraiches = reach > 0 ? reach / freq : 0
+    return {
+      date: j.date,
+      fraiches,
+      revues: Math.max(0, reach - fraiches),
+      partFraiche: reach > 0 ? (fraiches / reach) * 100 : 0,
+      // Ce que coûtent mille expositions, pondéré par le nombre de fois où la
+      // même personne les reçoit.
+      cout: j.cpm != null ? n(j.cpm) * freq : null,
+      coutMille: fraiches > 0 ? (n(j.spend) / fraiches) * 1000 : null,
+    }
+  })
+
+  const expositionsCumulees = lignes.reduce((s, x) => s + x.fraiches + x.revues, 0)
+  const fraiches = lignes.reduce((s, x) => s + x.fraiches, 0)
+  const moyenne = (cle: 'cout' | 'coutMille') => {
+    const v = lignes.map((x) => x[cle]).filter((x): x is number => x != null && Number.isFinite(x))
+    return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null
+  }
+
+  return {
+    personnesTouchees: porteeDedoublonnee,
+    expositionsCumulees: Math.round(expositionsCumulees),
+    fraiches: Math.round(fraiches),
+    partFraiche: expositionsCumulees > 0 ? (fraiches / expositionsCumulees) * 100 : null,
+    coutSaturation: moyenne('cout'),
+    coutMilleFraiches: moyenne('coutMille'),
+    composition: lignes.map(({ date, fraiches: f, revues, partFraiche, cout }) => ({
+      date, fraiches: Math.round(f), revues: Math.round(revues),
+      partFraiche: Math.round(partFraiche * 10) / 10, cout: cout != null ? Math.round(cout * 100) / 100 : null,
+    })),
+  }
+}
+
+/* ─── Verdicts de bloc ──────────────────────────────────────────────────── */
+
+export type Verdict = { niveau: 'bon' | 'attention' | 'mauvais'; titre: string; texte: string; piste: string }
+
+export function verdictSaturation(s: Saturation): Verdict {
+  const part = s.partFraiche ?? 100
+  const cout = s.coutSaturation ?? 0
+  if (part < 35 || cout > 45) return {
+    niveau: 'mauvais', titre: 'Saturation probable',
+    texte: "La part d'expositions fraîches est faible ou le coût de saturation élevé : le compte recycle une audience déjà trop vue.",
+    piste: 'Diversifier les angles, élargir le haut de tunnel, et vérifier que le budget ne monte pas plus vite que la portée.',
+  }
+  if (part < 50 || cout > 30) return {
+    niveau: 'attention', titre: 'À surveiller',
+    texte: "Les signaux ne sont pas critiques, mais le renouvellement d'audience mérite un suivi.",
+    piste: 'Comparer les campagnes qui gardent une part fraîche élevée et répliquer leurs angles et placements.',
+  }
+  return {
+    niveau: 'bon', titre: 'Audience encore saine',
+    texte: "La part d'expositions fraîches reste correcte et le coût de saturation ne montre pas de pression forte.",
+    piste: 'Continuer à alimenter le compte avec des angles distincts pour éviter que Meta recycle les mêmes profils.',
+  }
+}
+
+export function verdictLeadgen(t: Totaux, dConvRate: number | null, dCpl: number | null): Verdict {
+  if (dCpl !== null && dCpl > 20) return {
+    niveau: 'mauvais', titre: 'CPL en dérive',
+    texte: `Le coût par lead monte de ${Math.round(dCpl)}% : le volume se paie plus cher qu'avant.`,
+    piste: 'Isoler les ad sets responsables avant de toucher aux budgets — une hausse générale masquerait le problème.',
+  }
+  if (dConvRate !== null && dConvRate > 10) return {
+    niveau: 'bon', titre: 'Tendance positive',
+    texte: 'Le taux de conversion progresse. Le compte peut absorber plus de budget si le CPL reste stable.',
+    piste: 'Augmenter progressivement sur les campagnes qui tiennent le meilleur couple CPL et taux de signature.',
+  }
+  return {
+    niveau: 'attention', titre: 'Leadgen stable',
+    texte: 'Ni dérive ni progression nette. Le volume dépend surtout de ce qu’on injecte en créa.',
+    piste: 'Chercher le gain côté taux de conversion avant le budget : c’est le levier le moins cher.',
+  }
+}
+
+export function verdictMedia(dCpm: number | null, dLinkCtr: number | null): Verdict {
+  if (dCpm !== null && dCpm > 20) return {
+    niveau: 'mauvais', titre: 'Coûts média en hausse',
+    texte: `Le CPM monte de ${Math.round(dCpm)}% : l'enchère se tend ou l'audience se resserre.`,
+    piste: 'Vérifier le chevauchement des ad sets et élargir le ciblage avant d’accepter le surcoût.',
+  }
+  if (dLinkCtr !== null && dLinkCtr < -15) return {
+    niveau: 'attention', titre: 'Clic en baisse',
+    texte: `Le Link CTR recule de ${Math.round(-dLinkCtr)}% : l'accroche perd de sa force.`,
+    piste: 'Rafraîchir les hooks avant que le CPM ne suive — Meta facture plus cher ce qui intéresse moins.',
+  }
+  return {
+    niveau: 'bon', titre: 'Diffusion stable',
+    texte: 'Les coûts média et l’engagement restent lisibles.',
+    piste: 'Chercher les placements qui combinent bon Link CTR et coût par résultat acceptable.',
+  }
+}
+
+export function verdictCreatif(hookRate: number | null, holdRate: number | null, dHook: number | null): Verdict {
+  if (hookRate == null) return {
+    niveau: 'attention', titre: 'Pas de signal vidéo',
+    texte: 'Aucune vue vidéo sur la période : les indicateurs de rétention ne s’appliquent pas.',
+    piste: 'Tester une vidéo courte pour obtenir un signal de hook, que le statique ne donne pas.',
+  }
+  if (hookRate < 15 || (holdRate ?? 0) < 10) return {
+    niveau: 'attention', titre: 'Rétention à travailler',
+    texte: 'Les premières secondes ne retiennent pas assez : le reste de la vidéo est peu vu.',
+    piste: 'Retravailler les trois premières secondes — accroche visuelle, sous-titre, promesse — avant le montage.',
+  }
+  if (dHook !== null && dHook > 20) return {
+    niveau: 'bon', titre: 'Créatif solide',
+    texte: 'Hook et rétention sont bien orientés. Les meilleures variantes servent de base aux déclinaisons.',
+    piste: 'Décliner le meilleur concept en statique, format court et version témoignage pour élargir la surface de test.',
+  }
+  return {
+    niveau: 'bon', titre: 'Créatif solide',
+    texte: 'Hook et rétention tiennent. Le concept fonctionne, il reste à l’exploiter.',
+    piste: 'Décliner le meilleur concept plutôt que d’en chercher un nouveau : c’est le pari le plus sûr.',
+  }
+}

@@ -4,7 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { computeMetrics, emptyTotals, previousWindow, variation, type Totals } from '@/lib/scalr/aggregate'
 import { rowDecision } from '@/lib/scalr/decision'
-import { sante, signaux, type Pub } from '@/lib/scalr/cockpit'
+import {
+  sante, signaux, saturation, verdictSaturation, verdictLeadgen, verdictMedia, verdictCreatif,
+  ecart, type Pub,
+} from '@/lib/scalr/cockpit'
 
 /**
  * Le cockpit : l'état du compte, et ce qu'il y a à traiter.
@@ -56,14 +59,14 @@ export async function GET(req: NextRequest) {
   const prev = previousWindow(since, until)
   const base = { adAccountId: dbAccountId, attribution: 'default' }
 
-  const [sumCur, sumPrev, parJour, parPub, parPubPrec, entites, reglages, portees, etat, ghl] =
+  const [sumCur, sumPrev, parJour, parPub, parPubPrec, entites, parCampagne, reglages, portees, etat, ghl] =
     await Promise.all([
       prisma.metaDailyAd.aggregate({ where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
       prisma.metaDailyAd.aggregate({ where: { ...base, date: { gte: prev.since, lte: prev.until } }, _sum: SUM }),
       prisma.metaDailyAd.groupBy({
         by: ['date'],
         where: { ...base, date: { gte: since, lte: until } },
-        _sum: { spend: true, impressions: true, clicks: true, formLeads: true, pixelLeads: true, totalLeads: true, purchases: true, revenue: true },
+        _sum: { spend: true, impressions: true, reach: true, clicks: true, linkClicks: true, formLeads: true, pixelLeads: true, totalLeads: true, purchases: true, revenue: true },
         orderBy: { date: 'asc' },
       }),
       prisma.metaDailyAd.groupBy({ by: ['adId'], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
@@ -72,12 +75,13 @@ export async function GET(req: NextRequest) {
         where: { adAccountId: dbAccountId, level: { in: ['ad', 'campaign'] } },
         select: { metaId: true, level: true, name: true, objective: true },
       }),
+      prisma.metaDailyAd.groupBy({ by: ['campaignId'], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
       prisma.brandSettings.findUnique({
         where: { adAccountId: dbAccountId },
         select: { targetCpa: true, maxCpa: true },
       }),
       prisma.metaPeriodReach.findMany({
-        where: { adAccountId: dbAccountId, window: `${jours}d`, level: { in: ['account', 'ad'] } },
+        where: { adAccountId: dbAccountId, window: `${jours}d`, level: { in: ['account', 'ad', 'campaign'] } },
         select: { metaId: true, level: true, reach: true },
       }),
       prisma.metaSyncState.findUnique({ where: { adAccountId: dbAccountId }, select: { lastSyncedAt: true, lastError: true } }),
@@ -158,6 +162,50 @@ export async function GET(req: NextRequest) {
   const evo = (cle: keyof typeof courant) =>
     variation(courant[cle] as number | null, precedent[cle] as number | null)
 
+  const serie = parJour.map((d) => {
+    const leads = (d._sum.formLeads || 0) || (d._sum.pixelLeads || 0) || (d._sum.totalLeads || 0)
+    const spend = d._sum.spend || 0
+    const impressions = d._sum.impressions || 0
+    const reach = d._sum.reach || 0
+    return {
+      date: d.date.toISOString().slice(0, 10),
+      spend: Math.round(spend * 100) / 100,
+      leads,
+      cpl: leads > 0 ? Math.round((spend / leads) * 100) / 100 : null,
+      ctr: impressions > 0 ? Math.round(((d._sum.clicks || 0) / impressions) * 10000) / 100 : null,
+      reach,
+      impressions,
+      cpm: impressions > 0 ? Math.round((spend / impressions) * 100000) / 100 : null,
+    }
+  })
+
+  // Les campagnes portent leur propre portée dédoublonnée : leur fréquence est
+  // donc exacte, là où la somme de leurs journées la gonflerait.
+  const porteeParCampagne = new Map(portees.filter((r) => r.level === 'campaign').map((r) => [r.metaId, r.reach]))
+  const nomCampagne = new Map(entites.filter((e) => e.level === 'campaign').map((e) => [e.metaId, e.name]))
+  const campagnes = parCampagne
+    .map((c) => {
+      const id = String(c.campaignId ?? '')
+      const m = computeMetrics(toTotals(c._sum, nbJours), objectif)
+      const portee = porteeParCampagne.get(id)
+      return {
+        id,
+        name: nomCampagne.get(id) || '(campagne inconnue)',
+        spend: m.spend,
+        cpm: m.cpm,
+        cpc: m.cpc,
+        frequency: portee && portee > 0 ? Math.round((m.impressions / portee) * 100) / 100 : null,
+      }
+    })
+    .filter((c) => c.spend > 0)
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 12)
+
+  const sat = saturation(
+    serie.map((d) => ({ date: d.date, spend: d.spend, reach: d.reach, impressions: d.impressions, cpm: d.cpm })),
+    porteeCompte,
+  )
+
   const compte = (kind: string) => avecDecision.filter((x) => x.decision.kind === kind).length
   const compteLabel = (label: string) => avecDecision.filter((x) => x.decision.label === label).length
 
@@ -177,6 +225,14 @@ export async function GET(req: NextRequest) {
       costPerResult: evo('costPerResult'), cpl: evo('cpl'), cpm: evo('cpm'),
       ctr: evo('ctr'), linkCtr: evo('linkCtr'), convRate: evo('convRate'),
       revenue: evo('revenue'), roas: evo('roas'), impressions: evo('impressions'),
+      clicks: evo('clicks'), linkClicks: evo('linkClicks'), cpc: evo('cpc'),
+      cpcLink: evo('cpcLink'), outboundClicks: evo('outboundClicks'),
+      cpcOutbound: evo('cpcOutbound'), postEngagement: evo('postEngagement'),
+      landingPageViews: evo('landingPageViews'), reachSum: evo('reachSum'),
+      hookRate: evo('hookRate'), holdRate: evo('holdRate'), video3s: evo('video3s'),
+      videoStarts: evo('videoStarts'), video25: evo('video25'), video50: evo('video50'),
+      video75: evo('video75'), video95: evo('video95'), thruplays: evo('thruplays'),
+      costPerThruplay: evo('costPerThruplay'),
     },
     sante: sante(totaux, sumPrev._sum.spend ? totauxPrec : null, avecDecision, goals),
     signaux: signaux(avecDecision, totaux, crm),
@@ -186,15 +242,21 @@ export async function GET(req: NextRequest) {
       decliner: compteLabel('À décliner'), fatigue: compteLabel('Fatigue'),
     },
     crm,
-    serie: parJour.map((d) => {
-      const leads = (d._sum.formLeads || 0) || (d._sum.pixelLeads || 0) || (d._sum.totalLeads || 0)
-      return {
-        date: d.date.toISOString().slice(0, 10),
-        spend: Math.round((d._sum.spend || 0) * 100) / 100,
-        leads,
-        cpl: leads > 0 ? Math.round(((d._sum.spend || 0) / leads) * 100) / 100 : null,
-      }
-    }),
+    serie,
+    campagnes,
+    saturation: sat,
+    verdicts_blocs: {
+      saturation: verdictSaturation(sat),
+      leadgen: verdictLeadgen(totaux, ecart(courant.convRate, precedent.convRate), ecart(courant.cpl, precedent.cpl)),
+      media: verdictMedia(ecart(courant.cpm, precedent.cpm), ecart(courant.linkCtr, precedent.linkCtr)),
+      creatif: verdictCreatif(courant.hookRate, courant.holdRate, ecart(courant.hookRate, precedent.hookRate)),
+    },
+    // Le détail : chaque bloc dépliable lit ces valeurs et leur évolution.
+    detail: {
+      leadgen: ['spend', 'leads', 'cpl', 'convRate', 'reachSum', 'frequency'],
+      media: ['impressions', 'clicks', 'ctr', 'linkClicks', 'linkCtr', 'cpc', 'cpm', 'cpcLink', 'outboundClicks', 'cpcOutbound', 'postEngagement', 'landingPageViews'],
+      creatif: ['hookRate', 'holdRate', 'video3s', 'videoStarts', 'video25', 'video50', 'video75', 'video95', 'thruplays', 'costPerThruplay'],
+    },
     nbPubs: avecDecision.length,
     prevPubs: parIdPrec.size,
   })
