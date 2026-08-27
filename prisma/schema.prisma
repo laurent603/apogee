@@ -338,6 +338,31 @@ model MetaDailyAd {
   @@index([date])
 }
 
+/// Portée dédupliquée par période, que l'addition des jours ne peut pas donner.
+///
+/// Meta compte des personnes uniques : quelqu'un touché lundi et mardi compte
+/// une fois sur la semaine, deux fois si on somme les journées. La fréquence
+/// qui en découle serait donc systématiquement sous-estimée — et la règle de
+/// fatigue, qui se déclenche au-delà de 2,6, ne se déclencherait jamais.
+///
+/// On demande donc à Meta la portée réelle sur les fenêtres de travail. Une
+/// période personnalisée n'en a pas et affiche une fréquence marquée comme
+/// approchée plutôt qu'un chiffre faux présenté comme exact.
+model MetaPeriodReach {
+  id            String   @id @default(cuid())
+  adAccountId   String
+  level         String   // campaign | adset | ad
+  metaId        String
+  /// Fenêtre glissante : 7d | 14d | 30d | 90d
+  window        String
+  reach         Int      @default(0)
+  impressions   Int      @default(0)
+  syncedAt      DateTime @default(now())
+
+  @@unique([level, metaId, window])
+  @@index([adAccountId, window, level])
+}
+
 /// Où en est la synchronisation de chaque compte.
 ///
 /// `lastSyncedAt` ne suffit pas : Meta réattribue les conversions pendant

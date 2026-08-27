@@ -334,6 +334,84 @@ async function persistEntities(
   return drafts.size
 }
 
+/** Fenêtres de travail. La portée y est demandée à Meta plutôt que déduite,
+ *  parce qu'aucune addition de journées ne donne des personnes uniques. */
+export const FENETRES = [7, 14, 30, 90] as const
+
+/**
+ * Portée dédupliquée par période, pour les trois niveaux.
+ *
+ * Sans elle, la fréquence se calculerait sur une portée gonflée par le
+ * recomptage des mêmes personnes d'un jour sur l'autre : sous-estimée, elle
+ * empêcherait la règle de fatigue (seuil 2,6) de se déclencher un seul jour.
+ */
+export async function syncPeriodReach(opts: {
+  adAccountId: string
+  metaAccountId: string
+  token: string
+  /** Heures au-delà desquelles la portée est jugée périmée. */
+  fraicheurH?: number
+}): Promise<number> {
+  // Douze appels Meta par compte : inutile de les refaire si la nuit les a
+  // déjà rafraîchis. Sans ce garde-fou, une seconde passe du cron repayait
+  // l'intégralité du coût pour rien.
+  const seuil = new Date(Date.now() - (opts.fraicheurH ?? 20) * 3_600_000)
+  const recent = await prisma.metaPeriodReach.findFirst({
+    where: { adAccountId: opts.adAccountId, syncedAt: { gte: seuil } },
+    select: { id: true },
+  })
+  if (recent) return 0
+
+  const niveaux: [string, string][] = [['campaign', 'campaign'], ['adset', 'adset'], ['ad', 'ad']]
+  let ecrits = 0
+
+  for (const jours of FENETRES) {
+    const until = daysAgo(0)
+    const since = daysAgo(jours)
+    for (const [level, metaLevel] of niveaux) {
+      const url =
+        `${API}/${VERSION}/${opts.metaAccountId}/insights?` +
+        new URLSearchParams({
+          level: metaLevel,
+          fields: `${metaLevel}_id,reach,impressions`,
+          time_range: JSON.stringify({ since: iso(since), until: iso(until) }),
+          limit: '500',
+          access_token: opts.token,
+        }).toString()
+
+      const json = await metaGet(url)
+      if (json.error) continue
+
+      const rows = (json.data || []) as Record<string, unknown>[]
+      const mapped = rows
+        .map((r) => ({
+          adAccountId: opts.adAccountId,
+          level,
+          metaId: String(r[`${metaLevel}_id`] ?? ''),
+          window: `${jours}d`,
+          reach: Math.round(num(r.reach)),
+          impressions: Math.round(num(r.impressions)),
+          syncedAt: new Date(),
+        }))
+        .filter((r) => r.metaId)
+
+      for (let i = 0; i < mapped.length; i += 200) {
+        await prisma.$transaction(
+          mapped.slice(i, i + 200).map((row) =>
+            prisma.metaPeriodReach.upsert({
+              where: { level_metaId_window: { level: row.level, metaId: row.metaId, window: row.window } },
+              create: row,
+              update: row,
+            }),
+          ),
+        )
+      }
+      ecrits += mapped.length
+    }
+  }
+  return ecrits
+}
+
 /**
  * Passage incrémental : réécrit la fenêtre récente d'un compte.
  * C'est ce que le cron appellera chaque nuit.
@@ -350,6 +428,10 @@ export async function syncAccountRecent(opts: {
     since: daysAgo(days),
     until: daysAgo(0),
   })
+
+  // Best-effort : une portée manquante masque la fréquence, elle ne doit pas
+  // faire échouer la synchronisation des chiffres eux-mêmes.
+  await syncPeriodReach(opts).catch(() => 0)
 
   await prisma.metaSyncState.upsert({
     where: { adAccountId: opts.adAccountId },

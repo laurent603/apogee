@@ -75,7 +75,12 @@ export async function GET(req: NextRequest) {
   const cle = CLE[level]
   const niveauEntite = level === 'crea' ? 'ad' : level
 
-  const [entites, agg, aggPrev, joursRows, reglages] = await Promise.all([
+  // Portée dédupliquée, demandée à Meta pour cette fenêtre. Absente sur une
+  // période non standard : la fréquence sera alors marquée comme approchée
+  // plutôt que présentée comme exacte.
+  const fenetre = `${jours}d`
+
+  const [entites, agg, aggPrev, joursRows, reglages, portees] = await Promise.all([
     prisma.metaEntity.findMany({
       where: { adAccountId: dbAccountId, level: niveauEntite },
       select: { metaId: true, name: true, objective: true, status: true, effectiveStatus: true, dailyBudget: true, createdTime: true, parentMetaId: true },
@@ -87,7 +92,13 @@ export async function GET(req: NextRequest) {
       where: { adAccountId: dbAccountId },
       select: { targetCpa: true, maxCpa: true },
     }),
+    prisma.metaPeriodReach.findMany({
+      where: { adAccountId: dbAccountId, level: niveauEntite, window: fenetre },
+      select: { metaId: true, reach: true, impressions: true },
+    }),
   ])
+
+  const parIdPortee = new Map(portees.map((r) => [r.metaId, r]))
 
   const nbJours = joursRows.length
   const parId = new Map(agg.map((a) => [String((a as Record<string, unknown>)[cle] ?? ''), a._sum]))
@@ -102,6 +113,13 @@ export async function GET(req: NextRequest) {
   const lignes = entites.map((e) => {
     const m = computeMetrics(toTotals(parId.get(e.metaId), nbJours), e.objective || objetCompte)
     const mPrev = computeMetrics(toTotals(parIdPrev.get(e.metaId), nbJours), e.objective || objetCompte)
+
+    // La portée de période remplace la somme des journées, et rend la
+    // fréquence exploitable — sans elle, la règle de fatigue reste lettre morte.
+    const portee = parIdPortee.get(e.metaId)
+    const reach = portee?.reach ?? null
+    const frequency = reach && reach > 0 ? Math.round((m.impressions / reach) * 100) / 100 : null
+
     return {
       id: e.metaId,
       name: e.name,
@@ -111,6 +129,9 @@ export async function GET(req: NextRequest) {
       dailyBudget: e.dailyBudget,
       createdTime: e.createdTime,
       ...m,
+      reachSum: reach ?? m.reachSum,
+      reachIsApproximate: reach === null,
+      frequency,
       precedent: mPrev,
     }
   })
