@@ -31,17 +31,32 @@ export type Reglages = {
   objectif: string
   format: string
   conditions: Condition[]
+  /** Les colonnes des tableaux. */
   colonnes: string[]
+  /** Les tuiles des cartes créa, tenues à part. */
+  colonnesCrea: string[]
   dateLancement: boolean
   afficherStatut: boolean
   variations: boolean
   wrapNames: boolean
 }
 
+/**
+ * Une carte n'a pas l'appétit d'un tableau.
+ *
+ * Onze colonnes se lisent bien sur une ligne et noient une vignette. Les deux
+ * listes sont donc distinctes — c'est ce que fait Scalr — et la barre modifie
+ * celle du niveau affiché.
+ */
+export const COLONNES_CREA_DEFAUT = ['spend', 'resultValue', 'costPerResult', 'ctr']
+
+export const cleColonnes = (niveau: string): 'colonnes' | 'colonnesCrea' =>
+  niveau === 'crea' ? 'colonnesCrea' : 'colonnes'
+
 export const REGLAGES_DEFAUT = (colonnes: string[]): Reglages => ({
   periode: '30d', since: '', until: '', attribution: 'default',
   campagne: 'all', adset: 'all', statut: 'all', objectif: 'all', format: 'all',
-  conditions: [], colonnes,
+  conditions: [], colonnes, colonnesCrea: COLONNES_CREA_DEFAUT,
   dateLancement: false, afficherStatut: true, variations: true, wrapNames: false,
 })
 
@@ -166,6 +181,14 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
     const q = recherche.trim().toLowerCase()
     return METRICS.filter((m) => !q || m.label.toLowerCase().includes(q))
   }, [recherche])
+
+  // La bande des métriques agit sur la liste du niveau affiché : les colonnes
+  // du tableau, ou les tuiles des cartes créa.
+  const cle = cleColonnes(niveau)
+  const colonnes = r[cle]
+  const setColonnes = (v: string[]) => set({ [cle]: v } as Partial<Reglages>)
+  const basculer = (k: string) =>
+    setColonnes(colonnes.includes(k) ? colonnes.filter((x) => x !== k) : [...colonnes, k])
 
   function ajouterCondition() {
     if (!opCourant?.sansValeur && !brouillon.valeur.trim()) return
@@ -355,14 +378,18 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
 
       {/* ── Colonnes ── */}
       <div className="card flex flex-wrap items-center gap-2" ref={refMetrique}>
-        {r.colonnes.map((k) => {
+        <span className="text-[10px] font-medium text-gray-400 mr-0.5">
+          {niveau === 'crea' ? 'Indicateurs des cartes' : 'Colonnes'}
+        </span>
+
+        {colonnes.map((k) => {
           const m = METRIC_BY_KEY.get(k)
           if (!m) return null
           return (
             <span key={k} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-[#f8f9fc] border border-[#E5E7EB] text-[#0d0d12]">
               {m.label}
               <button type="button" aria-label={`Retirer ${m.label}`}
-                onClick={() => set({ colonnes: r.colonnes.filter((x) => x !== k) })}
+                onClick={() => basculer(k)}
                 className="text-gray-400 hover:text-red-500 leading-none">×</button>
             </span>
           )
@@ -386,7 +413,7 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
                 {GROUPES.map((g) => {
                   const items = metriquesVisibles.filter((m) => m.group === g)
                   if (!items.length) return null
-                  const actives = items.filter((m) => r.colonnes.includes(m.key)).length
+                  const actives = items.filter((m) => colonnes.includes(m.key)).length
                   return (
                     <div key={g} className="mb-3 last:mb-0">
                       <div className="flex items-center justify-between mb-1">
@@ -395,12 +422,8 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
                       </div>
                       {items.map((m) => (
                         <label key={m.key} className="flex items-center gap-2 py-1 px-1 cursor-pointer hover:bg-[#f8f9fc] rounded">
-                          <input type="checkbox" checked={r.colonnes.includes(m.key)}
-                            onChange={() => set({
-                              colonnes: r.colonnes.includes(m.key)
-                                ? r.colonnes.filter((x) => x !== m.key)
-                                : [...r.colonnes, m.key],
-                            })}
+                          <input type="checkbox" checked={colonnes.includes(m.key)}
+                            onChange={() => basculer(m.key)}
                             className="w-3.5 h-3.5 rounded border-gray-300 accent-[#3434ef]" />
                           <span className="text-xs text-[#0d0d12]">{m.label}</span>
                         </label>

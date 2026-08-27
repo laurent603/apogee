@@ -110,12 +110,20 @@ function Var({ v, def }: { v: number | null | undefined; def: MetricDef }) {
   )
 }
 
-function Ligne4({ label, cle, r }: { label: string; cle: string; r: Ligne }) {
+/**
+ * Un indicateur de la carte.
+ *
+ * Le résultat principal garde son nom réel — « Prospects formulaire » plutôt
+ * que « Résultat » : le registre ne peut pas le connaître, il dépend de
+ * l'objectif de la campagne.
+ */
+function Indicateur({ cle, r }: { cle: string; r: Ligne }) {
   const def = METRIC_BY_KEY.get(cle)
   if (!def) return null
+  const label = cle === 'resultValue' ? (r.resultLabel || def.label) : def.label
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
-      <span className="text-gray-500">{label}</span>
+      <span className="text-gray-500 truncate" title={label}>{label}</span>
       <span className="tabular-nums font-medium text-[#0d0d12] whitespace-nowrap">
         {formatMetric(r[cle] as number | null, def)}
         <Var v={r.variations?.[cle]} def={def} />
@@ -124,7 +132,9 @@ function Ligne4({ label, cle, r }: { label: string; cle: string; r: Ligne }) {
   )
 }
 
-export function GalerieCreas({ lignes, periode, attribution }: { lignes: Ligne[]; periode: string; attribution: string }) {
+export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
+  lignes: Ligne[]; periode: string; attribution: string; colonnes: string[]
+}) {
   const [classement, setClassement] = useState(CLASSEMENTS[0])
   const [ouvert, setOuvert] = useState<string | null>(null)
 
@@ -239,10 +249,10 @@ export function GalerieCreas({ lignes, periode, attribution }: { lignes: Ligne[]
               </div>
 
               <div className="space-y-1 mt-auto pt-1">
-                <Ligne4 label="Dépense" cle="spend" r={r} />
-                <Ligne4 label={r.resultLabel} cle="resultValue" r={r} />
-                <Ligne4 label="Coût/rés." cle="costPerResult" r={r} />
-                <Ligne4 label="CTR" cle="ctr" r={r} />
+                {colonnes.map((k) => <Indicateur key={k} cle={k} r={r} />)}
+                {!colonnes.length && (
+                  <p className="text-[10px] text-gray-400 italic">Aucun indicateur sélectionné.</p>
+                )}
               </div>
 
               {/* Part du budget que cette créa consomme */}

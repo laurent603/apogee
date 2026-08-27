@@ -209,7 +209,8 @@ export default function PilotagePage() {
       {selectedAccount && loading && <div className="card text-center py-16 text-gray-400 text-sm">Chargement…</div>}
 
       {selectedAccount && !loading && data && niveau === 'crea' && (
-        <GalerieCreas lignes={lignes as never} periode={r.periode} attribution={r.attribution} />
+        <GalerieCreas lignes={lignes as never} periode={r.periode} attribution={r.attribution}
+          colonnes={r.colonnesCrea} />
       )}
 
       {selectedAccount && !loading && data && niveau !== 'crea' && (
