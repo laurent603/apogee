@@ -25,7 +25,7 @@ const LARGEUR_DEFAUT = 320
 
 type Etat = 'charge' | 'absent' | 'pret'
 
-export type Apercu = { src: string | null; largeur: number | null; hauteur: number | null }
+export type Apercu = { src: string | null; largeur: number | null; hauteur: number | null; erreur?: string | null }
 
 /**
  * Le cadre seul, sans récupération.
@@ -34,11 +34,19 @@ export type Apercu = { src: string | null; largeur: number | null; hauteur: numb
  * n'a donc rien à charger ici. Le détail créa, lui, en veut un seul et change
  * de placement : `ApercuMeta` l'enveloppe pour ça.
  */
-export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir', paresseux = false }: {
+export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir', paresseux = false, hauteurRepli = 0 }: {
   apercu: Apercu | null
   etat: Etat
   interactif?: boolean
   mode?: 'remplir' | 'entier'
+  /**
+   * Hauteur à retenir quand Meta ne déclare pas la sienne.
+   *
+   * Sans elle, le cadre d'un aperçu entier retombe sur `h-full` dans un parent
+   * de hauteur automatique — c'est-à-dire zéro, et la publicité disparaît
+   * complètement.
+   */
+  hauteurRepli?: number
   /**
    * N'insère l'iframe qu'à l'approche de l'écran.
    *
@@ -85,7 +93,7 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
   }, [paresseux])
 
   const largeur = apercu?.largeur || LARGEUR_DEFAUT
-  const hauteur = apercu?.hauteur || 0
+  const hauteur = apercu?.hauteur || hauteurRepli
 
   // Remplir la largeur, sans plafond : une bande blanche à droite se voit
   // bien plus qu'un léger adoucissement du rendu.
@@ -117,7 +125,12 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           ) : (
-            <span className="text-[10px] text-gray-400 px-2 text-center">Aperçu indisponible</span>
+            // Le message de Meta plutôt qu'un « indisponible » muet : une
+            // publicité n'est pas éligible à tous les placements, et savoir
+            // lequel des deux vaut mieux que deviner.
+            <span className="text-[11px] text-gray-400 px-3 text-center leading-snug">
+              {apercu?.erreur || 'Aperçu indisponible pour ce placement'}
+            </span>
           )}
         </div>
       )}
@@ -126,11 +139,12 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
 }
 
 /** Un aperçu qui va le chercher lui-même : un seul, dont le placement change. */
-export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif = false, mode = 'remplir' }: {
+export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif = false, mode = 'remplir', hauteurRepli = 0 }: {
   adId: string
   format?: string
   interactif?: boolean
   mode?: 'remplir' | 'entier'
+  hauteurRepli?: number
 }) {
   const [apercu, setApercu] = useState<Apercu | null>(null)
   const [etat, setEtat] = useState<Etat>('charge')
@@ -142,7 +156,11 @@ export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif =
       .then((r) => r.json())
       .then((d) => {
         if (!vivant) return
-        if (!d.src) { setEtat('absent'); return }
+        if (!d.src) {
+          setApercu({ src: null, largeur: null, hauteur: null, erreur: d.error })
+          setEtat('absent')
+          return
+        }
         setApercu({ src: d.src, largeur: d.largeur, hauteur: d.hauteur })
         setEtat('pret')
       })
@@ -150,5 +168,6 @@ export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif =
     return () => { vivant = false }
   }, [adId, format])
 
-  return <CadreApercu apercu={apercu} etat={etat} interactif={interactif} mode={mode} />
+  return <CadreApercu apercu={apercu} etat={etat} interactif={interactif}
+    mode={mode} hauteurRepli={hauteurRepli} />
 }

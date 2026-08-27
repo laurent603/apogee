@@ -18,14 +18,23 @@ import { Camembert, BarresDoubles, AgeGenre, PAR_CLE, fmt, type Vent } from './g
 
 /* ─── Aperçu ────────────────────────────────────────────────────────────── */
 
+/**
+ * Les placements, avec une hauteur de repli.
+ *
+ * Meta déclare presque toujours les dimensions de son rendu, et c'est elles
+ * qu'on utilise. Le repli couvre le cas où il ne les donne pas : sans hauteur,
+ * le cadre s'effondre à zéro et la publicité disparaît sans un mot. Un fil
+ * porte ses commentaires et son bouton, donc il est long ; une story tient
+ * dans son écran.
+ */
 const FORMATS = [
-  { id: 'MOBILE_FEED_STANDARD', label: 'Fil mobile' },
-  { id: 'INSTAGRAM_STANDARD', label: 'Instagram' },
-  { id: 'INSTAGRAM_STORY', label: 'Story IG' },
-  { id: 'INSTAGRAM_REELS', label: 'Reels IG' },
-  { id: 'FACEBOOK_STORY_MOBILE', label: 'Story FB' },
-  { id: 'FACEBOOK_REELS_MOBILE', label: 'Reels FB' },
-  { id: 'DESKTOP_FEED_STANDARD', label: 'Bureau' },
+  { id: 'MOBILE_FEED_STANDARD', label: 'Fil mobile', repli: 700 },
+  { id: 'INSTAGRAM_STANDARD', label: 'Instagram', repli: 700 },
+  { id: 'INSTAGRAM_STORY', label: 'Story IG', repli: 570 },
+  { id: 'INSTAGRAM_REELS', label: 'Reels IG', repli: 570 },
+  { id: 'FACEBOOK_STORY_MOBILE', label: 'Story FB', repli: 570 },
+  { id: 'FACEBOOK_REELS_MOBILE', label: 'Reels FB', repli: 570 },
+  { id: 'DESKTOP_FEED_STANDARD', label: 'Bureau', repli: 800 },
 ]
 
 function Apercu({ adId }: { adId: string }) {
@@ -43,7 +52,8 @@ function Apercu({ adId }: { adId: string }) {
         ))}
       </div>
       <div className="rounded-xl border border-[#E5E7EB] overflow-hidden">
-        <ApercuMeta adId={adId} format={format} mode="entier" interactif />
+        <ApercuMeta adId={adId} format={format} mode="entier" interactif
+          hauteurRepli={FORMATS.find((f) => f.id === format)?.repli || 700} />
       </div>
     </div>
   )
@@ -168,7 +178,7 @@ export function DetailCrea({ adId, periode, attribution, decision, format, onClo
           {erreur && <div className="py-16 text-center text-sm text-gray-400">{erreur}</div>}
 
           {!erreur && (
-            <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-5">
+            <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-5">
               <Apercu adId={adId} />
 
               <div className="space-y-4 min-w-0">
