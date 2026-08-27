@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { METRIC_BY_KEY, formatMetric, senseVariation, type MetricDef } from '@/lib/scalr/metrics'
+import { DetailCrea } from './DetailCrea'
 
 /**
  * La galerie de créas.
@@ -123,8 +124,9 @@ function Ligne4({ label, cle, r }: { label: string; cle: string; r: Ligne }) {
   )
 }
 
-export function GalerieCreas({ lignes }: { lignes: Ligne[] }) {
+export function GalerieCreas({ lignes, periode, attribution }: { lignes: Ligne[]; periode: string; attribution: string }) {
   const [classement, setClassement] = useState(CLASSEMENTS[0])
+  const [ouvert, setOuvert] = useState<string | null>(null)
 
   const creas = useMemo(() => {
     // Une créa sans diffusion n'a rien à dire : on ne la met pas au mur.
@@ -205,8 +207,9 @@ export function GalerieCreas({ lignes }: { lignes: Ligne[] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {creas.map((r, i) => (
-          <div key={r.id} className={clsx('card p-0 overflow-hidden flex flex-col',
-            r.id === meilleure?.id && 'ring-2 ring-[#3434ef] ring-offset-1')}>
+          <div key={r.id} onClick={() => setOuvert(r.id)}
+            className={clsx('card p-0 overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-shadow',
+              r.id === meilleure?.id && 'ring-2 ring-[#3434ef] ring-offset-1')}>
             <div className="relative bg-[#f8f9fc] aspect-[4/5] overflow-hidden">
               <Apercu adId={r.id} rang={i} />
               <span className={clsx('absolute top-2 left-2 w-2 h-2 rounded-full ring-2 ring-white',
@@ -253,6 +256,10 @@ export function GalerieCreas({ lignes }: { lignes: Ligne[] }) {
           </div>
         ))}
       </div>
+
+      {ouvert && (
+        <DetailCrea adId={ouvert} periode={periode} attribution={attribution} onClose={() => setOuvert(null)} />
+      )}
     </div>
   )
 }

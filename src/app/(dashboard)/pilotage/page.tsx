@@ -7,6 +7,7 @@ import {
   type MetricDef,
 } from '@/lib/scalr/metrics'
 import { GalerieCreas } from '@/components/scalr/GalerieCreas'
+import { DetailCrea } from '@/components/scalr/DetailCrea'
 
 /**
  * Le tableau de pilotage.
@@ -91,6 +92,7 @@ export default function PilotagePage() {
   const [afficherVariations, setAfficherVariations] = useState(true)
   const [choixColonnes, setChoixColonnes] = useState(false)
   const [recherche, setRecherche] = useState('')
+  const [detailOuvert, setDetailOuvert] = useState<string | null>(null)
 
   const [data, setData] = useState<{ lignes: Ligne[]; periode: { since: string; until: string }; precedente: { since: string; until: string }; goals: { targetCpl: number | null; maxCpl: number | null } } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -224,7 +226,7 @@ export default function PilotagePage() {
       {selectedAccount && loading && <div className="card text-center py-16 text-gray-400 text-sm">Chargement…</div>}
 
       {selectedAccount && !loading && data && niveau === 'crea' && (
-        <GalerieCreas lignes={lignes as never} />
+        <GalerieCreas lignes={lignes as never} periode={periode} attribution={attribution} />
       )}
 
       {selectedAccount && !loading && data && niveau !== 'crea' && (
@@ -249,7 +251,10 @@ export default function PilotagePage() {
               </thead>
               <tbody>
                 {lignes.map((r) => (
-                  <tr key={r.id} className="border-t border-[#F3F4F6] hover:bg-[#f8f9fc] group">
+                  <tr key={r.id}
+                    onClick={() => niveau === 'ad' && setDetailOuvert(r.id)}
+                    className={clsx('border-t border-[#F3F4F6] hover:bg-[#f8f9fc] group',
+                      niveau === 'ad' && 'cursor-pointer')}>
                     <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-[#f8f9fc] min-w-[240px]">
                       <div className="flex items-start gap-2">
                         <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5',
@@ -281,6 +286,11 @@ export default function PilotagePage() {
             </table>
           </div>
         </div>
+      )}
+
+      {detailOuvert && (
+        <DetailCrea adId={detailOuvert} periode={periode} attribution={attribution}
+          onClose={() => setDetailOuvert(null)} />
       )}
 
       {data && (
