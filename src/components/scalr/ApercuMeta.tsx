@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { clsx } from 'clsx'
 
 /**
  * L'aperçu officiel d'une publicité, mis à l'échelle de son cadre.
@@ -95,28 +96,38 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
   const largeur = apercu?.largeur || LARGEUR_DEFAUT
   const hauteur = apercu?.hauteur || hauteurRepli
 
-  // Remplir la largeur, sans plafond : une bande blanche à droite se voit
-  // bien plus qu'un léger adoucissement du rendu.
-  const echelle = boite.l ? boite.l / largeur : 1
+  /**
+   * Deux cadrages, deux contraintes.
+   *
+   * Une vignette remplit la largeur et se recadre par le bas, là où Meta
+   * empile ses boutons : on veut voir la créa.
+   *
+   * Un aperçu entier doit tenir *dans* son cadre, donc se cale sur la
+   * dimension la plus contraignante des deux. N'ajuster que la largeur suffit
+   * pour une story, qui est courte, et fait déborder un fil, qui porte ses
+   * commentaires et son bouton — c'est la modale qui se met alors à défiler,
+   * et on ne voit plus la publicité d'un seul coup d'œil.
+   */
+  const echelle = mode === 'entier'
+    ? (boite.l && boite.h && hauteur ? Math.min(boite.l / largeur, boite.h / hauteur) : 1)
+    : (boite.l ? boite.l / largeur : 1)
 
-  // En mode entier, c'est le cadre qui se règle sur la publicité : lui imposer
-  // une hauteur arbitraire la couperait ou la laisserait flotter dans du vide.
-  const hauteurCadre = mode === 'entier' && hauteur ? hauteur * echelle : undefined
   const hauteurIframe = mode === 'entier'
     ? (hauteur || boite.h)
     : (echelle ? boite.h / echelle : '100%')
 
   return (
-    <div ref={cadre} className="w-full h-full overflow-hidden bg-[#f8f9fc]" style={{ height: hauteurCadre }}>
+    <div ref={cadre} className={clsx('w-full h-full overflow-hidden bg-[#f8f9fc]',
+      mode === 'entier' && 'flex items-center justify-center')}>
       {apercu?.src && aPortee ? (
         <iframe src={apercu.src} title="Aperçu de la publicité"
           sandbox="allow-scripts allow-same-origin" loading="lazy"
-          className={interactif ? 'border-0' : 'border-0 pointer-events-none'}
+          className={clsx('border-0 flex-shrink-0', !interactif && 'pointer-events-none')}
           style={{
             width: largeur,
             height: hauteurIframe,
             transform: `scale(${echelle})`,
-            transformOrigin: 'top left',
+            transformOrigin: mode === 'entier' ? 'center' : 'top left',
           }} />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-gray-300">

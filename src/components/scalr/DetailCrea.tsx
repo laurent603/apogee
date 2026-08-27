@@ -41,8 +41,11 @@ function Apercu({ adId }: { adId: string }) {
   const [format, setFormat] = useState(FORMATS[0].id)
 
   return (
-    <div className="flex flex-col gap-2 min-h-0">
-      <div className="flex flex-wrap gap-1">
+    // La colonne est bornée par la modale et reste épinglée : la publicité
+    // demeure sous les yeux pendant qu'on fait défiler les chiffres à côté,
+    // et c'est cette hauteur connue qui permet d'y faire tenir l'aperçu.
+    <div className="flex flex-col gap-2 xl:sticky xl:top-0 xl:h-[calc(85vh-7.5rem)] min-h-[420px]">
+      <div className="flex flex-wrap gap-1 flex-shrink-0">
         {FORMATS.map((f) => (
           <button key={f.id} onClick={() => setFormat(f.id)}
             className={clsx('px-2 py-1 rounded-md text-[11px] font-medium border transition-all',
@@ -51,7 +54,7 @@ function Apercu({ adId }: { adId: string }) {
           </button>
         ))}
       </div>
-      <div className="rounded-xl border border-[#E5E7EB] overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-xl border border-[#E5E7EB] overflow-hidden">
         <ApercuMeta adId={adId} format={format} mode="entier" interactif
           hauteurRepli={FORMATS.find((f) => f.id === format)?.repli || 700} />
       </div>
@@ -178,7 +181,7 @@ export function DetailCrea({ adId, periode, attribution, decision, format, onClo
           {erreur && <div className="py-16 text-center text-sm text-gray-400">{erreur}</div>}
 
           {!erreur && (
-            <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-5">
+            <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-5 items-start">
               <Apercu adId={adId} />
 
               <div className="space-y-4 min-w-0">
