@@ -290,6 +290,8 @@ export default function PilotagePage() {
 
       {detailOuvert && (
         <DetailCrea adId={detailOuvert} periode={periode} attribution={attribution}
+          decision={(data?.lignes as Ligne[] | undefined)?.find((l) => l.id === detailOuvert)?.decision}
+          format={(data?.lignes as (Ligne & { creativeType?: string })[] | undefined)?.find((l) => l.id === detailOuvert)?.creativeType}
           onClose={() => setDetailOuvert(null)} />
       )}
 

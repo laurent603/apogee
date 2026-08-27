@@ -258,7 +258,10 @@ export function GalerieCreas({ lignes, periode, attribution }: { lignes: Ligne[]
       </div>
 
       {ouvert && (
-        <DetailCrea adId={ouvert} periode={periode} attribution={attribution} onClose={() => setOuvert(null)} />
+        <DetailCrea adId={ouvert} periode={periode} attribution={attribution}
+          decision={creas.find((c) => c.id === ouvert)?.decision}
+          format={creas.find((c) => c.id === ouvert)?.creativeType}
+          onClose={() => setOuvert(null)} />
       )}
     </div>
   )
