@@ -1,9 +1,9 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { METRIC_BY_KEY, formatMetric, senseVariation, type MetricDef } from '@/lib/scalr/metrics'
 import { DetailCrea } from './DetailCrea'
-import { ApercuMeta } from './ApercuMeta'
+import { CadreApercu, type Apercu } from './ApercuMeta'
 
 /**
  * La galerie de créas.
@@ -14,9 +14,16 @@ import { ApercuMeta } from './ApercuMeta'
  *
  * L'image est l'aperçu officiel de Meta, pas la vignette du créatif : celle-ci
  * plafonne à 64×64, et l'image de la publication n'existe pas pour des dark
- * posts. Le rendu, sa mise à l'échelle et le décalage des appels vivent dans
- * `ApercuMeta`, partagé avec le détail créa.
+ * posts. Le rendu et sa mise à l'échelle vivent dans `CadreApercu`, partagé
+ * avec le détail créa.
+ *
+ * **Le mur se pagine, et tire ses aperçus par lots.** Un compte de cent créas
+ * lançait cent requêtes, donc cent fonctions serverless et cent appels à Meta.
+ * Une page en demande un seul, groupé.
  */
+
+/** Cinq rangées de six sur un grand écran. */
+const PAR_PAGE = 30
 
 type Ligne = Record<string, unknown> & {
   id: string
@@ -92,6 +99,8 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
 }) {
   const [classement, setClassement] = useState(CLASSEMENTS[0])
   const [ouvert, setOuvert] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [apercus, setApercus] = useState<Record<string, Apercu>>({})
 
   // Le tri seulement : écarter les créas sans diffusion est décidé plus haut,
   // par la bascule « Diffusées seulement ». Filtrer ici les rendait invisibles
@@ -123,6 +132,35 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
     })[0]
   }, [creas])
 
+  const pages = Math.max(1, Math.ceil(creas.length / PAR_PAGE))
+  const pageSure = Math.min(page, pages)
+  const visibles = useMemo(
+    () => creas.slice((pageSure - 1) * PAR_PAGE, pageSure * PAR_PAGE),
+    [creas, pageSure])
+
+  // Un filtre ou un tri redistribue les créas : rester en page 4 renverrait
+  // sur du vide.
+  useEffect(() => { setPage(1) }, [lignes, classement])
+
+  // Les aperçus de la page, en un appel. La clé évite de redemander ce qu'on
+  // a déjà quand on revient sur une page.
+  const cle = visibles.map((c) => c.id).join(',')
+  useEffect(() => {
+    const manquants = visibles.map((c) => c.id).filter((id) => !apercus[id])
+    if (!manquants.length) return
+    let vivant = true
+    fetch('/api/scalr/previews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adIds: manquants, format: 'MOBILE_FEED_STANDARD' }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (vivant && d.apercus) setApercus((prev) => ({ ...prev, ...d.apercus })) })
+      .catch(() => {})
+    return () => { vivant = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cle])
+
   const maxSpend = Math.max(...creas.map((c) => c.spend), 1)
 
   if (!creas.length) {
@@ -140,7 +178,9 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-          Analyse créas <span className="text-gray-300 font-medium normal-case tracking-normal">· {creas.length} créas</span>
+          Analyse créas <span className="text-gray-300 font-medium normal-case tracking-normal">
+            · {creas.length} créas{pages > 1 && ` · page ${pageSure} sur ${pages}`}
+          </span>
         </p>
         <div className="flex gap-1 bg-[#f8f9fc] rounded-lg p-1 border border-[#E5E7EB]">
           {CLASSEMENTS.map((c) => (
@@ -179,12 +219,13 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-        {creas.map((r, i) => (
+        {visibles.map((r) => (
           <div key={r.id} onClick={() => setOuvert(r.id)}
             className={clsx('card p-0 overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-shadow',
               r.id === meilleure?.id && 'ring-2 ring-[#3434ef] ring-offset-1')}>
             <div className="relative bg-[#f8f9fc] aspect-[4/5] overflow-hidden">
-              <ApercuMeta adId={r.id} delai={Math.min(i, 24) * 120} />
+              <CadreApercu apercu={apercus[r.id] ?? null}
+                etat={!apercus[r.id] ? 'charge' : apercus[r.id].src ? 'pret' : 'absent'} />
               <span className={clsx('absolute top-2 left-2 w-2 h-2 rounded-full ring-2 ring-white',
                 r.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-300')} />
               {r.creativeType && (
@@ -229,6 +270,20 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
           </div>
         ))}
       </div>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={pageSure === 1}
+            className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-gray-300 disabled:opacity-40 disabled:hover:border-[#E5E7EB]">
+            Précédent
+          </button>
+          <span className="text-xs text-gray-400 tabular-nums px-2">{pageSure} / {pages}</span>
+          <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={pageSure === pages}
+            className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-gray-300 disabled:opacity-40 disabled:hover:border-[#E5E7EB]">
+            Suivant
+          </button>
+        </div>
+      )}
 
       {ouvert && (
         <DetailCrea adId={ouvert} periode={periode} attribution={attribution}
