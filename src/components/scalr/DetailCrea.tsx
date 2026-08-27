@@ -1,10 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, ComposedChart, Line,
-} from 'recharts'
+import { Camembert, BarresDoubles, AgeGenre, PAR_CLE, fmt, type Vent } from './graphes'
 
 /**
  * Le détail d'une créa : pourquoi elle marche, ou pas.
@@ -17,66 +14,6 @@ import {
  * deux : la lecture qui décide n'est pas une métrique isolée mais un
  * croisement — dépense contre reach, CTR contre impressions.
  */
-
-/* ─── Métriques offertes aux sélecteurs ─────────────────────────────────── */
-
-type Unite = 'eur' | 'nb' | 'pct' | 'ratio'
-type Choix = { cle: string; label: string; unite: Unite; inverse?: boolean }
-
-const CHOIX: Choix[] = [
-  { cle: 'spend', label: 'Dépensé', unite: 'eur' },
-  { cle: 'leads', label: 'Leads', unite: 'nb' },
-  { cle: 'resultValue', label: 'Résultats', unite: 'nb' },
-  { cle: 'cpl', label: 'CPL', unite: 'eur', inverse: true },
-  { cle: 'costPerResult', label: 'Coût / résultat', unite: 'eur', inverse: true },
-  { cle: 'convRate', label: 'Taux conv. lead', unite: 'pct' },
-  { cle: 'reach', label: 'Reach', unite: 'nb' },
-  { cle: 'impressions', label: 'Impressions', unite: 'nb' },
-  { cle: 'frequency', label: 'Fréquence', unite: 'ratio', inverse: true },
-  { cle: 'ctr', label: 'CTR', unite: 'pct' },
-  { cle: 'linkClicks', label: 'Clics lien', unite: 'nb' },
-  { cle: 'linkCtr', label: 'Link CTR', unite: 'pct' },
-  { cle: 'cpc', label: 'CPC', unite: 'eur', inverse: true },
-  { cle: 'cpm', label: 'CPM', unite: 'eur', inverse: true },
-  { cle: 'hookRate', label: 'Hook rate', unite: 'pct' },
-  { cle: 'holdRate', label: 'Hold rate', unite: 'pct' },
-  { cle: 'video3s', label: 'Vues vidéo 3s', unite: 'nb' },
-]
-const PAR_CLE = new Map(CHOIX.map((c) => [c.cle, c]))
-
-const fmt = (v: number | null | undefined, u: Unite) => {
-  if (v == null || !Number.isFinite(v)) return '—'
-  if (u === 'eur') return `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
-  if (u === 'pct') return `${v.toFixed(2)}%`
-  if (u === 'ratio') return v.toFixed(2)
-  return Math.round(v).toLocaleString('fr-FR')
-}
-
-function Selecteur({ valeur, onChange, exclure }: {
-  valeur: string; onChange: (v: string) => void; exclure?: string
-}) {
-  return (
-    <select value={valeur} onChange={(e) => onChange(e.target.value)}
-      className="text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-1 bg-white text-gray-600 focus:outline-none focus:border-[#3434ef]">
-      {CHOIX.filter((c) => c.cle !== exclure).map((c) => (
-        <option key={c.cle} value={c.cle}>{c.label}</option>
-      ))}
-    </select>
-  )
-}
-
-/** Une baisse de coût est une bonne nouvelle : le sens dépend de la métrique. */
-function Var({ v, inverse }: { v: number | null | undefined; inverse?: boolean }) {
-  if (v == null || !Number.isFinite(v)) return null
-  const bon = inverse ? v < 0 : v > 0
-  const neutre = Math.abs(v) < 1
-  return (
-    <span className={clsx('text-[10px] font-medium tabular-nums ml-1',
-      neutre ? 'text-gray-400' : bon ? 'text-emerald-600' : 'text-red-500')}>
-      {v > 0 ? '↑' : '↓'}{Math.abs(v).toFixed(0)}%
-    </span>
-  )
-}
 
 /* ─── Aperçu ────────────────────────────────────────────────────────────── */
 
@@ -129,98 +66,16 @@ function Apercu({ adId }: { adId: string }) {
   )
 }
 
-/* ─── Blocs ─────────────────────────────────────────────────────────────── */
-
-type Vent = Record<string, number | null | string | boolean> & { cle: string; fusionne?: boolean }
-
-const TEINTES = ['#3434ef', '#6366f1', '#818cf8', '#a5b4fc', '#22c55e', '#4ade80', '#f59e0b', '#f97316', '#94a3b8']
-
-function Camembert({ data, titre }: { data: Vent[]; titre: string }) {
-  const [cle, setCle] = useState('spend')
-  const c = PAR_CLE.get(cle)!
-  const rows = data.map((d) => ({ cle: d.cle, v: Number(d[cle] ?? 0) })).filter((r) => r.v > 0)
-  const total = rows.reduce((s, r) => s + r.v, 0)
-
+/** Une baisse de coût est une bonne nouvelle : le sens dépend de la métrique. */
+function Var({ v, inverse }: { v: number | null | undefined; inverse?: boolean }) {
+  if (v == null || !Number.isFinite(v)) return null
+  const bon = inverse ? v < 0 : v > 0
+  const neutre = Math.abs(v) < 1
   return (
-    <div className="card">
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
-        <Selecteur valeur={cle} onChange={setCle} />
-      </div>
-      {rows.length ? (
-        <>
-          <ResponsiveContainer width="100%" height={230}>
-            <PieChart>
-              <Pie data={rows} dataKey="v" nameKey="cle" innerRadius={55} outerRadius={90} paddingAngle={2}>
-                {rows.map((_, i) => <Cell key={i} fill={TEINTES[i % TEINTES.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
-                formatter={(v: number, n: string) => [`${fmt(v, c.unite)} · ${((v / total) * 100).toFixed(1)}%`, n]} />
-              <Legend verticalAlign="bottom" height={36} iconSize={8}
-                formatter={(v) => <span className="text-[11px] text-gray-600">{v}</span>} />
-            </PieChart>
-          </ResponsiveContainer>
-          <p className="text-[11px] text-gray-400 text-center">Total {fmt(total, c.unite)}</p>
-        </>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-sm text-gray-400">Rien à répartir sur cette métrique</div>
-      )}
-    </div>
-  )
-}
-
-/** Deux métriques côte à côte : c'est le croisement qui décide, pas l'une des
- *  deux prise seule. */
-function BarresDoubles({ data, titre, note, defaut1, defaut2, horizontal }: {
-  data: Vent[]; titre: string; note?: string; defaut1: string; defaut2: string; horizontal?: boolean
-}) {
-  const [a, setA] = useState(defaut1)
-  const [b, setB] = useState(defaut2)
-  const ca = PAR_CLE.get(a)!, cb = PAR_CLE.get(b)!
-  const rows = data.slice(0, 12).map((d) => ({
-    cle: d.cle, a: d[a] == null ? null : Number(d[a]), b: d[b] == null ? null : Number(d[b]),
-  }))
-  const fusion = data.some((d) => d.fusionne) && (a === 'frequency' || b === 'frequency')
-
-  return (
-    <div className="card">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
-        <div className="flex items-center gap-1">
-          <Selecteur valeur={a} onChange={setA} exclure={b} />
-          <span className="text-[10px] text-gray-400">vs</span>
-          <Selecteur valeur={b} onChange={setB} exclure={a} />
-        </div>
-      </div>
-      {note && <p className="text-[11px] text-gray-400 mb-1">{note}</p>}
-      <ResponsiveContainer width="100%" height={horizontal ? Math.max(180, rows.length * 34) : 240}>
-        <ComposedChart data={rows} layout={horizontal ? 'vertical' : 'horizontal'}
-          margin={{ top: 4, right: 12, left: horizontal ? 4 : -18, bottom: 0 }}>
-          {horizontal ? <>
-            <XAxis type="number" hide />
-            <YAxis type="category" dataKey="cle" width={150} tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-          </> : <>
-            <XAxis dataKey="cle" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-              tickFormatter={(v) => String(v).slice(5)} minTickGap={20} />
-            <YAxis yAxisId="g" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="d" orientation="right" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-          </>}
-          <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
-            formatter={(v: number, n: string) => [fmt(v, n === ca.label ? ca.unite : cb.unite), n]} />
-          <Legend iconSize={8} formatter={(v) => <span className="text-[11px] text-gray-600">{v}</span>} />
-          <Bar dataKey="a" name={ca.label} fill="#3434ef" radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
-            barSize={14} {...(horizontal ? {} : { yAxisId: 'g' })} />
-          {horizontal
-            ? <Bar dataKey="b" name={cb.label} fill="#22c55e" radius={[0, 4, 4, 0]} barSize={14} />
-            : <Line type="monotone" dataKey="b" name={cb.label} stroke="#22c55e" strokeWidth={2} dot={false} yAxisId="d" />}
-        </ComposedChart>
-      </ResponsiveContainer>
-      {fusion && (
-        <p className="text-[11px] text-amber-600">
-          La fréquence n&apos;est pas affichée sur un découpage recomposé : les mêmes personnes y sont comptées plusieurs fois.
-        </p>
-      )}
-    </div>
+    <span className={clsx('text-[10px] font-medium tabular-nums ml-1',
+      neutre ? 'text-gray-400' : bon ? 'text-emerald-600' : 'text-red-500')}>
+      {v > 0 ? '↑' : '↓'}{Math.abs(v).toFixed(0)}%
+    </span>
   )
 }
 
@@ -381,14 +236,24 @@ export function DetailCrea({ adId, periode, attribution, decision, format, onClo
                 )}
 
                 {d && (
-                  <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
-                    <Camembert data={d.ventilations.age} titre="Répartition des métriques · âge" />
-                    <BarresDoubles data={d.ventilations.placement} titre="Répartition par placement"
-                      note="Là où le budget part, et ce qu'il touche" defaut1="spend" defaut2="reach" horizontal />
+                  <>
+                    <Camembert titre="Répartition des métriques" dimensions={[
+                      { cle: 'age', label: 'Âge', data: d.ventilations.age },
+                      { cle: 'placement', label: 'Placement', data: d.ventilations.placement },
+                      { cle: 'appareil', label: 'Appareil', data: d.ventilations.appareil },
+                      { cle: 'genre', label: 'Genre', data: d.ventilations.genre },
+                    ]} />
+
+                    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+                      <BarresDoubles data={d.ventilations.placement} titre="Répartition par placement"
+                        note="Là où le budget part, et ce qu'il touche réellement"
+                        defaut1="spend" defaut2="reach" />
+                      <AgeGenre data={d.ventilations.ageGenre} />
+                    </div>
+
                     <BarresDoubles data={d.quotidien} titre="Évolution des métriques"
-                      note="Deux échelles : barres à gauche, courbe à droite" defaut1="impressions" defaut2="ctr" />
-                    <Camembert data={d.ventilations.appareil} titre="Répartition des métriques · appareil" />
-                  </div>
+                      note="Deux échelles : barres à gauche, courbe à droite" defaut1="linkCtr" defaut2="ctr" courbe />
+                  </>
                 )}
 
                 {/* Analyse Claude */}
