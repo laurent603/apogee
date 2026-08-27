@@ -45,14 +45,19 @@ const PERIODES = [
   { id: '90d', label: '3 mois' }, { id: '180d', label: '6 mois' },
 ]
 
-const eur = (n: number | null, d = 0) =>
-  n === null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })} €`
-const nb = (n: number | null) => (n === null ? '—' : n.toLocaleString('fr-FR'))
-const pc = (n: number | null, d = 2) => (n === null ? '—' : `${n.toFixed(d)} %`)
+/* Les gardes testent `== null`, qui attrape null ET undefined.
+   Un `=== null` laissait passer une clé absente de la réponse — c'est
+   exactement ce qui a fait planter l'écran sur l'évolution du CPC, que
+   l'API ne renvoyait pas. Une métrique manquante doit s'afficher « — »,
+   jamais casser la page. */
+const eur = (n?: number | null, d = 0) =>
+  n == null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })} €`
+const nb = (n?: number | null) => (n == null ? '—' : n.toLocaleString('fr-FR'))
+const pc = (n?: number | null, d = 2) => (n == null ? '—' : `${n.toFixed(d)} %`)
 
 /** Une baisse de coût est une bonne nouvelle : le sens dépend de la métrique. */
-function Evolution({ value, inverse }: { value: number | null; inverse?: boolean }) {
-  if (value === null) return <span className="text-xs text-gray-300">—</span>
+function Evolution({ value, inverse }: { value?: number | null; inverse?: boolean }) {
+  if (value == null || !Number.isFinite(value)) return <span className="text-xs text-gray-300">—</span>
   const bon = inverse ? value < 0 : value > 0
   const neutre = Math.abs(value) < 1
   return (
@@ -140,7 +145,7 @@ export default function CockpitPage() {
             <Kpi label={c.resultLabel} value={nb(c.resultValue)} evolution={e.resultValue} />
             <Kpi label={`Coût / ${c.resultLabel.toLowerCase()}`} value={eur(c.costPerResult, 2)}
                  evolution={e.costPerResult} inverse />
-            {c.roas !== null && c.revenue > 0
+            {c.roas != null && c.revenue > 0
               ? <Kpi label="ROAS" value={`${c.roas.toFixed(2)}×`} evolution={e.roas} sub={eur(c.revenue) + ' de CA'} />
               : <Kpi label="CPM" value={eur(c.cpm, 2)} evolution={e.cpm} inverse />}
           </div>
