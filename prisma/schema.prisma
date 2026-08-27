@@ -9,20 +9,20 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  image         String?
-  facebookId    String?   @unique
-  accessToken   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  name        String?
+  email       String?  @unique
+  image       String?
+  facebookId  String?  @unique
+  accessToken String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  adAccounts    AdAccount[]
+  accounts        Account[]
+  sessions        Session[]
+  adAccounts      AdAccount[]
   autopilotAgents AutopilotAgent[]
-  launches      LaunchHistory[]
+  launches        LaunchHistory[]
 }
 
 model Account {
@@ -39,6 +39,7 @@ model Account {
   id_token          String?
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([provider, providerAccountId])
 }
 
@@ -54,24 +55,26 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
 
 model AdAccount {
-  id              String   @id @default(cuid())
+  id              String             @id @default(cuid())
   metaAccountId   String
   name            String
   currency        String?
   timezone        String?
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   brandSettings   BrandSettings?
   autopilotAgents AutopilotAgent[]
   reports         Report[]
   knowledge       CreativeKnowledge?
   copyGenerations CopyGeneration[]
   ghl             GhlConnection?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime           @default(now())
+
   @@unique([userId, metaAccountId])
 }
 
@@ -108,6 +111,7 @@ model CopyGeneration {
   /// The generated variants as JSON
   result      String
   createdAt   DateTime  @default(now())
+
   @@index([adAccountId, createdAt])
 }
 
@@ -128,14 +132,22 @@ model GhlConnection {
   wonCount    Int       @default(0)
   wonValue    Float     @default(0)
   valueFilled Int       @default(0)
+  /// Les étiquettes qui marquent chaque étape du tunnel, telles qu'elles sont
+  /// écrites dans GHL. Elles varient d'un client à l'autre : « rdv booké » ici,
+  /// « RDV pris » ailleurs. Vides, les compteurs correspondants restent à zéro
+  /// plutôt que de deviner.
+  tagLead     String?
+  tagRdv      String?
+  tagDevis    String?
+  tagSigne    String?
   syncedAt    DateTime?
   syncError   String?
   updatedAt   DateTime  @updatedAt
 }
 
 model BrandSettings {
-  id                    String   @id @default(cuid())
-  adAccountId           String   @unique
+  id                    String    @id @default(cuid())
+  adAccountId           String    @unique
   adAccount             AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
   // Business
   businessModel         String?
@@ -184,37 +196,37 @@ model BrandSettings {
   trackingSetup         String?
   crmIntegration        String?
   // 'total' | 'meta' | 'website' — see LeadSource in src/lib/meta.ts
-  leadSource            String?  @default("total")
+  leadSource            String?   @default("total")
   /// Reports are emailed here for every agent on the account, so the address is
   /// entered once instead of on each agent
   reportEmail           String?
-  reportEmailEnabled    Boolean  @default(false)
+  reportEmailEnabled    Boolean   @default(false)
   trackedEvents         String?
   trustpilotUrl         String?
-  updatedAt             DateTime @updatedAt
+  updatedAt             DateTime  @updatedAt
 }
 
 model AutopilotAgent {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  role           String   // performance_manager | media_buyer | creative_strategist | copywriter
-  frequency      String   // daily | every_3_days | weekly | monthly
-  runMode        String   @default("report") // report | propose | auto_execute
-  analysisPeriod String   @default("last_7d")
-  instructions   String
-  outputFormat   String?
-  deliveryChannels String  @default("in_app") // JSON array as string
-  isActive       Boolean  @default(true)
-  lastRunAt      DateTime?
-  nextRunAt      DateTime?
-  userId         String
-  adAccountId    String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adAccount      AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
-  reports        Report[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  role             String // performance_manager | media_buyer | creative_strategist | copywriter
+  frequency        String // daily | every_3_days | weekly | monthly
+  runMode          String    @default("report") // report | propose | auto_execute
+  analysisPeriod   String    @default("last_7d")
+  instructions     String
+  outputFormat     String?
+  deliveryChannels String    @default("in_app") // JSON array as string
+  isActive         Boolean   @default(true)
+  lastRunAt        DateTime?
+  nextRunAt        DateTime?
+  userId           String
+  adAccountId      String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adAccount        AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  reports          Report[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model LaunchHistory {
@@ -234,16 +246,16 @@ model LaunchHistory {
 }
 
 model Report {
-  id             String   @id @default(cuid())
-  title          String
-  type           String   // audit | performance | media_buying | creative | autopilot
-  content        String   // HTML or Markdown
-  adAccountId    String
-  adAccount      AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
-  agentId        String?
-  agent          AutopilotAgent? @relation(fields: [agentId], references: [id])
-  isRead         Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  id          String          @id @default(cuid())
+  title       String
+  type        String // audit | performance | media_buying | creative | autopilot
+  content     String // HTML or Markdown
+  adAccountId String
+  adAccount   AdAccount       @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  agentId     String?
+  agent       AutopilotAgent? @relation(fields: [agentId], references: [id])
+  isRead      Boolean         @default(false)
+  createdAt   DateTime        @default(now())
 }
 
 /// Campagnes, adsets et publicités Meta, avec leur nom et leur statut.
@@ -254,24 +266,24 @@ model Report {
 /// de savoir si le « résultat » d'une campagne est un prospect, un itinéraire
 /// ou une personne touchée.
 model MetaEntity {
-  id            String   @id @default(cuid())
-  adAccountId   String
-  level         String   // campaign | adset | ad
-  metaId        String
-  name          String
-  status        String?
+  id              String    @id @default(cuid())
+  adAccountId     String
+  level           String // campaign | adset | ad
+  metaId          String
+  name            String
+  status          String?
   effectiveStatus String?
-  objective     String?  // campagnes seulement
-  parentMetaId  String?  // ad -> adset, adset -> campaign
-  dailyBudget   Float?
-  lifetimeBudget Float?
-  createdTime   DateTime?
+  objective       String? // campagnes seulement
+  parentMetaId    String? // ad -> adset, adset -> campaign
+  dailyBudget     Float?
+  lifetimeBudget  Float?
+  createdTime     DateTime?
   /// Publicités seulement : de quoi afficher la galerie de créas. Le format
   /// se déduit d'abord du nom, la convention primant sur l'emballage Meta.
-  thumbnailUrl  String?
-  creativeType  String?
-  creativeId    String?
-  syncedAt      DateTime @default(now())
+  thumbnailUrl    String?
+  creativeType    String?
+  creativeId      String?
+  syncedAt        DateTime  @default(now())
 
   @@unique([level, metaId])
   @@index([adAccountId, level])
@@ -293,20 +305,20 @@ model MetaEntity {
 ///    peuplent à la demande, sans changer le schéma.
 model MetaDailyAd {
   id            String   @id @default(cuid())
-  adAccountId   String   // AdAccount.id interne
-  metaAccountId String   // act_xxx, pour les requêtes directes
+  adAccountId   String // AdAccount.id interne
+  metaAccountId String // act_xxx, pour les requêtes directes
   date          DateTime @db.Date
   adId          String
   adsetId       String?
   campaignId    String?
   attribution   String   @default("default") // default | 1d_click | 7d_click | 1d_view
 
-  spend            Float @default(0)
-  impressions      Int   @default(0)
-  reach            Int   @default(0)
-  clicks           Int   @default(0)
-  linkClicks       Int   @default(0)
-  outboundClicks   Int   @default(0)
+  spend          Float @default(0)
+  impressions    Int   @default(0)
+  reach          Int   @default(0)
+  clicks         Int   @default(0)
+  linkClicks     Int   @default(0)
+  outboundClicks Int   @default(0)
 
   // Tunnel du clic à l'achat
   landingPageViews Int   @default(0)
@@ -317,24 +329,24 @@ model MetaDailyAd {
 
   // Prospects : trois sources tenues séparées, Meta les déclarant sur trois
   // lignes distinctes. Les fusionner sous-compte les comptes qui ont les deux.
-  formLeads        Int   @default(0)
-  pixelLeads       Int   @default(0)
-  totalLeads       Int   @default(0)
+  formLeads  Int @default(0)
+  pixelLeads Int @default(0)
+  totalLeads Int @default(0)
 
   // Résultats alternatifs, pour les objectifs qui ne comptent ni prospect ni achat
-  directions       Int   @default(0)
-  postEngagement   Int   @default(0)
+  directions     Int @default(0)
+  postEngagement Int @default(0)
 
-  videoStarts      Int   @default(0)
-  video3s          Int   @default(0)
-  video15s         Int   @default(0)
-  thruplays        Int   @default(0)
-  video25          Int   @default(0)
-  video50          Int   @default(0)
-  video75          Int   @default(0)
-  video95          Int   @default(0)
+  videoStarts Int @default(0)
+  video3s     Int @default(0)
+  video15s    Int @default(0)
+  thruplays   Int @default(0)
+  video25     Int @default(0)
+  video50     Int @default(0)
+  video75     Int @default(0)
+  video95     Int @default(0)
 
-  syncedAt      DateTime @default(now())
+  syncedAt DateTime @default(now())
 
   @@unique([adId, date, attribution])
   @@index([adAccountId, date])
@@ -354,15 +366,15 @@ model MetaDailyAd {
 /// période personnalisée n'en a pas et affiche une fréquence marquée comme
 /// approchée plutôt qu'un chiffre faux présenté comme exact.
 model MetaPeriodReach {
-  id            String   @id @default(cuid())
-  adAccountId   String
-  level         String   // campaign | adset | ad
-  metaId        String
+  id          String   @id @default(cuid())
+  adAccountId String
+  level       String // campaign | adset | ad
+  metaId      String
   /// Fenêtre glissante : 7d | 14d | 30d | 90d
-  window        String
-  reach         Int      @default(0)
-  impressions   Int      @default(0)
-  syncedAt      DateTime @default(now())
+  window      String
+  reach       Int      @default(0)
+  impressions Int      @default(0)
+  syncedAt    DateTime @default(now())
 
   @@unique([level, metaId, window])
   @@index([adAccountId, window, level])
@@ -374,16 +386,16 @@ model MetaPeriodReach {
 /// plusieurs jours, donc chaque passage réécrit une fenêtre glissante récente
 /// plutôt que d'ajouter aveuglément à la suite.
 model MetaSyncState {
-  id            String   @id @default(cuid())
-  adAccountId   String   @unique
-  metaAccountId String
+  id             String    @id @default(cuid())
+  adAccountId    String    @unique
+  metaAccountId  String
   /// Jour le plus ancien déjà récupéré — la reprise d'historique remonte
   /// progressivement pour ne pas se faire limiter par Meta.
   backfilledFrom DateTime? @db.Date
-  lastSyncedAt  DateTime?
-  lastError     String?
-  rowsTotal     Int      @default(0)
-  updatedAt     DateTime @updatedAt
+  lastSyncedAt   DateTime?
+  lastError      String?
+  rowsTotal      Int       @default(0)
+  updatedAt      DateTime  @updatedAt
 }
 
 /// Journal des incidents remontés dans l'onglet Notifications.
@@ -392,26 +404,51 @@ model MetaSyncState {
 /// échouer parce que le compte a disparu, et supprimer un compte ne doit pas
 /// effacer l'historique des pannes qu'il a provoquées.
 model ErrorLog {
-  id           String   @id @default(cuid())
-  level        String   @default("error") // error | warning
-  source       String   // launch | agent_cron | agent_chat | comments | delivery | enrichment
-  title        String
-  message      String   // toujours passé par redact() avant écriture
-  cause        String?  // interprétation lisible quand on sait la déduire
-  context      String?  // extrait de journal / détail, redacted lui aussi
-  adAccountId  String?
-  accountName  String?
-  agentName    String?
+  id          String    @id @default(cuid())
+  level       String    @default("error") // error | warning
+  source      String // launch | agent_cron | agent_chat | comments | delivery | enrichment
+  title       String
+  message     String // toujours passé par redact() avant écriture
+  cause       String? // interprétation lisible quand on sait la déduire
+  context     String? // extrait de journal / détail, redacted lui aussi
+  adAccountId String?
+  accountName String?
+  agentName   String?
   /// Regroupe les occurrences d'une même panne : source + compte + message
   /// normalisé. C'est la clé de la déduplication du mail sur 24 h.
-  fingerprint  String
-  occurrences  Int      @default(1)
-  mailedAt     DateTime?
-  isRead       Boolean  @default(false)
-  lastSeenAt   DateTime @default(now())
-  createdAt    DateTime @default(now())
+  fingerprint String
+  occurrences Int       @default(1)
+  mailedAt    DateTime?
+  isRead      Boolean   @default(false)
+  lastSeenAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([fingerprint])
   @@index([createdAt])
   @@index([isRead])
+}
+
+/// Le tunnel CRM, un enregistrement par jour.
+///
+/// Stocké par journée et non en total, pour la même raison que les insights
+/// Meta : le cockpit doit pouvoir lire 7, 30 ou 90 jours, et comparer à la
+/// période précédente. Des compteurs figés ne vaudraient que pour la fenêtre
+/// de la dernière synchro.
+model GhlDaily {
+  id          String   @id @default(cuid())
+  adAccountId String
+  date        DateTime @db.Date
+
+  /// Contacts portant l'étiquette de lead, créés ce jour-là.
+  leads  Int   @default(0)
+  rdv    Int   @default(0)
+  devis  Int   @default(0)
+  signes Int   @default(0)
+  /// Chiffre d'affaires des opportunités gagnées ce jour-là.
+  ca     Float @default(0)
+
+  syncedAt DateTime @default(now())
+
+  @@unique([adAccountId, date])
+  @@index([adAccountId, date])
 }

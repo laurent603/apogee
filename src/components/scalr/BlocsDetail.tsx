@@ -130,6 +130,70 @@ export function Bloc({ titre, sous, ouvertParDefaut = false, children }: {
 
 type Chiffres = Record<string, number | null>
 
+export type Tunnel = {
+  leads: number; rdv: number; devis: number; signes: number; ca: number
+  tauxRdv: number | null; tauxDevis: number | null; tauxSigne: number | null
+  coutRdv: number | null; coutSigne: number | null; roas: number | null
+}
+
+/**
+ * Le tunnel CRM : ce que le clic est devenu.
+ *
+ * Meta s'arrête au formulaire. Les coûts affichés ici rapportent la dépense
+ * média à ce que le CRM a réellement produit — un coût par rendez-vous ou par
+ * signature décide d'un budget bien mieux qu'un coût par lead.
+ */
+export function QualiteProspect({ t, evolutions, aDesJours }: {
+  t: Tunnel; evolutions: Chiffres; aDesJours: boolean
+}) {
+  const cases: { label: string; valeur: string; cle?: string; inverse?: boolean }[] = [
+    { label: 'Leads CRM', valeur: fmt(t.leads, 'nb'), cle: 'leads' },
+    { label: 'Rendez-vous', valeur: fmt(t.rdv, 'nb'), cle: 'rdv' },
+    { label: 'Taux de prise RDV', valeur: fmt(t.tauxRdv, 'pct'), cle: 'tauxRdv' },
+    { label: 'Coût / rendez-vous', valeur: fmt(t.coutRdv, 'eur'), inverse: true },
+    { label: 'Devis envoyés', valeur: fmt(t.devis, 'nb'), cle: 'devis' },
+    { label: 'Taux de devis', valeur: fmt(t.tauxDevis, 'pct'), cle: 'tauxDevis' },
+    { label: 'Signés', valeur: fmt(t.signes, 'nb'), cle: 'signes' },
+    { label: 'Coût / signature', valeur: fmt(t.coutSigne, 'eur'), inverse: true },
+    { label: 'CA signé', valeur: fmt(t.ca, 'eur'), cle: 'ca' },
+    { label: 'ROAS CRM', valeur: t.roas != null ? `${t.roas.toFixed(2)}×` : '—' },
+    { label: 'Taux lead → signé', valeur: fmt(t.tauxSigne, 'pct'), cle: 'tauxSigne' },
+  ]
+
+  return (
+    <div className="space-y-3">
+      {!aDesJours && (
+        <div className="border border-amber-200 bg-amber-50/50 rounded-xl p-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Étiquettes à renseigner</p>
+          <p className="text-xs text-gray-600 leading-snug mt-1">
+            Le tunnel est vide parce que les étiquettes GoHighLevel ne sont pas encore associées.
+            Elles se saisissent dans Brand Settings — leur libellé exact varie d’un compte à l’autre.
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
+        {cases.map((c) => {
+          const evo = c.cle ? evolutions[c.cle] : null
+          const lisible = evo != null && Number.isFinite(evo) && Math.abs(evo) >= 1
+          const bon = c.inverse ? (evo ?? 0) < 0 : (evo ?? 0) > 0
+          return (
+            <div key={c.label} className="border border-[#E5E7EB] rounded-xl px-3 py-2.5 min-w-0">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide truncate" title={c.label}>
+                {c.label}
+              </p>
+              <p className="text-lg font-bold text-[#0d0d12] tabular-nums leading-tight mt-0.5">{c.valeur}</p>
+              <p className={clsx('text-[10px] font-medium tabular-nums mt-0.5',
+                !lisible ? 'text-gray-300' : bon ? 'text-emerald-600' : 'text-red-500')}>
+                {lisible ? `${evo! > 0 ? '+' : ''}${evo!.toFixed(0)}% vs période préc.` : 'pas de référence'}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function MetriquesDetaillees({ detail, courant, evolutions, verdicts, reachDedoublonne }: {
   detail: { leadgen: string[]; media: string[]; creatif: string[] }
   courant: Chiffres

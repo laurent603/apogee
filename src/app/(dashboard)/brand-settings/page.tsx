@@ -88,6 +88,10 @@ const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Mar
 type GhlState = {
   hasToken: boolean
   locationId: string | null
+  tagLead?: string | null
+  tagRdv?: string | null
+  tagDevis?: string | null
+  tagSigne?: string | null
   totalOpps: number
   attributed: number
   wonCount: number
@@ -171,6 +175,8 @@ export default function BrandSettingsPage() {
   const [ghl, setGhl] = useState<GhlState>(null)
   const [ghlToken, setGhlToken] = useState('')
   const [ghlLocation, setGhlLocation] = useState('')
+  /** Les étiquettes qui marquent chaque étape du tunnel dans GoHighLevel. */
+  const [ghlTags, setGhlTags] = useState({ tagLead: '', tagRdv: '', tagDevis: '', tagSigne: '' })
   const [ghlSyncing, setGhlSyncing] = useState(false)
 
   const loadGhl = useCallback(async () => {
@@ -179,6 +185,10 @@ export default function BrandSettingsPage() {
     const data = await res.json()
     setGhl(data.ghl)
     setGhlLocation(data.ghl?.locationId || '')
+    setGhlTags({
+      tagLead: data.ghl?.tagLead || '', tagRdv: data.ghl?.tagRdv || '',
+      tagDevis: data.ghl?.tagDevis || '', tagSigne: data.ghl?.tagSigne || '',
+    })
     setGhlToken('')
   }, [selectedAccount?.id])
 
@@ -189,7 +199,7 @@ export default function BrandSettingsPage() {
     const res = await fetch('/api/ghl', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dbAccountId: selectedAccount.id, token: ghlToken, locationId: ghlLocation }),
+      body: JSON.stringify({ dbAccountId: selectedAccount.id, token: ghlToken, locationId: ghlLocation, ...ghlTags }),
     })
     if (res.ok) { toast.success('Connexion enregistrée'); await loadGhl() }
     else toast.error('Erreur d\'enregistrement')
@@ -632,6 +642,31 @@ export default function BrandSettingsPage() {
                   <p className="text-[11px] text-gray-400 mt-1">
                     Le token est lié à un sous-compte : celui d&apos;un autre client ne fonctionnera pas ici.
                   </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-[#0d0d12]">Étiquettes du tunnel</p>
+                <p className="text-[11px] text-gray-400 mt-0.5 mb-2">
+                  GoHighLevel ne connaît pas d&apos;étape « rendez-vous » ou « devis » : ce sont des
+                  étiquettes posées sur le contact, dont le libellé vous appartient. Recopiez-les
+                  exactement — la casse et les accents n&apos;ont pas d&apos;importance, l&apos;orthographe si.
+                  Une étiquette laissée vide garde son compteur à zéro.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  {([
+                    ['tagLead', 'Lead', 'lead fb'],
+                    ['tagRdv', 'Rendez-vous pris', 'rdv booké'],
+                    ['tagDevis', 'Devis envoyé', 'devis envoyé'],
+                    ['tagSigne', 'Signé', 'prospects signés'],
+                  ] as const).map(([cle, label, exemple]) => (
+                    <div key={cle}>
+                      <label className="label">{label}</label>
+                      <input type="text" className="input text-xs" placeholder={exemple}
+                        value={ghlTags[cle]}
+                        onChange={(e) => setGhlTags((t) => ({ ...t, [cle]: e.target.value }))} />
+                    </div>
+                  ))}
                 </div>
               </div>
 

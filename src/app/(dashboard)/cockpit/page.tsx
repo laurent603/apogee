@@ -6,7 +6,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, ComposedChart,
 } from 'recharts'
 import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
-import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance } from '@/components/scalr/BlocsDetail'
+import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance, QualiteProspect, type Tunnel } from '@/components/scalr/BlocsDetail'
 
 /**
  * Le cockpit du compte.
@@ -48,7 +48,10 @@ type Donnees = {
   sante: Sante
   signaux: Signal[]
   verdicts: Record<string, number>
-  crm: { connecte: boolean; opportunites: number; attribuees: number; signees: number; ca: number } | null
+  crm: {
+    connecte: boolean; opportunites: number; attribuees: number; signees: number; ca: number
+    tunnel: Tunnel; evolutions: Record<string, number | null>; aDesJours: boolean
+  } | null
   serie: { date: string; spend: number; leads: number; cpl: number | null; ctr: number | null; reach: number; impressions: number; cpm: number | null }[]
   campagnes: { id: string; name: string; cpm: number | null; cpc: number | null; frequency: number | null }[]
   saturation: Saturation
@@ -308,7 +311,13 @@ export default function CockpitPage() {
               )}
             </div>
 
-            <Bloc titre="Métriques détaillées" sous="Leadgen, média et créatif, avec leur évolution.">
+            <Bloc titre="Métriques détaillées" sous="Qualité prospect, leadgen, média et créatif, avec leur évolution.">
+              {d.crm?.connecte && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Qualité prospect</p>
+                  <QualiteProspect t={d.crm.tunnel} evolutions={d.crm.evolutions} aDesJours={d.crm.aDesJours} />
+                </div>
+              )}
               <MetriquesDetaillees detail={d.detail} courant={d.courant} evolutions={d.evolutions}
                 verdicts={d.verdicts_blocs} reachDedoublonne={d.saturation.personnesTouchees} />
             </Bloc>

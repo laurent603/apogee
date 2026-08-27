@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { checkGhlAccess, syncGhl } from '@/lib/ghl'
+import { checkGhlAccess, syncGhl, syncGhlTunnel } from '@/lib/ghl'
 
 export const maxDuration = 120
 
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     ghl: g ? {
       hasToken: Boolean(g.token),
       locationId: g.locationId,
+      tagLead: g.tagLead, tagRdv: g.tagRdv, tagDevis: g.tagDevis, tagSigne: g.tagSigne,
       totalOpps: g.totalOpps,
       attributed: g.attributed,
       wonCount: g.wonCount,
@@ -35,17 +36,25 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { dbAccountId, token, locationId } = await req.json()
+  const { dbAccountId, token, locationId, tagLead, tagRdv, tagDevis, tagSigne } = await req.json()
   if (!dbAccountId) return NextResponse.json({ error: 'dbAccountId requis' }, { status: 400 })
 
   // Empty token means unchanged, so the stored secret survives a blank field
   const data: Record<string, string | null> = { locationId: locationId || null }
   if (token) data.token = token
 
+  // Une étiquette vide est un choix — le compteur correspondant restera à
+  // zéro — donc on l'enregistre telle quelle plutôt que de la sauter.
+  const etiquette = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  data.tagLead = etiquette(tagLead)
+  data.tagRdv = etiquette(tagRdv)
+  data.tagDevis = etiquette(tagDevis)
+  data.tagSigne = etiquette(tagSigne)
+
   await prisma.ghlConnection.upsert({
     where: { adAccountId: dbAccountId },
     update: data,
-    create: { adAccountId: dbAccountId, locationId: locationId || null, token: token || null },
+    create: { adAccountId: dbAccountId, locationId: locationId || null, token: token || null, ...data },
   })
   return NextResponse.json({ ok: true })
 }
@@ -68,6 +77,20 @@ export async function POST(req: NextRequest) {
     const locationName = await checkGhlAccess(g.token, g.locationId)
     const summary = await syncGhl(g.token, g.locationId)
 
+    // Le tunnel par journée, pour que le cockpit puisse le lire sur n'importe
+    // quelle période et le comparer à la précédente.
+    const tunnel = await syncGhlTunnel(g.token, g.locationId, {
+      lead: g.tagLead, rdv: g.tagRdv, devis: g.tagDevis, signe: g.tagSigne,
+    })
+    for (const j of tunnel) {
+      const date = new Date(`${j.date}T00:00:00.000Z`)
+      await prisma.ghlDaily.upsert({
+        where: { adAccountId_date: { adAccountId: dbAccountId, date } },
+        update: { leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca, syncedAt: new Date() },
+        create: { adAccountId: dbAccountId, date, leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca },
+      })
+    }
+
     await prisma.ghlConnection.update({
       where: { adAccountId: dbAccountId },
       data: {
@@ -81,7 +104,11 @@ export async function POST(req: NextRequest) {
         syncError: null,
       },
     })
-    return NextResponse.json({ ok: true, locationName, ...summary, adStats: undefined, adCount: Object.keys(summary.adStats).length })
+    return NextResponse.json({
+      ok: true, locationName, ...summary, adStats: undefined,
+      adCount: Object.keys(summary.adStats).length,
+      joursTunnel: tunnel.length,
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inconnue'
     await prisma.ghlConnection.update({

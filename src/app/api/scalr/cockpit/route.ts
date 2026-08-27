@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   const prev = previousWindow(since, until)
   const base = { adAccountId: dbAccountId, attribution: 'default' }
 
-  const [sumCur, sumPrev, parJour, parPub, parPubPrec, entites, parCampagne, reglages, portees, etat, ghl] =
+  const [sumCur, sumPrev, parJour, parPub, parPubPrec, entites, parCampagne, reglages, portees, etat, ghl, crmCur, crmPrec] =
     await Promise.all([
       prisma.metaDailyAd.aggregate({ where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
       prisma.metaDailyAd.aggregate({ where: { ...base, date: { gte: prev.since, lte: prev.until } }, _sum: SUM }),
@@ -88,6 +88,16 @@ export async function GET(req: NextRequest) {
       prisma.ghlConnection.findUnique({
         where: { adAccountId: dbAccountId },
         select: { token: true, totalOpps: true, attributed: true, wonCount: true, wonValue: true, syncedAt: true },
+      }),
+      // Le tunnel CRM se lit sur la période demandée, comme les insights Meta,
+      // et sur la précédente pour que chaque chiffre porte son évolution.
+      prisma.ghlDaily.aggregate({
+        where: { adAccountId: dbAccountId, date: { gte: since, lte: until } },
+        _sum: { leads: true, rdv: true, devis: true, signes: true, ca: true },
+      }),
+      prisma.ghlDaily.aggregate({
+        where: { adAccountId: dbAccountId, date: { gte: prev.since, lte: prev.until } },
+        _sum: { leads: true, rdv: true, devis: true, signes: true, ca: true },
       }),
     ])
 
@@ -148,6 +158,25 @@ export async function GET(req: NextRequest) {
   const totaux = { ...courant, frequency }
   const totauxPrec = { ...precedent, frequency: null }
 
+  /**
+   * Le tunnel CRM sur la période, et son coût côté média.
+   *
+   * Un coût par rendez-vous ou par signature rapporte la dépense Meta à ce que
+   * le CRM a réellement produit — c'est la seule mesure qui relie le budget au
+   * chiffre d'affaires, et elle vaut mieux qu'un CPL pour décider d'un budget.
+   */
+  const nCrm = (v: number | null | undefined) => Number(v ?? 0)
+  const tunnel = {
+    leads: nCrm(crmCur._sum.leads), rdv: nCrm(crmCur._sum.rdv),
+    devis: nCrm(crmCur._sum.devis), signes: nCrm(crmCur._sum.signes), ca: nCrm(crmCur._sum.ca),
+  }
+  const tunnelPrec = {
+    leads: nCrm(crmPrec._sum.leads), rdv: nCrm(crmPrec._sum.rdv),
+    devis: nCrm(crmPrec._sum.devis), signes: nCrm(crmPrec._sum.signes), ca: nCrm(crmPrec._sum.ca),
+  }
+  const parts = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : null)
+  const cout = (d: number, q: number) => (q > 0 ? Math.round((d / q) * 100) / 100 : null)
+
   const crm = ghl?.token
     ? {
         connecte: true,
@@ -156,6 +185,28 @@ export async function GET(req: NextRequest) {
         signees: ghl.wonCount,
         ca: ghl.wonValue,
         synchro: ghl.syncedAt,
+        tunnel: {
+          ...tunnel,
+          tauxRdv: parts(tunnel.rdv, tunnel.leads),
+          tauxDevis: parts(tunnel.devis, tunnel.rdv),
+          tauxSigne: parts(tunnel.signes, tunnel.leads),
+          coutRdv: cout(courant.spend, tunnel.rdv),
+          coutSigne: cout(courant.spend, tunnel.signes),
+          roas: courant.spend > 0 && tunnel.ca > 0 ? Math.round((tunnel.ca / courant.spend) * 100) / 100 : null,
+        },
+        evolutions: {
+          leads: ecart(tunnel.leads, tunnelPrec.leads),
+          rdv: ecart(tunnel.rdv, tunnelPrec.rdv),
+          devis: ecart(tunnel.devis, tunnelPrec.devis),
+          signes: ecart(tunnel.signes, tunnelPrec.signes),
+          ca: ecart(tunnel.ca, tunnelPrec.ca),
+          tauxRdv: ecart(parts(tunnel.rdv, tunnel.leads), parts(tunnelPrec.rdv, tunnelPrec.leads)),
+          tauxDevis: ecart(parts(tunnel.devis, tunnel.rdv), parts(tunnelPrec.devis, tunnelPrec.rdv)),
+          tauxSigne: ecart(parts(tunnel.signes, tunnel.leads), parts(tunnelPrec.signes, tunnelPrec.leads)),
+        },
+        // Sans étiquettes renseignées le tunnel reste à zéro : le dire évite de
+        // faire passer une configuration absente pour une contre-performance.
+        aDesJours: nCrm(crmCur._sum.leads) + nCrm(crmCur._sum.rdv) + nCrm(crmCur._sum.signes) > 0,
       }
     : null
 

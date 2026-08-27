@@ -46,6 +46,7 @@ type Opportunity = {
   status?: string
   monetaryValue?: number | string
   attributions?: Attribution[]
+  [autre: string]: unknown
 }
 
 async function call(path: string, token: string) {
@@ -218,4 +219,131 @@ Ne divise jamais une dépense de la période d'analyse par un nombre d'affaires 
 résultat serait faux d'un ordre de grandeur. La colonne « Dépense totale » est la seule compatible
 avec ces affaires, et « Coût/vente » en découle déjà. Si elle affiche « — », la dépense totale n'a
 pas pu être récupérée : dis-le au lieu de reconstituer le ratio autrement.`
+}
+
+/* ─── Le tunnel, jour par jour ──────────────────────────────────────────── */
+
+/**
+ * Le parcours d'un prospect après le clic : lead, rendez-vous, devis, signature.
+ *
+ * Meta s'arrête au formulaire. La suite ne vit que dans le CRM, et GoHighLevel
+ * ne l'expose pas comme un état : chaque étape est une **étiquette posée sur le
+ * contact**, dont le libellé change d'un client à l'autre — « rdv booké » ici,
+ * « RDV pris » ailleurs. Ce sont donc les étiquettes du compte qui décident, et
+ * une étiquette non renseignée laisse son compteur à zéro plutôt que d'inventer
+ * une correspondance.
+ *
+ * Le résultat est stocké par journée, pas en total. Le cockpit doit pouvoir
+ * lire sept, trente ou quatre-vingt-dix jours et comparer à la période
+ * précédente ; des compteurs figés ne vaudraient que pour la fenêtre de la
+ * dernière synchronisation.
+ */
+
+export type TagsTunnel = {
+  lead: string | null
+  rdv: string | null
+  devis: string | null
+  signe: string | null
+}
+
+export type JourCrm = { date: string; leads: number; rdv: number; devis: number; signes: number; ca: number }
+
+type Contact = { id?: string; dateAdded?: string; createdAt?: string; tags?: unknown }
+
+/** Le jour d'une date ISO, ou `null` si elle est absente ou illisible. */
+function jour(v: unknown): string | null {
+  if (!v) return null
+  const d = new Date(String(v))
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
+}
+
+/** Comparaison indulgente : GHL rend les étiquettes telles qu'elles ont été
+ *  saisies, à la casse et aux espaces près. */
+const normalise = (s: unknown) => String(s ?? '').trim().toLowerCase()
+
+function porte(contact: Contact, etiquette: string | null): boolean {
+  if (!etiquette) return false
+  const cible = normalise(etiquette)
+  if (!cible) return false
+  const tags = Array.isArray(contact.tags) ? contact.tags : []
+  return tags.some((t) => normalise(t) === cible)
+}
+
+async function fetchContacts(token: string, locationId: string): Promise<Contact[]> {
+  const tous: Contact[] = []
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const r = await call(`/contacts/?locationId=${locationId}&limit=100&page=${page}`, token)
+    const lot = (r.contacts || r.data || []) as Contact[]
+    tous.push(...lot)
+    if (lot.length < 100) break
+  }
+  return tous
+}
+
+/**
+ * Le jour où une opportunité a été gagnée.
+ *
+ * GHL n'a pas de champ unique pour ça selon la façon dont le compte est
+ * configuré : on prend le premier disponible, du plus précis au plus vague.
+ * Sans aucun, la vente ne serait rattachée à aucune journée et disparaîtrait
+ * du tunnel — la date de création sert alors de dernier recours.
+ */
+const CLES_SIGNATURE = ['wonDate', 'dateWon', 'closedAt', 'dateClosed', 'lastStatusChangeAt', 'updatedAt', 'dateAdded', 'createdAt']
+
+function jourSignature(o: Record<string, unknown>): string | null {
+  for (const cle of CLES_SIGNATURE) {
+    const j = jour(o[cle])
+    if (j) return j
+  }
+  return null
+}
+
+/** Agrège contacts et opportunités en une ligne par journée. */
+export async function syncGhlTunnel(token: string, locationId: string, tags: TagsTunnel): Promise<JourCrm[]> {
+  const [contacts, opps] = await Promise.all([
+    fetchContacts(token, locationId),
+    fetchOpportunities(token, locationId),
+  ])
+
+  const parJour = new Map<string, JourCrm>()
+  const ligne = (d: string) => {
+    const existante = parJour.get(d)
+    if (existante) return existante
+    const neuve: JourCrm = { date: d, leads: 0, rdv: 0, devis: 0, signes: 0, ca: 0 }
+    parJour.set(d, neuve)
+    return neuve
+  }
+
+  for (const c of contacts) {
+    const d = jour(c.dateAdded) || jour(c.createdAt)
+    if (!d) continue
+    const l = ligne(d)
+    if (porte(c, tags.lead)) l.leads++
+    if (porte(c, tags.rdv)) l.rdv++
+    if (porte(c, tags.devis)) l.devis++
+    // La signature se compte sur l'opportunité gagnée, qui porte le montant.
+    // L'étiquette ne sert que de repli quand aucune opportunité ne l'est.
+  }
+
+  let signeesParOpportunite = 0
+  for (const o of opps as unknown as Record<string, unknown>[]) {
+    if (String(o.status ?? '').toLowerCase() !== 'won') continue
+    const d = jourSignature(o)
+    if (!d) continue
+    const l = ligne(d)
+    l.signes++
+    l.ca += Number(o.monetaryValue) || 0
+    signeesParOpportunite++
+  }
+
+  // Repli : certains comptes ne passent pas par le pipeline et marquent la
+  // signature au contact. Sans ce filet, le tunnel s'arrêterait au devis.
+  if (!signeesParOpportunite && tags.signe) {
+    for (const c of contacts) {
+      const d = jour(c.dateAdded) || jour(c.createdAt)
+      if (d && porte(c, tags.signe)) ligne(d).signes++
+    }
+  }
+
+  return [...parJour.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
