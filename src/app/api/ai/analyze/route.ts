@@ -85,10 +85,13 @@ export async function POST(req: NextRequest) {
           copywriter: 'Tu es un Copywriter spécialisé Meta Ads. Tu analyses les accroches, descriptions et CTA. Tu proposes des variantes de copy optimisées pour la conversion.',
         }
         const rolePrompt = agentRole ? (rolePersonas[agentRole] || rolePersonas.performance_manager) : null
-        const outputInstruction = outputFormat ? `\n\nFormat de sortie attendu : ${outputFormat}` : ''
+        // Une consigne de format qui réclame du HTML annulerait la règle du
+        // socle système, puisqu'elle arrive après elle.
+        const formatDemande = /html|<[a-z]/i.test(outputFormat || '') ? '' : (outputFormat || '')
+        const outputInstruction = formatDemande ? `\n\nFormat de sortie attendu : ${formatDemande}` : ''
 
         const systemPrompt = customPrompt
-          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes.${outputInstruction}`
+          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}`
           : getPrompt(category as PromptCategory, analysisType)
 
         const leadSourceNote = {

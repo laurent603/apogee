@@ -3,6 +3,26 @@ import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
+
+/**
+ * Le format de sortie demandé à l'agent, débarrassé de toute demande de HTML.
+ *
+ * Ce champ est saisi une fois puis stocké : deux gabarits réclamaient
+ * « Dashboard HTML visuel », et les agents créés à partir d'eux gardaient cette
+ * consigne en base longtemps après la correction du gabarit. Elle arrive en fin
+ * de message, donc elle l'emportait sur la règle du socle système, et le
+ * rapport partait en document HTML — affiché comme code source par l'e-mail
+ * comme par l'application, puisque ni l'un ni l'autre n'attend du HTML.
+ *
+ * Nettoyer ici plutôt qu'en base seulement : c'est le seul endroit par lequel
+ * tous les agents passent, quels que soient leur âge et leur provenance.
+ */
+function formatDeSortie(brut: string | null | undefined): string {
+  const v = (brut || '').trim()
+  if (!v) return 'Markdown structuré : titres, tableaux, listes.'
+  if (!/html|<[a-z]/i.test(v)) return v
+  return 'Markdown structuré : titres, tableaux, listes. Aucun HTML.'
+}
 import { deliverReport } from '@/lib/deliver'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { renderGhlForPrompt } from '@/lib/ghl'
@@ -116,7 +136,7 @@ export async function GET(req: NextRequest) {
         ? `\n## Période précédente (${previous.periode})\nCalcule toute variation entre cette période et la période courante — ne l'affirme jamais sans ce calcul.\n### Vue d'ensemble\n${JSON.stringify(previous.overview, null, 2)}\n### Ads\n${JSON.stringify(previous.ads.slice(0, 20), null, 2)}`
         : `\n## Période précédente\nIndisponible — n'affirme aucune tendance ni fatigue, et dis-le explicitement.`
 
-      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${agent.outputFormat || 'Markdown structuré'}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
+      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${formatDeSortie(agent.outputFormat)}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
 
       let content = ''
       const stream = await anthropic.messages.stream({
