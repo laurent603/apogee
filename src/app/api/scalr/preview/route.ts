@@ -43,9 +43,35 @@ export async function GET(req: NextRequest) {
   }
 
   const version = process.env.META_API_VERSION || 'v21.0'
+
+  /**
+   * On demande le rendu à la taille du cadre plutôt que de le redimensionner
+   * après coup.
+   *
+   * La hauteur qu'occupe vraiment une publicité dépend du placement et de la
+   * publicité elle-même — longueur de l'accroche, présence d'un bouton, d'une
+   * ligne de réactions. On ne peut pas la mesurer : l'iframe vient de
+   * facebook.com, donc son contenu est hors de portée. Toute valeur qu'on
+   * poserait serait une supposition, trop courte pour les unes et laissant du
+   * vide pour les autres.
+   *
+   * Meta sait composer pour une boîte donnée : autant la lui donner.
+   */
+  const borne = (v: string | null, min: number, max: number) => {
+    const n = Number(v)
+    return Number.isFinite(n) && n >= min && n <= max ? String(Math.round(n)) : null
+  }
+  const largeur = borne(req.nextUrl.searchParams.get('width'), 120, 2000)
+  const hauteur = borne(req.nextUrl.searchParams.get('height'), 120, 2400)
+
   const url =
     `https://graph.facebook.com/${version}/${adId}/previews?` +
-    new URLSearchParams({ ad_format: format, access_token: token }).toString()
+    new URLSearchParams({
+      ad_format: format,
+      access_token: token,
+      ...(largeur ? { width: largeur } : {}),
+      ...(hauteur ? { height: hauteur } : {}),
+    }).toString()
 
   try {
     const json = await fetch(url).then((r) => r.json())

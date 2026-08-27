@@ -149,7 +149,15 @@ export function CadreApercu({ apercu, etat, interactif = false, mode = 'remplir'
   )
 }
 
-/** Un aperçu qui va le chercher lui-même : un seul, dont le placement change. */
+/**
+ * Un aperçu qui va le chercher lui-même : un seul, dont le placement change.
+ *
+ * En mode entier, il mesure d'abord son cadre et **demande à Meta de composer
+ * pour cette boîte**. C'est ce qui évite d'avoir à deviner la hauteur d'une
+ * publicité : elle dépend du placement et de la publicité — longueur de
+ * l'accroche, bouton, ligne de réactions —, et le contenu de l'iframe vient de
+ * facebook.com, donc reste hors de portée de toute mesure.
+ */
 export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif = false, mode = 'remplir', hauteurRepli = 0 }: {
   adId: string
   format?: string
@@ -159,11 +167,34 @@ export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif =
 }) {
   const [apercu, setApercu] = useState<Apercu | null>(null)
   const [etat, setEtat] = useState<Etat>('charge')
+  const cadre = useRef<HTMLDivElement>(null)
+  const [boite, setBoite] = useState({ l: 0, h: 0 })
 
   useEffect(() => {
+    const el = cadre.current
+    if (!el) return
+    // Arrondi au pas de 20 px : sans lui, le moindre redimensionnement
+    // relancerait un appel à Meta.
+    const pas = (n: number) => Math.round(n / 20) * 20
+    const mesurer = () => setBoite({ l: pas(el.clientWidth), h: pas(el.clientHeight) })
+    mesurer()
+    const ro = new ResizeObserver(mesurer)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const surMesure = mode === 'entier'
+  const pret = !surMesure || (boite.l > 0 && boite.h > 0)
+
+  useEffect(() => {
+    if (!pret) return
     let vivant = true
     setApercu(null); setEtat('charge')
-    fetch(`/api/scalr/preview?adId=${adId}&format=${format}`)
+
+    const q = new URLSearchParams({ adId, format })
+    if (surMesure) { q.set('width', String(boite.l)); q.set('height', String(boite.h)) }
+
+    fetch(`/api/scalr/preview?${q}`)
       .then((r) => r.json())
       .then((d) => {
         if (!vivant) return
@@ -177,8 +208,12 @@ export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif =
       })
       .catch(() => { if (vivant) setEtat('absent') })
     return () => { vivant = false }
-  }, [adId, format])
+  }, [adId, format, surMesure, pret, boite.l, boite.h])
 
-  return <CadreApercu apercu={apercu} etat={etat} interactif={interactif}
-    mode={mode} hauteurRepli={hauteurRepli} />
+  return (
+    <div ref={cadre} className="w-full h-full">
+      <CadreApercu apercu={apercu} etat={etat} interactif={interactif}
+        mode={mode} hauteurRepli={hauteurRepli} />
+    </div>
+  )
 }
