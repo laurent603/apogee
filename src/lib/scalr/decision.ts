@@ -107,12 +107,21 @@ export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext
 
   // Sans objectif, le seuil de coupe se cale sur la médiane du niveau, avec
   // un plancher à 25 € : en dessous, aucune conclusion n'est solide.
+  // Zéros conservés ici : une ligne à 0 € a réellement dépensé zéro, c'est
+  // une mesure. Les écarter relèverait le seuil de coupe et épargnerait des
+  // publicités qui brûlent du budget sans produire un seul lead.
   const cutSpend = target ? target * 2 : Math.max(25, median(ctx.levelSpends) * 0.9)
 
   const isEntity = level === 'campaign' || level === 'adset'
   const isCreative = level === 'ad' || level === 'crea'
 
-  const medianCpl = median(ctx.adCpls)
+  // Strict ici, à la différence de Scalr : un zéro dans cette population
+  // n'est pas un CPL de 0 €, c'est une publicité sans lead — donc sans CPL.
+  // Les compter écrase la médiane jusqu'à 0 dès que la moitié des pubs n'ont
+  // rien produit, et `cpl <= médiane || !médiane` devient toujours vrai : le
+  // coût cesse alors de départager quoi que ce soit, et une créa à 41 € de
+  // CPL passe pour un winner confirmé.
+  const medianCpl = medianeNonNulle(ctx.adCpls)
   const underTarget = leads > 0 && cpl > 0 && (target ? cpl <= target : cpl <= medianCpl || !medianCpl)
   const nearTarget = leads > 0 && cpl > 0 && (target ? cpl <= target * 1.25 : max ? cpl <= max : true)
   const enoughVolume = isEntity ? leads >= 10 : leads >= 3 || spent >= (target ? target * 5 : 120)
