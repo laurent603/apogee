@@ -18,6 +18,8 @@ import { authOptions } from '@/lib/auth'
 
 export const maxDuration = 30
 
+// Non exporté : un fichier de route Next n'accepte que les handlers et
+// quelques options réservées, tout autre export fait échouer la compilation.
 const FORMATS = [
   'DESKTOP_FEED_STANDARD',
   'MOBILE_FEED_STANDARD',
@@ -65,5 +67,3 @@ export async function GET(req: NextRequest) {
     )
   }
 }
-
-export { FORMATS }
