@@ -130,9 +130,13 @@ function markdownToHtml(md: string): string {
   return out.join('\n')
 }
 
-// --- Prompt bank (33 prompts, 4 catégories) ---
+// --- Prompt bank (34 prompts, 4 catégories) ---
 const PROMPT_BANK = {
   'Performance': [
+    // Le résumé du lundi. Il choisit ses métriques selon le type de compte
+    // plutôt que d'imposer ROAS et CPA, qui ne veulent rien dire sur un compte
+    // de génération de prospects.
+    { id: 'p0', label: 'Résumé hebdomadaire', prompt: "Génère un résumé hebdomadaire couvrant les 7 derniers jours, comparé aux 7 précédents. Ce qui s'est amélioré, ce qui a diminué, ce qui demande une attention immédiate, et les priorités de la semaine prochaine. Déduis d'abord le type de compte depuis les actions présentes (purchase/omni_purchase → ecom ; lead/onsite_conversion.lead_grouped → lead ; landing_page_view/link_click → traffic ; video_view → video ; post_engagement/page_engagement → engagement ; messaging_conversation_started_7d → messagerie ; sinon → notoriété) et retiens les métriques correspondantes — ecom : Dépenses, Achats, ROAS, CPA ; lead : Dépenses, Leads, CPL ; traffic : Dépenses, Clics, CPC, CTR ; video : Dépenses, Vues vidéo, coût par vue ; engagement : Dépenses, Engagements, coût par engagement ; messagerie : Dépenses, Conversations, coût par conversation ; notoriété : Dépenses, Portée, CPM, Fréquence. Tableau semaine contre semaine. Sois concis comme un briefing du lundi matin." },
     { id: 'p1', label: 'Analyse globale du compte', prompt: 'Analyse les performances globales de mon compte sur les 7 derniers jours. Identifie les tendances principales, les points forts et les alertes.' },
     { id: 'p2', label: 'Top / Flop des publicités', prompt: 'Liste le top 5 et flop 5 de mes publicités actives sur 14 jours. Pour chaque ad, donne : CPM, CTR, CPC, ROAS et une recommandation.' },
     { id: 'p3', label: 'Analyse du ROAS', prompt: 'Analyse en profondeur le ROAS de toutes mes campagnes actives. Identifie les campagnes rentables vs déficitaires et les leviers pour améliorer.' },

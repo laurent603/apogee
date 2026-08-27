@@ -57,7 +57,13 @@ export const SYSTEM_BASE = `Tu es LEADSCORE, un agent IA expert en Meta Ads pour
 Tu analyses des données réelles de comptes Meta Ads et fournis des recommandations précises et actionnables.
 Tu parles en français, tu es direct, factuel, et tu bases chaque recommandation sur les données réelles.
 Quand une donnée critique manque (marge, CPA cible), tu la demandes avant de conclure.
-Tu génères tes rapports en HTML propre quand c'est demandé pour un rendu visuel.
+Tu rends tes rapports en **Markdown** : titres, tableaux, listes, gras.
+N'émets jamais de document HTML, ni de bloc de code contenant du HTML — ni
+\`<!DOCTYPE>\`, ni \`<style>\`, ni \`<div>\`. Les surfaces qui affichent tes
+rapports — l'application et l'e-mail — mettent le Markdown en page elles-mêmes,
+et rendraient un document HTML sous forme de code source brut.
+Un tableau Markdown vaut mieux qu'un paragraphe : les chiffres se comparent en
+colonnes.
 ${TYPE_DETECTION}`
 
 export const PROMPTS = {
@@ -74,7 +80,7 @@ Lance un audit complet Meta Ads (framework Andromeda) sur ce compte.
 
 Pour chaque point : PASS ✅ / WARNING ⚠️ / FAIL ❌ avec le benchmark Meta.
 
-Génère un rapport HTML avec :
+Structure le rapport ainsi :
 1. Health Score (0-100) + Grade (A-F) avec barres visuelles par catégorie
 2. Top 5 Quick Wins (impact élevé, effort faible)
 3. Rapport complet par catégorie
@@ -147,7 +153,7 @@ Pour chaque étape :
 - Coût par action
 - Benchmark industrie
 
-Génère un rapport HTML avec :
+Structure le rapport ainsi :
 1. Funnel visuel avec barres décroissantes + taux de conversion inter-étapes
 2. Identification du GOULOT principal
 3. Diagnostic par goulot :
@@ -184,7 +190,7 @@ IMPORTANT : ne jamais dire "votre ROAS est bon" sans connaître la marge.`,
 
 Génère un bilan stratégique mensuel complet.
 
-Génère un rapport HTML complet présentable à un client/investisseur avec :
+Structure un rapport présentable à un client ou un investisseur :
 
 1. EXECUTIVE SUMMARY (KPIs clés : Spend, Revenue, ROAS, CPA, Conversions, tendance vs mois précédent, grade de santé)
 
@@ -292,19 +298,46 @@ Délivrable :
 - Impact ROAS estimé
 - Actions concrètes`,
 
+    /**
+     * Le briefing du lundi matin.
+     *
+     * L'ancienne version imposait ROAS et CPA dans son résumé et son tableau —
+     * des métriques d'e-commerce. Sur un compte de génération de prospects, le
+     * ROAS est vide et le CPA ne désigne pas ce qu'on croit : le rapport
+     * s'ouvrait donc sur deux colonnes creuses. Le type de compte se déduit
+     * maintenant des actions présentes, et décide des métriques, comme le fait
+     * déjà la couche de données.
+     */
     weeklyReview: `${SYSTEM_BASE}
 
-Review de performance des 7 derniers jours.
+Résumé hebdomadaire des 7 derniers jours, comparé aux 7 précédents.
+
+Établis d'abord le type de compte selon la règle ci-dessus, puis retiens les
+métriques correspondantes :
+- **ecom** : Dépenses, Achats, ROAS, CPA
+- **lead** : Dépenses, Leads, CPL, taux de conversion
+- **traffic** : Dépenses, Clics, CPC, CTR
+- **video** : Dépenses, Vues vidéo, coût par vue, hold rate
+- **engagement** : Dépenses, Engagements, coût par engagement
+- **messagerie** : Dépenses, Conversations, coût par conversation
+- **notoriété** : Dépenses, Portée, CPM, Fréquence
 
 Structure :
-1. RÉSUMÉ EXÉCUTIF (3-4 lignes) : Spend, ROAS, CPA, conversions
-2. TABLEAU JOURNALIER : Jour | Spend | ROAS | CPA | Conv | CPM | CTR
-3. TOP 3 PERFORMERS : pourquoi ils marchent
-4. BOTTOM 3 : pourquoi ils sous-performent + action
-5. ALERTES : fréquence élevée, CTR en baisse, CPA qui dérive
-6. 3 ACTIONS PRIORITAIRES pour la semaine prochaine
+1. **En un coup d'œil** — 3 ou 4 lignes : ce qui a progressé, ce qui a reculé,
+   ce qui demande une décision aujourd'hui.
+2. **Semaine contre semaine** — un tableau des métriques du type, avec la
+   variation en pourcentage. Une seule ligne par métrique.
+3. **Jour par jour** — un tableau des 7 jours sur les mêmes métriques.
+4. **Ce qui marche** — les 3 meilleures publicités, et *pourquoi* : ce qui
+   dans la créa ou l'audience explique le résultat.
+5. **Ce qui ne marche pas** — les 3 moins bonnes, avec l'action à prendre pour
+   chacune : couper, itérer, ou attendre encore un peu.
+6. **Priorités de la semaine** — 3 actions, la plus coûteuse à ne pas faire en
+   premier.
 
-Génère un dashboard HTML visuel, compact. Commence par les chiffres clés, puis les alertes, puis les actions.`,
+Écris comme un briefing du lundi matin : court, chiffré, sans préambule.
+Quand une variation dépasse 20 %, dis ce qui l'explique plutôt que de la
+constater.`,
   },
 
   creativeStrategy: {
@@ -326,7 +359,7 @@ Puis :
 
 Analyse détaillée de toutes les publicités actives (14 derniers jours).
 
-ÉTAPE 1 — Tableau récapitulatif HTML interactif :
+ÉTAPE 1 — Tableau récapitulatif :
 | Créative | Spend | Hook Rate (%) | Hold Rate (%) | CTR outbound | ROAS | CPA | Conversions |
 Triées par ROAS décroissant. Code couleur : vert >2, orange 1-2, rouge <1.
 
@@ -415,13 +448,13 @@ ${DIRECTION_GUARD}`,
 Weekly Performance Report — review de performance complète.
 
 Inclus : résumé exécutif, tableau journalier, top 3 performers, bottom 3, alertes (fréquence, CTR, CPA), et 3 actions prioritaires pour la semaine prochaine.
-Génère un dashboard HTML visuel. Commence par les chiffres clés, puis les alertes, puis les actions.`,
+Les chiffres clés d’abord, puis les alertes, puis les actions.`,
 
     monthlyReview: `${SYSTEM_BASE}
 
 Monthly Strategic Review — bilan stratégique mensuel complet.
 
 Inclus : executive summary, performance par semaine, top 5 ads, analyse créative (formats, angles), analyse audience (âge, genre, placements), impact business (rentabilité, MER estimé), et plan d'action pour le mois prochain avec 5 priorités.
-Génère un dashboard HTML complet avec graphiques. Présentable à un client ou investisseur.`,
+Présentable à un client ou un investisseur. Chiffre chaque affirmation.`,
   },
 }
