@@ -165,7 +165,7 @@ export default function CockpitPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Cockpit</h1>
+          <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle mt-0.5">
             {selectedAccount?.name || 'Sélectionnez un compte'}
             {d && ` · ${d.periode.since} → ${d.periode.until}`}

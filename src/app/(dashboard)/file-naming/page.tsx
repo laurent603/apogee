@@ -55,7 +55,7 @@ export default function FileNamingPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="page-title">File Naming</h1>
+        <h1 className="page-title">Patterns</h1>
         <p className="page-subtitle mt-0.5">Configurez vos conventions de nommage de fichiers créatifs</p>
       </div>
 

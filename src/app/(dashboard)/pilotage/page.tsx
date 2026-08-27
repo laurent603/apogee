@@ -183,7 +183,7 @@ export default function PilotagePage() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Pilotage</h1>
+          <h1 className="page-title">Media buying</h1>
           <p className="page-subtitle mt-0.5">
             {selectedAccount?.name || 'Sélectionnez un compte'}
             {data && ` · ${data.periode.since} → ${data.periode.until}`}

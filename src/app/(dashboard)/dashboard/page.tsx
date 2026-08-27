@@ -1,14 +1,15 @@
 import { redirect } from 'next/navigation'
 
 /**
- * Le Dashboard a fusionné avec le Cockpit.
+ * L'ancien Dashboard a fusionné avec le Cockpit, qui s'appelle désormais
+ * Dashboard à l'écran — la route, elle, est restée `/cockpit`.
  *
  * Les deux pages montraient les mêmes totaux, la même tendance journalière et
- * la même répartition par campagne — laquelle refaisait déjà le tableau de
- * pilotage. Seuls les derniers lancements étaient propres au Dashboard : ils
- * ont suivi dans le cockpit.
+ * la même répartition par campagne. Seuls les derniers lancements étaient
+ * propres au Dashboard : ils ont suivi.
  *
- * La route reste, parce que des liens et le retour de connexion y mènent.
+ * Cette route reste en place parce que des liens et le retour de connexion y
+ * mènent encore.
  */
 export default function DashboardRedirige() {
   redirect('/cockpit')
