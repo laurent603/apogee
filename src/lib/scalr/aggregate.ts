@@ -158,9 +158,17 @@ export function computeMetrics(t: Totals, objective?: string | null) {
       purchaseRate: pct(t.purchases, t.initiateCheckout),
     },
 
+    outboundClicks: t.outboundClicks,
+
     hasVideo: t.video3s > 0,
+    videoStarts: t.videoStarts,
     video3s: t.video3s,
     video15s: t.video15s,
+    thruplays: t.thruplays,
+    video25: t.video25,
+    video50: t.video50,
+    video75: t.video75,
+    video95: t.video95,
     hookRate: t.video3s > 0 ? pct(t.video3s, t.impressions) : null,
     holdRate: pct(t.video15s, t.video3s),
     completionRate: t.video3s > 0 ? pct(t.video95, t.impressions) : null,
