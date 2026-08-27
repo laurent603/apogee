@@ -49,9 +49,14 @@ type Opportunity = {
   [autre: string]: unknown
 }
 
-async function call(path: string, token: string) {
+async function call(path: string, token: string, corps?: unknown) {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Version: VERSION, Accept: 'application/json' },
+    method: corps ? 'POST' : 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`, Version: VERSION, Accept: 'application/json',
+      ...(corps ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(corps ? { body: JSON.stringify(corps) } : {}),
   })
   const text = await res.text()
   if (!res.ok) throw new Error(`GoHighLevel ${res.status} — ${text.slice(0, 220)}`)
@@ -294,13 +299,55 @@ function porte(contact: Contact, etiquette: string | null): boolean {
   return tags.some((t) => normalise(t) === cible)
 }
 
+/**
+ * Les contacts du sous-compte.
+ *
+ * Deux chemins, parce que GoHighLevel n'en a pas un qui marche partout. La
+ * recherche paginée par curseur est celle que l'API v2 documente et tient sur
+ * de gros volumes. L'ancienne page numérotée reste en repli : elle répond
+ * encore sur certains comptes, et rend un 500 sur d'autres passé quelques
+ * centaines de contacts — c'est exactement ce qu'on a vu.
+ */
 async function fetchContacts(token: string, locationId: string): Promise<Contact[]> {
+  try {
+    return await parCurseur(token, locationId)
+  } catch {
+    return parPage(token, locationId)
+  }
+}
+
+async function parCurseur(token: string, locationId: string): Promise<Contact[]> {
+  const tous: Contact[] = []
+  let apres: unknown[] | undefined
+
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const r = await call('/contacts/search', token, {
+      locationId, pageLimit: 100, ...(apres ? { searchAfter: apres } : {}),
+    })
+    const lot = (r.contacts || []) as (Contact & { searchAfter?: unknown[] })[]
+    if (!lot.length) break
+    tous.push(...lot)
+    // Le curseur est porté par le dernier élément rendu ; sans lui on
+    // reboucierait indéfiniment sur la même page.
+    apres = lot[lot.length - 1]?.searchAfter
+    if (!apres || lot.length < 100) break
+  }
+  return tous
+}
+
+async function parPage(token: string, locationId: string): Promise<Contact[]> {
   const tous: Contact[] = []
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const r = await call(`/contacts/?locationId=${locationId}&limit=100&page=${page}`, token)
-    const lot = (r.contacts || r.data || []) as Contact[]
-    tous.push(...lot)
-    if (lot.length < 100) break
+    try {
+      const r = await call(`/contacts/?locationId=${locationId}&limit=100&page=${page}`, token)
+      const lot = (r.contacts || r.data || []) as Contact[]
+      tous.push(...lot)
+      if (lot.length < 100) break
+    } catch {
+      // Une page qui casse ne doit pas jeter celles déjà obtenues : le tunnel
+      // sera incomplet, ce qui vaut mieux que vide.
+      break
+    }
   }
   return tous
 }

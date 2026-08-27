@@ -215,8 +215,15 @@ export default function BrandSettingsPage() {
         body: JSON.stringify({ dbAccountId: selectedAccount.id }),
       })
       const data = await res.json()
-      if (res.ok) toast.success(`${data.attributed} opportunités rattachées sur ${data.totalOpps}`)
-      else toast.error(data.error || 'Échec de la synchronisation')
+      if (!res.ok) { toast.error(data.error || 'Échec de la synchronisation'); return }
+      toast.success(`${data.attributed} opportunités rattachées sur ${data.totalOpps}`)
+      // Le tunnel peut échouer seul : le taire laisserait croire que les
+      // compteurs à zéro viennent des étiquettes.
+      if (data.erreurTunnel) {
+        toast.error(`Tunnel CRM non synchronisé — ${String(data.erreurTunnel).slice(0, 120)}`)
+      } else if (data.joursTunnel === 0) {
+        toast('Aucun contact étiqueté trouvé : vérifiez les libellés ci-dessus.')
+      }
     } catch { toast.error('Échec de la synchronisation') }
     await loadGhl()
     setGhlSyncing(false)

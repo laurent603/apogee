@@ -77,18 +77,32 @@ export async function POST(req: NextRequest) {
     const locationName = await checkGhlAccess(g.token, g.locationId)
     const summary = await syncGhl(g.token, g.locationId)
 
-    // Le tunnel par journée, pour que le cockpit puisse le lire sur n'importe
-    // quelle période et le comparer à la précédente.
-    const tunnel = await syncGhlTunnel(g.token, g.locationId, {
-      lead: g.tagLead, rdv: g.tagRdv, devis: g.tagDevis, signe: g.tagSigne,
-    })
-    for (const j of tunnel) {
-      const date = new Date(`${j.date}T00:00:00.000Z`)
-      await prisma.ghlDaily.upsert({
-        where: { adAccountId_date: { adAccountId: dbAccountId, date } },
-        update: { leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca, syncedAt: new Date() },
-        create: { adAccountId: dbAccountId, date, leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca },
+    /**
+     * Le tunnel par journée, à part.
+     *
+     * Il lit les contacts, une ressource que l'API GoHighLevel rend parfois en
+     * 500 sans raison tenant au compte. Cette lecture est un ajout : la
+     * remonter au même niveau que les opportunités ferait échouer une synchro
+     * qui fonctionnait, et priverait l'écran de tout — attribution comprise —
+     * pour une partie facultative. Elle échoue donc seule, et le dit.
+     */
+    let tunnel: { date: string }[] = []
+    let erreurTunnel: string | null = null
+    try {
+      const jours = await syncGhlTunnel(g.token, g.locationId, {
+        lead: g.tagLead, rdv: g.tagRdv, devis: g.tagDevis, signe: g.tagSigne,
       })
+      tunnel = jours
+      for (const j of jours) {
+        const date = new Date(`${j.date}T00:00:00.000Z`)
+        await prisma.ghlDaily.upsert({
+          where: { adAccountId_date: { adAccountId: dbAccountId, date } },
+          update: { leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca, syncedAt: new Date() },
+          create: { adAccountId: dbAccountId, date, leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca },
+        })
+      }
+    } catch (e) {
+      erreurTunnel = e instanceof Error ? e.message : 'Erreur inconnue'
     }
 
     await prisma.ghlConnection.update({
@@ -108,6 +122,7 @@ export async function POST(req: NextRequest) {
       ok: true, locationName, ...summary, adStats: undefined,
       adCount: Object.keys(summary.adStats).length,
       joursTunnel: tunnel.length,
+      erreurTunnel,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inconnue'
