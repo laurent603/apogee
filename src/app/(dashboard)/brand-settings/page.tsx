@@ -242,7 +242,7 @@ export default function BrandSettingsPage() {
   }, [])
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-6xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Brand Settings</h1>
@@ -281,7 +281,7 @@ export default function BrandSettingsPage() {
           {/* Tab 0 — Business */}
           {tab === 0 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <SelectField label="Modèle business" field="businessModel" settings={settings} onChange={handleChange} options={[
                   { value: 'dtc_ecommerce', label: 'DTC E-commerce' },
                   { value: 'subscription', label: 'Abonnement' },
@@ -309,7 +309,7 @@ export default function BrandSettingsPage() {
               </div>
               <TextArea label="Proposition de valeur unique" field="uniqueValueProp" placeholder="Ce qui vous différencie en 1-2 phrases" settings={settings} onChange={handleChange} />
               <TextArea label="Description produit/service" field="productDescription" placeholder="ex : Nous vendons des soins bio pour peaux sensibles" settings={settings} onChange={handleChange} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <SelectField label="Stade de l'entreprise" field="companyStage" settings={settings} onChange={handleChange} options={[
                   { value: 'pre_launch', label: 'Pré-lancement' },
                   { value: 'early', label: 'Démarrage' },
@@ -339,7 +339,7 @@ export default function BrandSettingsPage() {
           {/* Tab 1 — Audience */}
           {tab === 1 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <SelectField label="Type d'audience" field="audienceType" settings={settings} onChange={handleChange} options={[
                   { value: 'b2c', label: 'B2C' },
                   { value: 'b2b', label: 'B2B' },
@@ -371,7 +371,7 @@ export default function BrandSettingsPage() {
           {/* Tab 2 — Goals */}
           {tab === 2 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <SelectField label="Objectif principal" field="primaryObjective" settings={settings} onChange={handleChange} options={[
                   { value: 'sales', label: 'Ventes' },
                   { value: 'leads', label: 'Leads' },
@@ -402,7 +402,7 @@ export default function BrandSettingsPage() {
                   <Field label="CPA max (€)" field="maxCpa" type="number" placeholder="ex : 40" settings={settings} onChange={handleChange} />
                   <Field label="ROAS cible" field="targetRoas" type="number" placeholder="ex : 2.5" settings={settings} onChange={handleChange} />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
                   <Field label="MER cible" field="targetMer" type="number" placeholder="ex : 3.0" settings={settings} onChange={handleChange} />
                   <Field label="Fourchette de prix" field="priceRange" placeholder="ex : 50-200€" settings={settings} onChange={handleChange} />
                 </div>
@@ -418,7 +418,7 @@ export default function BrandSettingsPage() {
               <Field label="Mois pics" field="peakMonths" placeholder="ex : 11,12 pour novembre-décembre" settings={settings} onChange={handleChange} />
               <div className="border-t border-[#E5E7EB] pt-4">
                 <p className="text-sm font-semibold text-[#0d0d12] mb-3">Setup conversion</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                   <SelectField label="Canal de conversion" field="conversionChannel" settings={settings} onChange={handleChange} options={[
                     { value: 'website', label: 'Site web' },
                     { value: 'app', label: 'App' },
@@ -502,7 +502,7 @@ export default function BrandSettingsPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div>
                   <label className="label">Token d&apos;intégration Notion</label>
                   <input
