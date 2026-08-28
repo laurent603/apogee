@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
+import { extraireFeuille, imprimerFeuille, imprimerBrief } from '@/lib/scalr/feuilleTournage'
 
 /**
  * Les briefs créa : la liste, et leur avancement.
@@ -32,6 +33,10 @@ const infoStatut = (s: string) => STATUTS.find((x) => x.id === s) || STATUTS[0]
 const horodatage = (d: string) => new Date(d).toLocaleDateString('fr-FR', {
   day: '2-digit', month: '2-digit', year: 'numeric',
 })
+
+/** Le bloc technique de fin de brief n'a rien à faire à l'écran : il sert à
+ *  fabriquer la feuille de tournage, pas à être lu. */
+const sansJson = (md: string) => md.replace(/```json\s*[\s\S]*?```/g, '').trim()
 
 export function OngletBriefs({ compte }: {
   compte?: { id: string; name?: string | null } | null
@@ -79,6 +84,18 @@ export function OngletBriefs({ compte }: {
     })
   }
 
+  /** Le brief a quitté l'application : impression ou téléchargement, c'est le
+   *  même fait, et c'est lui qu'on veut voir dans la liste. */
+  async function marquer(b: BriefListe) {
+    const d = await fetch('/api/briefs', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: b.id, telecharge: true }),
+    }).then((x) => x.json()).catch(() => null)
+    if (d?.brief?.downloadedAt) {
+      setBriefs((l) => l.map((x) => (x.id === b.id ? { ...x, downloadedAt: d.brief.downloadedAt } : x)))
+    }
+  }
+
   async function telecharger(b: BriefListe) {
     const texte = contenu[b.id]
     if (!texte) return
@@ -87,14 +104,7 @@ export function OngletBriefs({ compte }: {
     a.download = `${b.title.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 60).trim() || 'brief'}.md`
     a.click()
     URL.revokeObjectURL(a.href)
-
-    const d = await fetch('/api/briefs', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: b.id, telecharge: true }),
-    }).then((x) => x.json()).catch(() => null)
-    if (d?.brief?.downloadedAt) {
-      setBriefs((l) => l.map((x) => (x.id === b.id ? { ...x, downloadedAt: d.brief.downloadedAt } : x)))
-    }
+    await marquer(b)
   }
 
   const visibles = useMemo(() => {
@@ -184,16 +194,42 @@ export function OngletBriefs({ compte }: {
                     {contenu[b.id] ? (
                       <>
                         <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
-                          dangerouslySetInnerHTML={{ __html: markdownToHtml(contenu[b.id]) }} />
-                        <div className="flex items-center gap-2 mt-2">
-                          <button onClick={() => telecharger(b)}
-                            className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
-                            Télécharger en Markdown
+                          dangerouslySetInnerHTML={{ __html: markdownToHtml(sansJson(contenu[b.id])) }} />
+
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          {/* Ce qu'on tend à la personne qui tourne : les
+                              répliques, rien d'autre. */}
+                          <button
+                            onClick={() => {
+                              const f = extraireFeuille(contenu[b.id])
+                              if (f) { imprimerFeuille(f, b.adName); marquer(b) }
+                            }}
+                            disabled={!extraireFeuille(contenu[b.id])}
+                            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+                            title={extraireFeuille(contenu[b.id])
+                              ? 'Ouvre la feuille prête à imprimer ou enregistrer en PDF'
+                              : 'Ce brief a été généré avant la feuille de tournage'}>
+                            Feuille de tournage (PDF)
                           </button>
-                          <a href={`/pilotage?niveau=crea`} className="text-xs text-[#3434ef] hover:underline">
-                            Revoir la créa d’origine →
-                          </a>
+
+                          <button onClick={() => { imprimerBrief(contenu[b.id], b.adName, horodatage(b.createdAt)); marquer(b) }}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
+                            Brief complet (PDF)
+                          </button>
+
+                          <button onClick={() => telecharger(b)}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]"
+                            title="Markdown : un collage direct dans Notion s’y convertit">
+                            Markdown
+                          </button>
                         </div>
+
+                        {!extraireFeuille(contenu[b.id]) && (
+                          <p className="text-[11px] text-amber-600 mt-2">
+                            Feuille de tournage indisponible : ce brief est antérieur à sa mise en place.
+                            Les prochains la porteront — régénérez-en un depuis la créa si vous en avez besoin.
+                          </p>
+                        )}
                       </>
                     ) : (
                       <p className="text-xs text-gray-400">Chargement…</p>

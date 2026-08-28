@@ -135,7 +135,32 @@ Texte principal, titre, description. Deux variantes.
 ## Ton
 Écris pour quelqu'un qui va tourner demain. Pas de conseil général, pas de
 « pensez à ». Chaque phrase est soit une instruction, soit une justification
-chiffrée.`
+chiffrée.
+
+## 9. Feuille de tournage — bloc obligatoire, en dernier
+
+Termine **impérativement** par un bloc \`\`\`json délimité comme ci-dessous.
+C'est lui qui produit la feuille remise à la personne qui tourne : elle ne lit
+rien d'autre, ni le diagnostic, ni la copy. Elle n'apprend pas le texte, elle
+le lit — écris donc les répliques telles qu'elles doivent être **prononcées**,
+sans didascalie dans la réplique.
+
+\`\`\`json
+{
+  "titre": "nom court de la créa",
+  "format": "format retenu",
+  "duree": "durée visée, ex. 30 s",
+  "hook": { "dit": "la phrase prononcée mot pour mot", "ecran": "texte affiché", "visuel": "ce qu'on filme" },
+  "segments": [
+    { "temps": "3-8 s", "dit": "réplique exacte", "ecran": "texte affiché", "visuel": "ce qu'on filme" }
+  ],
+  "cta": { "dit": "réplique finale", "ecran": "texte affiché", "visuel": "ce qu'on filme" },
+  "materiel": "ce qu'il faut prévoir, en une ligne"
+}
+\`\`\`
+
+Le JSON doit être valide et se suffire à lui-même : quelqu'un qui n'a que ce
+bloc doit pouvoir tourner.`
 
 export const PROMPTS = {
   audit: {
