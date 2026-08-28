@@ -88,10 +88,13 @@ type Detail = {
   ventilations: { placement: Vent[]; age: Vent[]; ageGenre: Vent[]; genre: Vent[]; appareil: Vent[] }
 }
 
-export function DetailCrea({ adId, periode, attribution, decision, format, onClose }: {
+export function DetailCrea({ adId, periode, attribution, decision, format, compte, onClose }: {
   adId: string; periode: string; attribution: string
   decision?: { kind: string; label: string; reason: string }
   format?: string | null
+  /** Le compte publicitaire : l'analyse ne peut pas se faire sans lui, la
+   *  route ayant besoin de l'identifiant Meta pour tirer ses chiffres. */
+  compte?: { id: string; metaAccountId?: string | null } | null
   onClose: () => void
 }) {
   const [d, setD] = useState<Detail | null>(null)
@@ -125,11 +128,17 @@ export function DetailCrea({ adId, periode, attribution, decision, format, onClo
   }, [g, v])
 
   async function analyser() {
+    if (!compte) { setAnalyse('Aucun compte publicitaire sélectionné.'); return }
     setAnalyseEnCours(true)
     try {
       const r = await fetch('/api/ai/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // `accountId` est l'identifiant Meta, `dbAccountId` celui de la base :
+          // la route lit les chiffres avec le premier et les réglages avec le
+          // second. Sans eux elle répond « Missing parameters ».
+          accountId: compte.metaAccountId || compte.id,
+          dbAccountId: compte.id,
           category: 'creativeStrategy', analysisType: 'creative_deep_dive',
           agentRole: 'creative_strategist', deep: true,
           customPrompt: `Analyse cette créa en particulier : « ${d?.ad.name} » (id ${adId}).\n\n`
@@ -140,6 +149,15 @@ export function DetailCrea({ adId, periode, attribution, decision, format, onClo
             + `et comment la décliner. Appuie chaque affirmation sur un chiffre ci-dessus.`,
         }),
       })
+      // Un échec arrive en JSON, pas en flux : le rendre tel quel afficherait
+      // « {"error":"..."} » à l'écran.
+      if (!r.ok) {
+        const brut = await r.text()
+        let motif = brut
+        try { motif = (JSON.parse(brut) as { error?: string }).error || brut } catch {}
+        setAnalyse(`L’analyse n’a pas pu aboutir : ${motif}`)
+        return
+      }
       const texte = await r.text()
       setAnalyse(texte || 'Aucune réponse.')
     } catch {

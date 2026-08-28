@@ -96,8 +96,9 @@ function Indicateur({ cle, r }: { cle: string; r: Ligne }) {
   )
 }
 
-export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
+export function GalerieCreas({ lignes, periode, attribution, colonnes, compte }: {
   lignes: Ligne[]; periode: string; attribution: string; colonnes: string[]
+  compte?: { id: string; metaAccountId?: string | null } | null
 }) {
   const [classement, setClassement] = useState(CLASSEMENTS[0])
   const [ouvert, setOuvert] = useState<string | null>(null)
@@ -300,7 +301,7 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes }: {
       )}
 
       {ouvert && (
-        <DetailCrea adId={ouvert} periode={periode} attribution={attribution}
+        <DetailCrea adId={ouvert} periode={periode} attribution={attribution} compte={compte}
           decision={creas.find((c) => c.id === ouvert)?.decision}
           format={creas.find((c) => c.id === ouvert)?.creativeType}
           onClose={() => setOuvert(null)} />

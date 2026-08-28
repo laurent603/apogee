@@ -375,7 +375,7 @@ export default function PilotagePage() {
 
       {selectedAccount && !loading && data && niveau === 'crea' && (
         <GalerieCreas lignes={lignes as never} periode={r.periode} attribution={r.attribution}
-          colonnes={r.colonnesCrea} />
+          colonnes={r.colonnesCrea} compte={selectedAccount} />
       )}
 
       {/* Sous 1024 px, une carte par ligne : un tableau à douze colonnes n'y
@@ -471,7 +471,7 @@ export default function PilotagePage() {
       )}
 
       {detailOuvert && (
-        <DetailCrea adId={detailOuvert} periode={r.periode} attribution={r.attribution}
+        <DetailCrea adId={detailOuvert} periode={r.periode} attribution={r.attribution} compte={selectedAccount}
           decision={(data?.lignes as Ligne[] | undefined)?.find((l) => l.id === detailOuvert)?.decision}
           format={(data?.lignes as (Ligne & { creativeType?: string })[] | undefined)?.find((l) => l.id === detailOuvert)?.creativeType ?? undefined}
           onClose={() => setDetailOuvert(null)} />
