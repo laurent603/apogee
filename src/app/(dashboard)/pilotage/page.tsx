@@ -210,13 +210,20 @@ export default function PilotagePage() {
    * 3 publicités à couper » doit ouvrir ces trois lignes, pas le tableau
    * complet. Lu depuis l'URL au montage plutôt qu'avec `useSearchParams`, qui
    * imposerait une frontière Suspense pour rien.
+   *
+   * `pret` empêche la première requête de partir avant cette lecture. Sans
+   * lui, la page chargeait les campagnes puis, l'URL lue, rechargeait les
+   * publicités : deux appels, et un tableau qui se remplaçait sous les yeux
+   * une seconde après s'être affiché.
    */
+  const [pret, setPret] = useState(false)
   useEffect(() => {
     const q = new URLSearchParams(window.location.search)
     const n = q.get('niveau')
     const p = q.get('pastille')
     if (n && NIVEAUX.some((x) => x.id === n)) setNiveau(n)
     if (p && PASTILLES.some((x) => x.id === p)) setPastille(p)
+    setPret(true)
   }, [])
 
   const [data, setData] = useState<{
@@ -247,7 +254,7 @@ export default function PilotagePage() {
       .finally(() => setLoading(false))
   }, [selectedAccount, niveau, r.periode, r.attribution, r.since, r.until])
 
-  useEffect(() => { charger() }, [charger])
+  useEffect(() => { if (pret) charger() }, [charger, pret])
 
   /** Le périmètre, avant les pastilles : c'est sur lui que se comptent les
    *  verdicts affichés sur les pastilles. */

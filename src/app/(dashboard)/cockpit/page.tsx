@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
 import { AreaChart, Area, Tooltip, Legend, CartesianGrid, XAxis, YAxis } from 'recharts'
@@ -367,10 +368,10 @@ export default function CockpitPage() {
                       ))}
                     </div>
                     {s.vers && (
-                      <a href={`/pilotage?niveau=${s.vers.niveau}&pastille=${s.vers.pastille}`}
+                      <Link href={`/pilotage?niveau=${s.vers.niveau}&pastille=${s.vers.pastille}`}
                         className="inline-block mt-2.5 text-[11px] font-medium text-[#3434ef] hover:underline">
                         {s.vers.libelle} →
-                      </a>
+                      </Link>
                     )}
                   </div>
                 ))}
@@ -382,14 +383,14 @@ export default function CockpitPage() {
               <p className="text-[11px] text-gray-500 leading-snug mb-3">
                 Une lecture stratégique de la période par l’agent, au-delà des seuls seuils.
               </p>
-              <a href="/autopilot" className="btn-primary text-xs px-3 py-2 inline-block">Analyser avec l’agent →</a>
+              <Link href="/autopilot" className="btn-primary text-xs px-3 py-2 inline-block">Analyser avec l’agent →</Link>
             </div>
 
             {/* Propre à Apogee : Scalr n'a pas d'outil de lancement. */}
             <div className="card">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Derniers lancements</p>
-                <a href="/history" className="text-[11px] text-[#3434ef] hover:underline">Tout voir</a>
+                <Link href="/history" className="text-[11px] text-[#3434ef] hover:underline">Tout voir</Link>
               </div>
               {lancements.length ? (
                 <div className="space-y-2">
@@ -410,7 +411,7 @@ export default function CockpitPage() {
               ) : (
                 <div className="text-center py-4">
                   <p className="text-xs text-gray-400">Aucun lancement pour l’instant.</p>
-                  <a href="/upload" className="btn-primary text-xs px-3 py-1.5 inline-block mt-2">Lancer une campagne</a>
+                  <Link href="/upload" className="btn-primary text-xs px-3 py-1.5 inline-block mt-2">Lancer une campagne</Link>
                 </div>
               )}
             </div>
