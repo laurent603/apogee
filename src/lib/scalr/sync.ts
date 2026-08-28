@@ -341,7 +341,7 @@ async function persistEntities(
 
 /** Fenêtres de travail. La portée y est demandée à Meta plutôt que déduite,
  *  parce qu'aucune addition de journées ne donne des personnes uniques. */
-export const FENETRES = [7, 14, 30, 90] as const
+export const FENETRES = [7, 14, 30, 60, 90] as const
 
 /**
  * Portée dédupliquée par période, pour les trois niveaux.
@@ -366,27 +366,31 @@ export async function syncPeriodReach(opts: {
   /** Heures au-delà desquelles la portée est jugée périmée. */
   fraicheurH?: number
 }): Promise<number> {
-  // Douze appels Meta par compte : inutile de les refaire si la nuit les a
+  // Vingt appels Meta par compte : inutile de les refaire si la nuit les a
   // déjà rafraîchis. Sans ce garde-fou, une seconde passe du cron repayait
   // l'intégralité du coût pour rien.
   const seuil = new Date(Date.now() - (opts.fraicheurH ?? 20) * 3_600_000)
   /**
-   * Le garde-fou vérifie que **chaque niveau** est frais, pas qu'une ligne
-   * l'est.
+   * La fraîcheur se lit sur un marqueur, pas sur les lignes écrites.
    *
-   * Il regardait n'importe quelle ligne récente et s'arrêtait là. Le jour où
-   * le niveau `account` a été ajouté, les lignes de campagne rafraîchies la
-   * veille suffisaient à faire croire au travail fait : le nouveau niveau
-   * n'aurait jamais été écrit, et la fréquence du compte serait restée muette
-   * indéfiniment. Un niveau ajouté doit se remplir tout seul au passage
-   * suivant.
+   * Le garde-fou a déjà échoué deux fois en la déduisant des lignes. D'abord
+   * en regardant n'importe quelle ligne récente : le jour où le niveau
+   * `account` a été ajouté, les lignes de campagne de la veille suffisaient à
+   * faire croire au travail fait, et la fréquence du compte serait restée
+   * muette indéfiniment. Puis, en ne regardant que les niveaux, la fenêtre
+   * 60 j du cockpit aurait connu le même sort.
+   *
+   * Inspecter les couples niveau × fenêtre corrigerait le symptôme mais pas la
+   * cause : un compte sans diffusion ne produit aucune ligne, et serait alors
+   * jugé éternellement en retard. Le marqueur dit ce qu'on veut savoir — la
+   * question a-t-elle été posée à Meta — et un ajout futur se remplit tout
+   * seul, parce que la version du plan de collecte en fait partie.
    */
-  const frais = await prisma.metaPeriodReach.findMany({
-    where: { adAccountId: opts.adAccountId, syncedAt: { gte: seuil } },
-    distinct: ['level'],
-    select: { level: true },
+  const etat = await prisma.metaSyncState.findUnique({
+    where: { adAccountId: opts.adAccountId },
+    select: { reachSyncedAt: true },
   })
-  if (NIVEAUX_PORTEE.every((n) => frais.some((f) => f.level === n))) return 0
+  if (etat?.reachSyncedAt && etat.reachSyncedAt >= seuil) return 0
 
   const niveaux: [string, string][] = NIVEAUX_PORTEE.map((n) => [n, n])
   let ecrits = 0
@@ -435,6 +439,19 @@ export async function syncPeriodReach(opts: {
       ecrits += mapped.length
     }
   }
+
+  // Le marqueur n'est posé qu'après le dernier appel : une interruption au
+  // milieu doit faire recommencer, pas passer pour un travail fini.
+  await prisma.metaSyncState.upsert({
+    where: { adAccountId: opts.adAccountId },
+    create: {
+      adAccountId: opts.adAccountId,
+      metaAccountId: opts.metaAccountId,
+      reachSyncedAt: new Date(),
+    },
+    update: { reachSyncedAt: new Date() },
+  })
+
   return ecrits
 }
 

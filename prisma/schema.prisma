@@ -441,6 +441,14 @@ model MetaSyncState {
   /// progressivement pour ne pas se faire limiter par Meta.
   backfilledFrom DateTime? @db.Date
   lastSyncedAt   DateTime?
+  /// Dernier passage complet de la portée dédoublonnée.
+  ///
+  /// Marqueur explicite plutôt que déduction depuis les lignes écrites : un
+  /// compte sans diffusion n'en produit aucune, et le garde-fou le croirait
+  /// éternellement en retard. Un couple niveau × fenêtre ajouté se remplit au
+  /// passage suivant parce que ce marqueur est remis à zéro, pas parce qu'on
+  /// aurait pensé à inspecter la bonne granularité.
+  reachSyncedAt  DateTime?
   lastError      String?
   rowsTotal      Int       @default(0)
   updatedAt      DateTime  @updatedAt
