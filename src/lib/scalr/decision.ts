@@ -19,7 +19,7 @@
  * gagne. Déplacer une règle change le sens de l'outil.
  */
 
-export type DecisionKind = 'cut' | 'scale' | 'watch' | 'iterate' | 'objective' | 'test'
+export type DecisionKind = 'cut' | 'scale' | 'watch' | 'iterate' | 'objective' | 'test' | 'paused'
 export type Level = 'campaign' | 'adset' | 'ad' | 'crea'
 
 export type Decision = { kind: DecisionKind; label: string; reason: string }
@@ -36,6 +36,10 @@ export type DecisionRow = {
   ctr?: number | null
   linkCtr?: number | null
   frequency?: number | null
+  /** `ACTIVE` ou non. Sert à distinguer une ligne arrêtée d'un test en cours. */
+  status?: string | null
+  /** Date de création, pour la même distinction. */
+  createdTime?: string | Date | null
 }
 
 export type Goals = {
@@ -89,6 +93,24 @@ export function medianeNonNulle(values: (number | null | undefined)[]): number {
   return median(values.map(n).filter((v) => v > 0))
 }
 
+/** Meta rend `ACTIVE` pour une ligne qui diffuse ; tout le reste est un arrêt
+ *  — en pause, archivée, ou bloquée par sa campagne parente. */
+const estActive = (statut: string | null | undefined) => statut == null || statut === 'ACTIVE'
+
+/**
+ * Lancée assez récemment pour qu'on lui laisse le bénéfice du doute.
+ *
+ * Quatorze jours : au-delà, une ligne active qui n'a toujours pas de signal
+ * n'est plus un test, c'est un problème de diffusion. Une date absente vaut
+ * « ancienne » — supposer la jeunesse ferait passer tout un compte non
+ * synchronisé pour un ensemble de tests.
+ */
+const jeune = (date: string | Date | null | undefined, jours = 14) => {
+  if (!date) return false
+  const t = new Date(date).getTime()
+  return Number.isFinite(t) && Date.now() - t < jours * 86_400_000
+}
+
 const eur = (v: number) =>
   `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
@@ -130,28 +152,72 @@ export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext
   const goodTraffic = linkCtr >= 2.5 || ctr >= 1.5
 
   if (spent >= cutSpend && leads === 0)
-    return { kind: 'cut', label: 'À couper', reason: `Dépense ${eur(spent)} sans lead exploitable.` }
+    return { kind: 'cut', label: 'Couper', reason: `Dépense ${eur(spent)} sans lead exploitable.` }
 
   if (max && cpl > max)
-    return { kind: 'cut', label: 'Hors objectif', reason: `CPL ${eur(cpl)} au-dessus du plafond ${eur(max)}.` }
+    return { kind: 'cut', label: 'Hors cible', reason: `CPL ${eur(cpl)} au-dessus du plafond ${eur(max)}.` }
 
-  if (isCreative && underTarget && enoughVolume)
-    return { kind: 'scale', label: 'À décliner', reason: 'Winner confirmé: volume, CPL sous cible et signal créatif exploitable.' }
+  /**
+   * Winner : le CPL tient sous la cible **et** le volume suffit à le croire.
+   *
+   * Le geste qui suit dépend du grain, pas du verdict : on décline une créa en
+   * variantes, on monte le budget d'un ad set. Le libellé est donc le même
+   * partout et c'est la raison qui porte l'action — auparavant, « À décliner »
+   * était réservé aux publicités et « À scaler » aux campagnes et ad sets, si
+   * bien qu'aucune publicité ne pouvait jamais s'afficher « à scaler ».
+   */
+  if (underTarget && enoughVolume)
+    return {
+      kind: 'scale', label: 'Winner',
+      reason: isCreative
+        ? 'Volume atteint et CPL sous cible : décliner en variantes avant la fatigue.'
+        : 'Volume atteint et CPL sous cible : monter le budget graduellement, une variable à la fois.',
+    }
 
-  if (isEntity && underTarget && enoughVolume)
-    return { kind: 'scale', label: 'À scaler', reason: 'Volume sous objectif: augmenter graduellement sans changer plusieurs variables.' }
+  /**
+   * Scaler : le coût est bon, le volume ne suffit pas encore à conclure.
+   *
+   * C'est la ligne qui mérite du budget — pas parce qu'elle a fait ses preuves,
+   * mais parce qu'elle est la mieux placée pour les faire. Sans cette étape,
+   * elle tombait dans « à surveiller », ce qui ne dit pas quoi faire.
+   */
+  if (underTarget && spent > 0)
+    return {
+      kind: 'scale', label: 'Scaler',
+      reason: 'CPL sous cible mais volume encore léger : augmenter l’exposition pour confirmer.',
+    }
 
   if (highFreq && weakCtr)
     return { kind: 'watch', label: 'Fatigue', reason: 'Fréquence en hausse et clic en baisse: injecter une variation.' }
 
   if (goodTraffic && !leads && spent > 0)
-    return { kind: 'iterate', label: 'À itérer', reason: 'Trafic présent mais pas encore de lead: retravailler offre, formulaire ou promesse.' }
+    return { kind: 'iterate', label: 'Itérer', reason: 'Trafic présent mais pas encore de lead: retravailler offre, formulaire ou promesse.' }
 
   if (nearTarget)
-    return { kind: 'objective', label: 'Dans l’objectif', reason: 'Performance proche des seuils client: conserver et surveiller la stabilité.' }
+    return { kind: 'objective', label: 'Dans la cible', reason: 'Performance proche des seuils client: conserver et surveiller la stabilité.' }
 
   if (spent > 0 && leads > 0)
-    return { kind: 'watch', label: 'À surveiller', reason: 'Signal utile mais pas encore assez solide pour scaler.' }
+    return { kind: 'watch', label: 'Surveiller', reason: 'Signal utile mais pas encore assez solide pour scaler.' }
+
+  /**
+   * Trois situations se ressemblaient sous « Nouveau test » : une ligne
+   * fraîchement lancée, une ligne arrêtée, et une ligne active que Meta ne
+   * diffuse pas. Les confondre gonflait la colonne des tests avec des
+   * publicités en pause depuis des mois — et masquait le seul cas qui appelle
+   * une vérification immédiate, celui de la ligne active qui ne dépense rien.
+   *
+   * L'arrêt ne s'applique qu'ici : une publicité en pause qui a fait ses
+   * preuves reste un winner, et savoir qu'on a mis un winner en pause vaut
+   * mieux que de le voir disparaître derrière son statut.
+   */
+  if (!estActive(row.status))
+    return { kind: 'paused', label: 'En pause', reason: 'Diffusion arrêtée : aucun verdict à porter sur la période.' }
+
+  if (jeune(row.createdTime))
+    return { kind: 'test', label: 'Nouveau test', reason: 'Lancée récemment : laisser le temps de produire un signal.' }
+
+  if (spent === 0)
+    return { kind: 'paused', label: 'Sans diffusion', reason: 'Active mais aucune dépense : vérifier budget, audience ou rejet créatif.' }
 
   return { kind: 'test', label: 'Nouveau test', reason: 'Pas assez de dépense ou de volume pour conclure proprement.' }
 }

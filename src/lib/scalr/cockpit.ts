@@ -172,9 +172,9 @@ export function signaux(pubs: Pub[], t: Totaux, crm: {
   const parCpl = (a: Pub, b: Pub) => (n(a.cpl) || 1e9) - (n(b.cpl) || 1e9)
 
   const aCouper = pubs.filter((x) => x.decision.kind === 'cut').sort(parDepense)
-  const aDecliner = pubs.filter((x) => x.decision.label === 'À décliner').sort(parCpl)
+  const winners = pubs.filter((x) => x.decision.label === 'Winner').sort(parCpl)
   const enFatigue = pubs.filter((x) => x.decision.label === 'Fatigue').sort(parDepense)
-  const aScaler = pubs.filter((x) => x.decision.label === 'À scaler').sort(parCpl)
+  const aScaler = pubs.filter((x) => x.decision.label === 'Scaler').sort(parCpl)
 
   // L'argent qui part sans rien produire passe avant tout le reste.
   if (aCouper.length) {
@@ -188,12 +188,12 @@ export function signaux(pubs: Pub[], t: Totaux, crm: {
     })
   }
 
-  if (aDecliner.length) {
-    const w = aDecliner[0]
+  if (winners.length) {
+    const w = winners[0]
     s.push({
       ton: 'bon', tag: 'Winner',
       titre: `${court(w.name)} est un winner confirmé`,
-      texte: 'Volume et CPL sous cible : à décliner en variantes avant que la fatigue ne l’atteigne.',
+      texte: 'Volume atteint et CPL sous cible : décliner en variantes avant que la fatigue ne l’atteigne.',
       kpis: [['CPL', w.cpl ? eur(w.cpl) : '—'], ['Résultats', nb(n(w.resultValue) || n(w.leads))]],
       vers: { niveau: 'crea', pastille: 'scale', libelle: 'Voir les winners' },
     })

@@ -45,16 +45,28 @@ const NIVEAUX = [
   { id: 'fatigue', label: 'Matrice' },
 ] as const
 
-/** Une pastille par verdict. `kind` vient du moteur de décision. */
-const PASTILLES: { id: string; label: string; kinds: string[] }[] = [
-  { id: 'all', label: 'Toutes', kinds: [] },
-  { id: 'scale', label: 'À scaler / décliner', kinds: ['scale'] },
-  { id: 'iterate', label: 'À itérer', kinds: ['iterate'] },
-  { id: 'cut', label: 'À couper', kinds: ['cut'] },
+/**
+ * Une pastille par verdict.
+ *
+ * Winner et Scaler partagent le même `kind` mais appellent deux gestes
+ * différents — décliner ou confirmer —, donc elles se filtrent sur le libellé.
+ * Sans ça, « montre-moi mes winners » restait impossible.
+ */
+const PASTILLES: { id: string; label: string; kinds?: string[]; labels?: string[] }[] = [
+  { id: 'all', label: 'Toutes' },
+  { id: 'winner', label: 'Winner', labels: ['Winner'] },
+  { id: 'scaler', label: 'Scaler', labels: ['Scaler'] },
+  { id: 'iterate', label: 'Itérer', kinds: ['iterate'] },
+  { id: 'cut', label: 'Couper', kinds: ['cut'] },
+  { id: 'watch', label: 'Fatigue', kinds: ['watch'] },
+  { id: 'objective', label: 'Dans la cible', kinds: ['objective'] },
   { id: 'test', label: 'Nouveau test', kinds: ['test'] },
-  { id: 'watch', label: 'Fatigue / à surveiller', kinds: ['watch'] },
-  { id: 'objective', label: 'Dans l’objectif', kinds: ['objective'] },
+  { id: 'paused', label: 'En pause', kinds: ['paused'] },
 ]
+
+/** Une ligne appartient-elle à cette pastille ? */
+const dansPastille = (d: Decision, p: (typeof PASTILLES)[number]) =>
+  (p.kinds?.includes(d.kind) ?? false) || (p.labels?.includes(d.label) ?? false)
 
 const COULEUR_DECISION: Record<string, string> = {
   cut: 'bg-red-50 text-red-700 border-red-200',
@@ -63,6 +75,8 @@ const COULEUR_DECISION: Record<string, string> = {
   watch: 'bg-amber-50 text-amber-700 border-amber-200',
   objective: 'bg-teal-50 text-teal-700 border-teal-200',
   test: 'bg-gray-50 text-gray-600 border-gray-200',
+  // Une ligne arrêtée n'est ni bonne ni mauvaise : elle est hors jeu.
+  paused: 'bg-slate-100 text-slate-500 border-slate-200',
 }
 
 /** Une hausse n'est pas une bonne nouvelle en soi : le registre dit dans quel
@@ -195,7 +209,7 @@ export default function PilotagePage() {
   const lignes = useMemo(() => {
     let l = perimetre
     const p = PASTILLES.find((x) => x.id === pastille)
-    if (p && p.kinds.length) l = l.filter((x) => p.kinds.includes(x.decision.kind))
+    if (p && p.id !== 'all') l = l.filter((x) => dansPastille(x.decision, p))
     return [...l].sort((a, b) => {
       const va = a[tri.cle] as number | null
       const vb = b[tri.cle] as number | null
@@ -210,7 +224,9 @@ export default function PilotagePage() {
 
   const compteurs = useMemo(() => {
     const c: Record<string, number> = {}
-    for (const x of perimetre) c[x.decision.kind] = (c[x.decision.kind] || 0) + 1
+    for (const p of PASTILLES) {
+      c[p.id] = p.id === 'all' ? perimetre.length : perimetre.filter((x) => dansPastille(x.decision, p)).length
+    }
     return c
   }, [perimetre])
 
@@ -271,7 +287,7 @@ export default function PilotagePage() {
       {/* Pastilles — des filtres sur le verdict, pas des étiquettes */}
       <div className="flex flex-wrap gap-2">
         {PASTILLES.map((p) => {
-          const n = p.kinds.length ? p.kinds.reduce((s, k) => s + (compteurs[k] || 0), 0) : perimetre.length
+          const n = compteurs[p.id] || 0
           if (p.id !== 'all' && !n) return null
           return (
             <button key={p.id} onClick={() => setPastille(p.id)}

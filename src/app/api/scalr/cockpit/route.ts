@@ -73,7 +73,8 @@ export async function GET(req: NextRequest) {
       prisma.metaDailyAd.groupBy({ by: ['adId'], where: { ...base, date: { gte: prev.since, lte: prev.until } }, _sum: SUM }),
       prisma.metaEntity.findMany({
         where: { adAccountId: dbAccountId, level: { in: ['ad', 'campaign'] } },
-        select: { metaId: true, level: true, name: true, objective: true },
+        select: { metaId: true, level: true, name: true, objective: true,
+                  status: true, effectiveStatus: true, createdTime: true },
       }),
       prisma.metaDailyAd.groupBy({ by: ['campaignId'], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
       prisma.brandSettings.findUnique({
@@ -129,6 +130,8 @@ export async function GET(req: NextRequest) {
     return {
       id: e.metaId,
       name: e.name,
+      status: e.effectiveStatus || e.status,
+      createdTime: e.createdTime,
       ...m,
       frequency: portee && portee > 0 ? Math.round((m.impressions / portee) * 100) / 100 : null,
     }
@@ -150,7 +153,9 @@ export async function GET(req: NextRequest) {
     frequency: l.frequency,
     decision: rowDecision(
       { spend: l.spend, leads: l.leads, resultValue: l.resultValue, cpl: l.cpl,
-        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency },
+        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency,
+        // Sans eux, une ligne en pause depuis des mois se lit « nouveau test ».
+        status: l.status, createdTime: l.createdTime },
       'ad', ctx,
     ),
   }))
@@ -290,7 +295,8 @@ export async function GET(req: NextRequest) {
     verdicts: {
       cut: compte('cut'), scale: compte('scale'), watch: compte('watch'),
       iterate: compte('iterate'), objective: compte('objective'), test: compte('test'),
-      decliner: compteLabel('À décliner'), fatigue: compteLabel('Fatigue'),
+      winner: compteLabel('Winner'), scaler: compteLabel('Scaler'), fatigue: compteLabel('Fatigue'),
+      paused: compte('paused'),
     },
     crm,
     serie,

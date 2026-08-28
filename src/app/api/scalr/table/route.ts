@@ -231,7 +231,9 @@ export async function GET(req: NextRequest) {
   const avecDecision = lignes.map((l) => {
     const d = rowDecision(
       { spend: l.spend, leads: l.leads, resultValue: l.resultValue, cpl: l.cpl,
-        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency },
+        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency,
+        // Sans eux, une ligne en pause depuis des mois se lit « nouveau test ».
+        status: l.status, createdTime: l.createdTime },
       level, ctx,
     )
     const varie = (cle: keyof typeof l.precedent) =>

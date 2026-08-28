@@ -262,9 +262,10 @@ export default function CockpitPage() {
                   sous={d.verdicts.cut ? 'budget sans retour' : 'aucune'} />
               </Panneau>
 
-              <Panneau titre="Créatif" badge={`${d.verdicts.decliner} winner${d.verdicts.decliner > 1 ? 's' : ''}`}
-                jauge={d.nbPubs ? (d.verdicts.decliner / d.nbPubs) * 100 * 3 : 0} teinte="bg-emerald-500">
-                <Ligne label="Winners confirmés" valeur={nb(d.verdicts.decliner)} sous="à décliner" />
+              <Panneau titre="Créatif" badge={`${d.verdicts.winner} winner${d.verdicts.winner > 1 ? 's' : ''}`}
+                jauge={d.nbPubs ? (d.verdicts.winner / d.nbPubs) * 100 * 3 : 0} teinte="bg-emerald-500">
+                <Ligne label="Winners confirmés" valeur={nb(d.verdicts.winner)} sous="à décliner" />
+                <Ligne label="À confirmer" valeur={nb(d.verdicts.scaler)} sous="CPL bon, volume léger" />
                 <Ligne label="Créas en fatigue" valeur={nb(d.verdicts.fatigue)}
                   sous={d.verdicts.fatigue ? 'à rafraîchir' : 'aucune'} />
                 <Ligne label="CTR global" valeur={pct(c.ctr)} evo={e?.ctr} />
