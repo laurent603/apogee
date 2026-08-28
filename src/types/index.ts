@@ -42,7 +42,6 @@ export interface BrandSettings {
   audienceObjections?: string
   campaignRegions?: string
   primaryObjective?: string
-  primaryKpiTarget?: string
   secondaryObjective?: string
   strategicGoal?: string
   shortTermGoal?: string

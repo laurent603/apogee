@@ -440,7 +440,6 @@ export default function BrandSettingsPage() {
                   { value: 'traffic', label: 'Trafic' },
                   { value: 'app_installs', label: 'Installs app' },
                 ]} />
-                <Field label="Consigne libre pour l’agent" field="primaryKpiTarget" placeholder="ex : privilégier le volume ce trimestre" settings={settings} onChange={handleChange} />
                 <SelectField label="Objectif secondaire" field="secondaryObjective" settings={settings} onChange={handleChange} options={[
                   { value: 'none', label: 'Aucun' },
                   { value: 'brand_awareness', label: 'Notoriété marque' },

@@ -175,7 +175,6 @@ model BrandSettings {
   campaignRegions       String?
   // Goals & KPIs
   primaryObjective      String?
-  primaryKpiTarget      String?
   secondaryObjective    String?
   strategicGoal         String?
   shortTermGoal         String?
