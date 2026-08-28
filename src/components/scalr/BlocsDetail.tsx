@@ -3,10 +3,10 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  Line, LineChart, Area, AreaChart, Legend, Cell,
+  Line, Area, AreaChart, ComposedChart, Legend, Cell,
 } from 'recharts'
 import type { Saturation, Verdict } from '@/lib/scalr/cockpit'
-import { TEINTES, ETAT, AXE, court, eur, Bulle, Cadre, AxesJour, Degrade } from './graphiques'
+import { TEINTES, ETAT, AXE, LEGENDE, court, eur, Bulle, Cadre, AxesJour } from './graphiques'
 
 /**
  * Les blocs dépliables du cockpit : le détail, la saturation, les tendances.
@@ -267,37 +267,47 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Empilement : la part fraîche se lit dans la hauteur bleue, sans
-            qu'une seconde échelle vienne s'y superposer. */}
-        <Cadre titre="Composition des expositions" note="par jour"
+        {/* Composition, telle que Scalr la trace : deux séries empilées et la
+            part de nouvelles personnes en courbe sur un axe de droite borné à
+            100 %. Deux échelles sur un même graphique restent une lecture
+            fragile — mais c'est celle du tableau de bord d'origine, reprise
+            volontairement. */}
+        <Cadre titre="Composition des personnes touchées" hauteur={240}
           children={
-            <BarChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={TEINTES.grille} vertical={false} />
-              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8, 10)} {...AXE} minTickGap={16} />
-              <YAxis {...AXE} width={44} tickFormatter={court} />
+            <ComposedChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} />
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} {...AXE} minTickGap={12} />
+              <YAxis yAxisId="g" {...AXE} width={46} tickFormatter={court} />
+              <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} width={40}
+                {...AXE} tickFormatter={(v: number) => `${v}%`} axisLine={false} tickLine={false} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
-                  <Bulle actif={active} charge={payload as never} titre={String(label)} />
+                  <Bulle actif={active} charge={payload as never} titre={String(label)}
+                    format={(v, cle) => (cle === 'partFraiche' ? `${v.toFixed(1)}%` : court(v))} />
                 )} />
-              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
-              <Bar dataKey="fraiches" name="Personnes fraîches" stackId="a" fill={TEINTES.primaire} maxBarSize={22} />
-              <Bar dataKey="revues" name="Déjà exposées" stackId="a" fill={TEINTES.neutre} radius={[4, 4, 0, 0]} maxBarSize={22} />
-            </BarChart>
+              <Legend {...LEGENDE} />
+              <Bar yAxisId="g" dataKey="revues" name="Personnes déjà exposées" stackId="reach"
+                fill={TEINTES.secondaire} fillOpacity={0.75} radius={[4, 4, 0, 0]} />
+              <Bar yAxisId="g" dataKey="fraiches" name="Nouvelles personnes estimées" stackId="reach"
+                fill={TEINTES.vert} fillOpacity={0.72} radius={[4, 4, 0, 0]} />
+              <Line yAxisId="pct" type="monotone" dataKey="partFraiche" name="% nouvelles personnes touchées"
+                stroke={TEINTES.jaune} strokeWidth={2}
+                dot={{ r: 3, fill: TEINTES.jaune, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+            </ComposedChart>
           } />
 
-        <Cadre titre="Coût de saturation" note="CPM × fréquence"
-          valeur={s.coutSaturation != null ? `${s.coutSaturation.toFixed(2)} €` : undefined}
+        <Cadre titre="Évolution du coût de saturation" hauteur={240}
           children={
             <AreaChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <Degrade id="gSat" teinte={TEINTES.secondaire} />
-              <AxesJour unite=" €" />
+              <CartesianGrid stroke={TEINTES.grille} />
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} {...AXE} minTickGap={12} />
+              <YAxis {...AXE} width={52} tickFormatter={(v: number) => `${court(v)} €`} />
               <Tooltip content={({ active, payload, label }) => (
-                <Bulle actif={active} charge={payload as never} titre={String(label)}
-                  format={(v) => eur(v)} />
+                <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
               )} />
-              <Area type="monotone" dataKey="cout" name="Coût de saturation"
-                stroke={TEINTES.secondaire} strokeWidth={2.5} fill="url(#gSat)"
-                activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+              <Area type="monotone" dataKey="cout" name="Coût de saturation (€)"
+                stroke={TEINTES.accent} strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.1}
+                dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
             </AreaChart>
           } />
       </div>
@@ -321,130 +331,110 @@ const nomCourt = (s: string) => (s.length > 22 ? `${s.slice(0, 21)}…` : s)
  * suggérait une corrélation que les données ne portent pas. Ils sont
  * maintenant côte à côte, chacun lisible pour ce qu'il est.
  */
+/**
+ * Les graphiques de tendance, repris de Scalr.
+ *
+ * Cinq graphiques, dans son ordre et avec ses partis pris : courbes remplies
+ * pour le coût et le clic, barres groupées pour budget et prospects, barres
+ * colorées par seuil pour la fréquence, et — le détail qui compte — **le CPC
+ * multiplié par dix** pour tenir sur la même échelle que le CPM. C'est ainsi
+ * que Scalr évite un second axe, et c'est plus honnête que de superposer deux
+ * échelles muettes : le facteur est écrit dans la légende.
+ */
 export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campagnes: Campagne[] }) {
-  /** Le chiffre de tête d'un graphique : un total pour un volume, une moyenne
-   *  pour un taux — additionner des pourcentages ne veut rien dire. */
-  const total = (cle: 'spend' | 'leads') =>
-    serie.reduce((t, j) => t + (Number(j[cle]) || 0), 0)
-  const moyenne = (cle: 'cpl' | 'ctr') => {
-    const v = serie.map((j) => j[cle]).filter((x): x is number => x != null && Number.isFinite(x))
-    return v.length ? v.reduce((t, x) => t + x, 0) / v.length : null
-  }
+  // Scalr tronque les noms de campagne à vingt caractères pour son axe.
+  const parCampagne = campagnes.slice(0, 10).map((c) => ({
+    ...c,
+    court: c.name.length > 20 ? c.name.slice(0, 20) : c.name,
+    cpcX10: c.cpc != null ? Math.round(c.cpc * 10 * 100) / 100 : null,
+  }))
 
-  const parFrequence = [...campagnes]
-    .filter((c) => c.frequency != null)
-    .sort((a, b) => (b.frequency ?? 0) - (a.frequency ?? 0))
-    .slice(0, 8)
-
-  // La fréquence est un état, pas une catégorie : sa couleur vient du registre
-  // d'état, et un libellé la double pour ne jamais reposer sur la couleur seule.
   const teinteFreq = (f: number | null) =>
-    f == null ? TEINTES.neutre : f > 3 ? ETAT.critique : f > 2.5 ? ETAT.attention : ETAT.bon
+    f == null ? TEINTES.grille : f > 3 ? ETAT.critique : f > 2.5 ? ETAT.attention : ETAT.bon
+
+  const axeX = { dataKey: 'court', ...AXE, angle: -30, textAnchor: 'end' as const, height: 62, interval: 0 }
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <Cadre titre="Coût par résultat" note="par jour" valeur={eur(moyenne('cpl'))}
+        <Cadre titre="Évolution CPL" hauteur={230}
           children={
             <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <Degrade id="gCpl" teinte={TEINTES.secondaire} />
-              <AxesJour unite=" €" />
+              <AxesJour unite=" €" largeurY={52} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
               )} />
-              {/* `connectNulls` : un jour sans résultat n'a pas de coût — le
-                  tracer à zéro laisserait croire à une journée gratuite. */}
-              <Area type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
-                strokeWidth={2.5} fill="url(#gCpl)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+              <Legend {...LEGENDE} />
+              <Area type="monotone" dataKey="cpl" name="CPL (€)" stroke={TEINTES.accent}
+                strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.08}
+                dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
             </AreaChart>
           } />
 
-        <Cadre titre="CTR" note="par jour"
-          valeur={moyenne('ctr') != null ? `${moyenne('ctr')!.toFixed(2)}%` : undefined}
-          children={
-            <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <Degrade id="gCtr" teinte={TEINTES.primaire} />
-              <AxesJour unite="%" />
-              <Tooltip content={({ active, payload, label }) => (
-                <Bulle actif={active} charge={payload as never} titre={String(label)}
-                  format={(v) => `${v.toFixed(2)}%`} />
-              )} />
-              <Area type="monotone" dataKey="ctr" name="CTR" stroke={TEINTES.primaire}
-                strokeWidth={2.5} fill="url(#gCtr)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
-            </AreaChart>
-          } />
-
-        <Cadre titre="Dépense" note="par jour" valeur={eur(total('spend'))}
-          children={
-            <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <Degrade id="gDep" teinte={TEINTES.primaire} />
-              <AxesJour unite=" €" />
-              <Tooltip content={({ active, payload, label }) => (
-                <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
-              )} />
-              <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.primaire}
-                strokeWidth={2.5} fill="url(#gDep)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} />
-            </AreaChart>
-          } />
-
-        <Cadre titre="Prospects" note="par jour" valeur={court(total('leads') ?? 0)}
+        <Cadre titre="Budget dépensé vs Leads" hauteur={230}
           children={
             <BarChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={TEINTES.grille} vertical={false} />
-              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8, 10)} {...AXE} minTickGap={16} />
-              <YAxis {...AXE} width={44} tickFormatter={court} />
+              <CartesianGrid stroke={TEINTES.grille} />
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} {...AXE} minTickGap={12} />
+              <YAxis {...AXE} width={46} tickFormatter={court} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)}
-                    format={(v) => String(Math.round(v))} />
+                    format={(v, cle) => (cle === 'spend' ? eur(v) : String(Math.round(v)))} />
                 )} />
-              <Bar dataKey="leads" name="Prospects" fill={TEINTES.primaire} radius={[4, 4, 0, 0]} maxBarSize={22} />
+              <Legend {...LEGENDE} />
+              <Bar dataKey="spend" name="Dépensé (€)" fill={TEINTES.accent} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="leads" name="Leads" fill={TEINTES.secondaire} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
             </BarChart>
           } />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Barres horizontales : un nom de campagne se lit, là où un axe
-            incliné le tronque. */}
-        <Cadre titre="Fréquence par campagne" note="8 premières par dépense"
-          hauteur={Math.max(160, parFrequence.length * 34 + 20)}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Cadre titre="CTR" hauteur={220}
           children={
-            <BarChart data={parFrequence} layout="vertical"
-              margin={{ top: 0, right: 44, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={TEINTES.grille} horizontal={false} />
-              <XAxis type="number" {...AXE} />
-              <YAxis type="category" dataKey="name" width={150} {...AXE}
-                tickFormatter={(v: string) => (v.length > 22 ? v.slice(0, 21) + '…' : v)} />
+            <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <AxesJour unite="%" largeurY={44} />
+              <Tooltip content={({ active, payload, label }) => (
+                <Bulle actif={active} charge={payload as never} titre={String(label)}
+                  format={(v) => `${v.toFixed(2)}%`} />
+              )} />
+              <Legend {...LEGENDE} />
+              <Area type="monotone" dataKey="ctr" name="CTR %" stroke={TEINTES.vert}
+                strokeWidth={2} fill={TEINTES.vert} fillOpacity={0.1}
+                dot={{ r: 2, fill: TEINTES.vert, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
+            </AreaChart>
+          } />
+
+        <Cadre titre="Fréquence" hauteur={220}
+          children={
+            <BarChart data={parCampagne} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} />
+              <XAxis {...axeX} tick={{ fontSize: 9, fill: TEINTES.axe }} />
+              <YAxis {...AXE} width={36} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)}
                     format={(v) => v.toFixed(2)} />
                 )} />
-              <Bar dataKey="frequency" name="Fréquence" radius={[0, 4, 4, 0]} barSize={16}
-                label={{ position: 'right', fontSize: 10, fill: TEINTES.encre,
-                  formatter: (v: number) => (v == null ? '' : v.toFixed(2)) }}>
-                {parFrequence.map((c) => <Cell key={c.id} fill={teinteFreq(c.frequency)} />)}
+              <Bar dataKey="frequency" name="Fréquence" radius={[4, 4, 0, 0]}>
+                {parCampagne.map((c) => <Cell key={c.id} fill={teinteFreq(c.frequency)} fillOpacity={0.7} />)}
               </Bar>
             </BarChart>
           } />
 
-        {/* CPM et CPC partagent l'euro : une seule échelle suffit. */}
-        <Cadre titre="CPM et CPC par campagne" note="même échelle, en euros"
-          hauteur={Math.max(160, campagnes.slice(0, 8).length * 34 + 40)}
+        <Cadre titre="CPM & CPC" hauteur={220}
           children={
-            <BarChart data={campagnes.slice(0, 8)} layout="vertical"
-              margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke={TEINTES.grille} horizontal={false} />
-              <XAxis type="number" {...AXE} tickFormatter={(v: number) => `${court(v)} €`} />
-              <YAxis type="category" dataKey="name" width={150} {...AXE}
-                tickFormatter={(v: string) => (v.length > 22 ? v.slice(0, 21) + '…' : v)} />
+            <BarChart data={parCampagne} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} />
+              <XAxis {...axeX} tick={{ fontSize: 9, fill: TEINTES.axe }} />
+              <YAxis {...AXE} width={40} tickFormatter={(v: number) => `${court(v)} €`} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
                 )} />
-              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
-              <Bar dataKey="cpm" name="CPM" fill={TEINTES.primaire} radius={[0, 4, 4, 0]} barSize={10} />
-              <Bar dataKey="cpc" name="CPC" fill={TEINTES.secondaire} radius={[0, 4, 4, 0]} barSize={10} />
+              <Legend {...LEGENDE} />
+              <Bar dataKey="cpm" name="CPM (€)" fill={TEINTES.violet} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="cpcX10" name="CPC ×10 (€)" fill={TEINTES.rose} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
             </BarChart>
           } />
       </div>

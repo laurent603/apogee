@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
 import { AreaChart, Area, Tooltip } from 'recharts'
-import { TEINTES, Bulle, Cadre, AxesJour, Degrade, eur as eurG } from '@/components/scalr/graphiques'
+import { TEINTES, Bulle, Cadre, AxesJour, eur as eurG } from '@/components/scalr/graphiques'
 import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
 import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance, QualiteProspect, type Tunnel } from '@/components/scalr/BlocsDetail'
 
@@ -297,24 +297,26 @@ export default function CockpitPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Cadre titre="Dépense" note="par jour" valeur={eurG(c.spend)} children={
                     <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <Degrade id="gCkDep" teinte={TEINTES.primaire} />
                       <AxesJour unite=" €" />
                       <Tooltip content={({ active, payload, label }) => (
                         <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
                       )} />
-                      <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.primaire}
-                        strokeWidth={2.5} fill="url(#gCkDep)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} />
+                      {/* Scalr : trait plein, aplat de la même teinte à 8 %,
+                          courbe adoucie et point visible sur chaque jour. */}
+                      <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.accent}
+                        strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.08}
+                        dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                     </AreaChart>
                   } />
                   <Cadre titre="Coût par résultat" note="par jour" valeur={eurG(c.costPerResult)} children={
                     <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <Degrade id="gCkCpl" teinte={TEINTES.secondaire} />
                       <AxesJour unite=" €" />
                       <Tooltip content={({ active, payload, label }) => (
                         <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
                       )} />
                       <Area type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
-                        strokeWidth={2.5} fill="url(#gCkCpl)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+                        strokeWidth={2} fill={TEINTES.secondaire} fillOpacity={0.08}
+                        dot={{ r: 3, fill: TEINTES.secondaire, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
                     </AreaChart>
                   } />
                 </div>

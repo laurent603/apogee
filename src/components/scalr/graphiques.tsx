@@ -18,29 +18,56 @@ import { CartesianGrid, Tooltip, XAxis, YAxis, ResponsiveContainer } from 'recha
  * presque tous nos graphiques.
  */
 
+/**
+ * Les teintes, reprises rôle pour rôle de Scalr.
+ *
+ * Scalr construit ses graphiques autour de son orange de marque et décline
+ * bleu, vert, jaune, violet et rose autour. Le rôle est conservé, la teinte
+ * change : l'accent devient le bleu d'Apogée, et les autres sont les pas
+ * correspondants d'un jeu vérifié — séparation daltonienne la plus faible à
+ * 9,1 entre voisines sur fond blanc, pour un seuil de 8.
+ */
 export const TEINTES = {
-  /** Marque : la mesure principale. */
-  primaire: '#3434ef',
-  /** Seconde série, quand il y en a une. */
+  /** L'accent de Scalr, devenu celui d'Apogée : coût, dépense, saturation. */
+  accent: '#3434ef',
+  /** Le bleu de Scalr : prospects, personnes déjà exposées. */
   secondaire: '#eb6834',
-  troisieme: '#1baf7a',
-  quatrieme: '#eda100',
-  /** Le complément d'un empilement — « le reste » n'est pas une catégorie. */
-  neutre: '#cbd5e1',
-  grille: '#DFE3EA',
-  axe: '#9CA3AF',
+  /** Le vert de Scalr : CTR, personnes fraîches. */
+  vert: '#1baf7a',
+  /** Le jaune de Scalr : la part de nouvelles personnes. */
+  jaune: '#eda100',
+  /** Le violet et le rose de Scalr : CPM et CPC. */
+  violet: '#4a3aa7',
+  rose: '#e87ba4',
+
+  /** Scalr : `#edf0f6` sur les deux axes. */
+  grille: '#edf0f6',
+  /** Scalr : `#74778a` pour les graduations et les légendes. */
+  axe: '#74778a',
   encre: '#0d0d12',
 } as const
+
+/** Scalr remplit sous ses courbes d'un aplat très clair de la même teinte,
+ *  pas d'un dégradé. On reprend ses opacités. */
+export const APLAT = (teinte: string, opacite: number) => ({ fill: teinte, fillOpacity: opacite })
 
 /** Les seuils de fréquence sont un état, pas une catégorie : leur couleur
  *  vient du registre d'état, jamais du jeu catégoriel. */
 export const ETAT = { bon: '#1baf7a', attention: '#eda100', critique: '#e34948' } as const
 
+/** Graduations de Scalr : 10 px, `#74778a`. */
 export const AXE = {
   tick: { fontSize: 10, fill: TEINTES.axe },
   tickLine: false,
   axisLine: false,
 } as const
+
+/** Légende de Scalr : 11 px, même gris. */
+export const LEGENDE = {
+  wrapperStyle: { fontSize: 11, color: TEINTES.axe, paddingTop: 4 },
+  iconType: 'circle' as const,
+  iconSize: 8,
+}
 
 /** Format court : 12 480 devient 12,5 k, et l'axe reste lisible. */
 export const court = (v: number) => {
@@ -111,29 +138,8 @@ export function Cadre({ titre, note, valeur, hauteur = 210, children }: {
         </div>
         {note && <p className="text-[11px] text-gray-400 whitespace-nowrap">{note}</p>}
       </div>
-      <div className="bg-[#f8f9fc] border border-[#EEF0F4] rounded-xl p-2.5 pr-3">
-        <ResponsiveContainer width="100%" height={hauteur}>{children}</ResponsiveContainer>
-      </div>
+      <ResponsiveContainer width="100%" height={hauteur}>{children}</ResponsiveContainer>
     </div>
-  )
-}
-
-/**
- * Le dégradé sous une aire.
- *
- * Une courbe seule ne donne aucune idée du volume qu'elle décrit. Le dégradé
- * ancre le tracé sur sa ligne de base et disparaît en montant, sans peser
- * comme un aplat.
- */
-export function Degrade({ id, teinte }: { id: string; teinte: string }) {
-  return (
-    <defs>
-      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor={teinte} stopOpacity={0.28} />
-        <stop offset="60%" stopColor={teinte} stopOpacity={0.08} />
-        <stop offset="100%" stopColor={teinte} stopOpacity={0} />
-      </linearGradient>
-    </defs>
   )
 }
 
@@ -141,7 +147,8 @@ export function Degrade({ id, teinte }: { id: string; teinte: string }) {
 export function AxesJour({ unite, largeurY = 44 }: { unite?: string; largeurY?: number }) {
   return (
     <>
-      <CartesianGrid stroke={TEINTES.grille} strokeDasharray="3 4" vertical={false} />
+      {/* Scalr trace la grille sur les deux axes, en trait plein très clair. */}
+      <CartesianGrid stroke={TEINTES.grille} />
       <XAxis dataKey="date" tickFormatter={jour} {...AXE} minTickGap={24} />
       <YAxis {...AXE} width={largeurY} tickFormatter={(v: number) => court(v) + (unite || '')} />
     </>
