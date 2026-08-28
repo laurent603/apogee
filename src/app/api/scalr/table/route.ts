@@ -251,13 +251,21 @@ export async function GET(req: NextRequest) {
    * à la main ne se vérifie jamais. Le basculement est explicite : sans lui,
    * un compte verrait ses verdicts changer sans qu'on ait rien demandé.
    */
+  /** Le comptage Meta de la même fenêtre : c'est lui qui donne au taux de
+   *  signature le dénominateur du CPL qu'il servira à juger. */
+  const depenseFenetre = lignes.reduce((t, l) => t + l.spend, 0)
+  const leadsMetaFenetre = lignes.reduce((t, l) => t + l.leads, 0)
+
   const eco = reglages?.cplDerive
     ? economie({
         valeurClient: reglages.averageOrderValue ?? null,
         margePct: reglages.productMarginPct ?? null,
         partAcquisitionPct: reglages.partAcquisition ?? null,
-        leads: crmFenetre._sum.leads ?? 0,
-        signes: crmFenetre._sum.signes ?? 0,
+        leads: Number(crmFenetre._sum.leads ?? 0),
+        signes: Number(crmFenetre._sum.signes ?? 0),
+        // Le dénominateur du taux doit être celui du CPL qu'il sert à juger.
+        leadsMeta: leadsMetaFenetre,
+        depense: depenseFenetre,
       })
     : null
 

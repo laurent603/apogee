@@ -21,12 +21,20 @@ type EcoApercu = {
   periode: { since: string; until: string; jours: number }
   margeParClient: number | null
   tauxSignature: number | null
+  tauxSignatureMedia: number | null
+  couverture: number | null
   cplPointMort: number | null
   cplCible: number | null
+  coutParSignature: number | null
+  margeRestante: number | null
+  cplMeta: number | null
+  cplCrm: number | null
   manquant: string[]
   leadsCrm: number
+  leadsMeta: number
   signes: number
-  cplReel: number | null
+  depense: number
+  caSigne: number
   cplSaisi: number | null
   actif: boolean
   verdict: { niveau: 'bon' | 'attention' | 'mauvais'; texte: string } | null
@@ -882,40 +890,81 @@ export default function BrandSettingsPage() {
                 </div>
 
                 {eco && (
-                  <div className="bg-[#f8f9fc] border border-[#E5E7EB] rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                      Sur {eco.periode.jours} jours · {eco.leadsCrm} prospects, {eco.signes} signés
+                  <div className="bg-[#f8f9fc] border border-[#E5E7EB] rounded-xl p-3 space-y-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      Sur {eco.periode.jours} jours · {euro(eco.depense)} dépensés
                     </p>
 
-                    {eco.manquant.length ? (
-                      <p className="text-xs text-gray-500 leading-snug">
-                        Il manque {eco.manquant.join(', ')} pour déduire la cible.
+                    {/* Le rapport qui ne dépend d'aucun comptage de prospects. */}
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                        Coût d’acquisition d’un client
                       </p>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            ['Marge par client', euro(eco.margeParClient)],
-                            ['Taux de signature', eco.tauxSignature != null ? `${eco.tauxSignature.toFixed(2)}%` : '—'],
-                            ['CPL au point mort', euro(eco.cplPointMort)],
-                            ['CPL cible déduit', euro(eco.cplCible)],
-                          ].map(([l, v]) => (
-                            <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
-                              <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
-                              <p className="text-base font-bold text-[#0d0d12] tabular-nums">{v}</p>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          ['Coût / signature', euro(eco.coutParSignature)],
+                          ['Marge par client', euro(eco.margeParClient)],
+                          ['Reste par client', euro(eco.margeRestante)],
+                        ].map(([l, v]) => (
+                          <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
+                            <p className="text-base font-bold text-[#0d0d12] tabular-nums">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {eco.verdict && (
+                        <p className={clsx('text-xs leading-snug mt-2 px-2.5 py-2 rounded-lg border',
+                          eco.verdict.niveau === 'bon' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : eco.verdict.niveau === 'attention' ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : 'bg-red-50 border-red-200 text-red-800')}>
+                          {eco.verdict.texte}
+                        </p>
+                      )}
+                    </div>
 
-                        {eco.verdict && (
-                          <p className={clsx('text-xs leading-snug mt-2.5 px-2.5 py-2 rounded-lg border',
-                            eco.verdict.niveau === 'bon' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                              : eco.verdict.niveau === 'attention' ? 'bg-amber-50 border-amber-200 text-amber-800'
-                              : 'bg-red-50 border-red-200 text-red-800')}>
-                            <strong>CPL réel {euro(eco.cplReel)}.</strong> {eco.verdict.texte}
+                    {/* Le seuil par prospect, et le comptage sur lequel il repose. */}
+                    <div className="border-t border-[#E5E7EB] pt-3">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                        Seuil par prospect
+                      </p>
+                      {eco.manquant.length ? (
+                        <p className="text-xs text-gray-500 leading-snug">
+                          Il manque {eco.manquant.join(', ')} pour déduire la cible.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {[
+                              ['CPL au point mort', euro(eco.cplPointMort)],
+                              ['CPL cible déduit', euro(eco.cplCible)],
+                              ['CPL réel', euro(eco.cplMeta)],
+                              ['Taux de signature', eco.tauxSignatureMedia != null ? `${eco.tauxSignatureMedia.toFixed(2)}%` : '—'],
+                            ].map(([l, v]) => (
+                              <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
+                                <p className="text-sm font-bold text-[#0d0d12] tabular-nums">{v}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[11px] text-gray-500 leading-snug mt-2">
+                            Taux et coût sont rapportés aux <strong>{eco.leadsMeta.toLocaleString('fr-FR')} prospects
+                            comptés par Meta</strong>, puisque c’est à ce coût-là que le seuil sera comparé.
                           </p>
-                        )}
-                      </>
+                        </>
+                      )}
+                    </div>
+
+                    {/* L'écart de comptage est une information, pas un détail. */}
+                    {eco.couverture != null && eco.couverture < 90 && (
+                      <div className="border-t border-[#E5E7EB] pt-3">
+                        <p className="text-xs text-gray-600 leading-snug">
+                          <strong className="text-[#0d0d12]">{eco.couverture.toFixed(0)}% des prospects Meta
+                          arrivent au CRM</strong> — {eco.leadsCrm.toLocaleString('fr-FR')} sur {eco.leadsMeta.toLocaleString('fr-FR')}.
+                          Doublons de la CAPI, formulaires abandonnés ou attribution perdue : tant que l’écart
+                          est là, le taux mesuré côté CRM ({eco.tauxSignature?.toFixed(2)}%) flatte la réalité,
+                          et c’est le taux sur base Meta qui sert de seuil.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}

@@ -1,25 +1,26 @@
 /**
  * L'économie du compte : ce qu'un prospect vaut vraiment.
  *
- * Un CPL cible saisi à l'intuition ne se vérifie jamais. Celui-ci se déduit
- * de trois choses que l'agence connaît — la valeur d'un client signé, la
- * marge dessus, et le taux de signature réel mesuré dans le CRM :
+ * Un CPL cible saisi à l'intuition ne se vérifie jamais. Celui-ci se déduit de
+ * trois choses que l'agence connaît — la valeur d'un client signé, la marge
+ * dessus, et le taux de signature mesuré dans le CRM.
  *
- *     marge par client  = valeur client × marge %
- *     CPL au point mort = marge par client × taux de signature
- *     CPL cible         = point mort × part consacrée à l'acquisition
+ * **Le piège est le dénominateur.** Le CRM ne voit pas tous les prospects que
+ * Meta compte : doublons de la CAPI, formulaires abandonnés, attribution
+ * perdue. Sur un compte réel, 225 prospects au CRM pour 626 côté Meta. Calculer
+ * le taux de signature sur les 225 puis comparer le résultat à un coût par
+ * prospect calculé sur les 626 revient à diviser par deux populations
+ * différentes — et à surestimer le coût acceptable dans le rapport exact de
+ * l'écart, ici presque trois fois.
  *
- * Au-delà du point mort, chaque prospect coûte plus qu'il ne rapporte. En
- * dessous, l'écart est le profit.
+ * Le seuil qui pilote les verdicts se calcule donc **sur les prospects Meta**,
+ * puisque c'est à un coût par prospect Meta qu'il sera comparé. Le taux mesuré
+ * côté CRM reste affiché à part : il dit la qualité de ce qui arrive au CRM,
+ * pas ce que le média produit.
  *
- * **Le taux de signature vient du tunnel GHL, pas d'une saisie.** C'est ce qui
- * distingue ce calcul d'une hypothèse : les taux bougent, le CPL acceptable
- * bouge avec eux, et un compte dont la signature se dégrade voit sa cible se
- * resserrer sans que personne ait à y penser.
- *
- * Rien n'est déduit sans les trois entrées. Une valeur client absente, une
- * marge à zéro ou un tunnel vide rendent `null` plutôt qu'un chiffre inventé
- * qui ferait ensuite autorité.
+ * **Et le coût par signature échappe entièrement au problème** : dépense
+ * divisée par signatures, comparé à la marge par client. Deux nombres, aucun
+ * dénominateur discutable. C'est sur celui-là qu'on décide d'un budget.
  */
 
 export type Entrees = {
@@ -27,22 +28,40 @@ export type Entrees = {
   valeurClient: number | null
   /** Marge brute sur ce chiffre d'affaires, en pourcentage. */
   margePct: number | null
-  /** Part de la marge qu'on accepte de dépenser en acquisition, en
-   *  pourcentage. À défaut, la moitié. */
+  /** Part de la marge qu'on accepte de dépenser en acquisition. Défaut : la
+   *  moitié. */
   partAcquisitionPct: number | null
-  /** Mesurés sur la période, depuis le CRM. */
+  /** Prospects tels que le CRM les compte, et signatures. */
   leads: number
   signes: number
+  /** Prospects tels que Meta les compte, et dépense de la même période. */
+  leadsMeta?: number
+  depense?: number
 }
 
 export type Economie = {
   margeParClient: number | null
+  /** Signatures rapportées aux prospects du CRM. */
   tauxSignature: number | null
-  /** Coût par prospect au-delà duquel l'acquisition n'est plus rentable. */
+  /** Signatures rapportées aux prospects Meta — la base des seuils. */
+  tauxSignatureMedia: number | null
+  /** Part des prospects Meta qui parviennent au CRM. */
+  couverture: number | null
+
+  /** Coût par prospect au-delà duquel l'acquisition n'est plus rentable,
+   *  exprimé par prospect Meta. */
   cplPointMort: number | null
-  /** Ce qu'on vise pour dégager de la marge. */
   cplCible: number | null
-  /** Ce qui manque pour que le calcul tienne. */
+
+  /** Le seul rapport sans dénominateur discutable. */
+  coutParSignature: number | null
+  /** Ce que chaque client signé laisse une fois l'acquisition payée. */
+  margeRestante: number | null
+
+  /** Coût par prospect, dans les deux comptages. */
+  cplMeta: number | null
+  cplCrm: number | null
+
   manquant: string[]
 }
 
@@ -56,45 +75,75 @@ export function economie(e: Entrees): Economie {
   if (!n(e.valeurClient)) manquant.push('la valeur moyenne d’un client signé')
   if (!n(e.margePct)) manquant.push('la marge brute')
   if (!e.leads) manquant.push('des prospects sur la période')
-  // Un taux de signature nul est une mesure, pas une donnée manquante — mais
-  // il rend la cible inexploitable, alors on le dit plutôt que d'afficher 0 €.
   if (e.leads > 0 && !e.signes) manquant.push('au moins une signature pour mesurer le taux')
+
+  const depense = n(e.depense)
+  const leadsMeta = n(e.leadsMeta)
 
   const margeParClient = n(e.valeurClient) && n(e.margePct)
     ? r2(n(e.valeurClient) * (n(e.margePct) / 100))
     : null
   const tauxSignature = e.leads > 0 ? r2((e.signes / e.leads) * 100) : null
+  const tauxSignatureMedia = leadsMeta > 0 ? r2((e.signes / leadsMeta) * 100) : null
+  const couverture = leadsMeta > 0 && e.leads > 0 ? r2((e.leads / leadsMeta) * 100) : null
 
-  if (manquant.length || margeParClient == null || tauxSignature == null) {
-    return { margeParClient, tauxSignature, cplPointMort: null, cplCible: null, manquant }
+  const coutParSignature = e.signes > 0 && depense > 0 ? r2(depense / e.signes) : null
+  const margeRestante = margeParClient != null && coutParSignature != null
+    ? r2(margeParClient - coutParSignature) : null
+
+  const cplMeta = leadsMeta > 0 && depense > 0 ? r2(depense / leadsMeta) : null
+  const cplCrm = e.leads > 0 && depense > 0 ? r2(depense / e.leads) : null
+
+  const base = {
+    margeParClient, tauxSignature, tauxSignatureMedia, couverture,
+    coutParSignature, margeRestante, cplMeta, cplCrm,
   }
 
-  const cplPointMort = r2(margeParClient * (tauxSignature / 100))
+  if (manquant.length || margeParClient == null) {
+    return { ...base, cplPointMort: null, cplCible: null, manquant }
+  }
+
+  /**
+   * Le taux retenu pour le seuil est celui mesuré sur les prospects Meta.
+   * À défaut — comptage Meta absent —, on retombe sur le taux CRM en
+   * l'assumant : c'est alors une borne haute, pas une mesure.
+   */
+  const taux = tauxSignatureMedia ?? tauxSignature
+  if (taux == null) return { ...base, cplPointMort: null, cplCible: null, manquant }
+
+  const cplPointMort = r2(margeParClient * (taux / 100))
   const part = n(e.partAcquisitionPct) || PART_ACQUISITION_DEFAUT
   return {
-    margeParClient,
-    tauxSignature,
+    ...base,
     cplPointMort,
     cplCible: r2(cplPointMort * (part / 100)),
     manquant: [],
   }
 }
 
-/** Comment le CPL réel se situe face à la cible déduite. */
-export function verdictCpl(reel: number | null, cible: number | null, pointMort: number | null): {
+/**
+ * Où en est le compte, jugé sur le coût par signature.
+ *
+ * Ce rapport ne dépend d'aucun comptage de prospects : ce que l'acquisition
+ * coûte pour amener un client, contre ce que ce client rapporte.
+ */
+export function verdictSignature(coutParSignature: number | null, margeParClient: number | null): {
   niveau: 'bon' | 'attention' | 'mauvais'; texte: string
 } | null {
-  if (reel == null || cible == null || pointMort == null || !reel) return null
-  if (reel > pointMort) return {
+  if (coutParSignature == null || margeParClient == null || !margeParClient) return null
+  const part = coutParSignature / margeParClient
+  const reste = margeParClient - coutParSignature
+
+  if (part >= 1) return {
     niveau: 'mauvais',
-    texte: `Chaque prospect coûte plus qu’il ne rapporte : ${reel.toFixed(2)} € pour ${pointMort.toFixed(2)} € de marge attendue.`,
+    texte: `Acquérir un client coûte ${coutParSignature.toFixed(2)} € pour ${margeParClient.toFixed(2)} € de marge : chaque signature creuse le compte.`,
   }
-  if (reel > cible) return {
+  if (part >= 0.5) return {
     niveau: 'attention',
-    texte: `Rentable, mais au-dessus de la cible : la marge dégagée est plus mince que prévu.`,
+    texte: `L’acquisition absorbe ${Math.round(part * 100)}% de la marge. Il reste ${reste.toFixed(2)} € par client.`,
   }
   return {
     niveau: 'bon',
-    texte: `Sous la cible : chaque prospect laisse ${(pointMort - reel).toFixed(2)} € de marge.`,
+    texte: `L’acquisition absorbe ${Math.round(part * 100)}% de la marge. Il reste ${reste.toFixed(2)} € par client signé.`,
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { economie, verdictCpl } from '@/lib/scalr/economie'
+import { economie, verdictSignature } from '@/lib/scalr/economie'
 
 /**
  * Le CPL que le compte peut se permettre, et celui qu'il paie.
@@ -50,30 +50,30 @@ export async function GET(req: NextRequest) {
   const leadsCrm = Number(crm._sum.leads ?? 0)
   const signes = Number(crm._sum.signes ?? 0)
 
+  const depense = Math.round(Number(media._sum.spend ?? 0) * 100) / 100
+  const leadsMeta = Number(media._sum.formLeads ?? 0) || Number(media._sum.pixelLeads ?? 0)
+    || Number(media._sum.totalLeads ?? 0)
+
   const eco = economie({
     valeurClient: reglages?.averageOrderValue ?? null,
     margePct: reglages?.productMarginPct ?? null,
     partAcquisitionPct: reglages?.partAcquisition ?? null,
     leads: leadsCrm,
     signes,
+    leadsMeta,
+    depense,
   })
-
-  // Le CPL réel se mesure sur la même fenêtre que le taux, sans quoi on
-  // comparerait deux périodes différentes.
-  const depense = Number(media._sum.spend ?? 0)
-  const leadsMeta = Number(media._sum.formLeads ?? 0) || Number(media._sum.pixelLeads ?? 0)
-    || Number(media._sum.totalLeads ?? 0)
-  const cplReel = leadsMeta > 0 ? Math.round((depense / leadsMeta) * 100) / 100 : null
 
   return NextResponse.json({
     periode: { since: since.toISOString().slice(0, 10), until: until.toISOString().slice(0, 10), jours: JOURS },
     ...eco,
     leadsCrm,
+    leadsMeta,
     signes,
+    depense,
     caSigne: Math.round(Number(crm._sum.ca ?? 0) * 100) / 100,
-    cplReel,
     cplSaisi: reglages?.targetCpa ?? null,
     actif: Boolean(reglages?.cplDerive),
-    verdict: verdictCpl(cplReel, eco.cplCible, eco.cplPointMort),
+    verdict: verdictSignature(eco.coutParSignature, eco.margeParClient),
   })
 }

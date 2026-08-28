@@ -8,7 +8,7 @@ import {
   sante, signaux, saturation, verdictSaturation, verdictLeadgen, verdictMedia, verdictCreatif,
   ecart, type Pub,
 } from '@/lib/scalr/cockpit'
-import { economie, verdictCpl } from '@/lib/scalr/economie'
+import { economie, verdictSignature } from '@/lib/scalr/economie'
 
 /**
  * Le cockpit : l'état du compte, et ce qu'il y a à traiter.
@@ -152,6 +152,10 @@ export async function GET(req: NextRequest) {
     freqFatigue: reglages?.freqFatigue, linkCtrFaible: reglages?.linkCtrFaible,
     ctrFaible: reglages?.ctrFaible, joursNouveauTest: reglages?.joursNouveauTest,
   }
+  /** Les totaux Meta de la fenêtre, pour aligner le dénominateur du taux. */
+  const depenseFenetre = courant.spend
+  const leadsMetaFenetre = courant.leads
+
   const eco = reglages?.cplDerive
     ? economie({
         valeurClient: reglages.averageOrderValue ?? null,
@@ -159,6 +163,8 @@ export async function GET(req: NextRequest) {
         partAcquisitionPct: reglages.partAcquisition ?? null,
         leads: Number(crmCur._sum.leads ?? 0),
         signes: Number(crmCur._sum.signes ?? 0),
+        leadsMeta: leadsMetaFenetre,
+        depense: depenseFenetre,
       })
     : null
 
@@ -299,7 +305,7 @@ export async function GET(req: NextRequest) {
     erreurSync: etat?.lastError ?? null,
     goals,
     economie: eco,
-    verdictCpl: verdictCpl(courant.cpl, eco?.cplCible ?? null, eco?.cplPointMort ?? null),
+    verdictEconomie: verdictSignature(eco?.coutParSignature ?? null, eco?.margeParClient ?? null),
     courant: totaux,
     precedent: totauxPrec,
     // La portée du compte n'est stockée que depuis la synchro qui l'a ajoutée :
