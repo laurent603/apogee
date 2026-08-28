@@ -375,7 +375,9 @@ export default function PilotagePage() {
 
       {selectedAccount && !loading && data && niveau === 'crea' && (
         <GalerieCreas lignes={lignes as never} periode={r.periode} attribution={r.attribution}
-          colonnes={r.colonnesCrea} compte={selectedAccount} />
+          colonnes={r.colonnesCrea} compte={selectedAccount}
+          affichage={{ dateLancement: r.dateLancement, afficherStatut: r.afficherStatut,
+                       variations: r.variations, wrapNames: r.wrapNames }} />
       )}
 
       {/* Sous 1024 px, une carte par ligne : un tableau à douze colonnes n'y

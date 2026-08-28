@@ -42,6 +42,20 @@ type Ligne = Record<string, unknown> & {
   resultValue: number
   resultLabel: string
   costPerResult: number | null
+  createdTime: string | null
+}
+
+/**
+ * Les bascules de la barre d'outils.
+ *
+ * Elles n'agissaient que sur le tableau : la galerie les ignorait, alors
+ * qu'elles décrivent la même chose — ce qu'on veut voir sur une ligne.
+ */
+export type Affichage = {
+  dateLancement: boolean
+  afficherStatut: boolean
+  variations: boolean
+  wrapNames: boolean
 }
 
 const COULEUR_DECISION: Record<string, string> = {
@@ -81,7 +95,7 @@ function Var({ v, def }: { v: number | null | undefined; def: MetricDef }) {
  * que « Résultat » : le registre ne peut pas le connaître, il dépend de
  * l'objectif de la campagne.
  */
-function Indicateur({ cle, r }: { cle: string; r: Ligne }) {
+function Indicateur({ cle, r, variations }: { cle: string; r: Ligne; variations: boolean }) {
   const def = METRIC_BY_KEY.get(cle)
   if (!def) return null
   const label = cle === 'resultValue' ? (r.resultLabel || def.label) : def.label
@@ -90,15 +104,16 @@ function Indicateur({ cle, r }: { cle: string; r: Ligne }) {
       <span className="text-gray-500 truncate" title={label}>{label}</span>
       <span className="tabular-nums font-medium text-[#0d0d12] whitespace-nowrap">
         {formatMetric(r[cle] as number | null, def)}
-        <Var v={r.variations?.[cle]} def={def} />
+        {variations && <Var v={r.variations?.[cle]} def={def} />}
       </span>
     </div>
   )
 }
 
-export function GalerieCreas({ lignes, periode, attribution, colonnes, compte }: {
+export function GalerieCreas({ lignes, periode, attribution, colonnes, compte, affichage }: {
   lignes: Ligne[]; periode: string; attribution: string; colonnes: string[]
   compte?: { id: string; metaAccountId?: string | null } | null
+  affichage: Affichage
 }) {
   const [classement, setClassement] = useState(CLASSEMENTS[0])
   const [ouvert, setOuvert] = useState<string | null>(null)
@@ -241,8 +256,11 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes, compte }:
             <div className="relative bg-[#f8f9fc] aspect-[4/5] overflow-hidden">
               <CadreApercu apercu={apercus[r.id] ?? null} paresseux
                 etat={!apercus[r.id] ? 'charge' : apercus[r.id].src ? 'pret' : 'absent'} />
-              <span className={clsx('absolute top-2 left-2 w-2 h-2 rounded-full ring-2 ring-white',
-                r.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-300')} />
+              {affichage.afficherStatut && (
+                <span title={r.status === 'ACTIVE' ? 'Actif' : 'En pause'}
+                  className={clsx('absolute top-2 left-2 w-2 h-2 rounded-full ring-2 ring-white',
+                    r.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-300')} />
+              )}
               {r.creativeType && (
                 <span className="absolute bottom-2 left-2 text-[10px] font-semibold uppercase tracking-wide bg-black/60 text-white px-1.5 py-0.5 rounded">
                   {r.creativeType}
@@ -255,8 +273,21 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes, compte }:
 
             <div className="p-3 flex flex-col gap-2 flex-1">
               <div>
-                <p className="text-xs font-semibold text-[#0d0d12] leading-snug line-clamp-2">{r.name}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5 font-mono">ID {r.id}</p>
+                <p className={clsx('text-xs font-semibold text-[#0d0d12] leading-snug',
+                  affichage.wrapNames ? 'break-words' : 'line-clamp-2')} title={r.name}>
+                  {r.name}
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  {affichage.afficherStatut && (
+                    <span>{r.status === 'ACTIVE' ? 'Actif' : 'En pause'}</span>
+                  )}
+                  {affichage.dateLancement && r.createdTime && (
+                    <span className="tabular-nums">· lancée le {String(r.createdTime).slice(0, 10)}</span>
+                  )}
+                  {!affichage.afficherStatut && !affichage.dateLancement && (
+                    <span className="font-mono">ID {r.id}</span>
+                  )}
+                </p>
               </div>
 
               <div>
@@ -268,7 +299,7 @@ export function GalerieCreas({ lignes, periode, attribution, colonnes, compte }:
               </div>
 
               <div className="space-y-1 mt-auto pt-1">
-                {colonnes.map((k) => <Indicateur key={k} cle={k} r={r} />)}
+                {colonnes.map((k) => <Indicateur key={k} cle={k} r={r} variations={affichage.variations} />)}
                 {!colonnes.length && (
                   <p className="text-[10px] text-gray-400 italic">Aucun indicateur sélectionné.</p>
                 )}
