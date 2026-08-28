@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
-import { AreaChart, Area, Tooltip, Legend } from 'recharts'
+import { AreaChart, Area, Tooltip, Legend, CartesianGrid, XAxis, YAxis } from 'recharts'
 import {
-  TEINTES, Bulle, GrilleGraphiques, LegendeScalr, AxesJour, jourCourt,
+  TEINTES, Bulle, GrilleGraphiques, LegendeScalr, GRILLE, AXE_JOURS, axeValeurs, jourCourt,
   Panneau as PanneauGraphique, eur as eurG,
 } from '@/components/scalr/graphiques'
 import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
@@ -292,24 +292,28 @@ export default function CockpitPage() {
               <GrilleGraphiques>
                 <PanneauGraphique titre="Dépense quotidienne" children={
                   <AreaChart data={d.serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <AxesJour unite=" €" titreY="Dépense (€)" largeurY={40} />
+                    <CartesianGrid {...GRILLE} />
+              <XAxis {...AXE_JOURS} />
+              <YAxis {...axeValeurs({ unite: ' €', titre: 'Dépense (€)', largeur: 40 })} />
                     <Tooltip content={({ active, payload, label }) => (
                       <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eurG(v)} />
                     )} />
                     <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-                    <Area type="monotone" dataKey="spend" name="Dépensé (€)" stroke={TEINTES.accent} legendType="line"
+                    <Area isAnimationActive={false} type="monotone" dataKey="spend" name="Dépensé (€)" stroke={TEINTES.accent} legendType="line"
                       strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.08}
                       dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                   </AreaChart>
                 } />
                 <PanneauGraphique titre="Coût par résultat" children={
                   <AreaChart data={d.serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <AxesJour unite=" €" titreY="Coût / résultat (€)" largeurY={40} />
+                    <CartesianGrid {...GRILLE} />
+                    <XAxis {...AXE_JOURS} />
+                    <YAxis {...axeValeurs({ unite: ' €', titre: 'Coût / résultat (€)', largeur: 40 })} />
                     <Tooltip content={({ active, payload, label }) => (
                       <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eurG(v)} />
                     )} />
                     <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-                    <Area type="monotone" dataKey="cpl" name="Coût / résultat (€)" stroke={TEINTES.secondaire} legendType="line"
+                    <Area isAnimationActive={false} type="monotone" dataKey="cpl" name="Coût / résultat (€)" stroke={TEINTES.secondaire} legendType="line"
                       strokeWidth={2} fill={TEINTES.secondaire} fillOpacity={0.08}
                       dot={{ r: 3, fill: TEINTES.secondaire, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
                   </AreaChart>

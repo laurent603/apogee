@@ -60,6 +60,22 @@ export const court = (v: number) => {
   return Math.round(n).toLocaleString('fr-FR')
 }
 
+/**
+ * Une graduation d'axe, en français.
+ *
+ * `court()` arrondit à l'entier sous mille — ce qui convient à des personnes
+ * touchées et ruine un axe d'euros : une échelle de 0 à 2,4 € y devenait
+ * « 0 €, 1 €, 1 €, 2 €, 2 € », deux paires de doublons. Ici on garde jusqu'à
+ * deux décimales, sans en inventer, et la virgule française.
+ */
+export const nombreFr = (v: number) => {
+  if (!Number.isFinite(v)) return ''
+  const arrondi = Math.round(v * 100) / 100
+  return Number.isInteger(arrondi)
+    ? String(arrondi)
+    : arrondi.toFixed(Math.abs(arrondi) < 1 ? 2 : 1).replace('.', ',')
+}
+
 export const eur = (v: number | null | undefined) =>
   v == null || !Number.isFinite(v) ? '—'
     : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
@@ -173,28 +189,60 @@ export function GrilleGraphiques({ compact, children }: { compact?: boolean; chi
 }
 
 /**
- * Grille et axes d'une série de jours.
+ * Les axes se déclarent en propriétés, pas en composant.
  *
- * Scalr trace la grille sur les deux axes et ne met d'unité que là où elle est
- * indispensable — le reste vit dans sa légende. Le titre d'axe et l'unité sur
- * les graduations sont ici systématiques : un graphique doit se lire sans
- * remonter à sa légende pour savoir de quoi il parle.
+ * Recharts ne reconnaît `CartesianGrid`, `XAxis` et `YAxis` que comme
+ * **enfants directs** du graphique : il inspecte le type de chaque enfant.
+ * Les envelopper dans un composant — même un simple fragment — les rend
+ * invisibles, et le graphique se dessine sans axes ni grille **sans lever la
+ * moindre erreur**. C'est ce qui était arrivé ici, et rien ne le signalait.
+ *
+ * On centralise donc les propriétés, et chaque graphique pose ses trois
+ * balises lui-même.
  */
-export function AxesJour({ unite, titreY, largeurY = 44 }: {
-  unite?: string; titreY?: string; largeurY?: number
-}) {
-  return (
-    <>
-      <CartesianGrid stroke={TEINTES.grille} />
-      <XAxis dataKey="date" tickFormatter={jourCourt} {...AXE} minTickGap={4} interval="preserveStartEnd" />
-      <YAxis {...AXE} width={titreY ? largeurY + 18 : largeurY}
-        tickFormatter={(v: number) => court(v) + (unite || '')}
-        label={titreY ? {
-          value: titreY, angle: -90, position: 'insideLeft',
-          fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' },
-        } : undefined} />
-    </>
-  )
+/**
+ * Les tracés ne s'animent pas.
+ *
+ * Recharts anime ses marques à l'apparition, en partant de zéro. Dans un bloc
+ * dépliable dont le parent se redessine, l'animation repart à chaque fois et
+ * ne se termine jamais : les barres restent écrasées au bas du graphique et
+ * l'écran paraît vide, sans la moindre erreur pour l'expliquer. Un tableau de
+ * bord se lit, il n'a pas à se jouer.
+ */
+export const SANS_ANIMATION = { isAnimationActive: false } as const
+
+export const GRILLE = { stroke: TEINTES.grille } as const
+
+/** L'axe des jours : dates au format `07-29`, comme Scalr. */
+export const AXE_JOURS = {
+  dataKey: 'date',
+  tickFormatter: jourCourt,
+  ...AXE,
+  minTickGap: 4,
+  interval: 'preserveStartEnd' as const,
+}
+
+/**
+ * L'axe des valeurs, avec son unité et son titre.
+ *
+ * La largeur s'élargit quand un titre est demandé : sous une soixantaine de
+ * pixels, graduations et titre pivoté se recouvrent, ou le titre disparaît.
+ */
+export const axeValeurs = (opts: {
+  unite?: string; titre?: string; largeur?: number
+  /** Compte des personnes : Scalr y applique son `compact()`, pas ailleurs. */
+  compact?: boolean
+} = {}) => {
+  const { unite = '', titre, largeur = 44, compact } = opts
+  return {
+    ...AXE,
+    width: titre ? largeur + 18 : largeur,
+    tickFormatter: (v: number) => (compact ? court(v) : nombreFr(v)) + unite,
+    ...(titre
+      ? { label: { value: titre, angle: -90, position: 'insideLeft' as const,
+                   fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' as const } } }
+      : {}),
+  }
 }
 
 export { Tooltip, Legend }

@@ -8,7 +8,7 @@ import {
 import type { Saturation, Verdict } from '@/lib/scalr/cockpit'
 import {
   TEINTES, ETAT, AXE, court, eur, jourCourt, Bulle, Panneau, SurfaceSat,
-  GrilleGraphiques, LegendeScalr, AxesJour,
+  GrilleGraphiques, LegendeScalr, GRILLE, AXE_JOURS, axeValeurs,
 } from './graphiques'
 
 /**
@@ -277,9 +277,7 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
               <XAxis dataKey="date" tickFormatter={jourCourt} {...AXE} minTickGap={4} interval="preserveStartEnd" />
               {/* Assez large pour que le titre d'axe tienne à côté des
                   graduations : sous 70 px il se superpose ou disparaît. */}
-              <YAxis yAxisId="g" {...AXE} width={74} tickFormatter={court}
-                label={{ value: 'Personnes touchées', angle: -90, position: 'insideLeft',
-                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
+              <YAxis yAxisId="g" {...axeValeurs({ compact: true, titre: 'Personnes touchées', largeur: 56 })} />
               <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} width={78} {...AXE}
                 tickFormatter={(v: number) => `${v}%`}
                 label={{ value: '% nouvelles personnes', angle: 90, position: 'insideRight',
@@ -290,11 +288,11 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
                     format={(v, cle) => (cle === 'partFraiche' ? `${v.toFixed(1)}%` : court(v))} />
                 )} />
               <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-              <Bar yAxisId="g" dataKey="revues" name="Personnes déjà exposées" stackId="reach"
+              <Bar isAnimationActive={false} yAxisId="g" dataKey="revues" name="Personnes déjà exposées" stackId="reach"
                 fill={TEINTES.secondaire} fillOpacity={0.75} radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="g" dataKey="fraiches" name="Nouvelles personnes estimées" stackId="reach"
+              <Bar isAnimationActive={false} yAxisId="g" dataKey="fraiches" name="Nouvelles personnes estimées" stackId="reach"
                 fill={TEINTES.vert} fillOpacity={0.72} radius={[4, 4, 0, 0]} />
-              <Line yAxisId="pct" type="monotone" dataKey="partFraiche" name="% nouvelles personnes touchées"
+              <Line isAnimationActive={false} yAxisId="pct" type="monotone" dataKey="partFraiche" name="% nouvelles personnes touchées"
                 stroke={TEINTES.jaune} strokeWidth={2} legendType="line"
                 dot={{ r: 3, fill: TEINTES.jaune, strokeWidth: 0 }} activeDot={{ r: 5 }} />
             </ComposedChart>
@@ -303,11 +301,13 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
         <SurfaceSat titre="Évolution du coût de saturation"
           children={
             <AreaChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <AxesJour unite=" €" titreY="Coût de saturation (€)" largeurY={52} />
+              <CartesianGrid {...GRILLE} />
+              <XAxis {...AXE_JOURS} />
+              <YAxis {...axeValeurs({ unite: ' €', titre: 'Coût de saturation (€)', largeur: 52 })} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eur(v)} />
               )} />
-              <Area type="monotone" dataKey="cout" name="Coût de saturation (€)"
+              <Area isAnimationActive={false} type="monotone" dataKey="cout" name="Coût de saturation (€)"
                 stroke={TEINTES.accent} strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.1}
                 dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
             </AreaChart>
@@ -369,12 +369,14 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
         <Panneau titre="Évolution CPL"
           children={
             <AreaChart data={serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <AxesJour unite=" €" titreY="CPL (€)" largeurY={40} />
+              <CartesianGrid {...GRILLE} />
+              <XAxis {...AXE_JOURS} />
+              <YAxis {...axeValeurs({ unite: ' €', titre: 'CPL (€)', largeur: 40 })} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eur(v)} />
               )} />
               <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-              <Area type="monotone" dataKey="cpl" name="CPL (€)" stroke={TEINTES.accent} legendType="line"
+              <Area isAnimationActive={false} type="monotone" dataKey="cpl" name="CPL (€)" stroke={TEINTES.accent} legendType="line"
                 strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.08}
                 dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
             </AreaChart>
@@ -385,17 +387,15 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
             <BarChart data={serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis dataKey="date" tickFormatter={jourCourt} {...AXE} minTickGap={4} interval="preserveStartEnd" />
-              <YAxis {...AXE} width={58} tickFormatter={court}
-                label={{ value: 'Euros et leads', angle: -90, position: 'insideLeft',
-                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
+              <YAxis {...axeValeurs({ titre: 'Euros et leads', largeur: 40 })} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))}
                     format={(v, cle) => (cle === 'spend' ? eur(v) : String(Math.round(v)))} />
                 )} />
               <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-              <Bar dataKey="spend" name="Dépensé (€)" fill={TEINTES.accent} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="leads" name="Leads" fill={TEINTES.secondaire} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+              <Bar isAnimationActive={false} dataKey="spend" name="Dépensé (€)" fill={TEINTES.accent} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+              <Bar isAnimationActive={false} dataKey="leads" name="Leads" fill={TEINTES.secondaire} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
             </BarChart>
           } />
       </GrilleGraphiques>
@@ -404,13 +404,15 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
         <Panneau titre="CTR"
           children={
             <AreaChart data={serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <AxesJour unite=" %" titreY="CTR (%)" largeurY={40} />
+              <CartesianGrid {...GRILLE} />
+              <XAxis {...AXE_JOURS} />
+              <YAxis {...axeValeurs({ unite: '%', titre: 'CTR (%)', largeur: 40 })} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))}
                   format={(v) => `${v.toFixed(2)}%`} />
               )} />
               <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-              <Area type="monotone" dataKey="ctr" name="CTR %" stroke={TEINTES.vert} legendType="line"
+              <Area isAnimationActive={false} type="monotone" dataKey="ctr" name="CTR %" stroke={TEINTES.vert} legendType="line"
                 strokeWidth={2} fill={TEINTES.vert} fillOpacity={0.1}
                 dot={{ r: 2, fill: TEINTES.vert, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
             </AreaChart>
@@ -421,14 +423,14 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
             <BarChart data={parCampagne} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis {...axeCampagne} />
-              <YAxis {...AXE} width={48}
+              <YAxis {...axeValeurs({ titre: 'Fréquence', largeur: 30 })}
                 label={{ value: 'Fréquence', angle: -90, position: 'insideLeft',
                   fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => v.toFixed(2)} />
                 )} />
-              <Bar dataKey="frequency" name="Fréquence" radius={[4, 4, 0, 0]}>
+              <Bar isAnimationActive={false} dataKey="frequency" name="Fréquence" radius={[4, 4, 0, 0]}>
                 {parCampagne.map((c) => <Cell key={c.id} fill={teinteFreq(c.frequency)} fillOpacity={0.7} />)}
               </Bar>
             </BarChart>
@@ -439,16 +441,14 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
             <BarChart data={parCampagne} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis {...axeCampagne} />
-              <YAxis {...AXE} width={54} tickFormatter={(v: number) => `${court(v)} €`}
-                label={{ value: 'Euros', angle: -90, position: 'insideLeft',
-                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
+              <YAxis {...axeValeurs({ unite: ' €', titre: 'Euros', largeur: 36 })} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
                 )} />
               <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
-              <Bar dataKey="cpm" name="CPM (€)" fill={TEINTES.violet} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="cpcX10" name="CPC ×10 (€)" fill={TEINTES.rose} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+              <Bar isAnimationActive={false} dataKey="cpm" name="CPM (€)" fill={TEINTES.violet} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+              <Bar isAnimationActive={false} dataKey="cpcX10" name="CPC ×10 (€)" fill={TEINTES.rose} fillOpacity={0.7} radius={[4, 4, 0, 0]} />
             </BarChart>
           } />
       </GrilleGraphiques>
