@@ -2,8 +2,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
-import { AreaChart, Area, Tooltip } from 'recharts'
-import { TEINTES, Bulle, Cadre, AxesJour, eur as eurG } from '@/components/scalr/graphiques'
+import { AreaChart, Area, Tooltip, Legend } from 'recharts'
+import {
+  TEINTES, Bulle, GrilleGraphiques, LegendeScalr, AxesJour, jourCourt,
+  Panneau as PanneauGraphique, eur as eurG,
+} from '@/components/scalr/graphiques'
 import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
 import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance, QualiteProspect, type Tunnel } from '@/components/scalr/BlocsDetail'
 
@@ -284,46 +287,39 @@ export default function CockpitPage() {
               </Panneau>
             </div>
 
-            {/* ── Tendance ──
-                Deux mesures d'échelles différentes, deux graphiques. Superposées
-                sur deux axes verticaux, leur alignement était arbitraire et
-                suggérait une corrélation absente des données. */}
-            <div className="card">
-              <div className="flex items-baseline justify-between gap-3 mb-3">
-                <h2 className="text-sm font-semibold text-[#0d0d12]">Tendance</h2>
-                <span className="text-[11px] text-gray-400">{d.serie.length} jours</span>
+            {/* ── Tendance ── Les panneaux de Scalr, à ses mesures. */}
+            {d.serie.length > 1 ? (
+              <GrilleGraphiques>
+                <PanneauGraphique titre="Dépense quotidienne" children={
+                  <AreaChart data={d.serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <AxesJour unite="" largeurY={34} />
+                    <Tooltip content={({ active, payload, label }) => (
+                      <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eurG(v)} />
+                    )} />
+                    <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
+                    <Area type="monotone" dataKey="spend" name="Dépensé (€)" stroke={TEINTES.accent} legendType="line"
+                      strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.08}
+                      dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                  </AreaChart>
+                } />
+                <PanneauGraphique titre="Coût par résultat" children={
+                  <AreaChart data={d.serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <AxesJour unite="" largeurY={34} />
+                    <Tooltip content={({ active, payload, label }) => (
+                      <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eurG(v)} />
+                    )} />
+                    <Legend verticalAlign="top" align="center" content={<LegendeScalr />} />
+                    <Area type="monotone" dataKey="cpl" name="Coût / résultat (€)" stroke={TEINTES.secondaire} legendType="line"
+                      strokeWidth={2} fill={TEINTES.secondaire} fillOpacity={0.08}
+                      dot={{ r: 3, fill: TEINTES.secondaire, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
+                  </AreaChart>
+                } />
+              </GrilleGraphiques>
+            ) : (
+              <div className="card text-center py-12 text-gray-400 text-sm">
+                Pas assez de jours pour tracer une tendance.
               </div>
-              {d.serie.length > 1 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Cadre titre="Dépense" note="par jour" valeur={eurG(c.spend)} children={
-                    <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <AxesJour unite=" €" />
-                      <Tooltip content={({ active, payload, label }) => (
-                        <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
-                      )} />
-                      {/* Scalr : trait plein, aplat de la même teinte à 8 %,
-                          courbe adoucie et point visible sur chaque jour. */}
-                      <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.accent}
-                        strokeWidth={2} fill={TEINTES.accent} fillOpacity={0.08}
-                        dot={{ r: 3, fill: TEINTES.accent, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                    </AreaChart>
-                  } />
-                  <Cadre titre="Coût par résultat" note="par jour" valeur={eurG(c.costPerResult)} children={
-                    <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <AxesJour unite=" €" />
-                      <Tooltip content={({ active, payload, label }) => (
-                        <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
-                      )} />
-                      <Area type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
-                        strokeWidth={2} fill={TEINTES.secondaire} fillOpacity={0.08}
-                        dot={{ r: 3, fill: TEINTES.secondaire, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls />
-                    </AreaChart>
-                  } />
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-12">Pas assez de jours pour tracer une tendance.</p>
-              )}
-            </div>
+            )}
 
             <Bloc titre="Métriques détaillées" sous="Qualité prospect, leadgen, média et créatif, avec leur évolution.">
               {d.crm?.connecte && (
