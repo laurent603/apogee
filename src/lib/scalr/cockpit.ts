@@ -195,7 +195,7 @@ export function signaux(pubs: Pub[], t: Totaux, crm: {
       titre: `${court(w.name)} est un winner confirmé`,
       texte: 'Volume atteint et CPL sous cible : décliner en variantes avant que la fatigue ne l’atteigne.',
       kpis: [['CPL', w.cpl ? eur(w.cpl) : '—'], ['Résultats', nb(n(w.resultValue) || n(w.leads))]],
-      vers: { niveau: 'crea', pastille: 'scale', libelle: 'Voir les winners' },
+      vers: { niveau: 'crea', pastille: 'winner', libelle: 'Voir les winners' },
     })
   }
 
@@ -222,7 +222,7 @@ export function signaux(pubs: Pub[], t: Totaux, crm: {
       titre: `${court(pepite.name)} mérite plus de volume`,
       texte: 'CPL sous la moyenne avec peu de dépense : bon candidat à une hausse graduelle.',
       kpis: [['CPL', pepite.cpl ? eur(pepite.cpl) : '—'], ['Dépense', eur(n(pepite.spend))]],
-      vers: { niveau: 'ad', pastille: 'scale', libelle: 'Voir à scaler' },
+      vers: { niveau: 'ad', pastille: 'scaler', libelle: 'Voir à scaler' },
     })
   }
 

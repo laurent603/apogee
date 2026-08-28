@@ -72,9 +72,11 @@ export async function GET(req: NextRequest) {
       }),
       prisma.metaDailyAd.groupBy({ by: ['adId'], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
       prisma.metaDailyAd.groupBy({ by: ['adId'], where: { ...base, date: { gte: prev.since, lte: prev.until } }, _sum: SUM }),
+      // Les ad sets sont ici pour une seule raison : relier une publicité à sa
+      // campagne, donc à son objectif. Une publicité ne connaît que son ad set.
       prisma.metaEntity.findMany({
-        where: { adAccountId: dbAccountId, level: { in: ['ad', 'campaign'] } },
-        select: { metaId: true, level: true, name: true, objective: true,
+        where: { adAccountId: dbAccountId, level: { in: ['ad', 'adset', 'campaign'] } },
+        select: { metaId: true, level: true, name: true, objective: true, parentMetaId: true,
                   status: true, effectiveStatus: true, createdTime: true },
       }),
       prisma.metaDailyAd.groupBy({ by: ['campaignId'], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
@@ -111,6 +113,25 @@ export async function GET(req: NextRequest) {
   const objectif = entites.find((e) => e.level === 'campaign' && e.objective)?.objective || null
   const nbJours = parJour.length
 
+  /**
+   * L'objectif de chaque publicité, lu sur sa campagne.
+   *
+   * Le tableau le fait déjà ; le dashboard appliquait le premier objectif du
+   * compte à toutes les publicités. Sur un compte qui mélange les objectifs,
+   * le résultat principal n'était donc pas le même des deux côtés, et le même
+   * moteur rendait deux verdicts différents : « 2 publicités à couper » d'un
+   * côté, une seule de l'autre.
+   */
+  const campParId = new Map(entites.filter((e) => e.level === 'campaign').map((e) => [e.metaId, e]))
+  const adsetParId = new Map(entites.filter((e) => e.level === 'adset').map((e) => [e.metaId, e]))
+  const objectifDe = (parent: string | null): string | null => {
+    if (!parent) return null
+    const direct = campParId.get(parent)
+    if (direct) return direct.objective ?? null
+    const a = adsetParId.get(parent)
+    return (a?.parentMetaId ? campParId.get(a.parentMetaId)?.objective : null) ?? null
+  }
+
   const courant = computeMetrics(toTotals(sumCur._sum, nbJours), objectif)
   const precedent = computeMetrics(toTotals(sumPrev._sum, nbJours), objectif)
 
@@ -131,7 +152,8 @@ export async function GET(req: NextRequest) {
   const parIdPrec = new Map(parPubPrec.map((a) => [String(a.adId ?? ''), a._sum]))
 
   const lignes = pubs.map((e) => {
-    const m = computeMetrics(toTotals(parId.get(e.metaId), nbJours), objectif)
+    const objectifPub = e.objective ?? objectifDe(e.parentMetaId) ?? objectif
+    const m = computeMetrics(toTotals(parId.get(e.metaId), nbJours), objectifPub)
     const portee = porteeParPub.get(e.metaId)
     return {
       id: e.metaId,
