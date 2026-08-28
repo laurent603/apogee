@@ -2,6 +2,29 @@
 import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { AccountSelector } from './AccountSelector'
+import { useStore } from '@/lib/store'
+
+/**
+ * L'avertissement de repli.
+ *
+ * Quand la base est injoignable, les comptes viennent de Meta et aucun écran
+ * d'analyse n'aura de données à montrer. Sans ce bandeau, tout paraît
+ * simplement vide — et un compte vide se confond avec un compte sans
+ * diffusion, ce qui est exactement la mauvaise conclusion.
+ */
+function BanniereSansBase() {
+  const degrade = useStore((s) => s.degrade)
+  if (!degrade) return null
+  return (
+    <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-sm font-semibold text-amber-900">Base de données injoignable</p>
+      <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+        Les comptes affichés viennent directement de Meta. L’upload et le lancement fonctionnent
+        normalement ; les écrans d’analyse resteront vides tant que la connexion n’est pas rétablie.
+      </p>
+    </div>
+  )
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -37,7 +60,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         {/* Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          <BanniereSansBase />
+          {children}
+        </main>
       </div>
     </div>
   )

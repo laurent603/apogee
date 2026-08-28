@@ -3,9 +3,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
 import type { AdAccountMeta } from '@/types'
 
+/** L'identité stable d'un compte : `id` en base, l'identifiant Meta en repli. */
+const cle = (a: AdAccountMeta) => a.id || a.metaAccountId || a.name
+
 export function AccountSelector() {
-  const { selectedAccount, setSelectedAccount, accounts, setAccounts } = useStore()
+  const { selectedAccount, setSelectedAccount, accounts, setAccounts, setDegrade } = useStore()
   const [loading, setLoading] = useState(false)
+  const [echec, setEchec] = useState(false)
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -20,12 +24,19 @@ export function AccountSelector() {
           return !(n.includes('read') && (n.includes('only') || n.includes('-only')))
         })
         setAccounts(fresh)
+        setDegrade(Boolean(d.degrade))
         const current = useStore.getState().selectedAccount
-        const stillValid = current && fresh.find((a: AdAccountMeta) => a.id === current.id)
+        // La comparaison se fait sur l'identifiant Meta : en repli, `id` est
+        // vide, et une sélection retenue d'une session en base doit être
+        // reconnue — sinon elle serait remplacée à chaque bascule.
+        const stillValid = current && fresh.find((a: AdAccountMeta) => cle(a) === cle(current))
         if (fresh.length > 0 && !stillValid) setSelectedAccount(fresh[0])
+        // Une sélection retenue d'un repli précédent ne vaut plus rien dès que
+        // la base répond : on la remplace par son équivalent complet.
+        else if (stillValid && stillValid !== current) setSelectedAccount(stillValid)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => { setEchec(true); setLoading(false) })
   }, [])
 
   // Close on outside click
@@ -40,8 +51,13 @@ export function AccountSelector() {
   const filtered = accounts.filter((a: AdAccountMeta) =>
     a.name?.toLowerCase().includes(search.toLowerCase())
   )
+  const estChoisi = (a: AdAccountMeta) => Boolean(selectedAccount) && cle(a) === cle(selectedAccount!)
 
   if (loading) return <div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" />
+  // Ne pas confondre « vous n'avez aucun compte » et « la liste n'a pas pu
+  // être chargée » : le premier message envoie chercher côté Meta, le second
+  // côté application.
+  if (echec) return <span className="text-sm text-amber-600">Comptes indisponibles</span>
   if (accounts.length === 0) return <span className="text-sm text-gray-400">Aucun compte trouvé</span>
 
   return (
@@ -82,11 +98,11 @@ export function AccountSelector() {
               ) : (
                 filtered.map((acc: AdAccountMeta) => (
                   <button
-                    key={acc.id}
+                    key={cle(acc)}
                     onClick={() => { setSelectedAccount(acc); setOpen(false) }}
-                    className={`w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-[#f8f9fc] transition-colors ${selectedAccount?.id === acc.id ? 'bg-blue-50' : ''}`}
+                    className={`w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-[#f8f9fc] transition-colors ${estChoisi(acc) ? 'bg-blue-50' : ''}`}
                   >
-                    <span className={`text-sm truncate ${selectedAccount?.id === acc.id ? 'font-semibold text-[#3434ef]' : 'text-[#0d0d12]'}`}>{acc.name}</span>
+                    <span className={`text-sm truncate ${estChoisi(acc) ? 'font-semibold text-[#3434ef]' : 'text-[#0d0d12]'}`}>{acc.name}</span>
                     {acc.currency && <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">{acc.currency}</span>}
                   </button>
                 ))

@@ -8,6 +8,9 @@ interface AppStore {
   setSelectedAccount: (account: AdAccountMeta | null) => void
   accounts: AdAccountMeta[]
   setAccounts: (accounts: AdAccountMeta[]) => void
+  /** La base est injoignable : les écrans d'analyse n'auront rien à montrer. */
+  degrade: boolean
+  setDegrade: (v: boolean) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -17,7 +20,14 @@ export const useStore = create<AppStore>()(
       setSelectedAccount: (account) => set({ selectedAccount: account }),
       accounts: [],
       setAccounts: (accounts) => set({ accounts }),
+      degrade: false,
+      setDegrade: (degrade) => set({ degrade }),
     }),
-    { name: 'leadscore-store' }
+    {
+      name: 'leadscore-store',
+      // L'état dégradé décrit l'instant, pas une préférence : le persister
+      // afficherait la bannière au rechargement suivant, base revenue ou non.
+      partialize: (s) => ({ selectedAccount: s.selectedAccount, accounts: s.accounts }),
+    }
   )
 )

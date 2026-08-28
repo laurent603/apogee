@@ -8,8 +8,12 @@ declare module 'next-auth' {
 }
 
 export interface AdAccountMeta {
+  /** Identifiant en base — c'est lui que les routes attendent en `dbAccountId`.
+   *  Vide uniquement quand la base est injoignable (voir `sansBase`). */
   id: string
   metaAccountId?: string
+  /** Compte servi par le repli Meta : aucune donnée en base ne lui répondra. */
+  sansBase?: boolean
   name: string
   currency?: string
   timezone?: string
