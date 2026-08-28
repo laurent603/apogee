@@ -103,6 +103,11 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
   const [analyse, setAnalyse] = useState<string | null>(null)
   const [analyseEnCours, setAnalyseEnCours] = useState(false)
   const [passees, setPassees] = useState<{ id: string; title: string; createdAt: string }[]>([])
+  const [briefs, setBriefs] = useState<{ id: string; createdAt: string }[]>([])
+  const [panneauBrief, setPanneauBrief] = useState(false)
+  const [briefEnCours, setBriefEnCours] = useState(false)
+  const [messageBrief, setMessageBrief] = useState<string | null>(null)
+  const [reglagesBrief, setReglagesBrief] = useState({ ton: 'Direct, concret', conscience: '', format: 'UGC vidéo verticale' })
 
   useEffect(() => {
     let vivant = true
@@ -143,8 +148,44 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
       .then((r) => r.json())
       .then((d) => { if (vivant) setPassees(d?.reports || []) })
       .catch(() => {})
+    fetch(`/api/briefs?dbAccountId=${compte.id}&adId=${adId}`)
+      .then((r) => r.json())
+      .then((d) => { if (vivant) setBriefs(d?.briefs || []) })
+      .catch(() => {})
     return () => { vivant = false }
   }, [compte?.id, adId])
+
+  /**
+   * Le brief se génère ici parce que c'est ici que sont les chiffres.
+   *
+   * La route va rechercher elle-même les mesures et la dernière analyse : on
+   * ne lui envoie que ce que l'utilisateur choisit — le ton, le niveau de
+   * conscience et le format. Le niveau est pré-rempli depuis les Brand
+   * Settings, et reste modifiable : c'est une hypothèse, pas une consigne.
+   */
+  async function genererBrief() {
+    if (!compte?.id) { setMessageBrief('Aucun compte publicitaire sélectionné.'); return }
+    setBriefEnCours(true); setMessageBrief(null)
+    try {
+      const r = await fetch('/api/briefs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dbAccountId: compte.id, adId, adName: d?.ad.name ?? null, ...reglagesBrief,
+        }),
+      })
+      const j = await r.json()
+      if (!r.ok) { setMessageBrief(j?.error || 'Le brief n’a pas pu être généré.'); return }
+      setBriefs((b) => [{ id: j.brief.id, createdAt: j.brief.createdAt }, ...b])
+      setPanneauBrief(false)
+      setMessageBrief(j.sansAnalyse
+        ? 'Brief créé à partir des seuls chiffres — aucune analyse enregistrée pour cette créa.'
+        : 'Brief créé. Il vous attend dans Creative Strategist → Briefs créa.')
+    } catch {
+      setMessageBrief('Le brief n’a pas pu être généré.')
+    } finally {
+      setBriefEnCours(false)
+    }
+  }
 
   async function analyser() {
     if (!compte) { setAnalyse('Aucun compte publicitaire sélectionné.'); return }
@@ -316,10 +357,72 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
                           )}
                         </p>
                       </div>
-                      <button onClick={analyser} disabled={analyseEnCours} className="btn-primary text-sm disabled:opacity-40">
-                        {analyseEnCours ? 'Analyse en cours…' : 'Analyser avec Claude →'}
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button onClick={analyser} disabled={analyseEnCours} className="btn-primary text-sm disabled:opacity-40">
+                          {analyseEnCours ? 'Analyse en cours…' : 'Analyser avec Claude →'}
+                        </button>
+                        <button onClick={() => setPanneauBrief((v) => !v)}
+                          className="text-sm px-3 py-2 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef] whitespace-nowrap">
+                          Générer un brief
+                          {briefs.length > 0 && <span className="text-gray-400"> ({briefs.length})</span>}
+                        </button>
+                      </div>
                     </div>
+
+                    {panneauBrief && (
+                      <div className="mt-3 border border-[#E5E7EB] rounded-xl p-3 bg-[#f8f9fc]">
+                        <p className="text-xs font-semibold text-[#0d0d12] mb-0.5">Brief tournable</p>
+                        <p className="text-[11px] text-gray-500 leading-snug mb-3">
+                          Hook, déroulé chronométré, preuve, CTA et copy — écrits depuis les chiffres
+                          ci-dessus{passees.length > 0 ? ' et la dernière analyse' : ''}. Le script dira
+                          quelle faiblesse il corrige.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <label className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-medium text-gray-400">Ton</span>
+                            <select value={reglagesBrief.ton}
+                              onChange={(e) => setReglagesBrief((r) => ({ ...r, ton: e.target.value }))}
+                              className="text-xs border border-[#E5E7EB] rounded-lg px-2 h-8 bg-white">
+                              {['Direct, concret', 'Pédagogique', 'Témoignage client', 'Expert rassurant',
+                                'Conversationnel', 'Urgence maîtrisée'].map((t) => <option key={t}>{t}</option>)}
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-medium text-gray-400">Niveau de conscience</span>
+                            <select value={reglagesBrief.conscience}
+                              onChange={(e) => setReglagesBrief((r) => ({ ...r, conscience: e.target.value }))}
+                              className="text-xs border border-[#E5E7EB] rounded-lg px-2 h-8 bg-white">
+                              <option value="">Déduit des données</option>
+                              <option value="unaware">Unaware — ignore le problème</option>
+                              <option value="problem">Problem Aware — ressent le problème</option>
+                              <option value="solution">Solution Aware — cherche une solution</option>
+                              <option value="product">Product Aware — compare les offres</option>
+                              <option value="most">Most Aware — prêt à acheter</option>
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-medium text-gray-400">Format</span>
+                            <select value={reglagesBrief.format}
+                              onChange={(e) => setReglagesBrief((r) => ({ ...r, format: e.target.value }))}
+                              className="text-xs border border-[#E5E7EB] rounded-lg px-2 h-8 bg-white">
+                              {['UGC vidéo verticale', 'Témoignage client', 'Vidéo courte 15 s',
+                                'Démonstration produit', 'Statique', 'Carrousel'].map((f) => <option key={f}>{f}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                        <button onClick={genererBrief} disabled={briefEnCours}
+                          className="btn-primary text-sm mt-3 disabled:opacity-40">
+                          {briefEnCours ? 'Écriture du brief…' : 'Écrire le brief →'}
+                        </button>
+                      </div>
+                    )}
+
+                    {messageBrief && (
+                      <p className="mt-2 text-xs text-gray-600 bg-[#f8f9fc] border border-[#E5E7EB] rounded-lg px-3 py-2">
+                        {messageBrief}{' '}
+                        <a href="/creative-strategist" className="text-[#3434ef] hover:underline">Ouvrir les briefs →</a>
+                      </p>
+                    )}
                     {analyse && (
                       // L'analyse est du Markdown : brute, ses tableaux
                       // deviennent des barres verticales et ses titres des

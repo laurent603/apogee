@@ -76,6 +76,7 @@ model AdAccount {
   createdAt       DateTime           @default(now())
 
   @@unique([userId, metaAccountId])
+  briefs          Brief[]
 }
 
 /// Reference ad copy pulled from the account's Notion workspace. Synced on
@@ -498,4 +499,43 @@ model GhlDaily {
 
   @@unique([adAccountId, date])
   @@index([adAccountId, date])
+}
+
+/// Un brief créa : ce qu'un creative strategist livre réellement.
+///
+/// Pas de la copy — un script tournable. Il naît toujours d'une publicité
+/// existante et de ses chiffres : c'est ce qui le distingue d'une génération
+/// générique, et ce qui permet de dire quelle faiblesse il corrige.
+///
+/// Il porte un statut parce qu'il a un cycle de vie — il part en tournage,
+/// revient monté, puis passe en ligne. Une analyse se lit ; un brief se
+/// produit.
+model Brief {
+  id          String    @id @default(cuid())
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  /// La publicité dont il part. Le nom est copié : il doit rester lisible
+  /// même si la publicité disparaît de Meta.
+  adId        String
+  adName      String
+
+  title       String
+  content     String
+  /// Le rapport d'analyse qui l'a nourri, quand il y en avait un.
+  reportId    String?
+
+  ton         String?
+  conscience  String?
+  format      String?
+
+  /// a_produire | produit | lance
+  statut      String    @default("a_produire")
+
+  downloadedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([adAccountId, createdAt])
+  @@index([adId])
 }

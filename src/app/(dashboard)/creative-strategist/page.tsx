@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { OngletBriefs } from '@/components/scalr/OngletBriefs'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 
@@ -65,6 +66,8 @@ function toVariantes(c: GeneratedCopy | null): Variante[] {
 
 export default function CreativeStrategistPage() {
   const { selectedAccount } = useStore()
+  /** L'onglet affiché : la copy ou les briefs. */
+  const [vue, setVue] = useState<'copy' | 'briefs'>('copy')
   const [mode, setMode] = useState('direct')
   const [product, setProduct] = useState('')
   const [offer, setOffer] = useState('')
@@ -250,10 +253,28 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
       <div>
         <h1 className="page-title">Creative Strategist</h1>
         <p className="page-subtitle mt-0.5">
-          Génération de copies publicitaires, ancrée sur vos créas en cours et votre référentiel
+          {vue === 'copy'
+            ? 'Copies publicitaires, ancrées sur vos créas en cours et votre référentiel'
+            : 'Briefs tournables, générés depuis les chiffres d’une créa'}
         </p>
       </div>
 
+      {/* Deux livrables, deux onglets. La copy se génère depuis le référentiel ;
+          un brief part toujours d'une créa et de ses chiffres. */}
+      <div className="flex gap-1 bg-[#f8f9fc] rounded-lg p-1 border border-[#E5E7EB] w-fit">
+        {([['copy', 'Copy'], ['briefs', 'Briefs créa']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setVue(id)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+              vue === id ? 'bg-white text-[#3434ef] shadow-sm border border-[#E5E7EB]'
+                : 'text-gray-500 hover:text-[#0d0d12]'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {vue === 'briefs' && <OngletBriefs compte={selectedAccount} />}
+
+      {vue === 'copy' && (<>
       {prefilled && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 flex items-center gap-2.5">
           <svg className="w-4 h-4 text-[#3434ef] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -525,6 +546,7 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
           )}
         </div>
       </div>
+      </>)}
     </div>
   )
 }
