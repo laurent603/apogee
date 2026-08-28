@@ -295,6 +295,9 @@ model Report {
   /// il doit rester lisible même si la publicité disparaît de Meta.
   adId        String?
   adName      String?
+  /// Quand le rapport a été téléchargé. Sert à le signaler dans la liste :
+  /// sans trace en base, la marque disparaîtrait au rafraîchissement.
+  downloadedAt DateTime?
   isRead      Boolean         @default(false)
   createdAt   DateTime        @default(now())
 

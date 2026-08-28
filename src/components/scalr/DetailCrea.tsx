@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
+import { markdownToHtml } from '@/lib/markdown'
 import { ApercuMeta } from './ApercuMeta'
 import { Camembert, BarresDoubles, AgeGenre, PAR_CLE, fmt, type Vent } from './graphes'
 
@@ -320,9 +321,11 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
                       </button>
                     </div>
                     {analyse && (
-                      <pre className="mt-3 text-xs text-gray-700 whitespace-pre-wrap bg-[#f8f9fc] border border-[#E5E7EB] rounded-lg p-3 max-h-72 overflow-y-auto">
-                        {analyse}
-                      </pre>
+                      // L'analyse est du Markdown : brute, ses tableaux
+                      // deviennent des barres verticales et ses titres des
+                      // dièses. Le même rendu que l'historique et Autopilot.
+                      <div className="chat-report mt-3 bg-[#f8f9fc] border border-[#E5E7EB] rounded-lg p-4 max-h-[460px] overflow-y-auto"
+                        dangerouslySetInnerHTML={{ __html: markdownToHtml(analyse) }} />
                     )}
                   </div>
                 )}

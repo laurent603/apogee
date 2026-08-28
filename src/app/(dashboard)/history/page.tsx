@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
+import { markdownToHtml } from '@/lib/markdown'
 
 /**
  * L'historique du compte : ce qui s'est passé, dans l'ordre.
@@ -29,6 +30,7 @@ type Lancement = {
 type Rapport = {
   id: string; title: string; type: string
   adId: string | null; adName: string | null; createdAt: string
+  downloadedAt: string | null
 }
 
 type Entree =
@@ -99,7 +101,7 @@ export default function HistoryPage() {
     if (d?.report?.content) setContenu((c) => ({ ...c, [r.id]: d.report.content }))
   }
 
-  function telecharger(r: Rapport) {
+  async function telecharger(r: Rapport) {
     const texte = contenu[r.id]
     if (!texte) return
     const a = document.createElement('a')
@@ -108,6 +110,16 @@ export default function HistoryPage() {
     a.download = `${r.title.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 60).trim() || 'analyse'}.md`
     a.click()
     URL.revokeObjectURL(a.href)
+
+    // La marque va en base : sans trace, elle disparaîtrait au rafraîchissement
+    // et on ne saurait plus ce qui a déjà été transmis à un client.
+    const d = await fetch('/api/reports', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: r.id }),
+    }).then((x) => x.json()).catch(() => null)
+    if (d?.downloadedAt) {
+      setRapports((liste) => liste.map((x) => (x.id === r.id ? { ...x, downloadedAt: d.downloadedAt } : x)))
+    }
   }
 
   const entrees = useMemo<Entree[]>(() => {
@@ -220,6 +232,11 @@ export default function HistoryPage() {
                         {nomType(e.type)}
                       </span>
                       {e.adName ? <>sur {e.adName}</> : 'sur l’ensemble du compte'}
+                      {e.downloadedAt && (
+                        <span className="inline-block ml-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                          Téléchargé le {new Date(e.downloadedAt).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -234,9 +251,11 @@ export default function HistoryPage() {
                   <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
                     {contenu[e.id] ? (
                       <>
-                        <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-[#f8f9fc] rounded-lg p-3 max-h-[420px] overflow-y-auto">
-                          {contenu[e.id]}
-                        </pre>
+                        {/* Le rapport est du Markdown : le rendre en texte brut
+                            noyait les titres dans les dièses et laissait les
+                            tableaux en barres verticales. */}
+                        <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
+                          dangerouslySetInnerHTML={{ __html: markdownToHtml(contenu[e.id]) }} />
                         <button onClick={() => telecharger(e)}
                           className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
                           Télécharger en Markdown

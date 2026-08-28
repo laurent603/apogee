@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     },
     orderBy: { createdAt: 'desc' },
     take: 200,
-    select: { id: true, title: true, type: true, adId: true, adName: true, createdAt: true, isRead: true },
+    select: { id: true, title: true, type: true, adId: true, adName: true, createdAt: true, downloadedAt: true },
   })
 
   // Les types réellement présents, pour ne proposer que des filtres qui
@@ -51,6 +51,22 @@ export async function GET(req: NextRequest) {
     reports,
     types: types.map((t) => ({ type: t.type, nombre: t._count })).sort((a, b) => b.nombre - a.nombre),
   })
+}
+
+/** Marque un rapport comme téléchargé. */
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await req.json().catch(() => ({}))
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+  const r = await prisma.report.update({
+    where: { id },
+    data: { downloadedAt: new Date() },
+    select: { downloadedAt: true },
+  })
+  return NextResponse.json({ downloadedAt: r.downloadedAt })
 }
 
 export async function DELETE(req: NextRequest) {
