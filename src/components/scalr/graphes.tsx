@@ -196,23 +196,74 @@ export function Camembert({ dimensions, titre }: {
 
 /* ─── Deux métriques, barres groupées ───────────────────────────────────── */
 
+/**
+ * Deux métriques, deux tracés empilés sur le même axe de catégories.
+ *
+ * C'était un graphique unique à deux axes verticaux. L'alignement de deux
+ * échelles y est arbitraire : une dépense et une portée superposées dessinent
+ * une corrélation que les données ne portent pas, et selon l'échelle choisie
+ * on peut faire dire à la même paire tout et son contraire.
+ *
+ * Empilés, les deux gardent ce qui rendait la comparaison utile — les mêmes
+ * catégories, dans le même ordre, à la verticale l'une de l'autre — et chacun
+ * lit sa propre échelle. L'axe des catégories n'est écrit qu'une fois, sous le
+ * second, comme sur une paire de graphiques jumeaux.
+ */
 export function BarresDoubles({ data, titre, note, defaut1, defaut2, courbe }: {
   data: Vent[]; titre: string; note?: string; defaut1: string; defaut2: string
-  /** La seconde série en courbe plutôt qu'en barres — utile sur une série
-   *  temporelle, où deux jeux de barres se gênent. */
+  /** La seconde série en courbe plutôt qu'en barres — sur une série
+   *  temporelle, une courbe se suit mieux qu'un rang de barres. */
   courbe?: boolean
 }) {
   const [a, setA] = useState(defaut1)
   const [b, setB] = useState(defaut2)
-  const ca = PAR_CLE.get(a)!, cb = PAR_CLE.get(b)!
+  // Une clé absente du registre ne doit pas faire tomber la page : on retombe
+  // sur la première métrique plutôt que de déréférencer `undefined`.
+  const ca = PAR_CLE.get(a) ?? CHOIX[0]
+  const cb = PAR_CLE.get(b) ?? CHOIX[1]
 
   const rows = data.slice(0, 12).map((d) => ({
     nom: lisible(String(d.cle)),
     court: String(d.cle).length === 10 && String(d.cle).includes('-') ? String(d.cle).slice(5) : lisible(String(d.cle)),
-    a: d[a] == null ? null : Number(d[a]),
-    b: d[b] == null ? null : Number(d[b]),
+    a: d[ca.cle] == null ? null : Number(d[ca.cle]),
+    b: d[cb.cle] == null ? null : Number(d[cb.cle]),
   }))
-  const fusion = data.some((d) => d.fusionne) && (a === 'frequency' || b === 'frequency')
+  const fusion = data.some((d) => d.fusionne) && (ca.cle === 'frequency' || cb.cle === 'frequency')
+
+  /** Le tracé du haut tait ses catégories : le bas les porte pour les deux. */
+  // Les libellés inclinés ont besoin de leur place : trop courts, ils sont
+  // rognés par le bas du cadre sans que rien ne le signale.
+  const hauteurLibelles = courbe ? 22 : 96
+  const tracé = (cle: 'a' | 'b', def: typeof ca, teinte: string, enCourbe: boolean, avecAxeX: boolean) => (
+    <ResponsiveContainer width="100%" height={avecAxeX ? 120 + hauteurLibelles : 120}>
+      <ComposedChart data={rows} margin={{ top: 6, right: 4, left: -14, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+        {/* Une ligne de base sous chaque tracé : sans elle les barres semblent
+            flotter, et l'œil ne sait plus d'où elles partent. */}
+        <XAxis dataKey="court" tick={avecAxeX ? { fontSize: 10, fill: '#9ca3af' } : false}
+          axisLine={{ stroke: '#E5E7EB' }} tickLine={false} interval={0}
+          angle={avecAxeX && !courbe ? -35 : 0} textAnchor={avecAxeX && !courbe ? 'end' : 'middle'}
+          height={avecAxeX ? hauteurLibelles : 8} />
+        <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
+          tickFormatter={(v) => court(v, def.unite)} width={54} />
+        <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
+          labelFormatter={(_, p) => (p?.[0]?.payload as { nom?: string })?.nom || ''}
+          formatter={(v: number) => [fmt(v, def.unite), def.label]} />
+        {enCourbe
+          ? <Line type="monotone" dataKey={cle} name={def.label} stroke={teinte} strokeWidth={2}
+              dot={false} isAnimationActive={false} />
+          : <Bar dataKey={cle} name={def.label} fill={teinte} radius={[4, 4, 0, 0]}
+              maxBarSize={28} isAnimationActive={false} />}
+      </ComposedChart>
+    </ResponsiveContainer>
+  )
+
+  const Titre = ({ def, teinte }: { def: typeof ca; teinte: string }) => (
+    <p className="flex items-center gap-1.5 text-[11px] font-medium text-gray-500 mb-0.5">
+      <span className="w-2 h-2 rounded-[2px] flex-shrink-0" style={{ background: teinte }} />
+      {def.label}
+    </p>
+  )
 
   return (
     <div className="card">
@@ -225,26 +276,10 @@ export function BarresDoubles({ data, titre, note, defaut1, defaut2, courbe }: {
       </div>
       {note && <p className="text-[11px] text-gray-400 mb-1">{note}</p>}
 
-      <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={rows} margin={{ top: 8, right: 4, left: -14, bottom: courbe ? 4 : 58 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-          <XAxis dataKey="court" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-            interval={0} angle={courbe ? 0 : -35} textAnchor={courbe ? 'middle' : 'end'} height={courbe ? 20 : 70} />
-          <YAxis yAxisId="g" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-            tickFormatter={(v) => court(v, ca.unite)} width={52} />
-          <YAxis yAxisId="d" orientation="right" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}
-            tickFormatter={(v) => court(v, cb.unite)} width={52} />
-          <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
-            labelFormatter={(_, p) => (p?.[0]?.payload as { nom?: string })?.nom || ''}
-            formatter={(v: number, n: string) => [fmt(v, n === ca.label ? ca.unite : cb.unite), n]} />
-          <Legend iconSize={8} verticalAlign="top" height={26}
-            formatter={(v) => <span className="text-[11px] text-gray-600">{v}</span>} />
-          <Bar yAxisId="g" dataKey="a" name={ca.label} fill="#3434ef" radius={[4, 4, 0, 0]} maxBarSize={28} />
-          {courbe
-            ? <Line yAxisId="d" type="monotone" dataKey="b" name={cb.label} stroke="#f97316" strokeWidth={2} dot={false} />
-            : <Bar yAxisId="d" dataKey="b" name={cb.label} fill="#22c55e" radius={[4, 4, 0, 0]} maxBarSize={28} />}
-        </ComposedChart>
-      </ResponsiveContainer>
+      <Titre def={ca} teinte="#3434ef" />
+      {tracé('a', ca, '#3434ef', false, false)}
+      <Titre def={cb} teinte={courbe ? '#eb6834' : '#1baf7a'} />
+      {tracé('b', cb, courbe ? '#eb6834' : '#1baf7a', Boolean(courbe), true)}
 
       {fusion && (
         <p className="text-[11px] text-amber-600">
