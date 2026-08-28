@@ -1,110 +1,250 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/lib/store'
+import { clsx } from 'clsx'
 
-interface LaunchRecord {
-  id: string
-  metaAccountId: string
-  campaignName: string
-  campaignId: string | null
-  objective: string | null
-  structure: string | null
-  adsetCount: number
-  adCount: number
-  status: string
-  logs: string
-  createdAt: string
+/**
+ * L'historique du compte : ce qui s'est passé, dans l'ordre.
+ *
+ * Il ne montrait que les lancements. Les analyses — quatre-vingt-quatre en
+ * base — étaient bien enregistrées et **aucune page ne les affichait** : la
+ * modale d'une créa donnait l'impression de jeter son travail alors qu'il
+ * était conservé.
+ *
+ * Un lancement et une analyse sont deux choses qui se sont produites sur le
+ * compte ; les séparer en deux écrans obligerait à se souvenir laquelle
+ * chercher où. Une seule liste chronologique, donc, avec le type en filtre —
+ * « Lancements » y étant un type parmi les autres — et chaque ligne rendue
+ * selon ce qu'elle est : un lancement montre ses compteurs et son journal, une
+ * analyse s'ouvre sur son texte.
+ */
+
+type Lancement = {
+  id: string; metaAccountId: string; campaignName: string
+  objective: string | null; structure: string | null
+  adsetCount: number; adCount: number; status: string; logs: string; createdAt: string
+}
+
+type Rapport = {
+  id: string; title: string; type: string
+  adId: string | null; adName: string | null; createdAt: string
+}
+
+type Entree =
+  | ({ genre: 'lancement'; date: string } & Lancement)
+  | ({ genre: 'rapport'; date: string } & Rapport)
+
+/** Les catégories techniques ne se montrent pas telles quelles. */
+const NOMS_TYPE: Record<string, string> = {
+  creativeStrategy: 'Analyse créa',
+  creative: 'Analyse créa',
+  audit: 'Audit technique',
+  autopilot: 'Autopilot',
+  mediaBuying: 'Média buying',
+  performance: 'Performance',
+}
+const nomType = (t: string) => NOMS_TYPE[t] || t
+
+const TEINTE_TYPE: Record<string, string> = {
+  creativeStrategy: 'bg-violet-50 text-violet-700 border-violet-200',
+  creative: 'bg-violet-50 text-violet-700 border-violet-200',
+  audit: 'bg-amber-50 text-amber-700 border-amber-200',
+  autopilot: 'bg-blue-50 text-blue-700 border-blue-200',
+  mediaBuying: 'bg-teal-50 text-teal-700 border-teal-200',
+  performance: 'bg-teal-50 text-teal-700 border-teal-200',
+}
+
+const horodatage = (d: string) => {
+  const x = new Date(d)
+  return `${x.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 export default function HistoryPage() {
   const { selectedAccount } = useStore()
-  const [launches, setLaunches] = useState<LaunchRecord[]>([])
+  const [lancements, setLancements] = useState<Lancement[]>([])
+  const [rapports, setRapports] = useState<Rapport[]>([])
+  const [typesDispo, setTypesDispo] = useState<{ type: string; nombre: number }[]>([])
+  const [filtre, setFiltre] = useState('all')
+  const [recherche, setRecherche] = useState('')
+  const [ouvert, setOuvert] = useState<string | null>(null)
+  const [contenu, setContenu] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<string | null>(null)
 
-  const load = useCallback(() => {
+  const charger = useCallback(() => {
     setLoading(true)
     const metaId = selectedAccount?.metaAccountId || selectedAccount?.id
-    const url = metaId ? `/api/launch-history?metaAccountId=${metaId}` : '/api/launch-history'
-    fetch(url)
-      .then(r => r.json())
-      .then(data => { setLaunches(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [selectedAccount?.id])
+    Promise.all([
+      fetch(metaId ? `/api/launch-history?metaAccountId=${metaId}` : '/api/launch-history')
+        .then((r) => r.json()).catch(() => []),
+      selectedAccount?.id
+        ? fetch(`/api/reports?dbAccountId=${selectedAccount.id}`).then((r) => r.json()).catch(() => ({}))
+        : Promise.resolve({}),
+    ]).then(([l, r]) => {
+      setLancements(Array.isArray(l) ? l : [])
+      setRapports(r?.reports || [])
+      setTypesDispo(r?.types || [])
+      setLoading(false)
+    })
+  }, [selectedAccount?.id, selectedAccount?.metaAccountId])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { charger() }, [charger])
+
+  /** Le texte n'est tiré qu'à l'ouverture : la liste ne le porte pas. */
+  async function ouvrir(r: Rapport) {
+    if (ouvert === r.id) { setOuvert(null); return }
+    setOuvert(r.id)
+    if (contenu[r.id]) return
+    const d = await fetch(`/api/reports?id=${r.id}`).then((x) => x.json()).catch(() => null)
+    if (d?.report?.content) setContenu((c) => ({ ...c, [r.id]: d.report.content }))
+  }
+
+  function telecharger(r: Rapport) {
+    const texte = contenu[r.id]
+    if (!texte) return
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([texte], { type: 'text/markdown;charset=utf-8' }))
+    // Un nom de fichier lisible dans un dossier de téléchargements.
+    a.download = `${r.title.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 60).trim() || 'analyse'}.md`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  const entrees = useMemo<Entree[]>(() => {
+    const l: Entree[] = lancements.map((x) => ({ ...x, genre: 'lancement', date: x.createdAt }))
+    const r: Entree[] = rapports.map((x) => ({ ...x, genre: 'rapport', date: x.createdAt }))
+    let tout = [...l, ...r]
+    if (filtre === 'lancement') tout = l
+    else if (filtre !== 'all') tout = r.filter((x) => x.genre === 'rapport' && x.type === filtre)
+    if (recherche.trim()) {
+      const q = recherche.toLowerCase()
+      tout = tout.filter((x) =>
+        (x.genre === 'lancement' ? x.campaignName : `${x.title} ${x.adName ?? ''}`).toLowerCase().includes(q))
+    }
+    return tout.sort((a, b) => b.date.localeCompare(a.date))
+  }, [lancements, rapports, filtre, recherche])
+
+  const onglets = [
+    { id: 'all', label: 'Tout', n: lancements.length + rapports.length },
+    { id: 'lancement', label: 'Lancements', n: lancements.length },
+    ...typesDispo.map((t) => ({ id: t.type, label: nomType(t.type), n: t.nombre })),
+  ]
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+    <div className="space-y-4 max-w-5xl">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Historique des lancements</h1>
+          <h1 className="page-title">Historique</h1>
           <p className="page-subtitle mt-0.5">
-            Lancements pour <strong>{selectedAccount?.name || 'tous les comptes'}</strong>
+            Lancements et analyses pour <strong>{selectedAccount?.name || 'tous les comptes'}</strong>
           </p>
         </div>
-        <button onClick={load} className="text-xs text-[#3434ef] hover:underline mt-1">Actualiser</button>
+        <div className="flex items-center gap-2">
+          <input value={recherche} onChange={(e) => setRecherche(e.target.value)}
+            placeholder="Rechercher…" className="input w-auto text-sm py-1.5 min-w-[160px]" />
+          <button onClick={charger} className="text-xs text-[#3434ef] hover:underline">Actualiser</button>
+        </div>
       </div>
 
-      {loading && (
-        <div className="card text-center py-20 text-gray-400 text-sm">Chargement…</div>
-      )}
+      {/* Le type en filtre, « Lancements » y compris. */}
+      <div className="flex flex-wrap gap-2">
+        {onglets.filter((o) => o.n > 0 || o.id === 'all').map((o) => (
+          <button key={o.id} onClick={() => setFiltre(o.id)}
+            className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+              filtre === o.id ? 'bg-[#3434ef] text-white border-[#3434ef]'
+                : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
+            {o.label} <span className={filtre === o.id ? 'text-white/70' : 'text-gray-400'}>{o.n}</span>
+          </button>
+        ))}
+      </div>
 
-      {!loading && launches.length === 0 && (
-        <div className="card text-center py-20">
-          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-[#3434ef]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-base font-semibold text-[#0d0d12] mb-2">Aucun lancement pour ce compte</h2>
-          <p className="text-sm text-gray-400 mb-5 max-w-sm mx-auto">
-            Les lancements de campagnes Meta Ads pour <strong>{selectedAccount?.name}</strong> apparaîtront ici.
+      {loading && <div className="card text-center py-20 text-gray-400 text-sm">Chargement…</div>}
+
+      {!loading && !entrees.length && (
+        <div className="card text-center py-16">
+          <p className="text-[#0d0d12] font-medium">Rien à afficher pour ce filtre.</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Les lancements et les analyses de ce compte apparaissent ici, du plus récent au plus ancien.
           </p>
-          <a href="/upload" className="btn-primary inline-block">Lancer une campagne</a>
         </div>
       )}
 
-      {!loading && launches.length > 0 && (
-        <div className="space-y-3">
-          {launches.map((l) => {
-            const date = new Date(l.createdAt)
-            const isExpanded = expanded === l.id
-            return (
-              <div key={l.id} className="card">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <span className={`mt-0.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${l.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-[#0d0d12] truncate">{l.campaignName}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {l.adsetCount} adset{l.adsetCount !== 1 ? 's' : ''} · {l.adCount} ad{l.adCount !== 1 ? 's' : ''}
-                        {l.objective && <> · {l.objective}</>}
-                        {l.structure && <> · {l.structure}</>}
-                      </p>
+      {!loading && entrees.length > 0 && (
+        <div className="space-y-2.5">
+          {entrees.map((e) => {
+            const estOuvert = ouvert === e.id
+
+            if (e.genre === 'lancement') {
+              return (
+                <div key={e.id} className="card">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <span className={clsx('mt-1 w-2 h-2 rounded-full flex-shrink-0',
+                        e.status === 'success' ? 'bg-emerald-500' : 'bg-red-500')} />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-[#0d0d12] truncate">{e.campaignName}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-600 border-gray-200 mr-1.5">
+                            Lancement
+                          </span>
+                          {e.adsetCount} ad set{e.adsetCount !== 1 ? 's' : ''} · {e.adCount} pub{e.adCount !== 1 ? 's' : ''}
+                          {e.objective && <> · {e.objective}</>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 pl-5 sm:pl-0">
+                      <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">{horodatage(e.date)}</span>
+                      <button onClick={() => setOuvert(estOuvert ? null : e.id)}
+                        className="text-xs text-[#3434ef] hover:underline">
+                        {estOuvert ? 'Masquer' : 'Journal'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 pl-5 sm:pl-0">
-                    <span className="text-xs text-gray-400">
-                      {date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                      {' '}
-                      {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <button
-                      onClick={() => setExpanded(isExpanded ? null : l.id)}
-                      className="text-xs text-[#3434ef] hover:underline"
-                    >
-                      {isExpanded ? 'Masquer' : 'Journal'}
+                  {estOuvert && (
+                    <pre className="mt-3 pt-3 border-t border-[#F3F4F6] text-xs text-gray-600 whitespace-pre-wrap font-mono bg-[#f8f9fc] rounded-lg p-3 max-h-60 overflow-y-auto">
+                      {e.logs || '(vide)'}
+                    </pre>
+                  )}
+                </div>
+              )
+            }
+
+            return (
+              <div key={e.id} className="card">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm text-[#0d0d12] break-words">{e.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      <span className={clsx('inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border mr-1.5',
+                        TEINTE_TYPE[e.type] || 'bg-gray-50 text-gray-600 border-gray-200')}>
+                        {nomType(e.type)}
+                      </span>
+                      {e.adName ? <>sur {e.adName}</> : 'sur l’ensemble du compte'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">{horodatage(e.date)}</span>
+                    <button onClick={() => ouvrir(e)} className="text-xs text-[#3434ef] hover:underline">
+                      {estOuvert ? 'Masquer' : 'Lire'}
                     </button>
                   </div>
                 </div>
 
-                {isExpanded && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 rounded-lg p-3 max-h-60 overflow-y-auto">
-                      {l.logs || '(vide)'}
-                    </pre>
+                {estOuvert && (
+                  <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
+                    {contenu[e.id] ? (
+                      <>
+                        <pre className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-[#f8f9fc] rounded-lg p-3 max-h-[420px] overflow-y-auto">
+                          {contenu[e.id]}
+                        </pre>
+                        <button onClick={() => telecharger(e)}
+                          className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
+                          Télécharger en Markdown
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-gray-400">Chargement…</p>
+                    )}
                   </div>
                 )}
               </div>

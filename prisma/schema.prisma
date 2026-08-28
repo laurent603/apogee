@@ -287,8 +287,19 @@ model Report {
   adAccount   AdAccount       @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
   agentId     String?
   agent       AutopilotAgent? @relation(fields: [agentId], references: [id])
+  /// La publicité analysée, quand l'analyse en vise une.
+  ///
+  /// Sans elle, un rapport ne porte que le compte et un titre générique : on
+  /// ne peut ni le retrouver depuis la créa, ni comparer deux analyses de la
+  /// même créa à un mois d'écart. Le nom est copié plutôt que rejoint —
+  /// il doit rester lisible même si la publicité disparaît de Meta.
+  adId        String?
+  adName      String?
   isRead      Boolean         @default(false)
   createdAt   DateTime        @default(now())
+
+  @@index([adAccountId, createdAt])
+  @@index([adId])
 }
 
 /// Campagnes, adsets et publicités Meta, avec leur nom et leur statut.

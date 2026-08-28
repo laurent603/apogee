@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -196,10 +196,16 @@ ${JSON.stringify(previous.ads, null, 2)}`
         if (dbAccountId && fullResult) {
           await prisma.report.create({
             data: {
-              title: `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`,
+              // Le nom de la créa fait un bien meilleur titre que la catégorie :
+              // c'est ce qu'on cherche en revenant six semaines plus tard.
+              title: adName
+                ? `${adName} — ${new Date().toLocaleDateString('fr-FR')}`
+                : `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`,
               type: category,
               content: fullResult,
               adAccountId: dbAccountId,
+              adId: typeof adId === 'string' ? adId : null,
+              adName: typeof adName === 'string' ? adName : null,
             },
           }).catch(async (e) => {
             // L'analyse s'est affichée à l'écran mais n'ira pas dans

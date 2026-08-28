@@ -101,6 +101,7 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
   const [erreur, setErreur] = useState<string | null>(null)
   const [analyse, setAnalyse] = useState<string | null>(null)
   const [analyseEnCours, setAnalyseEnCours] = useState(false)
+  const [passees, setPassees] = useState<{ id: string; title: string; createdAt: string }[]>([])
 
   useEffect(() => {
     let vivant = true
@@ -127,6 +128,23 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
       .map((c) => ({ ...c, valeur: g[c.cle] as number | null, variation: v[c.cle] }))
   }, [g, v])
 
+  /**
+   * Les analyses déjà faites sur cette créa.
+   *
+   * C'est ce qui distingue l'archive du suivi : on rouvre une créa six
+   * semaines plus tard et on voit ce qu'on en disait, avant d'en redemander
+   * une lecture.
+   */
+  useEffect(() => {
+    if (!compte?.id) return
+    let vivant = true
+    fetch(`/api/reports?dbAccountId=${compte.id}&adId=${adId}`)
+      .then((r) => r.json())
+      .then((d) => { if (vivant) setPassees(d?.reports || []) })
+      .catch(() => {})
+    return () => { vivant = false }
+  }, [compte?.id, adId])
+
   async function analyser() {
     if (!compte) { setAnalyse('Aucun compte publicitaire sélectionné.'); return }
     setAnalyseEnCours(true)
@@ -139,6 +157,9 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
           // second. Sans eux elle répond « Missing parameters ».
           accountId: compte.metaAccountId || compte.id,
           dbAccountId: compte.id,
+          // Rattache l'analyse à la créa : sans ça elle se perd dans une liste
+          // de titres génériques, et on ne peut pas comparer deux passages.
+          adId, adName: d?.ad.name ?? null,
           category: 'creativeStrategy', analysisType: 'creative_deep_dive',
           agentRole: 'creative_strategist', deep: true,
           customPrompt: `Analyse cette créa en particulier : « ${d?.ad.name} » (id ${adId}).\n\n`
@@ -160,6 +181,12 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
       }
       const texte = await r.text()
       setAnalyse(texte || 'Aucune réponse.')
+      // La nouvelle analyse rejoint l'historique : la liste doit le refléter
+      // sans qu'on ait à rouvrir la fenêtre.
+      if (compte?.id) {
+        fetch(`/api/reports?dbAccountId=${compte.id}&adId=${adId}`)
+          .then((x) => x.json()).then((d) => setPassees(d?.reports || [])).catch(() => {})
+      }
     } catch {
       setAnalyse('L’analyse n’a pas pu aboutir.')
     } finally {
@@ -280,6 +307,12 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
                         <p className="text-sm font-semibold text-[#0d0d12]">Analyser cette créa</p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           Claude lit les chiffres ci-dessus et dit sur quoi elle porte, et comment la décliner.
+                          {passees.length > 0 && (
+                            <> {passees.length} analyse{passees.length > 1 ? 's' : ''} déjà enregistrée{passees.length > 1 ? 's' : ''} pour cette créa —
+                            {' '}<a href="/history" className="text-[#3434ef] hover:underline">
+                              la plus récente du {new Date(passees[0].createdAt).toLocaleDateString('fr-FR')}
+                            </a>.</>
+                          )}
                         </p>
                       </div>
                       <button onClick={analyser} disabled={analyseEnCours} className="btn-primary text-sm disabled:opacity-40">

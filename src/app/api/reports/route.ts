@@ -9,14 +9,48 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const dbAccountId = searchParams.get('dbAccountId')
+  const type = searchParams.get('type')
+  const adId = searchParams.get('adId')
+  const id = searchParams.get('id')
 
+  // Un rapport demandé par son identifiant est rendu entier : c'est le seul
+  // cas où l'on veut son texte.
+  if (id) {
+    const report = await prisma.report.findUnique({ where: { id } })
+    if (!report) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
+    return NextResponse.json({ report })
+  }
+
+  /**
+   * La liste ne porte pas les contenus.
+   *
+   * Un rapport d'agent fait plusieurs milliers de caractères ; cinquante
+   * d'entre eux rendraient la liste lourde pour un texte qu'on n'affiche pas
+   * avant d'avoir cliqué.
+   */
   const reports = await prisma.report.findMany({
-    where: { adAccountId: dbAccountId || undefined },
+    where: {
+      adAccountId: dbAccountId || undefined,
+      type: type && type !== 'all' ? type : undefined,
+      adId: adId || undefined,
+    },
     orderBy: { createdAt: 'desc' },
-    take: 50,
+    take: 200,
+    select: { id: true, title: true, type: true, adId: true, adName: true, createdAt: true, isRead: true },
   })
 
-  return NextResponse.json({ reports })
+  // Les types réellement présents, pour ne proposer que des filtres qui
+  // rendent quelque chose.
+  const types = await prisma.report.groupBy({
+    by: ['type'],
+    where: { adAccountId: dbAccountId || undefined },
+    _count: true,
+  })
+
+  return NextResponse.json({
+    reports,
+    types: types.map((t) => ({ type: t.type, nombre: t._count })).sort((a, b) => b.nombre - a.nombre),
+  })
 }
 
 export async function DELETE(req: NextRequest) {
