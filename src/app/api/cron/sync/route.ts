@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { syncAccountRecent, syncPeriodReach } from '@/lib/scalr/sync'
 import { notifyIncident } from '@/lib/notify'
+import { cronAutorise } from '@/lib/cron-auth'
 
 /**
  * Rafraîchissement nocturne de la base Meta.
@@ -31,8 +32,7 @@ export const maxDuration = 300
 const BUDGET_MS = 240_000
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret')
-  if (secret !== process.env.CRON_SECRET) {
+  if (!cronAutorise(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

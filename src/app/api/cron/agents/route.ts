@@ -27,6 +27,7 @@ import { deliverReport } from '@/lib/deliver'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { renderGhlForPrompt } from '@/lib/ghl'
 import { notifyIncident } from '@/lib/notify'
+import { cronAutorise } from '@/lib/cron-auth'
 
 function calcNextRunAt(frequency: string): Date {
   const next = new Date()
@@ -43,8 +44,7 @@ function calcNextRunAt(frequency: string): Date {
 
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret')
-  if (secret !== process.env.CRON_SECRET) {
+  if (!cronAutorise(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
