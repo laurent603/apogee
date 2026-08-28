@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
 import { ApercuMeta } from './ApercuMeta'
@@ -351,9 +352,9 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
                           Claude lit les chiffres ci-dessus et dit sur quoi elle porte, et comment la décliner.
                           {passees.length > 0 && (
                             <> {passees.length} analyse{passees.length > 1 ? 's' : ''} déjà enregistrée{passees.length > 1 ? 's' : ''} pour cette créa —
-                            {' '}<a href="/history" className="text-[#3434ef] hover:underline">
+                            {' '}<Link href="/history" className="text-[#3434ef] hover:underline">
                               la plus récente du {new Date(passees[0].createdAt).toLocaleDateString('fr-FR')}
-                            </a>.</>
+                            </Link>.</>
                           )}
                         </p>
                       </div>
@@ -420,7 +421,7 @@ export function DetailCrea({ adId, periode, attribution, decision, format, compt
                     {messageBrief && (
                       <p className="mt-2 text-xs text-gray-600 bg-[#f8f9fc] border border-[#E5E7EB] rounded-lg px-3 py-2">
                         {messageBrief}{' '}
-                        <a href="/creative-strategist" className="text-[#3434ef] hover:underline">Ouvrir les briefs →</a>
+                        <Link href="/creative-strategist" className="text-[#3434ef] hover:underline">Ouvrir les briefs →</Link>
                       </p>
                     )}
                     {analyse && (

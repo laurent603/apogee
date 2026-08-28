@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { OngletBriefs } from '@/components/scalr/OngletBriefs'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 
 const COPY_MODES = [
   { id: 'direct', label: 'Direct Response', desc: 'Copy orientée conversion directe' },
@@ -443,7 +444,7 @@ Réponds UNIQUEMENT avec ce JSON, sans texte ni balises autour :
                 <p className="text-amber-900">
                   <strong>Aucun référentiel pour {selectedAccount?.name || 'ce compte'}.</strong> La génération s&apos;appuiera
                   uniquement sur vos créas en cours et vos Brand Settings.{' '}
-                  <a href="/brand-settings" className="underline font-medium">Importer depuis Notion</a>
+                  <Link href="/brand-settings" className="underline font-medium">Importer depuis Notion</Link>
                   {' '}— le référentiel est propre à chaque compte publicitaire.
                 </p>
               )}
