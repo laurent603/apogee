@@ -275,13 +275,15 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
             <ComposedChart data={s.composition} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis dataKey="date" tickFormatter={jourCourt} {...AXE} minTickGap={4} interval="preserveStartEnd" />
-              <YAxis yAxisId="g" {...AXE} width={52} tickFormatter={court}
+              {/* Assez large pour que le titre d'axe tienne à côté des
+                  graduations : sous 70 px il se superpose ou disparaît. */}
+              <YAxis yAxisId="g" {...AXE} width={74} tickFormatter={court}
                 label={{ value: 'Personnes touchées', angle: -90, position: 'insideLeft',
-                  fontSize: 11, fill: TEINTES.axe, offset: 8 }} />
-              <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} width={52} {...AXE}
+                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
+              <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} width={78} {...AXE}
                 tickFormatter={(v: number) => `${v}%`}
                 label={{ value: '% nouvelles personnes', angle: 90, position: 'insideRight',
-                  fontSize: 11, fill: TEINTES.axe, offset: 8 }} />
+                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))}
@@ -301,7 +303,7 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
         <SurfaceSat titre="Évolution du coût de saturation"
           children={
             <AreaChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <AxesJour unite=" €" largeurY={52} />
+              <AxesJour unite=" €" titreY="Coût de saturation (€)" largeurY={52} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eur(v)} />
               )} />
@@ -367,7 +369,7 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
         <Panneau titre="Évolution CPL"
           children={
             <AreaChart data={serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <AxesJour unite="" largeurY={34} />
+              <AxesJour unite=" €" titreY="CPL (€)" largeurY={40} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eur(v)} />
               )} />
@@ -383,7 +385,9 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
             <BarChart data={serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis dataKey="date" tickFormatter={jourCourt} {...AXE} minTickGap={4} interval="preserveStartEnd" />
-              <YAxis {...AXE} width={34} tickFormatter={court} />
+              <YAxis {...AXE} width={58} tickFormatter={court}
+                label={{ value: 'Euros et leads', angle: -90, position: 'insideLeft',
+                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))}
@@ -400,7 +404,7 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
         <Panneau titre="CTR"
           children={
             <AreaChart data={serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <AxesJour unite="" largeurY={34} />
+              <AxesJour unite=" %" titreY="CTR (%)" largeurY={40} />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))}
                   format={(v) => `${v.toFixed(2)}%`} />
@@ -417,7 +421,9 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
             <BarChart data={parCampagne} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis {...axeCampagne} />
-              <YAxis {...AXE} width={30} />
+              <YAxis {...AXE} width={48}
+                label={{ value: 'Fréquence', angle: -90, position: 'insideLeft',
+                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => v.toFixed(2)} />
@@ -433,7 +439,9 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
             <BarChart data={parCampagne} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} />
               <XAxis {...axeCampagne} />
-              <YAxis {...AXE} width={34} tickFormatter={(v: number) => court(v)} />
+              <YAxis {...AXE} width={54} tickFormatter={(v: number) => `${court(v)} €`}
+                label={{ value: 'Euros', angle: -90, position: 'insideLeft',
+                  fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' } }} />
               <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
                 content={({ active, payload, label }) => (
                   <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />

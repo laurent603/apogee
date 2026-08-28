@@ -45,12 +45,19 @@ export const AXE = {
   axisLine: false,
 } as const
 
+/**
+ * Le `compact()` de Scalr, porté à l'identique.
+ *
+ * Les seuils de décimales sont les siens et comptent : il garde une décimale
+ * jusqu'à cent mille, d'où les « 5,0K » et « 15,0K » de ses axes — pas des
+ * « 5K » et « 15K ».
+ */
 export const court = (v: number) => {
-  if (!Number.isFinite(v)) return ''
-  const a = Math.abs(v)
-  if (a >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')}M`
-  if (a >= 1000) return `${(v / 1000).toFixed(a >= 10_000 ? 0 : 1).replace('.', ',')}K`
-  return String(Math.round(v * 100) / 100).replace('.', ',')
+  const n = Number(v) || 0
+  const a = Math.abs(n)
+  if (a >= 1_000_000) return `${(n / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2).replace('.', ',')}M`
+  if (a >= 1000) return `${(n / 1000).toFixed(a >= 100_000 ? 0 : 1).replace('.', ',')}K`
+  return Math.round(n).toLocaleString('fr-FR')
 }
 
 export const eur = (v: number | null | undefined) =>
@@ -165,13 +172,27 @@ export function GrilleGraphiques({ compact, children }: { compact?: boolean; chi
   )
 }
 
-/** Grille et axes d'une série de jours. Scalr trace la grille sur les deux. */
-export function AxesJour({ unite, largeurY = 44 }: { unite?: string; largeurY?: number }) {
+/**
+ * Grille et axes d'une série de jours.
+ *
+ * Scalr trace la grille sur les deux axes et ne met d'unité que là où elle est
+ * indispensable — le reste vit dans sa légende. Le titre d'axe et l'unité sur
+ * les graduations sont ici systématiques : un graphique doit se lire sans
+ * remonter à sa légende pour savoir de quoi il parle.
+ */
+export function AxesJour({ unite, titreY, largeurY = 44 }: {
+  unite?: string; titreY?: string; largeurY?: number
+}) {
   return (
     <>
       <CartesianGrid stroke={TEINTES.grille} />
       <XAxis dataKey="date" tickFormatter={jourCourt} {...AXE} minTickGap={4} interval="preserveStartEnd" />
-      <YAxis {...AXE} width={largeurY} tickFormatter={(v: number) => court(v) + (unite || '')} />
+      <YAxis {...AXE} width={titreY ? largeurY + 18 : largeurY}
+        tickFormatter={(v: number) => court(v) + (unite || '')}
+        label={titreY ? {
+          value: titreY, angle: -90, position: 'insideLeft',
+          fontSize: 11, fill: TEINTES.axe, style: { textAnchor: 'middle' },
+        } : undefined} />
     </>
   )
 }

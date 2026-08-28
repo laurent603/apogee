@@ -292,7 +292,7 @@ export default function CockpitPage() {
               <GrilleGraphiques>
                 <PanneauGraphique titre="Dépense quotidienne" children={
                   <AreaChart data={d.serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <AxesJour unite="" largeurY={34} />
+                    <AxesJour unite=" €" titreY="Dépense (€)" largeurY={40} />
                     <Tooltip content={({ active, payload, label }) => (
                       <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eurG(v)} />
                     )} />
@@ -304,7 +304,7 @@ export default function CockpitPage() {
                 } />
                 <PanneauGraphique titre="Coût par résultat" children={
                   <AreaChart data={d.serie} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <AxesJour unite="" largeurY={34} />
+                    <AxesJour unite=" €" titreY="Coût / résultat (€)" largeurY={40} />
                     <Tooltip content={({ active, payload, label }) => (
                       <Bulle actif={active} charge={payload as never} titre={jourCourt(String(label))} format={(v) => eurG(v)} />
                     )} />
