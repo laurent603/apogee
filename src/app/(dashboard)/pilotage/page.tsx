@@ -96,6 +96,71 @@ function Variation({ value, def }: { value: number | null | undefined; def: Metr
 const estActif = (s: string | null) => s === 'ACTIVE'
 
 /**
+ * Une ligne, en carte, pour les écrans étroits.
+ *
+ * Deux gestes distincts plutôt qu'un clic à double sens : **toucher la carte**
+ * déplie ses métriques, **toucher le chevron** descend d'un niveau. Un tap
+ * dont la signification dépend d'un état invisible finit toujours par
+ * descendre quand on voulait lire.
+ */
+function CarteLigne({ row, cols, r, niveau, onDescendre }: {
+  row: Ligne; cols: MetricDef[]; r: Reglages; niveau: string; onDescendre: () => void
+}) {
+  const [ouvert, setOuvert] = useState(false)
+  const descendable = niveau !== 'ad'
+
+  return (
+    <div className="card p-0 overflow-hidden">
+      <div className="flex items-start gap-2 p-3">
+        <button onClick={() => setOuvert((v) => !v)} className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2">
+            <span className={clsx('w-1.5 h-1.5 rounded-full flex-shrink-0',
+              estActif(row.status) ? 'bg-emerald-500' : 'bg-gray-300')} />
+            <span className="font-medium text-[#0d0d12] text-sm leading-snug break-words">{row.name}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className={clsx('inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border',
+              COULEUR_DECISION[row.decision.kind] || COULEUR_DECISION.test)}>
+              {row.decision.label}
+            </span>
+            {r.dateLancement && row.createdTime && (
+              <span className="text-[10px] text-gray-400 tabular-nums">{String(row.createdTime).slice(0, 10)}</span>
+            )}
+            <span className="text-[10px] text-gray-400">{ouvert ? 'Masquer' : 'Voir les chiffres'}</span>
+          </div>
+        </button>
+
+        {descendable && (
+          <button onClick={onDescendre} aria-label="Descendre d’un niveau"
+            className="flex-shrink-0 w-9 h-9 rounded-lg border border-[#E5E7EB] text-gray-400 hover:border-[#3434ef] hover:text-[#3434ef] flex items-center justify-center">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {ouvert && (
+        <div className="border-t border-[#F3F4F6] px-3 py-2.5">
+          <p className="text-[11px] text-gray-500 leading-snug mb-2">{row.decision.reason}</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {cols.map((c) => (
+              <div key={c.key} className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-gray-400 truncate">{c.label}</span>
+                <span className="text-xs font-semibold text-[#0d0d12] tabular-nums whitespace-nowrap">
+                  {formatMetric(row[c.key] as number | null, c)}
+                  {r.variations && <Variation value={row.variations?.[c.key]} def={c} />}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Le chemin parcouru en descendant, et le moyen de remonter.
  *
  * La descente ne fait que poser un niveau et un filtre — deux choses que la
@@ -313,8 +378,22 @@ export default function PilotagePage() {
           colonnes={r.colonnesCrea} />
       )}
 
+      {/* Sous 1024 px, une carte par ligne : un tableau à douze colonnes n'y
+          tient pas, et le défilement horizontal met les chiffres hors d'atteinte. */}
       {selectedAccount && !loading && data && niveau !== 'crea' && niveau !== 'fatigue' && (
-        <div className="card p-0 overflow-hidden">
+        <div className="lg:hidden space-y-2">
+          {lignes.map((row) => (
+            <CarteLigne key={row.id} row={row} cols={cols} r={r} niveau={niveau}
+              onDescendre={() => descendre(row)} />
+          ))}
+          {!lignes.length && (
+            <div className="card text-center py-12 text-gray-400 text-sm">Aucune ligne pour ce filtre.</div>
+          )}
+        </div>
+      )}
+
+      {selectedAccount && !loading && data && niveau !== 'crea' && niveau !== 'fatigue' && (
+        <div className="card p-0 overflow-hidden hidden lg:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

@@ -44,7 +44,9 @@ function Apercu({ adId }: { adId: string }) {
     // La colonne est bornée par la modale et reste épinglée : la publicité
     // demeure sous les yeux pendant qu'on fait défiler les chiffres à côté,
     // et c'est cette hauteur connue qui permet d'y faire tenir l'aperçu.
-    <div className="flex flex-col gap-2 xl:sticky xl:top-0 xl:h-[calc(85vh-7.5rem)] min-h-[420px]">
+    // Sur téléphone la publicité passe au-dessus des chiffres, sur une hauteur
+    // bornée : en colonne elle occuperait tout l'écran avant le premier KPI.
+    <div className="flex flex-col gap-2 h-[52vh] xl:h-[calc(85vh-7.5rem)] xl:sticky xl:top-0">
       <div className="flex flex-wrap gap-1 flex-shrink-0">
         {FORMATS.map((f) => (
           <button key={f.id} onClick={() => setFormat(f.id)}
@@ -150,7 +152,7 @@ export function DetailCrea({ adId, periode, attribution, decision, format, onClo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl w-[80vw] h-[85vh] flex flex-col overflow-hidden"
+        className="bg-white shadow-xl w-full h-full flex flex-col overflow-hidden lg:rounded-2xl lg:w-[80vw] lg:h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête : le verdict d'abord, les chiffres ensuite — ils le justifient */}

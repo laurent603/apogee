@@ -183,8 +183,19 @@ export function ApercuMeta({ adId, format = 'MOBILE_FEED_STANDARD', interactif =
     return () => ro.disconnect()
   }, [])
 
-  const surMesure = mode === 'entier'
-  const pret = !surMesure || (boite.l > 0 && boite.h > 0)
+  /**
+   * En dessous de cette largeur, on cesse de demander un rendu sur mesure.
+   *
+   * Meta ne rend rien d'exploitable pour une boîte trop étroite, et la
+   * demande elle-même entretient une boucle : le cadre se mesure, l'iframe
+   * arrive à une autre hauteur, le cadre se remesure, on redemande. Sur un
+   * téléphone la boucle ne se stabilise pas — l'écran saute et l'aperçu reste
+   * vide. On retombe alors sur la taille naturelle de Meta, mise à l'échelle.
+   */
+  const LARGEUR_SUR_MESURE = 360
+
+  const surMesure = mode === 'entier' && boite.l >= LARGEUR_SUR_MESURE
+  const pret = mode !== 'entier' || boite.l > 0
 
   useEffect(() => {
     if (!pret) return
