@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { syncAccountRecent } from '@/lib/scalr/sync'
+import { syncAccountRecent, syncPeriodReach } from '@/lib/scalr/sync'
 import { notifyIncident } from '@/lib/notify'
 
 /**
@@ -16,6 +16,13 @@ import { notifyIncident } from '@/lib/notify'
  * Ne rapatrie qu'une fenêtre récente : c'est un rafraîchissement, pas une
  * reprise d'historique. Les jours déjà en base ne bougent plus, sauf les tout
  * derniers que Meta réattribue encore.
+ *
+ * **La portée dédoublonnée est rafraîchie ici aussi.** Elle ne se déduit pas
+ * des journées : additionner la portée de trente jours compte la même personne
+ * jusqu'à trente fois, et la fréquence qui en découle est environ deux fois
+ * trop haute. Seul Meta sait dédoublonner, à l'échelle qu'on lui demande.
+ * Elle n'était appelée par aucune route : les valeurs en base dataient d'un
+ * passage manuel, et la fréquence du compte n'avait jamais été calculée.
  */
 
 export const maxDuration = 300
@@ -46,7 +53,7 @@ export async function GET(req: NextRequest) {
   const fraicheur = new Map(etats.map((e) => [e.adAccountId, e.lastSyncedAt?.getTime() ?? 0]))
   comptes.sort((a, b) => (fraicheur.get(a.id) ?? 0) - (fraicheur.get(b.id) ?? 0))
 
-  const results: { name: string; rows?: number; skipped?: string; error?: string }[] = []
+  const results: { name: string; rows?: number; portees?: number; skipped?: string; error?: string }[] = []
   let traites = 0
 
   for (const c of comptes) {
@@ -65,7 +72,15 @@ export async function GET(req: NextRequest) {
         token: c.user.accessToken,
         days,
       })
-      results.push({ name: c.name, rows: r.rows })
+      // La portée a son propre garde-fou de fraîcheur : la demander à chaque
+      // passage ne coûte rien tant qu'elle est à jour.
+      const portees = await syncPeriodReach({
+        adAccountId: c.id,
+        metaAccountId: c.metaAccountId,
+        token: c.user.accessToken,
+      }).catch(() => 0)
+
+      results.push({ name: c.name, rows: r.rows, portees })
       traites++
     } catch (e) {
       const msg = e instanceof Error ? e.message.split('\n')[0].slice(0, 200) : 'erreur inconnue'
