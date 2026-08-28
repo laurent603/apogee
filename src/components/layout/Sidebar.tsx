@@ -99,7 +99,22 @@ const sections: Section[] = [
   },
 ]
 
-export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNavigate?: () => void }) {
+/**
+ * Le menu, éventuellement réduit.
+ *
+ * Réduit, il ne garde que les icônes : les tableaux de Media buying tiennent
+ * douze colonnes, et deux cents pixels rendus à la largeur utile changent ce
+ * qu'on lit sans faire défiler.
+ *
+ * La réduction ne vaut qu'à partir de `md`. En dessous, le menu est un tiroir
+ * qui se referme entièrement — le réduire n'aurait aucun sens.
+ */
+export function Sidebar({ open = false, onNavigate, reduit = false, anime = false }: {
+  open?: boolean; onNavigate?: () => void; reduit?: boolean
+  /** Anime le changement de largeur — faux au premier rendu, pour que le menu
+   *  apparaisse déjà réduit au lieu de se réduire à chaque chargement. */
+  anime?: boolean
+}) {
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -107,20 +122,23 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
     <aside
       className={clsx(
         'fixed inset-y-0 left-0 z-40 w-72 flex flex-col h-screen flex-shrink-0 transform transition-transform duration-200 ease-in-out',
-        'md:static md:z-auto md:w-64 md:translate-x-0',
+        'md:static md:z-auto md:translate-x-0',
+        anime && 'md:transition-[width,transform] md:duration-200',
+        reduit ? 'md:w-16' : 'md:w-64',
         open ? 'translate-x-0' : '-translate-x-full'
       )}
       style={{ background: '#3434ef' }}
     >
       {/* Logo */}
-      <div className="px-5 py-5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+      <div className={clsx('py-5 flex items-center justify-between', reduit ? 'md:px-4 px-5' : 'px-5')}
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="font-bold text-white text-base tracking-tight">Leadscore</span>
+          <span className={clsx('font-bold text-white text-base tracking-tight', reduit && 'md:hidden')}>Leadscore</span>
         </div>
         <button
           onClick={onNavigate}
@@ -134,13 +152,17 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      <nav className={clsx('flex-1 py-4 overflow-y-auto', reduit ? 'md:px-2 px-3' : 'px-3')}>
         <div className="space-y-5">
           {sections.map((section) => (
             <div key={section.titre}>
-              <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-white/40">
+              {/* Réduit, le titre laisse place à un filet : le regroupement
+                  reste lisible sans occuper une ligne de texte. */}
+              <p className={clsx('px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-white/40',
+                reduit && 'md:hidden')}>
                 {section.titre}
               </p>
+              {reduit && <div className="hidden md:block mx-3 mb-2 h-px bg-white/15" />}
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -149,15 +171,17 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
                       key={item.href}
                       href={item.href}
                       onClick={onNavigate}
+                      title={reduit ? item.label : undefined}
                       className={clsx(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                        'flex items-center gap-3 py-2 rounded-lg text-sm font-medium transition-all',
+                        reduit ? 'px-3 md:px-0 md:justify-center' : 'px-3',
                         active ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'
                       )}
                     >
                       <span className={clsx('flex-shrink-0 transition-opacity', active ? 'opacity-100' : 'opacity-60')}>
                         {item.icon}
                       </span>
-                      <span className="truncate">{item.label}</span>
+                      <span className={clsx('truncate', reduit && 'md:hidden')}>{item.label}</span>
                     </Link>
                   )
                 })}
@@ -168,18 +192,19 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
       </nav>
 
       {/* User */}
-      <div className="px-3 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-        <div className="flex items-center gap-3 px-2 py-2">
+      <div className={clsx('py-4', reduit ? 'md:px-2 px-3' : 'px-3')} style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+        <div className={clsx('flex items-center gap-3 py-2', reduit ? 'px-2 md:px-0 md:flex-col md:gap-2' : 'px-2')}>
           {session?.user?.image && (
             <Image
               src={session.user.image}
               alt="avatar"
               width={32}
               height={32}
+              title={reduit ? session.user.name ?? undefined : undefined}
               className="rounded-full flex-shrink-0 ring-2 ring-white/20"
             />
           )}
-          <div className="flex-1 min-w-0">
+          <div className={clsx('flex-1 min-w-0', reduit && 'md:hidden')}>
             <p className="text-sm font-medium text-white truncate">{session?.user?.name}</p>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
@@ -188,6 +213,20 @@ export function Sidebar({ open = false, onNavigate }: { open?: boolean; onNaviga
               Déconnexion
             </button>
           </div>
+          {/* Réduit, la déconnexion reste atteignable — sans elle, il faudrait
+              rouvrir le menu pour sortir. */}
+          {reduit && (
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              title="Déconnexion"
+              aria-label="Déconnexion"
+              className="hidden md:flex p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </aside>

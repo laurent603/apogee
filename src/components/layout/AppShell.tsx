@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { AccountSelector } from './AccountSelector'
 import { useStore } from '@/lib/store'
@@ -26,12 +26,31 @@ function BanniereSansBase() {
   )
 }
 
+const CLE_REDUIT = 'leadscore-menu-reduit'
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
+  const [reduit, setReduit] = useState(false)
+  // `monte` retarde l'animation d'un cran : au chargement, le menu doit
+  // apparaître déjà réduit, pas se réduire sous les yeux à chaque page.
+  const [monte, setMonte] = useState(false)
+
+  useEffect(() => {
+    try { setReduit(localStorage.getItem(CLE_REDUIT) === '1') } catch { /* stockage refusé */ }
+    setMonte(true)
+  }, [])
+
+  const basculer = () => {
+    setReduit((v) => {
+      const n = !v
+      try { localStorage.setItem(CLE_REDUIT, n ? '1' : '0') } catch { /* stockage refusé */ }
+      return n
+    })
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f8f9fc]">
-      <Sidebar open={open} onNavigate={() => setOpen(false)} />
+      <Sidebar open={open} onNavigate={() => setOpen(false)} reduit={reduit} anime={monte} />
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
@@ -50,6 +69,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            {/* Réduire le menu : les tableaux à douze colonnes gagnent
+                deux cents pixels de largeur utile. */}
+            <button
+              onClick={basculer}
+              title={reduit ? 'Déployer le menu' : 'Réduire le menu'}
+              aria-label={reduit ? 'Déployer le menu' : 'Réduire le menu'}
+              aria-pressed={reduit}
+              className="hidden md:flex p-2 -ml-2 mr-1 rounded-lg text-gray-400 hover:text-[#0d0d12] hover:bg-gray-100 flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d={reduit ? 'M13 9l3 3-3 3' : 'M11 9l-3 3 3 3'} />
               </svg>
             </button>
             <AccountSelector />
