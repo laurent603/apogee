@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  Line, ComposedChart, Area, AreaChart, Legend,
+  Line, LineChart, Area, AreaChart, Legend, Cell,
 } from 'recharts'
 import type { Saturation, Verdict } from '@/lib/scalr/cockpit'
+import { TEINTES, ETAT, AXE, court, eur, Bulle, Cadre, AxesJour } from './graphiques'
 
 /**
  * Les blocs dépliables du cockpit : le détail, la saturation, les tendances.
@@ -60,9 +61,6 @@ const fmt = (v: number | null | undefined, u: Unite) => {
   return Math.round(v).toLocaleString('fr-FR')
 }
 
-/** Format court pour les axes : 12 480 devient 12,5 k. */
-const court = (v: number) =>
-  Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1).replace('.', ',')} k` : String(v)
 
 const TEINTE_VERDICT: Record<Verdict['niveau'], string> = {
   bon: 'border-emerald-200 bg-emerald-50/50',
@@ -268,39 +266,37 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
           sous="estimé" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">Composition des expositions</p>
-          <ResponsiveContainer width="100%" height={230}>
-            <ComposedChart data={s.composition} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={jour} tick={{ fontSize: 9, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-              <YAxis yAxisId="g" tickFormatter={court} tick={{ fontSize: 9, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-              <YAxis yAxisId="d" orientation="right" domain={[0, 100]} unit="%"
-                tick={{ fontSize: 9, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar yAxisId="g" dataKey="fraiches" name="Fraîches" stackId="a" fill="#22c55e" radius={[3, 3, 0, 0]} />
-              <Bar yAxisId="g" dataKey="revues" name="Revues" stackId="a" fill="#93c5fd" radius={[3, 3, 0, 0]} />
-              <Line yAxisId="d" type="monotone" dataKey="partFraiche" name="% fraîches" stroke="#eab308" strokeWidth={2} dot={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Empilement : la part fraîche se lit dans la hauteur bleue, sans
+            qu'une seconde échelle vienne s'y superposer. */}
+        <Cadre titre="Composition des expositions" note="par jour"
+          children={
+            <BarChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} vertical={false} />
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8, 10)} {...AXE} minTickGap={16} />
+              <YAxis {...AXE} width={44} tickFormatter={court} />
+              <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
+                content={({ active, payload, label }) => (
+                  <Bulle actif={active} charge={payload as never} titre={String(label)} />
+                )} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
+              <Bar dataKey="fraiches" name="Personnes fraîches" stackId="a" fill={TEINTES.primaire} />
+              <Bar dataKey="revues" name="Déjà exposées" stackId="a" fill={TEINTES.neutre} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          } />
 
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">Évolution du coût de saturation</p>
-          <ResponsiveContainer width="100%" height={230}>
-            <AreaChart data={s.composition} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={jour} tick={{ fontSize: 9, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 9, fill: '#9CA3AF' }} tickLine={false} axisLine={false} unit=" €" />
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
-                formatter={(v: number) => [`${v.toFixed(2)} €`, 'Coût de saturation']} />
-              <Area type="monotone" dataKey="cout" stroke="#f97316" fill="#f97316" fillOpacity={0.12}
-                strokeWidth={2} connectNulls />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <Cadre titre="Coût de saturation" note="CPM × fréquence"
+          children={
+            <LineChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <AxesJour unite=" €" />
+              <Tooltip content={({ active, payload, label }) => (
+                <Bulle actif={active} charge={payload as never} titre={String(label)}
+                  format={(v) => eur(v)} />
+              )} />
+              <Line type="monotone" dataKey="cout" name="Coût de saturation"
+                stroke={TEINTES.secondaire} strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
+            </LineChart>
+          } />
       </div>
 
       <BoiteVerdict v={verdict} />
@@ -314,103 +310,129 @@ type Campagne = { id: string; name: string; cpm: number | null; cpc: number | nu
 /** Un nom de campagne entier écrase l'axe ; le début porte la convention. */
 const nomCourt = (s: string) => (s.length > 22 ? `${s.slice(0, 21)}…` : s)
 
+/**
+ * Les tendances.
+ *
+ * Chaque graphique porte **une échelle**. La dépense et les prospects étaient
+ * superposés sur deux axes verticaux : leur alignement était arbitraire et
+ * suggérait une corrélation que les données ne portent pas. Ils sont
+ * maintenant côte à côte, chacun lisible pour ce qu'il est.
+ */
 export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campagnes: Campagne[] }) {
-  const jour = (d: string) => d.slice(5)
-  const axe = { tick: { fontSize: 9, fill: '#9CA3AF' }, tickLine: false, axisLine: false } as const
-  const infoBulle = { borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }
+  const parFrequence = [...campagnes]
+    .filter((c) => c.frequency != null)
+    .sort((a, b) => (b.frequency ?? 0) - (a.frequency ?? 0))
+    .slice(0, 8)
 
-  // La fréquence se colore par seuil : au-delà de 3, l'audience sature.
+  // La fréquence est un état, pas une catégorie : sa couleur vient du registre
+  // d'état, et un libellé la double pour ne jamais reposer sur la couleur seule.
   const teinteFreq = (f: number | null) =>
-    f == null ? '#93c5fd' : f > 3 ? '#ef4444' : f > 2.5 ? '#eab308' : '#22c55e'
+    f == null ? TEINTES.neutre : f > 3 ? ETAT.critique : f > 2.5 ? ETAT.attention : ETAT.bon
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">Évolution du CPL</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={serie} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={jour} {...axe} />
-              <YAxis {...axe} unit=" €" />
-              <Tooltip contentStyle={infoBulle} formatter={(v: number) => [`${v.toFixed(2)} €`, 'CPL']} />
-              {/* `connectNulls` : un jour sans lead n'a pas de CPL — le tracer à
-                  zéro laisserait croire à un coût nul. */}
-              <Area type="monotone" dataKey="cpl" stroke="#f97316" fill="#f97316" fillOpacity={0.12}
-                strokeWidth={2} connectNulls />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Cadre titre="Coût par résultat" note="par jour"
+          children={
+            <LineChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <AxesJour unite=" €" />
+              <Tooltip content={({ active, payload, label }) => (
+                <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
+              )} />
+              {/* `connectNulls` : un jour sans résultat n'a pas de coût — le
+                  tracer à zéro laisserait croire à une journée gratuite. */}
+              <Line type="monotone" dataKey="cpl" name="Coût par résultat"
+                stroke={TEINTES.secondaire} strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
+            </LineChart>
+          } />
 
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">Budget dépensé et leads</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={serie} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={jour} {...axe} />
-              <YAxis yAxisId="g" {...axe} tickFormatter={court} />
-              <YAxis yAxisId="d" orientation="right" {...axe} />
-              <Tooltip contentStyle={infoBulle} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar yAxisId="g" dataKey="spend" name="Dépense (€)" fill="#f97316" radius={[3, 3, 0, 0]} />
-              <Bar yAxisId="d" dataKey="leads" name="Leads" fill="#3434ef" radius={[3, 3, 0, 0]} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+        <Cadre titre="CTR" note="par jour"
+          children={
+            <LineChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <AxesJour unite="%" />
+              <Tooltip content={({ active, payload, label }) => (
+                <Bulle actif={active} charge={payload as never} titre={String(label)}
+                  format={(v) => `${v.toFixed(2)}%`} />
+              )} />
+              <Line type="monotone" dataKey="ctr" name="CTR"
+                stroke={TEINTES.primaire} strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
+            </LineChart>
+          } />
+
+        <Cadre titre="Dépense" note="par jour"
+          children={
+            <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <AxesJour unite=" €" />
+              <Tooltip content={({ active, payload, label }) => (
+                <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
+              )} />
+              <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.primaire}
+                fill={TEINTES.primaire} fillOpacity={0.1} strokeWidth={2} activeDot={{ r: 4 }} />
+            </AreaChart>
+          } />
+
+        <Cadre titre="Prospects" note="par jour"
+          children={
+            <BarChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} vertical={false} />
+              <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(8, 10)} {...AXE} minTickGap={16} />
+              <YAxis {...AXE} width={44} tickFormatter={court} />
+              <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
+                content={({ active, payload, label }) => (
+                  <Bulle actif={active} charge={payload as never} titre={String(label)}
+                    format={(v) => String(Math.round(v))} />
+                )} />
+              <Bar dataKey="leads" name="Prospects" fill={TEINTES.primaire} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          } />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">CTR</p>
-          <ResponsiveContainer width="100%" height={190}>
-            <AreaChart data={serie} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={jour} {...axe} />
-              <YAxis {...axe} unit="%" />
-              <Tooltip contentStyle={infoBulle} formatter={(v: number) => [`${v.toFixed(2)}%`, 'CTR']} />
-              <Area type="monotone" dataKey="ctr" stroke="#22c55e" fill="#22c55e" fillOpacity={0.12}
-                strokeWidth={2} connectNulls />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">Fréquence par campagne</p>
-          <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={campagnes} margin={{ top: 4, right: 4, left: -26, bottom: 26 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="name" tickFormatter={nomCourt} angle={-35} textAnchor="end"
-                interval={0} height={54} tick={{ fontSize: 8, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-              <YAxis {...axe} />
-              <Tooltip contentStyle={infoBulle} formatter={(v: number) => [v.toFixed(2), 'Fréquence']} />
-              <Bar dataKey="frequency" radius={[3, 3, 0, 0]}
-                shape={(props: unknown) => {
-                  const { x, y, width, height, payload } = props as {
-                    x: number; y: number; width: number; height: number; payload: Campagne
-                  }
-                  if (!(height > 0)) return <g />
-                  return <rect x={x} y={y} width={width} height={height} rx={3} fill={teinteFreq(payload.frequency)} />
-                }} />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Barres horizontales : un nom de campagne se lit, là où un axe
+            incliné le tronque. */}
+        <Cadre titre="Fréquence par campagne" note="8 premières par dépense"
+          hauteur={Math.max(160, parFrequence.length * 34 + 20)}
+          children={
+            <BarChart data={parFrequence} layout="vertical"
+              margin={{ top: 0, right: 44, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} horizontal={false} />
+              <XAxis type="number" {...AXE} />
+              <YAxis type="category" dataKey="name" width={150} {...AXE}
+                tickFormatter={(v: string) => (v.length > 22 ? v.slice(0, 21) + '…' : v)} />
+              <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
+                content={({ active, payload, label }) => (
+                  <Bulle actif={active} charge={payload as never} titre={String(label)}
+                    format={(v) => v.toFixed(2)} />
+                )} />
+              <Bar dataKey="frequency" name="Fréquence" radius={[0, 4, 4, 0]} barSize={16}
+                label={{ position: 'right', fontSize: 10, fill: TEINTES.encre,
+                  formatter: (v: number) => (v == null ? '' : v.toFixed(2)) }}>
+                {parFrequence.map((c) => <Cell key={c.id} fill={teinteFreq(c.frequency)} />)}
+              </Bar>
             </BarChart>
-          </ResponsiveContainer>
-        </div>
+          } />
 
-        <div>
-          <p className="text-xs font-semibold text-[#0d0d12] mb-2">CPM et CPC par campagne</p>
-          <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={campagnes} margin={{ top: 4, right: 4, left: -26, bottom: 26 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-              <XAxis dataKey="name" tickFormatter={nomCourt} angle={-35} textAnchor="end"
-                interval={0} height={54} tick={{ fontSize: 8, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-              <YAxis {...axe} unit=" €" />
-              <Tooltip contentStyle={infoBulle} formatter={(v: number) => [`${v.toFixed(2)} €`, '']} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="cpm" name="CPM" fill="#a855f7" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="cpc" name="CPC" fill="#ec4899" radius={[3, 3, 0, 0]} />
+        {/* CPM et CPC partagent l'euro : une seule échelle suffit. */}
+        <Cadre titre="CPM et CPC par campagne" note="même échelle, en euros"
+          hauteur={Math.max(160, campagnes.slice(0, 8).length * 34 + 40)}
+          children={
+            <BarChart data={campagnes.slice(0, 8)} layout="vertical"
+              margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={TEINTES.grille} horizontal={false} />
+              <XAxis type="number" {...AXE} tickFormatter={(v: number) => `${court(v)} €`} />
+              <YAxis type="category" dataKey="name" width={150} {...AXE}
+                tickFormatter={(v: string) => (v.length > 22 ? v.slice(0, 21) + '…' : v)} />
+              <Tooltip cursor={{ fill: 'rgba(52,52,239,.05)' }}
+                content={({ active, payload, label }) => (
+                  <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
+                )} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
+              <Bar dataKey="cpm" name="CPM" fill={TEINTES.primaire} radius={[0, 4, 4, 0]} barSize={10} />
+              <Bar dataKey="cpc" name="CPC" fill={TEINTES.secondaire} radius={[0, 4, 4, 0]} barSize={10} />
             </BarChart>
-          </ResponsiveContainer>
-        </div>
+          } />
       </div>
     </div>
   )
+
 }

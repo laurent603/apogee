@@ -2,9 +2,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
-import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, ComposedChart,
-} from 'recharts'
+import { AreaChart, Area, Tooltip, Line, LineChart } from 'recharts'
+import { TEINTES, Bulle, Cadre, AxesJour, eur as eurG } from '@/components/scalr/graphiques'
 import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
 import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance, QualiteProspect, type Tunnel } from '@/components/scalr/BlocsDetail'
 
@@ -285,28 +284,38 @@ export default function CockpitPage() {
               </Panneau>
             </div>
 
-            {/* ── Tendance ── */}
+            {/* ── Tendance ──
+                Deux mesures d'échelles différentes, deux graphiques. Superposées
+                sur deux axes verticaux, leur alignement était arbitraire et
+                suggérait une corrélation absente des données. */}
             <div className="card">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-[#0d0d12]">Dépense et coût par résultat</h2>
+              <div className="flex items-baseline justify-between gap-3 mb-3">
+                <h2 className="text-sm font-semibold text-[#0d0d12]">Tendance</h2>
                 <span className="text-[11px] text-gray-400">{d.serie.length} jours</span>
               </div>
               {d.serie.length > 1 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <ComposedChart data={d.serie} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false}
-                      tickFormatter={(v: string) => v.slice(5)} />
-                    <YAxis yAxisId="g" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-                    <YAxis yAxisId="d" orientation="right" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }}
-                      formatter={(v: number, n: string) => [n === 'Dépense' ? eur(v) : eur(v), n]} />
-                    <Area yAxisId="g" type="monotone" dataKey="spend" name="Dépense" stroke="#3434ef"
-                      fill="#3434ef" fillOpacity={0.08} strokeWidth={2} />
-                    <Line yAxisId="d" type="monotone" dataKey="cpl" name="Coût / résultat" stroke="#f97316"
-                      strokeWidth={2} dot={false} connectNulls />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Cadre titre="Dépense" note="par jour" children={
+                    <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <AxesJour unite=" €" />
+                      <Tooltip content={({ active, payload, label }) => (
+                        <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
+                      )} />
+                      <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.primaire}
+                        fill={TEINTES.primaire} fillOpacity={0.1} strokeWidth={2} activeDot={{ r: 4 }} />
+                    </AreaChart>
+                  } />
+                  <Cadre titre="Coût par résultat" note="par jour" children={
+                    <LineChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <AxesJour unite=" €" />
+                      <Tooltip content={({ active, payload, label }) => (
+                        <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
+                      )} />
+                      <Line type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
+                        strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
+                    </LineChart>
+                  } />
+                </div>
               ) : (
                 <p className="text-sm text-gray-400 text-center py-12">Pas assez de jours pour tracer une tendance.</p>
               )}

@@ -350,6 +350,15 @@ export const FENETRES = [7, 14, 30, 90] as const
  * recomptage des mêmes personnes d'un jour sur l'autre : sous-estimée, elle
  * empêcherait la règle de fatigue (seuil 2,6) de se déclencher un seul jour.
  */
+/**
+ * Les niveaux de portée demandés à Meta.
+ *
+ * Le niveau compte porte la fréquence globale du cockpit : additionner la
+ * portée des campagnes compterait plusieurs fois la même personne, et c'est
+ * Meta qui doit dédoublonner, à l'échelle demandée.
+ */
+const NIVEAUX_PORTEE = ['account', 'campaign', 'adset', 'ad'] as const
+
 export async function syncPeriodReach(opts: {
   adAccountId: string
   metaAccountId: string
@@ -361,18 +370,25 @@ export async function syncPeriodReach(opts: {
   // déjà rafraîchis. Sans ce garde-fou, une seconde passe du cron repayait
   // l'intégralité du coût pour rien.
   const seuil = new Date(Date.now() - (opts.fraicheurH ?? 20) * 3_600_000)
-  const recent = await prisma.metaPeriodReach.findFirst({
+  /**
+   * Le garde-fou vérifie que **chaque niveau** est frais, pas qu'une ligne
+   * l'est.
+   *
+   * Il regardait n'importe quelle ligne récente et s'arrêtait là. Le jour où
+   * le niveau `account` a été ajouté, les lignes de campagne rafraîchies la
+   * veille suffisaient à faire croire au travail fait : le nouveau niveau
+   * n'aurait jamais été écrit, et la fréquence du compte serait restée muette
+   * indéfiniment. Un niveau ajouté doit se remplir tout seul au passage
+   * suivant.
+   */
+  const frais = await prisma.metaPeriodReach.findMany({
     where: { adAccountId: opts.adAccountId, syncedAt: { gte: seuil } },
-    select: { id: true },
+    distinct: ['level'],
+    select: { level: true },
   })
-  if (recent) return 0
+  if (NIVEAUX_PORTEE.every((n) => frais.some((f) => f.level === n))) return 0
 
-  // Le niveau compte porte la fréquence globale du cockpit. Additionner la
-  // portée des campagnes compterait plusieurs fois la même personne : c'est
-  // Meta qui doit dédoublonner, et il ne le fait qu'à l'échelle demandée.
-  const niveaux: [string, string][] = [
-    ['account', 'account'], ['campaign', 'campaign'], ['adset', 'adset'], ['ad', 'ad'],
-  ]
+  const niveaux: [string, string][] = NIVEAUX_PORTEE.map((n) => [n, n])
   let ecrits = 0
 
   for (const jours of FENETRES) {
