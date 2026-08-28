@@ -27,7 +27,7 @@ export const TEINTES = {
   quatrieme: '#eda100',
   /** Le complément d'un empilement — « le reste » n'est pas une catégorie. */
   neutre: '#cbd5e1',
-  grille: '#EEF0F4',
+  grille: '#DFE3EA',
   axe: '#9CA3AF',
   encre: '#0d0d12',
 } as const
@@ -86,18 +86,54 @@ export function Bulle({ actif, charge, titre, format }: {
   )
 }
 
-/** Le cadre d'un graphique : un titre, une note, et la surface de tracé. */
-export function Cadre({ titre, note, hauteur = 210, children }: {
-  titre: string; note?: string; hauteur?: number; children: React.ReactElement
+/**
+ * Le cadre d'un graphique.
+ *
+ * La surface de tracé est posée sur le gris de fond de l'application plutôt
+ * que sur du blanc : une courbe fine sur blanc n'a rien pour s'appuyer, et le
+ * graphique flotte. Le panneau lui donne une assise, et reprend le vocabulaire
+ * des cartes — même gris, même rayon, même filet.
+ */
+export function Cadre({ titre, note, valeur, hauteur = 210, children }: {
+  titre: string
+  note?: string
+  /** Un chiffre de tête, quand une valeur résume le graphique. */
+  valeur?: string
+  hauteur?: number
+  children: React.ReactElement
 }) {
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2 mb-2">
-        <p className="text-xs font-semibold text-[#0d0d12]">{titre}</p>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <p className="text-xs font-semibold text-[#0d0d12] truncate">{titre}</p>
+          {valeur && <p className="text-sm font-bold text-[#0d0d12] tabular-nums">{valeur}</p>}
+        </div>
         {note && <p className="text-[11px] text-gray-400 whitespace-nowrap">{note}</p>}
       </div>
-      <ResponsiveContainer width="100%" height={hauteur}>{children}</ResponsiveContainer>
+      <div className="bg-[#f8f9fc] border border-[#EEF0F4] rounded-xl p-2.5 pr-3">
+        <ResponsiveContainer width="100%" height={hauteur}>{children}</ResponsiveContainer>
+      </div>
     </div>
+  )
+}
+
+/**
+ * Le dégradé sous une aire.
+ *
+ * Une courbe seule ne donne aucune idée du volume qu'elle décrit. Le dégradé
+ * ancre le tracé sur sa ligne de base et disparaît en montant, sans peser
+ * comme un aplat.
+ */
+export function Degrade({ id, teinte }: { id: string; teinte: string }) {
+  return (
+    <defs>
+      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={teinte} stopOpacity={0.28} />
+        <stop offset="60%" stopColor={teinte} stopOpacity={0.08} />
+        <stop offset="100%" stopColor={teinte} stopOpacity={0} />
+      </linearGradient>
+    </defs>
   )
 }
 
@@ -105,7 +141,7 @@ export function Cadre({ titre, note, hauteur = 210, children }: {
 export function AxesJour({ unite, largeurY = 44 }: { unite?: string; largeurY?: number }) {
   return (
     <>
-      <CartesianGrid stroke={TEINTES.grille} vertical={false} />
+      <CartesianGrid stroke={TEINTES.grille} strokeDasharray="3 4" vertical={false} />
       <XAxis dataKey="date" tickFormatter={jour} {...AXE} minTickGap={24} />
       <YAxis {...AXE} width={largeurY} tickFormatter={(v: number) => court(v) + (unite || '')} />
     </>

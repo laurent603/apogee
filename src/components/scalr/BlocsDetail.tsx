@@ -6,7 +6,7 @@ import {
   Line, LineChart, Area, AreaChart, Legend, Cell,
 } from 'recharts'
 import type { Saturation, Verdict } from '@/lib/scalr/cockpit'
-import { TEINTES, ETAT, AXE, court, eur, Bulle, Cadre, AxesJour } from './graphiques'
+import { TEINTES, ETAT, AXE, court, eur, Bulle, Cadre, AxesJour, Degrade } from './graphiques'
 
 /**
  * Les blocs dépliables du cockpit : le détail, la saturation, les tendances.
@@ -280,22 +280,25 @@ export function SaturationAudience({ s, verdict }: { s: Saturation; verdict: Ver
                   <Bulle actif={active} charge={payload as never} titre={String(label)} />
                 )} />
               <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconType="circle" iconSize={8} />
-              <Bar dataKey="fraiches" name="Personnes fraîches" stackId="a" fill={TEINTES.primaire} />
-              <Bar dataKey="revues" name="Déjà exposées" stackId="a" fill={TEINTES.neutre} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fraiches" name="Personnes fraîches" stackId="a" fill={TEINTES.primaire} maxBarSize={22} />
+              <Bar dataKey="revues" name="Déjà exposées" stackId="a" fill={TEINTES.neutre} radius={[4, 4, 0, 0]} maxBarSize={22} />
             </BarChart>
           } />
 
         <Cadre titre="Coût de saturation" note="CPM × fréquence"
+          valeur={s.coutSaturation != null ? `${s.coutSaturation.toFixed(2)} €` : undefined}
           children={
-            <LineChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <AreaChart data={s.composition} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <Degrade id="gSat" teinte={TEINTES.secondaire} />
               <AxesJour unite=" €" />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={String(label)}
                   format={(v) => eur(v)} />
               )} />
-              <Line type="monotone" dataKey="cout" name="Coût de saturation"
-                stroke={TEINTES.secondaire} strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
-            </LineChart>
+              <Area type="monotone" dataKey="cout" name="Coût de saturation"
+                stroke={TEINTES.secondaire} strokeWidth={2.5} fill="url(#gSat)"
+                activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+            </AreaChart>
           } />
       </div>
 
@@ -319,6 +322,15 @@ const nomCourt = (s: string) => (s.length > 22 ? `${s.slice(0, 21)}…` : s)
  * maintenant côte à côte, chacun lisible pour ce qu'il est.
  */
 export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campagnes: Campagne[] }) {
+  /** Le chiffre de tête d'un graphique : un total pour un volume, une moyenne
+   *  pour un taux — additionner des pourcentages ne veut rien dire. */
+  const total = (cle: 'spend' | 'leads') =>
+    serie.reduce((t, j) => t + (Number(j[cle]) || 0), 0)
+  const moyenne = (cle: 'cpl' | 'ctr') => {
+    const v = serie.map((j) => j[cle]).filter((x): x is number => x != null && Number.isFinite(x))
+    return v.length ? v.reduce((t, x) => t + x, 0) / v.length : null
+  }
+
   const parFrequence = [...campagnes]
     .filter((c) => c.frequency != null)
     .sort((a, b) => (b.frequency ?? 0) - (a.frequency ?? 0))
@@ -332,46 +344,50 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <Cadre titre="Coût par résultat" note="par jour"
+        <Cadre titre="Coût par résultat" note="par jour" valeur={eur(moyenne('cpl'))}
           children={
-            <LineChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <Degrade id="gCpl" teinte={TEINTES.secondaire} />
               <AxesJour unite=" €" />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
               )} />
               {/* `connectNulls` : un jour sans résultat n'a pas de coût — le
                   tracer à zéro laisserait croire à une journée gratuite. */}
-              <Line type="monotone" dataKey="cpl" name="Coût par résultat"
-                stroke={TEINTES.secondaire} strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
-            </LineChart>
+              <Area type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
+                strokeWidth={2.5} fill="url(#gCpl)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+            </AreaChart>
           } />
 
         <Cadre titre="CTR" note="par jour"
+          valeur={moyenne('ctr') != null ? `${moyenne('ctr')!.toFixed(2)}%` : undefined}
           children={
-            <LineChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <Degrade id="gCtr" teinte={TEINTES.primaire} />
               <AxesJour unite="%" />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={String(label)}
                   format={(v) => `${v.toFixed(2)}%`} />
               )} />
-              <Line type="monotone" dataKey="ctr" name="CTR"
-                stroke={TEINTES.primaire} strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
-            </LineChart>
+              <Area type="monotone" dataKey="ctr" name="CTR" stroke={TEINTES.primaire}
+                strokeWidth={2.5} fill="url(#gCtr)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+            </AreaChart>
           } />
 
-        <Cadre titre="Dépense" note="par jour"
+        <Cadre titre="Dépense" note="par jour" valeur={eur(total('spend'))}
           children={
             <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <Degrade id="gDep" teinte={TEINTES.primaire} />
               <AxesJour unite=" €" />
               <Tooltip content={({ active, payload, label }) => (
                 <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eur(v)} />
               )} />
               <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.primaire}
-                fill={TEINTES.primaire} fillOpacity={0.1} strokeWidth={2} activeDot={{ r: 4 }} />
+                strokeWidth={2.5} fill="url(#gDep)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} />
             </AreaChart>
           } />
 
-        <Cadre titre="Prospects" note="par jour"
+        <Cadre titre="Prospects" note="par jour" valeur={court(total('leads') ?? 0)}
           children={
             <BarChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid stroke={TEINTES.grille} vertical={false} />
@@ -382,7 +398,7 @@ export function GraphiquesTendance({ serie, campagnes }: { serie: Jour[]; campag
                   <Bulle actif={active} charge={payload as never} titre={String(label)}
                     format={(v) => String(Math.round(v))} />
                 )} />
-              <Bar dataKey="leads" name="Prospects" fill={TEINTES.primaire} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="leads" name="Prospects" fill={TEINTES.primaire} radius={[4, 4, 0, 0]} maxBarSize={22} />
             </BarChart>
           } />
       </div>

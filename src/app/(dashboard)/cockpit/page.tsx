@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
-import { AreaChart, Area, Tooltip, Line, LineChart } from 'recharts'
-import { TEINTES, Bulle, Cadre, AxesJour, eur as eurG } from '@/components/scalr/graphiques'
+import { AreaChart, Area, Tooltip } from 'recharts'
+import { TEINTES, Bulle, Cadre, AxesJour, Degrade, eur as eurG } from '@/components/scalr/graphiques'
 import type { Sante, Signal, Saturation, Verdict } from '@/lib/scalr/cockpit'
 import { Bloc, MetriquesDetaillees, SaturationAudience, GraphiquesTendance, QualiteProspect, type Tunnel } from '@/components/scalr/BlocsDetail'
 
@@ -295,25 +295,27 @@ export default function CockpitPage() {
               </div>
               {d.serie.length > 1 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Cadre titre="Dépense" note="par jour" children={
+                  <Cadre titre="Dépense" note="par jour" valeur={eurG(c.spend)} children={
                     <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <Degrade id="gCkDep" teinte={TEINTES.primaire} />
                       <AxesJour unite=" €" />
                       <Tooltip content={({ active, payload, label }) => (
                         <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
                       )} />
                       <Area type="monotone" dataKey="spend" name="Dépense" stroke={TEINTES.primaire}
-                        fill={TEINTES.primaire} fillOpacity={0.1} strokeWidth={2} activeDot={{ r: 4 }} />
+                        strokeWidth={2.5} fill="url(#gCkDep)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} />
                     </AreaChart>
                   } />
-                  <Cadre titre="Coût par résultat" note="par jour" children={
-                    <LineChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <Cadre titre="Coût par résultat" note="par jour" valeur={eurG(c.costPerResult)} children={
+                    <AreaChart data={d.serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <Degrade id="gCkCpl" teinte={TEINTES.secondaire} />
                       <AxesJour unite=" €" />
                       <Tooltip content={({ active, payload, label }) => (
                         <Bulle actif={active} charge={payload as never} titre={String(label)} format={(v) => eurG(v)} />
                       )} />
-                      <Line type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
-                        strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
-                    </LineChart>
+                      <Area type="monotone" dataKey="cpl" name="Coût par résultat" stroke={TEINTES.secondaire}
+                        strokeWidth={2.5} fill="url(#gCkCpl)" activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }} connectNulls />
+                    </AreaChart>
                   } />
                 </div>
               ) : (
