@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { checkGhlAccess, syncGhl, syncGhlTunnel } from '@/lib/ghl'
+import { checkGhlAccess, syncGhlComplet } from '@/lib/ghl'
 
 export const maxDuration = 120
 
@@ -75,31 +75,33 @@ export async function POST(req: NextRequest) {
     // Fails early with a clear message when the token is scoped to another
     // sub-account, rather than returning an empty pipeline
     const locationName = await checkGhlAccess(g.token, g.locationId)
-    const summary = await syncGhl(g.token, g.locationId)
+
+    // Une seule lecture des opportunités pour l'attribution et le tunnel.
+    const { resume, tunnel, erreurContacts } = await syncGhlComplet(g.token, g.locationId, {
+      lead: g.tagLead, rdv: g.tagRdv, devis: g.tagDevis, signe: g.tagSigne,
+    })
 
     /**
-     * Le tunnel par journée, à part.
+     * Le tunnel s'écrit en un seul aller-retour.
      *
-     * Il lit les contacts, une ressource que l'API GoHighLevel rend parfois en
-     * 500 sans raison tenant au compte. Cette lecture est un ajout : la
-     * remonter au même niveau que les opportunités ferait échouer une synchro
-     * qui fonctionnait, et priverait l'écran de tout — attribution comprise —
-     * pour une partie facultative. Elle échoue donc seule, et le dit.
+     * Deux cent seize `upsert` enchaînés sur une connexion mutualisée coûtaient
+     * plus de temps que tous les appels à GoHighLevel réunis. Un remplacement
+     * en bloc, dans une transaction, tient en une fraction du temps — et ne
+     * peut pas laisser la table à moitié écrite.
      */
-    let tunnel: { date: string }[] = []
-    let erreurTunnel: string | null = null
+    let erreurTunnel: string | null = erreurContacts
     try {
-      const jours = await syncGhlTunnel(g.token, g.locationId, {
-        lead: g.tagLead, rdv: g.tagRdv, devis: g.tagDevis, signe: g.tagSigne,
-      })
-      tunnel = jours
-      for (const j of jours) {
-        const date = new Date(`${j.date}T00:00:00.000Z`)
-        await prisma.ghlDaily.upsert({
-          where: { adAccountId_date: { adAccountId: dbAccountId, date } },
-          update: { leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca, syncedAt: new Date() },
-          create: { adAccountId: dbAccountId, date, leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca },
-        })
+      if (tunnel.length) {
+        await prisma.$transaction([
+          prisma.ghlDaily.deleteMany({ where: { adAccountId: dbAccountId } }),
+          prisma.ghlDaily.createMany({
+            data: tunnel.map((j) => ({
+              adAccountId: dbAccountId,
+              date: new Date(`${j.date}T00:00:00.000Z`),
+              leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca,
+            })),
+          }),
+        ])
       }
     } catch (e) {
       erreurTunnel = e instanceof Error ? e.message : 'Erreur inconnue'
@@ -108,19 +110,19 @@ export async function POST(req: NextRequest) {
     await prisma.ghlConnection.update({
       where: { adAccountId: dbAccountId },
       data: {
-        adStats: JSON.stringify(summary.adStats),
-        totalOpps: summary.totalOpps,
-        attributed: summary.attributed,
-        wonCount: summary.wonCount,
-        wonValue: summary.wonValue,
-        valueFilled: summary.valueFilled,
+        adStats: JSON.stringify(resume.adStats),
+        totalOpps: resume.totalOpps,
+        attributed: resume.attributed,
+        wonCount: resume.wonCount,
+        wonValue: resume.wonValue,
+        valueFilled: resume.valueFilled,
         syncedAt: new Date(),
         syncError: null,
       },
     })
     return NextResponse.json({
-      ok: true, locationName, ...summary, adStats: undefined,
-      adCount: Object.keys(summary.adStats).length,
+      ok: true, locationName, ...resume, adStats: undefined,
+      adCount: Object.keys(resume.adStats).length,
       joursTunnel: tunnel.length,
       erreurTunnel,
     })

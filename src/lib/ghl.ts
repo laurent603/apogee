@@ -370,13 +370,39 @@ function jourSignature(o: Record<string, unknown>): string | null {
   return null
 }
 
-/** Agrège contacts et opportunités en une ligne par journée. */
-export async function syncGhlTunnel(token: string, locationId: string, tags: TagsTunnel): Promise<JourCrm[]> {
-  const [contacts, opps] = await Promise.all([
-    fetchContacts(token, locationId),
-    fetchOpportunities(token, locationId),
-  ])
+/**
+ * Une seule lecture pour les deux vues.
+ *
+ * L'attribution par publicité et le tunnel par journée lisent les mêmes
+ * opportunités. Les récupérer deux fois doublait le temps d'un compte à deux
+ * mille opportunités — vingt pages, deux fois — et c'est ce qui faisait
+ * dépasser la durée maximale de la fonction : le tunnel s'écrivait, puis
+ * l'exécution était coupée avant d'enregistrer le succès, laissant l'erreur
+ * du run précédent comme si elle était d'actualité.
+ */
+export async function syncGhlComplet(token: string, locationId: string, tags: TagsTunnel): Promise<{
+  resume: GhlSummary
+  tunnel: JourCrm[]
+  erreurContacts: string | null
+}> {
+  const opps = await fetchOpportunities(token, locationId)
+  const resume = aggregateByAd(opps)
 
+  // Les contacts sont la partie fragile : leur échec ne doit pas emporter
+  // l'attribution, qui est déjà calculée.
+  let contacts: Contact[] = []
+  let erreurContacts: string | null = null
+  try {
+    contacts = await fetchContacts(token, locationId)
+  } catch (e) {
+    erreurContacts = e instanceof Error ? e.message : 'Erreur inconnue'
+  }
+
+  return { resume, tunnel: assembleTunnel(contacts, opps, tags), erreurContacts }
+}
+
+/** Agrège contacts et opportunités en une ligne par journée. */
+function assembleTunnel(contacts: Contact[], opps: Opportunity[], tags: TagsTunnel): JourCrm[] {
   const parJour = new Map<string, JourCrm>()
   const ligne = (d: string) => {
     const existante = parJour.get(d)
