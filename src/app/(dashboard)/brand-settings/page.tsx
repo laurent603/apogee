@@ -373,88 +373,91 @@ export default function BrandSettingsPage() {
 
           {/* Tab 0 — Business */}
           {tab === 0 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
-              <div className="space-y-4">
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <SelectField label="Modèle business" field="businessModel" settings={settings} onChange={handleChange} options={[
-                  { value: 'dtc_ecommerce', label: 'DTC E-commerce' },
-                  { value: 'subscription', label: 'Abonnement' },
-                  { value: 'marketplace', label: 'Marketplace' },
-                  { value: 'saas', label: 'SaaS' },
-                  { value: 'agency', label: 'Agence' },
-                  { value: 'lead_gen', label: 'Lead Generation' },
-                ]} />
-                <SelectField label="Type d'offre" field="offerType" settings={settings} onChange={handleChange} options={[
-                  { value: 'physical_product', label: 'Produit physique' },
-                  { value: 'digital_product', label: 'Produit digital' },
-                  { value: 'service', label: 'Service' },
-                  { value: 'subscription', label: 'Abonnement' },
-                  { value: 'free_trial', label: 'Essai gratuit' },
-                ]} />
-                <Field label="Nom de l'entreprise" field="companyName" placeholder="ex : Votre Marque" settings={settings} onChange={handleChange} />
-                <Field label="Site web" field="websiteUrl" placeholder="https://..." settings={settings} onChange={handleChange} />
-                <Field label="Secteur" field="industry" placeholder="ex : Mode e-commerce, SaaS B2B" settings={settings} onChange={handleChange} />
-                <SelectField label="Positionnement marché" field="marketPositioning" settings={settings} onChange={handleChange} options={[
-                  { value: 'budget', label: 'Budget' },
-                  { value: 'mid_range', label: 'Milieu de gamme' },
-                  { value: 'premium', label: 'Premium' },
-                  { value: 'luxury', label: 'Luxe' },
-                ]} />
-              </div>
-              <TextArea label="Proposition de valeur unique" field="uniqueValueProp" placeholder="Ce qui vous différencie en 1-2 phrases" settings={settings} onChange={handleChange} />
-              <TextArea label="Description produit/service" field="productDescription" placeholder="ex : Nous vendons des soins bio pour peaux sensibles" settings={settings} onChange={handleChange} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <SelectField label="Stade de l'entreprise" field="companyStage" settings={settings} onChange={handleChange} options={[
-                  { value: 'pre_launch', label: 'Pré-lancement' },
-                  { value: 'early', label: 'Démarrage' },
-                  { value: 'growth', label: 'Croissance' },
-                  { value: 'scale', label: 'Scale' },
-                  { value: 'mature', label: 'Mature' },
-                ]} />
-                {!leadGen && <SelectField label="Taille catalogue" field="catalogSize" settings={settings} onChange={handleChange} options={[
-                  { value: '1_product', label: '1 produit' },
-                  { value: '2_5', label: '2-5' },
-                  { value: '6_20', label: '6-20' },
-                  { value: '21_100', label: '21-100' },
-                  { value: '100_plus', label: '100+' },
-                ]} />}
-              </div>
-              </div>
-
-              <div className="space-y-5 xl:border-l xl:border-[#E5E7EB] xl:pl-5">
-              <div className="space-y-4">
-                <p className="text-sm font-semibold text-[#0d0d12]">Marché</p>
-              <TextArea label="Concurrents" field="competitors" placeholder="ex : Concurrent A, Concurrent B" settings={settings} onChange={handleChange} />
-              <TextArea label="Saisonnalité & périodes clés" field="seasonality" placeholder="ex : Black Friday, Noël, soldes de janvier/juillet" settings={settings} onChange={handleChange} />
-              <Field label="Mois pics" field="peakMonths" placeholder="ex : 11,12 pour novembre-décembre" settings={settings} onChange={handleChange} />
-              </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
 
               <div className="space-y-4">
-                <p className="text-sm font-semibold text-[#0d0d12]">Objectifs de la mission</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <SelectField label="Objectif principal" field="primaryObjective" settings={settings} onChange={handleChange} options={[
-                  { value: 'sales', label: 'Ventes' },
-                  { value: 'leads', label: 'Leads' },
-                  { value: 'awareness', label: 'Notoriété' },
-                  { value: 'traffic', label: 'Trafic' },
-                  { value: 'app_installs', label: 'Installs app' },
-                ]} />
-                <SelectField label="Objectif secondaire" field="secondaryObjective" settings={settings} onChange={handleChange} options={[
-                  { value: 'none', label: 'Aucun' },
-                  { value: 'brand_awareness', label: 'Notoriété marque' },
-                  { value: 'retargeting', label: 'Retargeting' },
-                  { value: 'email_capture', label: 'Capture email' },
-                ]} />
-                <SelectField label="Objectif stratégique" field="strategicGoal" settings={settings} onChange={handleChange} options={[
-                  { value: 'maximize_growth', label: 'Maximiser la croissance' },
-                  { value: 'maximize_profit', label: 'Maximiser le profit' },
-                  { value: 'test_pmf', label: 'Tester le product-market fit' },
-                  { value: 'scale_proven', label: 'Scaler une offre prouvée' },
-                ]} />
+                <p className="text-sm font-semibold text-[#0d0d12]">Identité</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <SelectField label="Modèle business" field="businessModel" settings={settings} onChange={handleChange} options={[
+                                    { value: 'dtc_ecommerce', label: 'DTC E-commerce' },
+                                    { value: 'subscription', label: 'Abonnement' },
+                                    { value: 'marketplace', label: 'Marketplace' },
+                                    { value: 'saas', label: 'SaaS' },
+                                    { value: 'agency', label: 'Agence' },
+                                    { value: 'lead_gen', label: 'Lead Generation' },
+                                  ]} />
+                  <SelectField label="Type d'offre" field="offerType" settings={settings} onChange={handleChange} options={[
+                                    { value: 'physical_product', label: 'Produit physique' },
+                                    { value: 'digital_product', label: 'Produit digital' },
+                                    { value: 'service', label: 'Service' },
+                                    { value: 'subscription', label: 'Abonnement' },
+                                    { value: 'free_trial', label: 'Essai gratuit' },
+                                  ]} />
+                  <Field label="Nom de l'entreprise" field="companyName" placeholder="ex : Votre Marque" settings={settings} onChange={handleChange} />
+                  <Field label="Site web" field="websiteUrl" placeholder="https://..." settings={settings} onChange={handleChange} />
+                  <Field label="Secteur" field="industry" placeholder="ex : Mode e-commerce, SaaS B2B" settings={settings} onChange={handleChange} />
+                  <SelectField label="Positionnement marché" field="marketPositioning" settings={settings} onChange={handleChange} options={[
+                                    { value: 'budget', label: 'Budget' },
+                                    { value: 'mid_range', label: 'Milieu de gamme' },
+                                    { value: 'premium', label: 'Premium' },
+                                    { value: 'luxury', label: 'Luxe' },
+                                  ]} />
+                </div>
+                <TextArea label="Proposition de valeur unique" field="uniqueValueProp" placeholder="Ce qui vous différencie en 1-2 phrases" settings={settings} onChange={handleChange} />
+                <TextArea label="Description produit/service" field="productDescription" placeholder="ex : Nous vendons des soins bio pour peaux sensibles" settings={settings} onChange={handleChange} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <SelectField label="Stade de l'entreprise" field="companyStage" settings={settings} onChange={handleChange} options={[
+                                    { value: 'pre_launch', label: 'Pré-lancement' },
+                                    { value: 'early', label: 'Démarrage' },
+                                    { value: 'growth', label: 'Croissance' },
+                                    { value: 'scale', label: 'Scale' },
+                                    { value: 'mature', label: 'Mature' },
+                                  ]} />
+                  {!leadGen && (
+                    <SelectField label="Taille catalogue" field="catalogSize" settings={settings} onChange={handleChange} options={[
+                                      { value: '1_product', label: '1 produit' },
+                                      { value: '2_5', label: '2-5' },
+                                      { value: '6_20', label: '6-20' },
+                                      { value: '21_100', label: '21-100' },
+                                      { value: '100_plus', label: '100+' },
+                                    ]} />
+                  )}
+                </div>
               </div>
-              <Field label="Objectif court terme" field="shortTermGoal" placeholder="ex : Réduire le CPA de 20% ce mois" settings={settings} onChange={handleChange} />
-              </div>
+
+              <div className="space-y-6 xl:border-l xl:border-[#E5E7EB] xl:pl-6">
+                <div className="space-y-4">
+                  <p className="text-sm font-semibold text-[#0d0d12]">Marché</p>
+                  <TextArea label="Concurrents" field="competitors" placeholder="ex : Concurrent A, Concurrent B" settings={settings} onChange={handleChange} />
+                  <TextArea label="Saisonnalité & périodes clés" field="seasonality" placeholder="ex : Black Friday, Noël, soldes de janvier/juillet" settings={settings} onChange={handleChange} />
+                  <Field label="Mois pics" field="peakMonths" placeholder="ex : 11,12 pour novembre-décembre" settings={settings} onChange={handleChange} />
+                </div>
+
+                <div className="space-y-4 border-t border-[#E5E7EB] pt-5">
+                  <p className="text-sm font-semibold text-[#0d0d12]">Objectifs de la mission</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <SelectField label="Objectif principal" field="primaryObjective" settings={settings} onChange={handleChange} options={[
+                                      { value: 'sales', label: 'Ventes' },
+                                      { value: 'leads', label: 'Leads' },
+                                      { value: 'awareness', label: 'Notoriété' },
+                                      { value: 'traffic', label: 'Trafic' },
+                                      { value: 'app_installs', label: 'Installs app' },
+                                    ]} />
+                    <SelectField label="Objectif secondaire" field="secondaryObjective" settings={settings} onChange={handleChange} options={[
+                                      { value: 'none', label: 'Aucun' },
+                                      { value: 'brand_awareness', label: 'Notoriété marque' },
+                                      { value: 'retargeting', label: 'Retargeting' },
+                                      { value: 'email_capture', label: 'Capture email' },
+                                    ]} />
+                    <SelectField label="Objectif stratégique" field="strategicGoal" settings={settings} onChange={handleChange} options={[
+                                      { value: 'maximize_growth', label: 'Maximiser la croissance' },
+                                      { value: 'maximize_profit', label: 'Maximiser le profit' },
+                                      { value: 'test_pmf', label: 'Tester le product-market fit' },
+                                      { value: 'scale_proven', label: 'Scaler une offre prouvée' },
+                                    ]} />
+                  </div>
+                  <Field label="Objectif court terme" field="shortTermGoal" placeholder="ex : Réduire le CPA de 20% ce mois" settings={settings} onChange={handleChange} />
+                </div>
               </div>
             </div>
           )}
@@ -666,214 +669,212 @@ export default function BrandSettingsPage() {
           )}
 
           {tab === 3 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
-              <div className="space-y-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
 
-<div className="border-t border-[#E5E7EB] pt-4">
-                <p className="text-sm font-semibold text-[#0d0d12] mb-3">Setup conversion</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <SelectField label="Canal de conversion" field="conversionChannel" settings={settings} onChange={handleChange} options={[
-                    { value: 'website', label: 'Site web' },
-                    { value: 'app', label: 'App' },
-                    { value: 'phone', label: 'Téléphone' },
-                    { value: 'in_store', label: 'En magasin' },
-                    { value: 'mixed', label: 'Mixte' },
-                  ]} />
-                  <SelectField label="Type de landing page" field="landingPageType" settings={settings} onChange={handleChange} options={[
-                    { value: 'product_page', label: 'Page produit' },
-                    { value: 'collection', label: 'Collection' },
-                    { value: 'advertorial', label: 'Advertorial' },
-                    { value: 'lead_form', label: 'Formulaire lead' },
-                    { value: 'quiz', label: 'Quiz / Funnel' },
-                  ]} />
-                  <SelectField label="Setup tracking" field="trackingSetup" settings={settings} onChange={handleChange} options={[
-                    { value: 'pixel_only', label: 'Pixel uniquement' },
-                    { value: 'pixel_capi', label: 'Pixel + CAPI' },
-                    { value: 'capi_only', label: 'CAPI uniquement' },
-                    { value: 'gtm', label: 'GTM' },
-                    { value: 'none', label: 'Aucun' },
-                  ]} />
-                  <SelectField label="CRM" field="crmIntegration" settings={settings} onChange={handleChange} options={[
-                    { value: 'none', label: 'Aucun' },
-                    { value: 'gohighlevel', label: 'GoHighLevel' },
-                    { value: 'hubspot', label: 'HubSpot' },
-                    { value: 'salesforce', label: 'Salesforce' },
-                    { value: 'pipedrive', label: 'Pipedrive' },
-                    { value: 'brevo', label: 'Brevo' },
-                    { value: 'other', label: 'Autre' },
-                  ]} />
+              <div className="space-y-5">
+                <div className="space-y-4">
+                  <p className="text-sm font-semibold text-[#0d0d12]">Setup conversion</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <SelectField label="Canal de conversion" field="conversionChannel" settings={settings} onChange={handleChange} options={[
+                                        { value: 'website', label: 'Site web' },
+                                        { value: 'app', label: 'App' },
+                                        { value: 'phone', label: 'Téléphone' },
+                                        { value: 'in_store', label: 'En magasin' },
+                                        { value: 'mixed', label: 'Mixte' },
+                                      ]} />
+                    <SelectField label="Type de landing page" field="landingPageType" settings={settings} onChange={handleChange} options={[
+                                        { value: 'product_page', label: 'Page produit' },
+                                        { value: 'collection', label: 'Collection' },
+                                        { value: 'advertorial', label: 'Advertorial' },
+                                        { value: 'lead_form', label: 'Formulaire lead' },
+                                        { value: 'quiz', label: 'Quiz / Funnel' },
+                                      ]} />
+                    <SelectField label="Setup tracking" field="trackingSetup" settings={settings} onChange={handleChange} options={[
+                                        { value: 'pixel_only', label: 'Pixel uniquement' },
+                                        { value: 'pixel_capi', label: 'Pixel + CAPI' },
+                                        { value: 'capi_only', label: 'CAPI uniquement' },
+                                        { value: 'gtm', label: 'GTM' },
+                                        { value: 'none', label: 'Aucun' },
+                                      ]} />
+                    <SelectField label="CRM" field="crmIntegration" settings={settings} onChange={handleChange} options={[
+                                        { value: 'none', label: 'Aucun' },
+                                        { value: 'gohighlevel', label: 'GoHighLevel' },
+                                        { value: 'hubspot', label: 'HubSpot' },
+                                        { value: 'salesforce', label: 'Salesforce' },
+                                        { value: 'pipedrive', label: 'Pipedrive' },
+                                        { value: 'brevo', label: 'Brevo' },
+                                        { value: 'other', label: 'Autre' },
+                                      ]} />
+                  </div>
+                  <div>
+                    <SelectField label="Prospects à comptabiliser" field="leadSource" settings={settings} onChange={handleChange} options={[
+                                        { value: 'total', label: 'Total Meta (site web + formulaires)' },
+                                        { value: 'meta', label: 'Formulaires instantanés Meta uniquement' },
+                                        { value: 'website', label: 'Site web uniquement (pixel / CAPI)' },
+                                      ]} />
+                    <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+                                        Si votre CRM renvoie un événement <code className="bg-gray-100 px-1 rounded">Lead</code> via la CAPI pour chaque prospect
+                                        venu d&apos;un formulaire Meta, le total compte deux fois la même personne. Choisissez alors
+                                        « Formulaires instantanés Meta uniquement » : le dashboard et les analyses IA utiliseront ce chiffre.
+                                      </p>
+                  </div>
+                  <Field label="Événements trackés" field="trackedEvents" placeholder="ex : Purchase, Lead, ViewContent, AddToCart" settings={settings} onChange={handleChange} />
+                  <Field label="URL Trustpilot" field="trustpilotUrl" placeholder="https://trustpilot.com/review/votresite.com" settings={settings} onChange={handleChange} />
                 </div>
-                <div>
-                  <SelectField label="Prospects à comptabiliser" field="leadSource" settings={settings} onChange={handleChange} options={[
-                    { value: 'total', label: 'Total Meta (site web + formulaires)' },
-                    { value: 'meta', label: 'Formulaires instantanés Meta uniquement' },
-                    { value: 'website', label: 'Site web uniquement (pixel / CAPI)' },
-                  ]} />
-                  <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
-                    Si votre CRM renvoie un événement <code className="bg-gray-100 px-1 rounded">Lead</code> via la CAPI pour chaque prospect
-                    venu d&apos;un formulaire Meta, le total compte deux fois la même personne. Choisissez alors
-                    « Formulaires instantanés Meta uniquement » : le dashboard et les analyses IA utiliseront ce chiffre.
-                  </p>
-                </div>
-                <Field label="Événements trackés" field="trackedEvents" placeholder="ex : Purchase, Lead, ViewContent, AddToCart" settings={settings} onChange={handleChange} />
-                <Field label="URL Trustpilot" field="trustpilotUrl" placeholder="https://trustpilot.com/review/votresite.com" settings={settings} onChange={handleChange} />
 
                 <div className="pt-4 border-t border-[#E5E7EB]">
-                  <p className="text-sm font-semibold text-[#0d0d12] mb-1">Livraison des rapports</p>
-                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                    Adresse commune à tous les agents de ce compte. Sans elle, seuls les agents créés
-                    via le formulaire personnalisé peuvent envoyer un email — ceux issus d&apos;un
-                    template n&apos;ont aucune adresse.
-                  </p>
-                  <label className="flex items-center gap-2 cursor-pointer mb-2">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(settings.reportEmailEnabled)}
-                      onChange={(e) => handleChange('reportEmailEnabled', e.target.checked as unknown as string)}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700">Envoyer tous les rapports de ce compte par email</span>
-                  </label>
-                  {Boolean(settings.reportEmailEnabled) && (
-                    <Field label="Adresse de réception" field="reportEmail" type="email" placeholder="vous@exemple.fr" settings={settings} onChange={handleChange} />
-                  )}
-                </div>
-              </div>
-              </div>
-
-              <div className="space-y-5 xl:border-l xl:border-[#E5E7EB] xl:pl-5">
-              <div className="space-y-5">
-              <div>
-                <p className="text-sm font-semibold text-[#0d0d12] mb-1">Pipeline commercial GoHighLevel</p>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Meta s&apos;arrête au prospect. GoHighLevel sait ce qu&apos;il devient. Les opportunités portent
-                  l&apos;identifiant Meta de la publicité, ce qui permet de juger une créa sur la <strong>valeur</strong>
-                  {' '}qu&apos;elle rapporte et non sur son seul coût par prospect.
-                </p>
+                                  <p className="text-sm font-semibold text-[#0d0d12] mb-1">Livraison des rapports</p>
+                                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                                    Adresse commune à tous les agents de ce compte. Sans elle, seuls les agents créés
+                                    via le formulaire personnalisé peuvent envoyer un email — ceux issus d&apos;un
+                                    template n&apos;ont aucune adresse.
+                                  </p>
+                                  <label className="flex items-center gap-2 cursor-pointer mb-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(settings.reportEmailEnabled)}
+                                      onChange={(e) => handleChange('reportEmailEnabled', e.target.checked as unknown as string)}
+                                      className="rounded"
+                                    />
+                                    <span className="text-sm text-gray-700">Envoyer tous les rapports de ce compte par email</span>
+                                  </label>
+                                  {Boolean(settings.reportEmailEnabled) && (
+                                    <Field label="Adresse de réception" field="reportEmail" type="email" placeholder="vous@exemple.fr" settings={settings} onChange={handleChange} />
+                                  )}
+                                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-5 xl:border-l xl:border-[#E5E7EB] xl:pl-6">
                 <div>
-                  <label className="label">Token d&apos;intégration privée</label>
-                  <input type="password" className="input font-mono text-xs"
-                    placeholder={ghl?.hasToken ? '•••••••• (enregistré)' : 'pit-…'}
-                    value={ghlToken} onChange={(e) => setGhlToken(e.target.value)} />
-                  <p className="text-[11px] text-gray-400 mt-1">Laissez vide pour conserver le token enregistré.</p>
-                </div>
-                <div>
-                  <label className="label">ID du sous-compte</label>
-                  <input type="text" className="input font-mono text-xs"
-                    placeholder="visible dans l'URL du sous-compte"
-                    value={ghlLocation} onChange={(e) => setGhlLocation(e.target.value)} />
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Le token est lié à un sous-compte : celui d&apos;un autre client ne fonctionnera pas ici.
-                  </p>
-                </div>
-              </div>
+                                <p className="text-sm font-semibold text-[#0d0d12] mb-1">Pipeline commercial GoHighLevel</p>
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                  Meta s&apos;arrête au prospect. GoHighLevel sait ce qu&apos;il devient. Les opportunités portent
+                                  l&apos;identifiant Meta de la publicité, ce qui permet de juger une créa sur la <strong>valeur</strong>
+                                  {' '}qu&apos;elle rapporte et non sur son seul coût par prospect.
+                                </p>
+                              </div>
 
-              <div>
-                <p className="text-xs font-semibold text-[#0d0d12]">Étiquettes du tunnel</p>
-                <p className="text-[11px] text-gray-400 mt-0.5 mb-2">
-                  GoHighLevel ne connaît pas d&apos;étape « rendez-vous » ou « devis » : ce sont des
-                  étiquettes posées sur le contact, dont le libellé vous appartient. Copiez-collez-les
-                  depuis GoHighLevel. Les emoji sont acceptés, ainsi que la casse, les accents et les
-                  espaces en trop — seule l&apos;orthographe compte. Une étiquette laissée vide garde son
-                  compteur à zéro.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                  {([
-                    ['tagLead', 'Lead', 'lead fb'],
-                    ['tagRdv', 'Rendez-vous pris', 'rdv booké'],
-                    ['tagDevis', 'Devis envoyé', 'devis envoyé'],
-                    ['tagSigne', 'Signé', 'prospects signés'],
-                  ] as const).map(([cle, label, exemple]) => (
-                    <div key={cle}>
-                      <label className="label">{label}</label>
-                      <input type="text" className="input text-xs" placeholder={exemple}
-                        value={ghlTags[cle]}
-                        onChange={(e) => setGhlTags((t) => ({ ...t, [cle]: e.target.value }))} />
-                    </div>
-                  ))}
-                </div>
-              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="label">Token d&apos;intégration privée</label>
+                                  <input type="password" className="input font-mono text-xs"
+                                    placeholder={ghl?.hasToken ? '•••••••• (enregistré)' : 'pit-…'}
+                                    value={ghlToken} onChange={(e) => setGhlToken(e.target.value)} />
+                                  <p className="text-[11px] text-gray-400 mt-1">Laissez vide pour conserver le token enregistré.</p>
+                                </div>
+                                <div>
+                                  <label className="label">ID du sous-compte</label>
+                                  <input type="text" className="input font-mono text-xs"
+                                    placeholder="visible dans l'URL du sous-compte"
+                                    value={ghlLocation} onChange={(e) => setGhlLocation(e.target.value)} />
+                                  <p className="text-[11px] text-gray-400 mt-1">
+                                    Le token est lié à un sous-compte : celui d&apos;un autre client ne fonctionnera pas ici.
+                                  </p>
+                                </div>
+                              </div>
 
-              <div className="flex items-center gap-2">
-                <button onClick={saveGhl} className="btn-secondary">Enregistrer la connexion</button>
-                <button onClick={syncGhlNow} disabled={ghlSyncing || !ghl?.hasToken || !ghl?.locationId}
-                  className="btn-primary flex items-center gap-2">
-                  {ghlSyncing && (
-                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                  )}
-                  {ghlSyncing ? 'Synchronisation…' : 'Synchroniser'}
-                </button>
-              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-[#0d0d12]">Étiquettes du tunnel</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5 mb-2">
+                                  GoHighLevel ne connaît pas d&apos;étape « rendez-vous » ou « devis » : ce sont des
+                                  étiquettes posées sur le contact, dont le libellé vous appartient. Copiez-collez-les
+                                  depuis GoHighLevel. Les emoji sont acceptés, ainsi que la casse, les accents et les
+                                  espaces en trop — seule l&apos;orthographe compte. Une étiquette laissée vide garde son
+                                  compteur à zéro.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                                  {([
+                                    ['tagLead', 'Lead', 'lead fb'],
+                                    ['tagRdv', 'Rendez-vous pris', 'rdv booké'],
+                                    ['tagDevis', 'Devis envoyé', 'devis envoyé'],
+                                    ['tagSigne', 'Signé', 'prospects signés'],
+                                  ] as const).map(([cle, label, exemple]) => (
+                                    <div key={cle}>
+                                      <label className="label">{label}</label>
+                                      <input type="text" className="input text-xs" placeholder={exemple}
+                                        value={ghlTags[cle]}
+                                        onChange={(e) => setGhlTags((t) => ({ ...t, [cle]: e.target.value }))} />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
 
-              {!ghlSyncing && (!ghl?.hasToken || !ghl?.locationId) && (
-                <p className="text-xs text-amber-700">
-                  Renseignez le token et l&apos;ID du sous-compte, puis enregistrez la connexion pour activer la synchronisation.
-                </p>
-              )}
+                              <div className="flex items-center gap-2">
+                                <button onClick={saveGhl} className="btn-secondary">Enregistrer la connexion</button>
+                                <button onClick={syncGhlNow} disabled={ghlSyncing || !ghl?.hasToken || !ghl?.locationId}
+                                  className="btn-primary flex items-center gap-2">
+                                  {ghlSyncing && (
+                                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                  )}
+                                  {ghlSyncing ? 'Synchronisation…' : 'Synchroniser'}
+                                </button>
+                              </div>
 
-              {ghl?.syncError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                  <p className="text-sm font-semibold text-red-900">Échec de la dernière synchronisation</p>
-                  <p className="text-xs text-red-800 mt-1 font-mono break-all">{ghl.syncError}</p>
-                </div>
-              )}
+                              {!ghlSyncing && (!ghl?.hasToken || !ghl?.locationId) && (
+                                <p className="text-xs text-amber-700">
+                                  Renseignez le token et l&apos;ID du sous-compte, puis enregistrez la connexion pour activer la synchronisation.
+                                </p>
+                              )}
 
-              {ghl?.syncedAt && !ghl.syncError && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {([
-                      ['Opportunités', ghl.totalOpps.toLocaleString('fr-FR'), false],
-                      ['Rattachées à une pub', `${ghl.attributed}/${ghl.totalOpps}`, ghl.attributed / Math.max(ghl.totalOpps, 1) < 0.5],
-                      ['Affaires gagnées', String(ghl.wonCount), ghl.wonCount < 10],
-                      ['CA signé', `${Math.round(ghl.wonValue).toLocaleString('fr-FR')} €`, false],
-                    ] as [string, string, boolean][]).map(([label, value, warn]) => (
-                      <div key={label} className={`rounded-xl border px-3 py-2.5 ${warn ? 'border-amber-200 bg-amber-50' : 'border-[#E5E7EB] bg-[#f8f9fc]'}`}>
-                        <p className="text-lg font-bold text-[#0d0d12]">{value}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{label}</p>
-                      </div>
-                    ))}
-                  </div>
+                              {ghl?.syncError && (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                                  <p className="text-sm font-semibold text-red-900">Échec de la dernière synchronisation</p>
+                                  <p className="text-xs text-red-800 mt-1 font-mono break-all">{ghl.syncError}</p>
+                                </div>
+                              )}
 
-                  {/* The sample size travels with the figure: a ranking built on a
-                      handful of closed deals is not a verdict */}
-                  {ghl.wonCount < 10 && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                      <p className="text-xs text-amber-900 leading-relaxed">
-                        <strong>{ghl.wonCount} affaire{ghl.wonCount > 1 ? 's' : ''} gagnée{ghl.wonCount > 1 ? 's' : ''} seulement.</strong>{' '}
-                        Le CA par créa reste indicatif : une signature de plus peut inverser le classement.
-                        Passez vos affaires signées en <em>gagné</em> dans GoHighLevel et renseignez leur montant —
-                        le chiffre deviendra fiable sans développement supplémentaire.
-                      </p>
-                    </div>
-                  )}
+                              {ghl?.syncedAt && !ghl.syncError && (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {([
+                                      ['Opportunités', ghl.totalOpps.toLocaleString('fr-FR'), false],
+                                      ['Rattachées à une pub', `${ghl.attributed}/${ghl.totalOpps}`, ghl.attributed / Math.max(ghl.totalOpps, 1) < 0.5],
+                                      ['Affaires gagnées', String(ghl.wonCount), ghl.wonCount < 10],
+                                      ['CA signé', `${Math.round(ghl.wonValue).toLocaleString('fr-FR')} €`, false],
+                                    ] as [string, string, boolean][]).map(([label, value, warn]) => (
+                                      <div key={label} className={`rounded-xl border px-3 py-2.5 ${warn ? 'border-amber-200 bg-amber-50' : 'border-[#E5E7EB] bg-[#f8f9fc]'}`}>
+                                        <p className="text-lg font-bold text-[#0d0d12]">{value}</p>
+                                        <p className="text-[11px] text-gray-500 mt-0.5">{label}</p>
+                                      </div>
+                                    ))}
+                                  </div>
 
-                  {ghl.valueFilled < ghl.totalOpps && (
-                    <p className="text-xs text-gray-500">
-                      Montant renseigné sur {ghl.valueFilled} opportunités sur {ghl.totalOpps} — les autres comptent
-                      dans le volume, pas dans la valeur.
-                    </p>
-                  )}
+                                  {/* The sample size travels with the figure: a ranking built on a
+                                      handful of closed deals is not a verdict */}
+                                  {ghl.wonCount < 10 && (
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                      <p className="text-xs text-amber-900 leading-relaxed">
+                                        <strong>{ghl.wonCount} affaire{ghl.wonCount > 1 ? 's' : ''} gagnée{ghl.wonCount > 1 ? 's' : ''} seulement.</strong>{' '}
+                                        Le CA par créa reste indicatif : une signature de plus peut inverser le classement.
+                                        Passez vos affaires signées en <em>gagné</em> dans GoHighLevel et renseignez leur montant —
+                                        le chiffre deviendra fiable sans développement supplémentaire.
+                                      </p>
+                                    </div>
+                                  )}
 
-                  <p className="text-xs text-gray-400">
-                    Synchronisé le {new Date(ghl.syncedAt).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
-                    {' · '}utilisé par toutes les analyses IA de ce compte
-                  </p>
-                </div>
-              )}
+                                  {ghl.valueFilled < ghl.totalOpps && (
+                                    <p className="text-xs text-gray-500">
+                                      Montant renseigné sur {ghl.valueFilled} opportunités sur {ghl.totalOpps} — les autres comptent
+                                      dans le volume, pas dans la valeur.
+                                    </p>
+                                  )}
 
-              <div className="rounded-xl bg-[#f8f9fc] border border-[#E5E7EB] px-4 py-3">
-                <p className="text-xs font-semibold text-[#0d0d12] mb-1.5">Créer le token dans GoHighLevel</p>
-                <ol className="text-xs text-gray-500 space-y-1 list-decimal pl-4 leading-relaxed">
-                  <li>Placez-vous dans le <strong>sous-compte du client</strong>, pas dans l&apos;agence</li>
-                  <li><strong>Paramètres</strong> → <strong>Intégrations privées</strong> → créer une intégration</li>
-                  <li>Cochez <span className="font-mono">contacts.readonly</span>, <span className="font-mono">opportunities.readonly</span>, <span className="font-mono">locations.readonly</span></li>
-                  <li>Copiez le token, et relevez l&apos;ID du sous-compte dans l&apos;URL</li>
-                </ol>
-              </div>
-              </div>
+                                  <p className="text-xs text-gray-400">
+                                    Synchronisé le {new Date(ghl.syncedAt).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                    {' · '}utilisé par toutes les analyses IA de ce compte
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="rounded-xl bg-[#f8f9fc] border border-[#E5E7EB] px-4 py-3">
+                                <p className="text-xs font-semibold text-[#0d0d12] mb-1.5">Créer le token dans GoHighLevel</p>
+                                <ol className="text-xs text-gray-500 space-y-1 list-decimal pl-4 leading-relaxed">
+                                  <li>Placez-vous dans le <strong>sous-compte du client</strong>, pas dans l&apos;agence</li>
+                                  <li><strong>Paramètres</strong> → <strong>Intégrations privées</strong> → créer une intégration</li>
+                                  <li>Cochez <span className="font-mono">contacts.readonly</span>, <span className="font-mono">opportunities.readonly</span>, <span className="font-mono">locations.readonly</span></li>
+                                  <li>Copiez le token, et relevez l&apos;ID du sous-compte dans l&apos;URL</li>
+                                </ol>
+                              </div>
               </div>
             </div>
           )}
