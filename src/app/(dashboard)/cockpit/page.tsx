@@ -139,26 +139,35 @@ export default function CockpitPage() {
   const [lancements, setLancements] = useState<Lancement[]>([])
   const [loading, setLoading] = useState(false)
 
+  /**
+   * Les requêtes suivent l'identifiant du compte, pas l'objet qui le porte.
+   *
+   * Deux objets venus de deux requêtes ne sont jamais la même référence : en
+   * dépendre relançait tout dès que la liste des comptes se rafraîchissait,
+   * et la page se chargeait deux fois de suite.
+   */
+  const compteId = selectedAccount?.id
+  const metaId = selectedAccount?.metaAccountId || selectedAccount?.id
+
   const charger = useCallback(() => {
-    if (!selectedAccount) return
+    if (!compteId) return
     setLoading(true)
-    fetch(`/api/scalr/cockpit?dbAccountId=${selectedAccount.id}&periode=${periode}`)
+    fetch(`/api/scalr/cockpit?dbAccountId=${compteId}&periode=${periode}`)
       .then((r) => r.json())
       .then((x) => setD(x.error ? null : x))
       .catch(() => setD(null))
       .finally(() => setLoading(false))
-  }, [selectedAccount, periode])
+  }, [compteId, periode])
 
   useEffect(() => { charger() }, [charger])
 
   useEffect(() => {
-    if (!selectedAccount) return
-    const metaId = selectedAccount.metaAccountId || selectedAccount.id
+    if (!metaId) return
     fetch(`/api/launch-history?metaAccountId=${metaId}`)
       .then((r) => r.json())
       .then((x) => setLancements(Array.isArray(x) ? x : x.launches || []))
       .catch(() => setLancements([]))
-  }, [selectedAccount])
+  }, [metaId])
 
   const c = d?.courant
   const e = d?.evolutions

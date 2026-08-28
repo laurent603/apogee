@@ -33,7 +33,14 @@ export function AccountSelector() {
         if (fresh.length > 0 && !stillValid) setSelectedAccount(fresh[0])
         // Une sélection retenue d'un repli précédent ne vaut plus rien dès que
         // la base répond : on la remplace par son équivalent complet.
-        else if (stillValid && stillValid !== current) setSelectedAccount(stillValid)
+        //
+        // La comparaison porte sur le contenu, jamais sur la référence : deux
+        // objets issus de deux requêtes ne sont jamais identiques, et remplacer
+        // à chaque montage relançait toutes les requêtes des pages qui
+        // dépendent du compte — chaque écran se chargeait deux fois.
+        else if (stillValid && (current!.sansBase || current!.id !== stillValid.id)) {
+          setSelectedAccount(stillValid)
+        }
         setLoading(false)
       })
       .catch(() => { setEchec(true); setLoading(false) })

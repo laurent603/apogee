@@ -235,13 +235,17 @@ export default function PilotagePage() {
   } | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Comme le dashboard : l'identifiant suffit, l'objet change de référence à
+  // chaque rafraîchissement de la liste des comptes.
+  const compteId = selectedAccount?.id
+
   const charger = useCallback(() => {
-    if (!selectedAccount) return
+    if (!compteId) return
     setLoading(true)
     const q = new URLSearchParams({
       // La matrice croise deux métriques de publicités : elle lit le même
       // niveau, avec les mêmes filtres et la même période.
-      dbAccountId: selectedAccount.id, level: niveau === 'fatigue' ? 'ad' : niveau,
+      dbAccountId: compteId, level: niveau === 'fatigue' ? 'ad' : niveau,
       periode: r.periode, attribution: r.attribution,
     })
     // Une plage libre l'emporte sur le raccourci : c'est le choix le plus
@@ -252,7 +256,7 @@ export default function PilotagePage() {
       .then((d) => setData(d.error ? null : d))
       .catch(() => setData(null))
       .finally(() => setLoading(false))
-  }, [selectedAccount, niveau, r.periode, r.attribution, r.since, r.until])
+  }, [compteId, niveau, r.periode, r.attribution, r.since, r.until])
 
   useEffect(() => { if (pret) charger() }, [charger, pret])
 
