@@ -734,7 +734,7 @@ export default function BrandSettingsPage() {
                 </div>
               </div>
 
-              <div className="border-t border-[#E5E7EB] pt-5">
+              <div className="border-t border-[#E5E7EB] pt-5 space-y-5">
               <div>
                 <p className="text-sm font-semibold text-[#0d0d12] mb-1">Pipeline commercial GoHighLevel</p>
                 <p className="text-xs text-gray-500 leading-relaxed">
