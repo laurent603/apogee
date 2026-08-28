@@ -39,7 +39,7 @@ export type Reglages = {
   afficherStatut: boolean
   variations: boolean
   wrapNames: boolean
-  /** Créas et matrice : écarter celles qui n'ont pas dépensé. */
+  /** Écarter les lignes qui n'ont pas dépensé sur la période. */
   diffuseesSeulement: boolean
 }
 
@@ -299,10 +299,10 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
         </Champ>
 
         <div className="flex flex-wrap gap-1.5 ml-auto">
-          {(niveau === 'crea' || niveau === 'fatigue') && (
-            <Bascule label="Diffusées seulement" actif={r.diffuseesSeulement}
-              onClick={() => set({ diffuseesSeulement: !r.diffuseesSeulement })} />
-          )}
+          {/* Une campagne à zéro euro sur la période encombre autant qu'une
+              créa à zéro euro : le filtre vaut à tous les niveaux. */}
+          <Bascule label="Diffusées seulement" actif={r.diffuseesSeulement}
+            onClick={() => set({ diffuseesSeulement: !r.diffuseesSeulement })} />
           <Bascule label="Date lancement" actif={r.dateLancement} onClick={() => set({ dateLancement: !r.dateLancement })} />
           <Bascule label="Statut" actif={r.afficherStatut} onClick={() => set({ afficherStatut: !r.afficherStatut })} />
           <Bascule label="Variation" actif={r.variations} onClick={() => set({ variations: !r.variations })} />

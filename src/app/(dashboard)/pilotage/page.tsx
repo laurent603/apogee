@@ -5,6 +5,7 @@ import { clsx } from 'clsx'
 import {
   METRIC_BY_KEY, COLONNES_DEFAUT, formatMetric, senseVariation, type MetricDef,
 } from '@/lib/scalr/metrics'
+import { totalDesLignes } from '@/lib/scalr/aggregate'
 import { appliqueConditions } from '@/lib/scalr/filtres'
 import { BarreOutils, REGLAGES_DEFAUT, objectifLisible, type Reglages } from '@/components/scalr/BarreOutils'
 import { GalerieCreas } from '@/components/scalr/GalerieCreas'
@@ -63,6 +64,11 @@ const PASTILLES: { id: string; label: string; kinds?: string[]; labels?: string[
   { id: 'test', label: 'Nouveau test', kinds: ['test'] },
   { id: 'paused', label: 'En pause', kinds: ['paused'] },
 ]
+
+/** Le mot qui désigne les lignes comptées, au bon nombre. */
+const libelleNiveau = (niveau: string, n: number) =>
+  ({ campaign: 'campagne', adset: 'ad set', ad: 'publicité', crea: 'créa' }[niveau] ?? 'ligne') +
+  (n > 1 ? 's' : '')
 
 /** Une ligne appartient-elle à cette pastille ? */
 const dansPastille = (d: Decision, p: (typeof PASTILLES)[number]) =>
@@ -273,13 +279,13 @@ export default function PilotagePage() {
     // après que les pastilles les avaient comptées : une pastille annonçait
     // « 12 » et le mur restait vide. Compteur et affichage partent désormais
     // de la même liste.
-    if ((niveau === 'crea' || niveau === 'fatigue') && r.diffuseesSeulement) l = l.filter((x) => (x.spend as number) > 0)
+    if (r.diffuseesSeulement) l = l.filter((x) => (x.spend as number) > 0)
     if (recherche.trim()) {
       const q = recherche.toLowerCase()
       l = l.filter((x) => x.name.toLowerCase().includes(q))
     }
     return appliqueConditions(l, r.conditions)
-  }, [data, niveau, r.campagne, r.adset, r.statut, r.objectif, r.format,
+  }, [data, r.campagne, r.adset, r.statut, r.objectif, r.format,
       r.conditions, r.diffuseesSeulement, recherche])
 
   const lignes = useMemo(() => {
@@ -297,6 +303,20 @@ export default function PilotagePage() {
       return tri.sens === 'desc' ? vb - va : va - vb
     })
   }, [perimetre, pastille, tri])
+
+  /**
+   * Le total de ce qui est affiché, recalculé depuis les compteurs bruts.
+   *
+   * Moyenner les colonnes donnerait un chiffre faux : le CPL d'un ensemble
+   * n'est pas la moyenne des CPL. Il porte sur les lignes visibles, pastille
+   * et recherche comprises — c'est le sens de la ligne Total du gestionnaire
+   * de publicités, et c'est ce qui permet de répondre à « ces trois-là,
+   * ensemble, tiennent-elles la cible ? ».
+   */
+  const totaux = useMemo(
+    () => totalDesLignes(lignes as unknown as Record<string, unknown>[]),
+    [lignes],
+  )
 
   const compteurs = useMemo(() => {
     const c: Record<string, number> = {}
@@ -399,6 +419,26 @@ export default function PilotagePage() {
             <CarteLigne key={row.id} row={row} cols={cols} r={r} niveau={niveau}
               onDescendre={() => descendre(row)} />
           ))}
+          {lignes.length > 0 && (
+            <div className="card bg-[#f8f9fc] border-[#E5E7EB]">
+              <p className="text-xs font-semibold text-[#0d0d12]">
+                Total
+                <span className="font-normal text-gray-400 ml-1.5">
+                  {lignes.length} {libelleNiveau(niveau, lignes.length)}
+                </span>
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
+                {cols.map((c) => (
+                  <div key={c.key} className="flex items-baseline justify-between gap-2">
+                    <span className="text-[11px] text-gray-400 truncate">{c.label}</span>
+                    <span className="text-xs font-semibold tabular-nums text-[#0d0d12]">
+                      {formatMetric((totaux as Record<string, unknown>)[c.key] as number | null, c)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {!lignes.length && (
             <div className="card text-center py-12 text-gray-400 text-sm">Aucune ligne pour ce filtre.</div>
           )}
@@ -478,6 +518,26 @@ export default function PilotagePage() {
                   </td></tr>
                 )}
               </tbody>
+              {lignes.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-[#E5E7EB] bg-[#f8f9fc] font-semibold">
+                    <td className="px-4 py-3 sticky left-0 bg-[#f8f9fc] min-w-[240px]">
+                      <span className="text-[#0d0d12]">Total</span>
+                      <span className="text-[11px] font-normal text-gray-400 ml-1.5">
+                        {lignes.length} {libelleNiveau(niveau, lignes.length)}
+                        {pastille !== 'all' && ` · ${PASTILLES.find((p) => p.id === pastille)?.label}`}
+                      </span>
+                    </td>
+                    {r.dateLancement && <td />}
+                    <td />
+                    {cols.map((c) => (
+                      <td key={c.key} className="px-3 py-3 text-right tabular-nums whitespace-nowrap text-[#0d0d12]">
+                        {formatMetric((totaux as Record<string, unknown>)[c.key] as number | null, c)}
+                      </td>
+                    ))}
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>

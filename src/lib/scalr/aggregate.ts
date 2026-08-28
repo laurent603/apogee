@@ -198,3 +198,89 @@ export function previousWindow(since: Date, until: Date): { since: Date; until: 
   const prevSince = new Date(prevUntil.getTime() - span)
   return { since: prevSince, until: prevUntil }
 }
+
+/* ─── Totaux d'un ensemble de lignes déjà calculées ─────────────────────── */
+
+/**
+ * Reconstitue des totaux bruts à partir d'une ligne de tableau.
+ *
+ * Le pied de tableau ne peut pas se contenter de moyenner les colonnes : un
+ * CPL moyen n'est pas le CPL de l'ensemble. Une publicité à 2 € sur un
+ * prospect et une à 100 € sur cinquante donnent un CPL global de 2,04 €, pas
+ * de 51 €. Il faut donc redescendre aux compteurs bruts, les additionner,
+ * puis refaire le calcul — exactement ce que fait Meta pour sa ligne Total.
+ *
+ * Les lignes n'exposent pas tout : `totalLeads` et `directions` ne
+ * transparaissent qu'à travers `leads` et le résultat principal. Les deux
+ * sont reconstruits sans perte, parce qu'ils ne comptent que dans les cas où
+ * ils sont justement ce qui est affiché.
+ */
+export function totauxDepuisLigne(row: Record<string, unknown>): Totals {
+  const n = (v: unknown) => {
+    const x = Number(v ?? 0)
+    return Number.isFinite(x) ? x : 0
+  }
+  const funnel = (row.funnel ?? {}) as Record<string, unknown>
+  const leads = n(row.leads)
+  const formLeads = n(row.formLeads)
+  const pixelLeads = n(row.pixelLeads)
+
+  const t = emptyTotals()
+  t.spend = n(row.spend)
+  t.impressions = n(row.impressions)
+  t.reachSum = n(row.reachSum)
+  t.clicks = n(row.clicks)
+  t.linkClicks = n(row.linkClicks)
+  t.outboundClicks = n(row.outboundClicks)
+  t.landingPageViews = n(row.landingPageViews)
+  t.addToCart = n(funnel.addToCart)
+  t.initiateCheckout = n(funnel.initiateCheckout)
+  t.purchases = n(row.purchases)
+  t.revenue = n(row.revenue)
+  t.formLeads = formLeads
+  t.pixelLeads = pixelLeads
+  t.totalLeads = formLeads || pixelLeads ? 0 : leads
+  t.directions = row.resultType === 'directions' ? n(row.resultValue) : 0
+  t.postEngagement = n(row.postEngagement)
+  t.videoStarts = n(row.videoStarts)
+  t.video3s = n(row.video3s)
+  t.video15s = n(row.video15s)
+  t.thruplays = n(row.thruplays)
+  t.video25 = n(row.video25)
+  t.video50 = n(row.video50)
+  t.video75 = n(row.video75)
+  t.video95 = n(row.video95)
+  t.days = n(row.days)
+  return t
+}
+
+/**
+ * La ligne de total d'un ensemble de lignes affichées.
+ *
+ * `days` se prend au maximum et non en somme : toutes les lignes couvrent la
+ * même fenêtre, l'additionner ferait croire à une période plus longue et
+ * fausserait la fréquence.
+ *
+ * L'objectif retenu est le plus représenté : sur un compte qui en mélange
+ * plusieurs, c'est lui qui décide de ce que « résultat » veut dire, et le
+ * choisir à la majorité vaut mieux que de n'en prendre aucun.
+ */
+export function totalDesLignes(rows: Record<string, unknown>[]) {
+  const t = emptyTotals()
+  for (const row of rows) {
+    const u = totauxDepuisLigne(row)
+    for (const k of TOTAL_KEYS) {
+      if (k === 'days') t.days = Math.max(t.days, u.days)
+      else t[k] += u[k]
+    }
+  }
+
+  const comptes = new Map<string, number>()
+  for (const row of rows) {
+    const o = typeof row.objective === 'string' ? row.objective : null
+    if (o) comptes.set(o, (comptes.get(o) ?? 0) + 1)
+  }
+  const objectif = [...comptes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+
+  return computeMetrics(t, objectif)
+}
