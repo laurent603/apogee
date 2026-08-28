@@ -157,6 +157,9 @@ export function OngletBriefs({ compte }: {
           {visibles.map((b) => {
             const estOuvert = ouvert === b.id
             const st = infoStatut(b.statut)
+            // Une seule extraction par rendu : elle analyse du JSON, et elle
+            // servait trois fois dans le corps de la carte.
+            const feuille = estOuvert && contenu[b.id] ? extraireFeuille(contenu[b.id]) : null
             return (
               <div key={b.id} className="card">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -200,13 +203,10 @@ export function OngletBriefs({ compte }: {
                           {/* Ce qu'on tend à la personne qui tourne : les
                               répliques, rien d'autre. */}
                           <button
-                            onClick={() => {
-                              const f = extraireFeuille(contenu[b.id])
-                              if (f) { imprimerFeuille(f, b.adName); marquer(b) }
-                            }}
-                            disabled={!extraireFeuille(contenu[b.id])}
+                            onClick={() => { if (feuille) { imprimerFeuille(feuille, b.adName); marquer(b) } }}
+                            disabled={!feuille}
                             className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
-                            title={extraireFeuille(contenu[b.id])
+                            title={feuille
                               ? 'Ouvre la feuille prête à imprimer ou enregistrer en PDF'
                               : 'Ce brief a été généré avant la feuille de tournage'}>
                             Feuille de tournage (PDF)
@@ -224,7 +224,7 @@ export function OngletBriefs({ compte }: {
                           </button>
                         </div>
 
-                        {!extraireFeuille(contenu[b.id]) && (
+                        {!feuille && (
                           <p className="text-[11px] text-amber-600 mt-2">
                             Feuille de tournage indisponible : ce brief est antérieur à sa mise en place.
                             Les prochains la porteront — régénérez-en un depuis la créa si vous en avez besoin.

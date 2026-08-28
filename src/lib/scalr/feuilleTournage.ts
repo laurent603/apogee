@@ -98,16 +98,54 @@ function segmentHtml(s: Segment, etiquette?: string, hook = false) {
   </div>`
 }
 
-/** Ouvre le document dans une fenêtre et lance l'impression du navigateur. */
+/**
+ * Imprime le document depuis un cadre caché.
+ *
+ * La première version ouvrait une fenêtre, y écrivait le document, puis
+ * attendait son `onload` pour appeler `print()`. L'événement avait déjà eu
+ * lieu au moment où l'on s'y abonnait : la boîte d'impression ne s'ouvrait
+ * jamais et la fenêtre restait blanche, sans rien pour la refermer — il
+ * fallait fermer l'onglet. Un bloqueur de fenêtres produisait le même silence.
+ *
+ * Un cadre caché n'a ni l'un ni l'autre de ces défauts : il vit dans la page,
+ * son chargement est observable, et rien ne peut le bloquer.
+ *
+ * Le cadre est unique et réutilisé d'une impression à l'autre. Le retirer
+ * serait plus propre en apparence, mais on ne sait pas quand l'utilisateur
+ * ferme la boîte de dialogue : le retrait tomberait pendant l'aperçu et
+ * imprimerait une page blanche. Un cadre invisible qui reste coûte moins.
+ */
+const ID_CADRE = 'apogee-impression'
+
 function imprimer(titre: string, corps: string) {
-  const w = window.open('', '_blank', 'width=900,height=1000')
-  if (!w) return false
-  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
-    <title>${echappe(titre)}</title><style>${STYLE}</style></head><body>${corps}</body></html>`)
-  w.document.close()
-  // Laisser la fenêtre peindre avant d'ouvrir la boîte d'impression, sinon
-  // certains navigateurs impriment une page blanche.
-  w.onload = () => setTimeout(() => w.print(), 120)
+  const doc = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
+    <title>${echappe(titre)}</title><style>${STYLE}</style></head><body>${corps}</body></html>`
+
+  const existant = document.getElementById(ID_CADRE)
+  if (existant) existant.remove()
+
+  const cadre = document.createElement('iframe')
+  cadre.id = ID_CADRE
+  cadre.setAttribute('aria-hidden', 'true')
+  cadre.setAttribute('tabindex', '-1')
+  cadre.style.cssText =
+    'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;pointer-events:none'
+
+  // `onload` avant l'insertion : avec `srcdoc`, le chargement peut être
+  // immédiat, et c'est précisément l'écueil qui a produit la fenêtre blanche.
+  cadre.onload = () => {
+    const f = cadre.contentWindow
+    if (!f) return
+    try {
+      f.focus()
+      f.print()
+    } catch {
+      // Impression refusée par le navigateur : le cadre reste, sans effet.
+    }
+  }
+
+  cadre.srcdoc = doc
+  document.body.appendChild(cadre)
   return true
 }
 
