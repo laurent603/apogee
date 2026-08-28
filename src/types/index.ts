@@ -51,6 +51,24 @@ export interface BrandSettings {
   budgetFlexibility?: string
   targetCpa?: number
   maxCpa?: number
+
+  // Seuils du moteur de décision — vides, les défauts du moteur s'appliquent.
+  cpaCibleRetargeting?: number
+  toleranceWinner?: number
+  facteurRegardable?: number
+  facteurConfirme?: number
+  volumeMinWinner?: number
+  volumeMinEntite?: number
+  hookMinWinner?: number
+  freqFatigue?: number
+  linkCtrFaible?: number
+  ctrFaible?: number
+  joursNouveauTest?: number
+
+  // Économie du compte : la part de marge consacrée à l'acquisition, et le
+  // choix de caler les verdicts sur le CPL qui en découle.
+  partAcquisition?: number
+  cplDerive?: boolean
   targetRoas?: number
   targetMer?: number
   priceRange?: string

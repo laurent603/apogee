@@ -36,6 +36,8 @@ export type DecisionRow = {
   ctr?: number | null
   linkCtr?: number | null
   frequency?: number | null
+  /** Vues 3 s ÷ impressions. Sert au seuil de hook, quand il est réglé. */
+  hookRate?: number | null
   /** `ACTIVE` ou non. Sert à distinguer une ligne arrêtée d'un test en cours. */
   status?: string | null
   /** Date de création, pour la même distinction. */
@@ -52,8 +54,44 @@ export type Goals = {
 /** Contexte du compte : les médianes servent de repli quand aucun objectif
  *  n'est renseigné. `adCpls` est volontairement celle des publicités même
  *  pour juger une campagne — c'est le comportement de Scalr. */
+/**
+ * Les seuils du moteur, réglables par compte.
+ *
+ * Chacun remplaçait une constante écrite en dur — choisie par moi, pas par le
+ * media buyer qui connaît son marché. Un compte à 8 € de CPL cible et un
+ * compte à 80 € n'ont aucune raison de partager le même volume minimal ni la
+ * même fréquence de saturation.
+ *
+ * Toutes les valeurs sont facultatives : absentes, ce sont les constantes
+ * d'origine qui s'appliquent, et un compte non réglé se comporte exactement
+ * comme avant.
+ */
+export type Seuils = {
+  /** Une ligne passe si son coût reste sous cible × ce facteur. */
+  toleranceWinner?: number | null
+  /** Dépense minimale avant de juger, puis dépense qui confirme, en
+   *  multiples de la cible. */
+  facteurRegardable?: number | null
+  facteurConfirme?: number | null
+  volumeMinWinner?: number | null
+  volumeMinEntite?: number | null
+  /** Hook rate minimal exigé d'une vidéo pour être winner. */
+  hookMinWinner?: number | null
+  freqFatigue?: number | null
+  linkCtrFaible?: number | null
+  ctrFaible?: number | null
+  joursNouveauTest?: number | null
+}
+
+export const SEUILS_DEFAUT = {
+  toleranceWinner: 1, facteurRegardable: 2, facteurConfirme: 5,
+  volumeMinWinner: 3, volumeMinEntite: 10, hookMinWinner: 0,
+  freqFatigue: 2.6, linkCtrFaible: 1, ctrFaible: 0.8, joursNouveauTest: 14,
+} as const
+
 export type DecisionContext = {
   goals?: Goals
+  seuils?: Seuils
   /** Dépenses des lignes du même niveau, pour le seuil de coupe. */
   levelSpends: number[]
   /** CPL de toutes les publicités du compte. */
@@ -115,6 +153,12 @@ const eur = (v: number) =>
   `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
 export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext): Decision {
+  /** Un seuil réglé, ou celui d'origine. Zéro reste une valeur choisie. */
+  const seuil = <K extends keyof typeof SEUILS_DEFAUT>(cle: K): number => {
+    const v = ctx.seuils?.[cle]
+    return v == null || !Number.isFinite(v) ? SEUILS_DEFAUT[cle] : v
+  }
+
   const spent = n(row.spend)
   // `result_value` prend le relais : une campagne Messenger compte des
   // engagements, pas des prospects, et mérite quand même un verdict.
@@ -132,7 +176,7 @@ export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext
   // Zéros conservés ici : une ligne à 0 € a réellement dépensé zéro, c'est
   // une mesure. Les écarter relèverait le seuil de coupe et épargnerait des
   // publicités qui brûlent du budget sans produire un seul lead.
-  const cutSpend = target ? target * 2 : Math.max(25, median(ctx.levelSpends) * 0.9)
+  const cutSpend = target ? target * seuil('facteurRegardable') : Math.max(25, median(ctx.levelSpends) * 0.9)
 
   const isEntity = level === 'campaign' || level === 'adset'
   const isCreative = level === 'ad' || level === 'crea'
@@ -144,11 +188,30 @@ export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext
   // coût cesse alors de départager quoi que ce soit, et une créa à 41 € de
   // CPL passe pour un winner confirmé.
   const medianCpl = medianeNonNulle(ctx.adCpls)
-  const underTarget = leads > 0 && cpl > 0 && (target ? cpl <= target : cpl <= medianCpl || !medianCpl)
-  const nearTarget = leads > 0 && cpl > 0 && (target ? cpl <= target * 1.25 : max ? cpl <= max : true)
-  const enoughVolume = isEntity ? leads >= 10 : leads >= 3 || spent >= (target ? target * 5 : 120)
-  const highFreq = freq >= 2.6
-  const weakCtr = (linkCtr > 0 && linkCtr < 1) || (ctr > 0 && ctr < 0.8)
+  // La tolérance élargit la cible sans la déplacer : la cible reste
+  // l'objectif annoncé, le facteur dit jusqu'où on accepte d'aller.
+  const cibleLarge = target * seuil('toleranceWinner')
+  const underTarget = leads > 0 && cpl > 0 && (target ? cpl <= cibleLarge : cpl <= medianCpl || !medianCpl)
+  const nearTarget = leads > 0 && cpl > 0 && (target ? cpl <= cibleLarge * 1.25 : max ? cpl <= max : true)
+  const enoughVolume = isEntity
+    ? leads >= seuil('volumeMinEntite')
+    : leads >= seuil('volumeMinWinner') || spent >= (target ? target * seuil('facteurConfirme') : 120)
+
+  /**
+   * Le hook départage deux créas de même coût.
+   *
+   * Une vidéo dont personne ne passe la troisième seconde peut afficher un bon
+   * CPL par accident de diffusion ; la déclarer winner enverrait décliner un
+   * concept que le public n'a pas regardé. Le seuil ne s'applique qu'aux
+   * vidéos — un statique n'a pas de hook — et vaut zéro par défaut, donc il ne
+   * change rien tant qu'il n'est pas réglé.
+   */
+  const hookMin = seuil('hookMinWinner')
+  const hook = n(row.hookRate)
+  const hookSuffisant = hookMin <= 0 || hook <= 0 || hook >= hookMin
+
+  const highFreq = freq >= seuil('freqFatigue')
+  const weakCtr = (linkCtr > 0 && linkCtr < seuil('linkCtrFaible')) || (ctr > 0 && ctr < seuil('ctrFaible'))
   const goodTraffic = linkCtr >= 2.5 || ctr >= 1.5
 
   if (spent >= cutSpend && leads === 0)
@@ -166,7 +229,7 @@ export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext
    * était réservé aux publicités et « À scaler » aux campagnes et ad sets, si
    * bien qu'aucune publicité ne pouvait jamais s'afficher « à scaler ».
    */
-  if (underTarget && enoughVolume)
+  if (underTarget && enoughVolume && hookSuffisant)
     return {
       kind: 'scale', label: 'Winner',
       reason: isCreative
@@ -213,7 +276,7 @@ export function rowDecision(row: DecisionRow, level: Level, ctx: DecisionContext
   if (!estActive(row.status))
     return { kind: 'paused', label: 'En pause', reason: 'Diffusion arrêtée : aucun verdict à porter sur la période.' }
 
-  if (jeune(row.createdTime))
+  if (jeune(row.createdTime, seuil('joursNouveauTest')))
     return { kind: 'test', label: 'Nouveau test', reason: 'Lancée récemment : laisser le temps de produire un signal.' }
 
   if (spent === 0)

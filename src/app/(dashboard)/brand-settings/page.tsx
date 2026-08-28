@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 import type { BrandSettings } from '@/types'
+import { clsx } from 'clsx'
 
 // ── Composants extraits EN DEHORS du composant parent ──
 // (si définis à l'intérieur, React les recrée à chaque render → perte de focus)
@@ -13,7 +14,54 @@ interface FieldProps {
   type?: string
   placeholder?: string
   settings: BrandSettings
-  onChange: (field: keyof BrandSettings, value: string | number | undefined) => void
+  onChange: (field: keyof BrandSettings, value: string | number | boolean | undefined) => void
+}
+
+type EcoApercu = {
+  periode: { since: string; until: string; jours: number }
+  margeParClient: number | null
+  tauxSignature: number | null
+  cplPointMort: number | null
+  cplCible: number | null
+  manquant: string[]
+  leadsCrm: number
+  signes: number
+  cplReel: number | null
+  cplSaisi: number | null
+  actif: boolean
+  verdict: { niveau: 'bon' | 'attention' | 'mauvais'; texte: string } | null
+}
+
+const euro = (v: number | null | undefined) =>
+  v == null || !Number.isFinite(v) ? '—'
+    : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+/**
+ * Un seuil du moteur de décision.
+ *
+ * L'espace réservé porte la valeur d'origine : laisser vide n'est pas une
+ * omission mais un choix, celui de garder le défaut, et il faut pouvoir le
+ * lire sans consulter le code.
+ */
+function Seuil({ label, aide, field, unite, defaut, settings, onChange }: {
+  label: string; aide: string; field: keyof BrandSettings; unite: string; defaut: string
+  settings: BrandSettings; onChange: FieldProps['onChange']
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-[#F3F4F6] last:border-0">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-[#0d0d12]">{label}</p>
+        <p className="text-[11px] text-gray-400 leading-snug">{aide}</p>
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <input type="number" step="any" placeholder={defaut}
+          value={(settings[field] as number | undefined) ?? ''}
+          onChange={(e) => onChange(field, e.target.value === '' ? undefined : Number(e.target.value))}
+          className="input w-24 text-sm text-right py-1.5" />
+        <span className="text-xs text-gray-400 w-4">{unite}</span>
+      </div>
+    </div>
+  )
 }
 
 function Field({ label, field, type = 'text', placeholder, settings, onChange }: FieldProps) {
@@ -83,7 +131,7 @@ function SelectField({ label, field, options, settings, onChange }: SelectProps)
   )
 }
 
-const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Marché', 'Référentiel créatif', 'Pipeline CRM']
+const TABS = ['Votre Business', 'Votre Audience', 'Objectifs & KPIs', 'Votre Marché', 'Référentiel créatif', 'Pipeline CRM', 'Seuils & économie']
 
 type GhlState = {
   hasToken: boolean
@@ -112,6 +160,7 @@ type KnowledgeState = {
 export default function BrandSettingsPage() {
   const { selectedAccount } = useStore()
   const [tab, setTab] = useState(0)
+  const [eco, setEco] = useState<EcoApercu | null>(null)
   const [settings, setSettings] = useState<BrandSettings>({})
   const [saving, setSaving] = useState(false)
 
@@ -194,6 +243,18 @@ export default function BrandSettingsPage() {
 
   useEffect(() => { loadGhl() }, [loadGhl])
 
+  // L'aperçu se recharge à l'ouverture de l'onglet et après enregistrement :
+  // saisir une marge sans voir le CPL qui en découle n'apprend rien.
+  const loadEco = useCallback(() => {
+    if (!selectedAccount?.id) return
+    fetch(`/api/scalr/economie?dbAccountId=${selectedAccount.id}`)
+      .then((r) => r.json())
+      .then((d) => setEco(d.error ? null : d))
+      .catch(() => setEco(null))
+  }, [selectedAccount?.id])
+
+  useEffect(() => { if (tab === 6) loadEco() }, [tab, loadEco])
+
   async function saveGhl() {
     if (!selectedAccount?.id) return
     const res = await fetch('/api/ghl', {
@@ -244,7 +305,7 @@ export default function BrandSettingsPage() {
   }
 
   // Callback stable pour mettre à jour un champ sans recréer le composant
-  const handleChange = useCallback((field: keyof BrandSettings, value: string | number | undefined) => {
+  const handleChange = useCallback((field: keyof BrandSettings, value: string | number | boolean | undefined) => {
     setSettings((prev) => ({ ...prev, [field]: value }))
   }, [])
 
@@ -753,6 +814,123 @@ export default function BrandSettingsPage() {
                   <li>Cochez <span className="font-mono">contacts.readonly</span>, <span className="font-mono">opportunities.readonly</span>, <span className="font-mono">locations.readonly</span></li>
                   <li>Copiez le token, et relevez l&apos;ID du sous-compte dans l&apos;URL</li>
                 </ol>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 6 — Seuils & économie */}
+          {tab === 6 && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+
+              <div className="border border-[#E5E7EB] rounded-2xl p-4">
+                <p className="text-sm font-semibold text-[#0d0d12]">Seuils des verdicts</p>
+                <p className="text-xs text-gray-400 mt-0.5 mb-3 leading-snug">
+                  Ils décident de ce qui s’affiche Winner, Fatigue ou À couper dans Media buying.
+                  Laissés vides, les valeurs entre parenthèses s’appliquent — un compte non réglé
+                  se comporte comme avant.
+                </p>
+
+                <Seuil label="Tolérance Winner" unite="×" defaut="1"
+                  aide="Une ligne passe si son coût reste sous cible × ce facteur."
+                  field="toleranceWinner" settings={settings} onChange={handleChange} />
+                <Seuil label="Seuil « regardable »" unite="×" defaut="2"
+                  aide="Dépense minimale avant de juger, en multiples de la cible."
+                  field="facteurRegardable" settings={settings} onChange={handleChange} />
+                <Seuil label="Seuil « confirmé »" unite="×" defaut="5"
+                  aide="Dépense qui suffit à valider un winner, sans atteindre le volume."
+                  field="facteurConfirme" settings={settings} onChange={handleChange} />
+                <Seuil label="Résultats min — publicité" unite="" defaut="3"
+                  aide="Nombre de résultats pour conclure sur une créa."
+                  field="volumeMinWinner" settings={settings} onChange={handleChange} />
+                <Seuil label="Résultats min — campagne / ad set" unite="" defaut="10"
+                  aide="Un niveau qui agrège plusieurs créas demande plus de volume."
+                  field="volumeMinEntite" settings={settings} onChange={handleChange} />
+                <Seuil label="Hook rate min — Winner" unite="%" defaut="0"
+                  aide="Vidéos seulement. Zéro désactive : le hook n’entre pas dans le verdict."
+                  field="hookMinWinner" settings={settings} onChange={handleChange} />
+                <Seuil label="Fréquence de fatigue" unite="" defaut="2,6"
+                  aide="Au-delà, l’audience est jugée sous pression."
+                  field="freqFatigue" settings={settings} onChange={handleChange} />
+                <Seuil label="Link CTR faible" unite="%" defaut="1"
+                  aide="En dessous, le clic est considéré comme décroché."
+                  field="linkCtrFaible" settings={settings} onChange={handleChange} />
+                <Seuil label="CTR faible" unite="%" defaut="0,8"
+                  aide="Même rôle, sur le CTR global."
+                  field="ctrFaible" settings={settings} onChange={handleChange} />
+                <Seuil label="Durée « nouveau test »" unite="j" defaut="14"
+                  aide="Au-delà, une ligne active sans signal n’est plus un test."
+                  field="joursNouveauTest" settings={settings} onChange={handleChange} />
+                <Seuil label="CPA cible — retargeting" unite="€" defaut="—"
+                  aide="Cible distincte sur audience chaude. Non appliquée tant que la détection froid/chaud n’existe pas."
+                  field="cpaCibleRetargeting" settings={settings} onChange={handleChange} />
+              </div>
+
+              <div className="border border-[#E5E7EB] rounded-2xl p-4">
+                <p className="text-sm font-semibold text-[#0d0d12]">Économie du compte</p>
+                <p className="text-xs text-gray-400 mt-0.5 mb-3 leading-snug">
+                  Ce qu’un prospect vaut réellement, déduit de la valeur d’un client, de la marge
+                  et du <strong>taux de signature mesuré dans le CRM</strong> — pas d’une estimation.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  <Field label="Valeur client (€)" field="averageOrderValue" type="number"
+                    placeholder="ex : 8000" settings={settings} onChange={handleChange} />
+                  <Field label="Marge brute (%)" field="productMarginPct" type="number"
+                    placeholder="ex : 35" settings={settings} onChange={handleChange} />
+                  <Field label="Part acquisition (%)" field="partAcquisition" type="number"
+                    placeholder="50" settings={settings} onChange={handleChange} />
+                </div>
+
+                {eco && (
+                  <div className="bg-[#f8f9fc] border border-[#E5E7EB] rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                      Sur {eco.periode.jours} jours · {eco.leadsCrm} prospects, {eco.signes} signés
+                    </p>
+
+                    {eco.manquant.length ? (
+                      <p className="text-xs text-gray-500 leading-snug">
+                        Il manque {eco.manquant.join(', ')} pour déduire la cible.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            ['Marge par client', euro(eco.margeParClient)],
+                            ['Taux de signature', eco.tauxSignature != null ? `${eco.tauxSignature.toFixed(2)}%` : '—'],
+                            ['CPL au point mort', euro(eco.cplPointMort)],
+                            ['CPL cible déduit', euro(eco.cplCible)],
+                          ].map(([l, v]) => (
+                            <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
+                              <p className="text-base font-bold text-[#0d0d12] tabular-nums">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {eco.verdict && (
+                          <p className={clsx('text-xs leading-snug mt-2.5 px-2.5 py-2 rounded-lg border',
+                            eco.verdict.niveau === 'bon' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                              : eco.verdict.niveau === 'attention' ? 'bg-amber-50 border-amber-200 text-amber-800'
+                              : 'bg-red-50 border-red-200 text-red-800')}>
+                            <strong>CPL réel {euro(eco.cplReel)}.</strong> {eco.verdict.texte}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <label className="flex items-start gap-2.5 mt-3 cursor-pointer">
+                  <input type="checkbox" checked={Boolean(settings.cplDerive)}
+                    onChange={(e) => handleChange('cplDerive', e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded border-gray-300 accent-[#3434ef] flex-shrink-0" />
+                  <span className="text-xs text-gray-600 leading-snug">
+                    <strong className="text-[#0d0d12]">Caler les verdicts sur le CPL déduit</strong> plutôt que
+                    sur le CPA cible saisi{eco?.cplSaisi ? ` (${euro(eco.cplSaisi)})` : ''}. Sans cette case,
+                    le calcul reste indicatif et rien ne change dans Media buying.
+                    {eco && eco.manquant.length > 0 && ' La saisie sert de repli tant que la déduction est incomplète.'}
+                  </span>
+                </label>
               </div>
             </div>
           )}

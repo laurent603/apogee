@@ -8,6 +8,7 @@ import {
   sante, signaux, saturation, verdictSaturation, verdictLeadgen, verdictMedia, verdictCreatif,
   ecart, type Pub,
 } from '@/lib/scalr/cockpit'
+import { economie, verdictCpl } from '@/lib/scalr/economie'
 
 /**
  * Le cockpit : l'état du compte, et ce qu'il y a à traiter.
@@ -79,7 +80,12 @@ export async function GET(req: NextRequest) {
       prisma.metaDailyAd.groupBy({ by: ['campaignId'], where: { ...base, date: { gte: since, lte: until } }, _sum: SUM }),
       prisma.brandSettings.findUnique({
         where: { adAccountId: dbAccountId },
-        select: { targetCpa: true, maxCpa: true },
+        select: { targetCpa: true, maxCpa: true, cpaCibleRetargeting: true, toleranceWinner: true,
+                 facteurRegardable: true, facteurConfirme: true, volumeMinWinner: true,
+                 volumeMinEntite: true, hookMinWinner: true, freqFatigue: true,
+                 linkCtrFaible: true, ctrFaible: true, joursNouveauTest: true,
+                 partAcquisition: true, cplDerive: true,
+                 averageOrderValue: true, productMarginPct: true },
       }),
       prisma.metaPeriodReach.findMany({
         where: { adAccountId: dbAccountId, window: `${jours}d`, level: { in: ['account', 'ad', 'campaign'] } },
@@ -138,8 +144,29 @@ export async function GET(req: NextRequest) {
   })
 
   // Les repères se calculent sur le compte entier — jamais sur un sous-ensemble.
-  const goals = { targetCpl: reglages?.targetCpa ?? null, maxCpl: reglages?.maxCpa ?? null }
-  const ctx = { goals, levelSpends: lignes.map((l) => l.spend), adCpls: lignes.map((l) => l.cpl || 0) }
+  /** Les seuils réglés pour ce compte ; absents, ceux du moteur s'appliquent. */
+  const seuils = {
+    toleranceWinner: reglages?.toleranceWinner, facteurRegardable: reglages?.facteurRegardable,
+    facteurConfirme: reglages?.facteurConfirme, volumeMinWinner: reglages?.volumeMinWinner,
+    volumeMinEntite: reglages?.volumeMinEntite, hookMinWinner: reglages?.hookMinWinner,
+    freqFatigue: reglages?.freqFatigue, linkCtrFaible: reglages?.linkCtrFaible,
+    ctrFaible: reglages?.ctrFaible, joursNouveauTest: reglages?.joursNouveauTest,
+  }
+  const eco = reglages?.cplDerive
+    ? economie({
+        valeurClient: reglages.averageOrderValue ?? null,
+        margePct: reglages.productMarginPct ?? null,
+        partAcquisitionPct: reglages.partAcquisition ?? null,
+        leads: Number(crmCur._sum.leads ?? 0),
+        signes: Number(crmCur._sum.signes ?? 0),
+      })
+    : null
+
+  const goals = {
+    targetCpl: eco?.cplCible ?? reglages?.targetCpa ?? null,
+    maxCpl: eco?.cplPointMort ?? reglages?.maxCpa ?? null,
+  }
+  const ctx = { goals, seuils, levelSpends: lignes.map((l) => l.spend), adCpls: lignes.map((l) => l.cpl || 0) }
 
   const avecDecision: Pub[] = lignes.map((l) => ({
     id: l.id,
@@ -153,7 +180,7 @@ export async function GET(req: NextRequest) {
     frequency: l.frequency,
     decision: rowDecision(
       { spend: l.spend, leads: l.leads, resultValue: l.resultValue, cpl: l.cpl,
-        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency,
+        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency, hookRate: l.hookRate,
         // Sans eux, une ligne en pause depuis des mois se lit « nouveau test ».
         status: l.status, createdTime: l.createdTime },
       'ad', ctx,
@@ -271,6 +298,8 @@ export async function GET(req: NextRequest) {
     fraicheur: etat?.lastSyncedAt ?? null,
     erreurSync: etat?.lastError ?? null,
     goals,
+    economie: eco,
+    verdictCpl: verdictCpl(courant.cpl, eco?.cplCible ?? null, eco?.cplPointMort ?? null),
     courant: totaux,
     precedent: totauxPrec,
     // La portée du compte n'est stockée que depuis la synchro qui l'a ajoutée :

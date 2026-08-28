@@ -184,6 +184,40 @@ model BrandSettings {
   budgetFlexibility     String?
   targetCpa             Float?
   maxCpa                Float?
+
+  /// ── Seuils du moteur de décision ─────────────────────────────────────
+  /// Chacun remplace une constante qui était écrite en dur. Laissés vides,
+  /// les défauts du moteur s'appliquent : un compte non réglé se comporte
+  /// exactement comme avant.
+  /// Cible distincte sur audience chaude : juger un retargeting et une
+  /// audience froide au même seuil en mal-classe forcément l'un des deux.
+  cpaCibleRetargeting   Float?
+  /// Une créa passe si son coût reste sous cible × ce facteur.
+  toleranceWinner       Float?
+  /// Dépense minimale avant de juger, en multiples de la cible.
+  facteurRegardable     Float?
+  /// Dépense qui valide un winner, en multiples de la cible.
+  facteurConfirme       Float?
+  /// Résultats minimum pour conclure — publicités, puis campagnes et ad sets.
+  volumeMinWinner       Int?
+  volumeMinEntite       Int?
+  /// Hook rate minimal exigé d'une vidéo pour être winner.
+  hookMinWinner         Float?
+  /// Fréquence à partir de laquelle l'audience est jugée sous pression.
+  freqFatigue           Float?
+  /// En dessous, le clic est considéré comme décroché.
+  linkCtrFaible         Float?
+  ctrFaible             Float?
+  /// Âge en deçà duquel une ligne sans signal reste un test, pas un problème.
+  joursNouveauTest      Int?
+
+  /// ── Économie du compte ───────────────────────────────────────────────
+  /// Part de la marge par client qu'on accepte de consacrer à l'acquisition.
+  /// Le reste est le profit. `averageOrderValue` et `productMarginPct`
+  /// portent déjà la valeur client et la marge.
+  partAcquisition       Float?
+  /// Caler les verdicts sur le CPL déduit du tunnel plutôt que sur `targetCpa`.
+  cplDerive             Boolean   @default(false)
   targetRoas            Float?
   targetMer             Float?
   priceRange            String?

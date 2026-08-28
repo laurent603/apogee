@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { computeMetrics, emptyTotals, previousWindow, variation, type Totals } from '@/lib/scalr/aggregate'
 import { rowDecision, type Level } from '@/lib/scalr/decision'
+import { economie } from '@/lib/scalr/economie'
 
 /**
  * Le tableau, à n'importe quel grain.
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
   const cle = CLE[level]
   const niveauEntite = level === 'crea' ? 'ad' : level
 
-  const [entites, agg, aggPrev, joursRows, reglages, portees, ancetres] = await Promise.all([
+  const [entites, agg, aggPrev, joursRows, reglages, portees, ancetres, crmFenetre] = await Promise.all([
     prisma.metaEntity.findMany({
       where: { adAccountId: dbAccountId, level: niveauEntite },
       select: { metaId: true, name: true, objective: true, status: true, effectiveStatus: true, dailyBudget: true, createdTime: true, parentMetaId: true, thumbnailUrl: true, creativeType: true },
@@ -115,7 +116,12 @@ export async function GET(req: NextRequest) {
     prisma.metaDailyAd.groupBy({ by: ['date'], where: { ...base, date: { gte: since, lte: until } } }),
     prisma.brandSettings.findUnique({
       where: { adAccountId: dbAccountId },
-      select: { targetCpa: true, maxCpa: true },
+      select: { targetCpa: true, maxCpa: true, cpaCibleRetargeting: true, toleranceWinner: true,
+                 facteurRegardable: true, facteurConfirme: true, volumeMinWinner: true,
+                 volumeMinEntite: true, hookMinWinner: true, freqFatigue: true,
+                 linkCtrFaible: true, ctrFaible: true, joursNouveauTest: true,
+                 partAcquisition: true, cplDerive: true,
+                 averageOrderValue: true, productMarginPct: true },
     }),
     // Portée dédupliquée, demandée à Meta pour cette fenêtre. Une plage libre
     // n'en a pas : la fréquence sera marquée comme approchée plutôt que
@@ -132,6 +138,12 @@ export async function GET(req: NextRequest) {
     prisma.metaEntity.findMany({
       where: { adAccountId: dbAccountId, level: { in: ['campaign', 'adset'] } },
       select: { metaId: true, level: true, name: true, objective: true, parentMetaId: true },
+    }),
+    // Le tunnel sur la période : il donne le taux de signature d'où se déduit
+    // la cible, quand le compte a choisi ce mode.
+    prisma.ghlDaily.aggregate({
+      where: { adAccountId: dbAccountId, date: { gte: since, lte: until } },
+      _sum: { leads: true, signes: true },
     }),
   ])
 
@@ -222,16 +234,45 @@ export async function GET(req: NextRequest) {
   const parIdAds = new Map(adsAgg.map((a) => [String((a as Record<string, unknown>).adId ?? ''), a._sum]))
   const adCpls = adEntites.map((e) => computeMetrics(toTotals(parIdAds.get(e.metaId), nbJours), objetCompte).cpl || 0)
 
-  const goals = {
-    targetCpl: reglages?.targetCpa ?? null,
-    maxCpl: reglages?.maxCpa ?? null,
+  /** Les seuils réglés pour ce compte ; absents, ceux du moteur s'appliquent. */
+  const seuils = {
+    toleranceWinner: reglages?.toleranceWinner, facteurRegardable: reglages?.facteurRegardable,
+    facteurConfirme: reglages?.facteurConfirme, volumeMinWinner: reglages?.volumeMinWinner,
+    volumeMinEntite: reglages?.volumeMinEntite, hookMinWinner: reglages?.hookMinWinner,
+    freqFatigue: reglages?.freqFatigue, linkCtrFaible: reglages?.linkCtrFaible,
+    ctrFaible: reglages?.ctrFaible, joursNouveauTest: reglages?.joursNouveauTest,
   }
-  const ctx = { goals, levelSpends: lignes.map((l) => l.spend), adCpls }
+
+  /**
+   * La cible, saisie ou déduite.
+   *
+   * Déduite, elle vient de la valeur d'un client, de la marge et du taux de
+   * signature réel — trois chiffres qui se vérifient, là où un CPL cible tapé
+   * à la main ne se vérifie jamais. Le basculement est explicite : sans lui,
+   * un compte verrait ses verdicts changer sans qu'on ait rien demandé.
+   */
+  const eco = reglages?.cplDerive
+    ? economie({
+        valeurClient: reglages.averageOrderValue ?? null,
+        margePct: reglages.productMarginPct ?? null,
+        partAcquisitionPct: reglages.partAcquisition ?? null,
+        leads: crmFenetre._sum.leads ?? 0,
+        signes: crmFenetre._sum.signes ?? 0,
+      })
+    : null
+
+  const goals = {
+    // Le repli sur la saisie compte : une cible déduite indisponible ne doit
+    // pas laisser le compte sans repère.
+    targetCpl: eco?.cplCible ?? reglages?.targetCpa ?? null,
+    maxCpl: eco?.cplPointMort ?? reglages?.maxCpa ?? null,
+  }
+  const ctx = { goals, seuils, levelSpends: lignes.map((l) => l.spend), adCpls }
 
   const avecDecision = lignes.map((l) => {
     const d = rowDecision(
       { spend: l.spend, leads: l.leads, resultValue: l.resultValue, cpl: l.cpl,
-        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency,
+        costPerResult: l.costPerResult, ctr: l.ctr, linkCtr: l.linkCtr, frequency: l.frequency, hookRate: l.hookRate,
         // Sans eux, une ligne en pause depuis des mois se lit « nouveau test ».
         status: l.status, createdTime: l.createdTime },
       level, ctx,
@@ -260,6 +301,8 @@ export async function GET(req: NextRequest) {
     precedente: { since: prev.since.toISOString().slice(0, 10), until: prev.until.toISOString().slice(0, 10) },
     attribution,
     goals,
+    // De quoi expliquer d'où vient la cible, quand elle est déduite.
+    economie: eco,
     lignes: avecDecision.sort((a, b) => b.spend - a.spend),
     // De quoi remplir les listes de la barre d'outils. Les ad sets portent
     // leur campagne : la liste se restreint à la campagne choisie plutôt que
