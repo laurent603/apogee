@@ -81,6 +81,40 @@ function Variation({ value, def }: { value: number | null | undefined; def: Metr
 
 const estActif = (s: string | null) => s === 'ACTIVE'
 
+/**
+ * Le chemin parcouru en descendant, et le moyen de remonter.
+ *
+ * La descente ne fait que poser un niveau et un filtre — deux choses que la
+ * barre d'outils sait déjà faire. Cliquer une campagne, c'est demander « les
+ * ad sets, mais seulement les siens » ; le fil rend cet état lisible et
+ * réversible, sans quoi on se retrouve deux niveaux plus bas sans savoir
+ * pourquoi la liste est courte.
+ */
+function Fil({ campagne, adset, onRemonter }: {
+  campagne: string | null
+  adset: string | null
+  onRemonter: (vers: 'campaign' | 'adset') => void
+}) {
+  if (!campagne) return null
+  return (
+    <nav className="flex items-center gap-1.5 text-sm flex-wrap" aria-label="Chemin">
+      <button onClick={() => onRemonter('campaign')}
+        className="text-[#3434ef] hover:underline font-medium">Campagnes</button>
+      <span className="text-gray-300">›</span>
+      {adset ? (
+        <>
+          <button onClick={() => onRemonter('adset')}
+            className="text-[#3434ef] hover:underline font-medium max-w-[280px] truncate">{campagne}</button>
+          <span className="text-gray-300">›</span>
+          <span className="text-[#0d0d12] font-medium max-w-[280px] truncate">{adset}</span>
+        </>
+      ) : (
+        <span className="text-[#0d0d12] font-medium max-w-[380px] truncate">{campagne}</span>
+      )}
+    </nav>
+  )
+}
+
 export default function PilotagePage() {
   const { selectedAccount } = useStore()
   const [niveau, setNiveau] = useState<string>('campaign')
@@ -180,6 +214,26 @@ export default function PilotagePage() {
     return c
   }, [perimetre])
 
+  const nomCampagne = r.campagne === 'all' ? null
+    : data?.options.campagnes.find((c) => c.id === r.campagne)?.nom ?? 'Campagne'
+  const nomAdset = r.adset === 'all' ? null
+    : data?.options.adsets.find((a) => a.id === r.adset)?.nom ?? 'Ad set'
+
+  /**
+   * Descendre d'un cran : le niveau change, et le filtre se pose sur la ligne
+   * cliquée. Une publicité n'a rien en dessous — elle ouvre son détail.
+   */
+  function descendre(row: Ligne) {
+    if (niveau === 'campaign') { setNiveau('adset'); set({ campagne: row.id, adset: 'all' }) }
+    else if (niveau === 'adset') { setNiveau('ad'); set({ campagne: row.campaignId ?? r.campagne, adset: row.id }) }
+    else if (niveau === 'ad') setDetailOuvert(row.id)
+  }
+
+  function remonter(vers: 'campaign' | 'adset') {
+    if (vers === 'campaign') { setNiveau('campaign'); set({ campagne: 'all', adset: 'all' }) }
+    else { setNiveau('adset'); set({ adset: 'all' }) }
+  }
+
   const cols = r.colonnes.map((k) => METRIC_BY_KEY.get(k)).filter(Boolean) as MetricDef[]
   const nbColonnes = cols.length + 2 + (r.dateLancement ? 1 : 0)
 
@@ -207,6 +261,8 @@ export default function PilotagePage() {
             placeholder="Rechercher…" className="input w-auto text-sm py-1.5 min-w-[150px]" />
         </div>
       </div>
+
+      <Fil campagne={nomCampagne} adset={nomAdset} onRemonter={remonter} />
 
       <BarreOutils r={r} set={set} niveau={niveau} options={data?.options || null}
         lignes={perimetre as unknown as Record<string, unknown>[]}
@@ -264,10 +320,8 @@ export default function PilotagePage() {
               </thead>
               <tbody>
                 {lignes.map((row) => (
-                  <tr key={row.id}
-                    onClick={() => niveau === 'ad' && setDetailOuvert(row.id)}
-                    className={clsx('border-t border-[#F3F4F6] hover:bg-[#f8f9fc] group',
-                      niveau === 'ad' && 'cursor-pointer')}>
+                  <tr key={row.id} onClick={() => descendre(row)}
+                    className="border-t border-[#F3F4F6] hover:bg-[#f8f9fc] group cursor-pointer">
                     <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-[#f8f9fc] min-w-[240px] max-w-[340px]">
                       <div className="flex items-start gap-2">
                         {r.afficherStatut && (
@@ -279,6 +333,7 @@ export default function PilotagePage() {
                           <span className={clsx('font-medium text-[#0d0d12] leading-snug block',
                             r.wrapNames ? 'break-words' : 'truncate')}>
                             {row.name}
+                            <span className="text-gray-300 ml-1 group-hover:text-[#3434ef]" aria-hidden>›</span>
                           </span>
                           {r.afficherStatut && (
                             <span className="text-[10px] text-gray-400">
