@@ -9,6 +9,7 @@ import { appliqueConditions } from '@/lib/scalr/filtres'
 import { BarreOutils, REGLAGES_DEFAUT, objectifLisible, type Reglages } from '@/components/scalr/BarreOutils'
 import { GalerieCreas } from '@/components/scalr/GalerieCreas'
 import { DetailCrea } from '@/components/scalr/DetailCrea'
+import { MatriceFatigue } from '@/components/scalr/MatriceFatigue'
 
 /**
  * Le tableau de pilotage.
@@ -41,6 +42,7 @@ const NIVEAUX = [
   { id: 'adset', label: 'Ad Sets' },
   { id: 'ad', label: 'Publicités' },
   { id: 'crea', label: 'Créas' },
+  { id: 'fatigue', label: 'Matrice' },
 ] as const
 
 /** Une pastille par verdict. `kind` vient du moteur de décision. */
@@ -117,7 +119,9 @@ export default function PilotagePage() {
     if (!selectedAccount) return
     setLoading(true)
     const q = new URLSearchParams({
-      dbAccountId: selectedAccount.id, level: niveau,
+      // La matrice croise deux métriques de publicités : elle lit le même
+      // niveau, avec les mêmes filtres et la même période.
+      dbAccountId: selectedAccount.id, level: niveau === 'fatigue' ? 'ad' : niveau,
       periode: r.periode, attribution: r.attribution,
     })
     // Une plage libre l'emporte sur le raccourci : c'est le choix le plus
@@ -145,7 +149,7 @@ export default function PilotagePage() {
     // après que les pastilles les avaient comptées : une pastille annonçait
     // « 12 » et le mur restait vide. Compteur et affichage partent désormais
     // de la même liste.
-    if (niveau === 'crea' && r.diffuseesSeulement) l = l.filter((x) => (x.spend as number) > 0)
+    if ((niveau === 'crea' || niveau === 'fatigue') && r.diffuseesSeulement) l = l.filter((x) => (x.spend as number) > 0)
     if (recherche.trim()) {
       const q = recherche.toLowerCase()
       l = l.filter((x) => x.name.toLowerCase().includes(q))
@@ -228,12 +232,16 @@ export default function PilotagePage() {
       {!selectedAccount && <div className="card text-center py-16 text-gray-400 text-sm">Sélectionnez un compte publicitaire.</div>}
       {selectedAccount && loading && <div className="card text-center py-16 text-gray-400 text-sm">Chargement…</div>}
 
+      {selectedAccount && !loading && data && niveau === 'fatigue' && (
+        <MatriceFatigue lignes={lignes as unknown as Record<string, unknown>[]} />
+      )}
+
       {selectedAccount && !loading && data && niveau === 'crea' && (
         <GalerieCreas lignes={lignes as never} periode={r.periode} attribution={r.attribution}
           colonnes={r.colonnesCrea} />
       )}
 
-      {selectedAccount && !loading && data && niveau !== 'crea' && (
+      {selectedAccount && !loading && data && niveau !== 'crea' && niveau !== 'fatigue' && (
         <div className="card p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

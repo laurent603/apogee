@@ -39,7 +39,7 @@ export type Reglages = {
   afficherStatut: boolean
   variations: boolean
   wrapNames: boolean
-  /** Créas seulement : écarter celles qui n'ont pas dépensé. */
+  /** Créas et matrice : écarter celles qui n'ont pas dépensé. */
   diffuseesSeulement: boolean
 }
 
@@ -160,10 +160,13 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
 
   // Ce que la barre montre dépend du grain : filtrer des campagnes par
   // campagne n'a pas de sens, et une campagne n'a pas de format créa.
+  // La matrice croise deux métriques de publicités : elle mérite les mêmes
+  // filtres que le niveau Publicités.
+  const surDesPubs = niveau === 'ad' || niveau === 'crea' || niveau === 'fatigue'
   const montre = {
     campagne: niveau !== 'campaign',
-    adset: niveau === 'ad' || niveau === 'crea',
-    format: niveau === 'ad' || niveau === 'crea',
+    adset: surDesPubs,
+    format: surDesPubs,
   }
 
   // Les ad sets se restreignent à la campagne choisie : dérouler ceux de tout
@@ -296,7 +299,7 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
         </Champ>
 
         <div className="flex flex-wrap gap-1.5 ml-auto">
-          {niveau === 'crea' && (
+          {(niveau === 'crea' || niveau === 'fatigue') && (
             <Bascule label="Diffusées seulement" actif={r.diffuseesSeulement}
               onClick={() => set({ diffuseesSeulement: !r.diffuseesSeulement })} />
           )}

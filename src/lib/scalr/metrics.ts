@@ -51,6 +51,7 @@ export const METRICS: MetricDef[] = [
   { key: 'clicks', group: 'ENGAGEMENT', label: 'Clicks', format: 'int', good: 'high' },
   { key: 'linkClicks', group: 'ENGAGEMENT', label: 'Clics lien', format: 'int', good: 'high' },
   { key: 'outboundClicks', group: 'ENGAGEMENT', label: 'Clics sortants', format: 'int', good: 'high' },
+  { key: 'outboundCtr', group: 'ENGAGEMENT', label: 'Outbound CTR', format: 'pct', good: 'high', dec: 2 },
 
   // VIDEO
   { key: 'hookRate', group: 'VIDEO', label: 'Hook rate', format: 'pct', good: 'high', dec: 2 },

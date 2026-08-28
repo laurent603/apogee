@@ -162,6 +162,7 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     postEngagement: t.postEngagement,
     landingPageViews: t.landingPageViews,
     cpcOutbound: per(t.spend, t.outboundClicks),
+    outboundCtr: pct(t.outboundClicks, t.impressions),
     costPerThruplay: per(t.spend, t.thruplays),
 
     hasVideo: t.video3s > 0,
