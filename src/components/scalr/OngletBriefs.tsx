@@ -67,6 +67,30 @@ export function OngletBriefs({ compte }: {
   const [imgEnCours, setImgEnCours] = useState<string | null>(null)
   const [imgErreur, setImgErreur] = useState<Record<string, string>>({})
   const [images, setImages] = useState<Record<string, { id: string; ratio: string; src: string }[]>>({})
+  /**
+   * L'ADN du compte, pour que l'incrustation porte ses couleurs.
+   *
+   * Sans lui, le filet d'accent sortait au bleu du produit sur la créa d'un
+   * client dont la marque est jaune — la signature de l'outil au milieu de la
+   * publicité.
+   */
+  const [marque, setMarque] = useState<{ accent?: string; policeTitre?: string; policeTexte?: string }>({})
+  const [refsJointes, setRefsJointes] = useState<Record<string, string[]>>({})
+
+  useEffect(() => {
+    if (!compte?.id) { setMarque({}); return }
+    fetch(`/api/brand-dna?dbAccountId=${compte.id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const adn = d?.adn?.contenu ? JSON.parse(d.adn.contenu) : null
+        setMarque({
+          accent: adn?.systeme_visuel?.couleur_accent,
+          policeTitre: adn?.systeme_visuel?.police_titre,
+          policeTexte: adn?.systeme_visuel?.police_texte,
+        })
+      })
+      .catch(() => setMarque({}))
+  }, [compte?.id])
 
   useEffect(() => {
     fetch('/api/briefs/image')
@@ -91,6 +115,9 @@ export function OngletBriefs({ compte }: {
         [briefId]: [{ id: d.image.id, ratio, src: `data:image/png;base64,${d.donnees}` },
                     ...(m[briefId] || [])],
       }))
+      // Ce qui a réellement été joint : sans cet affichage, on en est réduit à
+      // deviner si l'ADN a servi.
+      setRefsJointes((r) => ({ ...r, [briefId]: d.references || [] }))
     } catch (err) {
       setImgErreur((e) => ({ ...e, [cle]: err instanceof Error ? err.message.slice(0, 200) : 'Échec' }))
     } finally {
@@ -292,6 +319,13 @@ export function OngletBriefs({ compte }: {
                                     {imgErreur[`${b.id}:${v.ratio}`] && (
                                       <span className="text-[10px] text-amber-600">{imgErreur[`${b.id}:${v.ratio}`]}</span>
                                     )}
+                                    {refsJointes[b.id] && (
+                                      <span className="text-[10px] text-gray-400">
+                                        {refsJointes[b.id].length
+                                          ? `${refsJointes[b.id].length} référence${refsJointes[b.id].length > 1 ? 's' : ''} jointe${refsJointes[b.id].length > 1 ? 's' : ''} · ${refsJointes[b.id].join(', ')}`
+                                          : 'aucune référence — générez l’ADN de marque'}
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -299,7 +333,7 @@ export function OngletBriefs({ compte }: {
 
                             {images[b.id]?.map((im) => (
                               <ComposeurImage key={im.id} src={im.src} nom={b.adName}
-                                ratioInitial={im.ratio}
+                                ratioInitial={im.ratio} marque={marque}
                                 textes={feuille?.textes_incrustes || {}} />
                             ))}
                           </div>

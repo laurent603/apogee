@@ -27,7 +27,25 @@ const FORMATS: Record<string, { l: number; h: number; libelle: string }> = {
   '9:16': { l: 1080, h: 1920, libelle: 'Story / Reels' },
 }
 
-const BLEU = '#3434ef'
+/**
+ * Les couleurs du produit ne sont qu'un repli.
+ *
+ * L'incrustation posait systématiquement le bleu d'Apogee sur des créas de
+ * clients qui ont leur propre accent — un filet bleu sur une marque jaune,
+ * c'est la signature de l'outil au milieu de la publicité du client.
+ */
+const BLEU_DEFAUT = '#3434ef'
+
+/** Extrait une famille utilisable d'une description libre de l'ADN. */
+function familles(description: string | undefined, repli: string): string {
+  const connues = ['Poppins', 'Montserrat', 'Inter', 'Roboto', 'Lato', 'Open Sans',
+    'Source Sans', 'Helvetica', 'Arial', 'DM Sans', 'Work Sans', 'Nunito']
+  const trouvee = connues.find((f) => new RegExp(f, 'i').test(description || ''))
+  // La famille nommée passe en tête : si le navigateur ne l'a pas, la pile de
+  // secours prend le relais sans que le rendu casse.
+  return [trouvee, repli, 'system-ui', '-apple-system', 'sans-serif']
+    .filter(Boolean).map((f) => `"${f}"`).join(', ')
+}
 
 /** Découpe un texte en lignes qui tiennent dans la largeur donnée. */
 function lignes(ctx: CanvasRenderingContext2D, texte: string, largeur: number): string[] {
@@ -44,11 +62,13 @@ function lignes(ctx: CanvasRenderingContext2D, texte: string, largeur: number): 
   return out
 }
 
-export function ComposeurImage({ src, textes, ratioInitial = '9:16', nom }: {
+export function ComposeurImage({ src, textes, ratioInitial = '9:16', nom, marque }: {
   src: string
   textes: TextesCrea
   ratioInitial?: string
   nom: string
+  /** L'ADN du compte : ses couleurs et ses polices, pas celles du produit. */
+  marque?: { accent?: string; policeTitre?: string; policeTexte?: string }
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [ratio, setRatio] = useState(FORMATS[ratioInitial] ? ratioInitial : '9:16')
@@ -57,6 +77,10 @@ export function ComposeurImage({ src, textes, ratioInitial = '9:16', nom }: {
   const [sous, setSous] = useState(textes.sous_accroche || '')
   const [mention, setMention] = useState(textes.mention || '')
   const [pret, setPret] = useState(false)
+
+  const accent = /^#[0-9a-f]{6}$/i.test(marque?.accent || '') ? (marque!.accent as string) : BLEU_DEFAUT
+  const policeTitre = familles(marque?.policeTitre, 'DM Sans')
+  const policeTexte = familles(marque?.policeTexte, 'DM Sans')
 
   const dessiner = useCallback(async () => {
     const c = canvas.current
@@ -105,11 +129,11 @@ export function ComposeurImage({ src, textes, ratioInitial = '9:16', nom }: {
     const interA = tAccroche * 1.12
     const interS = tSous * 1.25
 
-    ctx.font = `700 ${tAccroche}px "DM Sans", system-ui, -apple-system, sans-serif`
+    ctx.font = `700 ${tAccroche}px ${policeTitre}`
     const lA = accroche.trim() ? lignes(ctx, accroche.toUpperCase(), largeurTexte) : []
-    ctx.font = `600 ${tSous}px "DM Sans", system-ui, -apple-system, sans-serif`
+    ctx.font = `600 ${tSous}px ${policeTitre}`
     const lS = sous.trim() ? lignes(ctx, sous.toUpperCase(), largeurTexte) : []
-    ctx.font = `400 ${tMention}px "DM Sans", system-ui, -apple-system, sans-serif`
+    ctx.font = `400 ${tMention}px ${policeTexte}`
     const lM = mention.trim() ? lignes(ctx, mention, largeurTexte) : []
 
     const hBloc =
@@ -144,29 +168,29 @@ export function ComposeurImage({ src, textes, ratioInitial = '9:16', nom }: {
     let y = yBloc
     ctx.textBaseline = 'top'
     ctx.fillStyle = '#ffffff'
-    ctx.font = `700 ${tAccroche}px "DM Sans", system-ui, -apple-system, sans-serif`
+    ctx.font = `700 ${tAccroche}px ${policeTitre}`
     for (const l of lA) { ctx.fillText(l, marge, y); y += interA }
 
     if (lS.length) {
       y += tAccroche * 0.42
       // Un filet aux couleurs de la marque sépare l'accroche de la bascule :
       // l'œil s'arrête, puis repart. Deux blocs collés se lisent comme un seul.
-      ctx.fillStyle = BLEU
+      ctx.fillStyle = accent
       ctx.fillRect(marge, y - tAccroche * 0.22, f.l * 0.09, Math.max(3, f.l * 0.005))
       ctx.fillStyle = '#ffffff'
-      ctx.font = `600 ${tSous}px "DM Sans", system-ui, -apple-system, sans-serif`
+      ctx.font = `600 ${tSous}px ${policeTitre}`
       for (const l of lS) { ctx.fillText(l, marge, y); y += interS }
     }
 
     if (lM.length) {
       y += tAccroche * 0.3
       ctx.fillStyle = 'rgba(255,255,255,0.82)'
-      ctx.font = `400 ${tMention}px "DM Sans", system-ui, -apple-system, sans-serif`
+      ctx.font = `400 ${tMention}px ${policeTexte}`
       for (const l of lM) { ctx.fillText(l, marge, y); y += tMention * 1.3 }
     }
 
     setPret(true)
-  }, [src, ratio, position, accroche, sous, mention])
+  }, [src, ratio, position, accroche, sous, mention, accent, policeTitre, policeTexte])
 
   useEffect(() => { dessiner().catch(() => setPret(false)) }, [dessiner])
 
