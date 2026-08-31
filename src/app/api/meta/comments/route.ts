@@ -95,6 +95,19 @@ export async function GET(req: NextRequest) {
 
     const token = session.accessToken as string
 
+    /**
+     * Le temps est une ressource comme une autre.
+     *
+     * Dépasser le budget de la fonction rend une erreur 504 : l'utilisateur
+     * perd tout, y compris les commentaires déjà lus. Un compte très fourni
+     * doit rendre ce qu'il a pu lire, et dire qu'il s'est arrêté — un résultat
+     * partiel annoncé vaut mieux qu'une panne.
+     */
+    const debut = Date.now()
+    const BUDGET_MS = 230_000
+    const tempsEcoule = () => Date.now() - debut > BUDGET_MS
+    let tronque = false
+
     // Résoudre l'accountId DB → Meta
     let metaAccountId = accountId
     if (!accountId.startsWith('act_')) {
@@ -171,6 +184,7 @@ export async function GET(req: NextRequest) {
      */
     const parId = new Map<string, Record<string, unknown>>()
     await mapLimit([...commentairesPar.keys()], 8, async (adId) => {
+      if (tempsEcoule()) { tronque = true; return }
       try {
         const ad = await metaFetch(`/${adId}`, token, { fields: adFields })
         if (ad?.id) parId.set(String(ad.id), ad as Record<string, unknown>)
@@ -341,6 +355,7 @@ export async function GET(req: NextRequest) {
     const fbTokenUsed: Record<string, string> = {}
 
     await mapLimit(Array.from(postsAScanner.entries()), 6, async ([postId, meta]) => {
+      if (tempsEcoule()) { tronque = true; return }
       const [ownerId, storyId] = postId.split('_')
       const pageToken = pageTokens[ownerId]
       const candidates: [string, string][] = []
@@ -373,6 +388,13 @@ export async function GET(req: NextRequest) {
                 return
               }
               fbTokenUsed[postId] = `${kind}:${filter}:${shape}:empty`
+              // Le jeton de la Page fait autorité sur ses propres posts : s'il
+              // annonce zéro commentaire, aucun autre filtre n'en produira. On
+              // s'épargne le second appel, soit la moitié du balayage.
+              if (kind === 'page' && total === 0) {
+                fbTokenUsed[postId] = `${kind}:${filter}:${shape}:vide-confirme`
+                return
+              }
             } catch (e) {
               fbTokenUsed[postId] = `${kind}:${filter}:${shape}:err:${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`
             }
@@ -394,6 +416,7 @@ export async function GET(req: NextRequest) {
     const igReported: Record<string, number> = {}
 
     await mapLimit(Array.from(mediasAScanner.entries()), 6, async ([igMediaId, meta]) => {
+      if (tempsEcoule()) { tronque = true; return }
       if (pageTokensIG.length === 0) { igDebugErrors.push(`${igMediaId}:no-token`); return }
       for (const pt of pageTokensIG) {
         try {
@@ -476,6 +499,9 @@ export async function GET(req: NextRequest) {
       // Ce qui n'a pas été interrogé, pour que le décompte affiché ne laisse
       // pas croire à un balayage exhaustif quand le plafond a joué.
       postsIgnores,
+      // L'analyse s'est arrêtée sur le temps : le décompte est un plancher.
+      tronque,
+      dureeMs: Date.now() - debut,
       debug: {
         adsFetched: allAds.length,
         fbPosts: fbPostMap.size,
