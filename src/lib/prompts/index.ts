@@ -229,26 +229,21 @@ dans cet ordre :
 3. **Le cadrage** : plan large, taille, hauteur de caméra, profondeur.
 4. **La lumière et l'ambiance** en quelques mots.
 5. **La palette**, deux ou trois couleurs dominantes.
-6. **Le texte incrusté**, entre guillemets, **mot pour mot**, avec sa position.
-   Six mots maximum par bloc : les générateurs déforment les phrases longues,
-   et une accroche courte porte mieux de toute façon. Si le texte n'est pas
-   indispensable, ne demande pas de texte du tout.
+6. **Aucun texte dans l'image.** Demande explicitement une photo **sans
+   aucun texte, sans lettre, sans chiffre, sans panneau écrit**. Les
+   générateurs dessinent le texte au lieu de le composer : les lettres se
+   déforment, les polices changent d'un bloc à l'autre, et le bandeau tombe
+   sur le sujet. L'application incruste elle-même l'accroche, avec ses
+   propres polices et aux bonnes positions.
 
-   **Ce texte est lu seul, sans le brief.** Il doit donc tenir debout comme
-   accroche et ne jamais pouvoir être pris pour une affirmation de
-   l'annonceur. Reprendre une objection de prospect telle quelle produit
-   l'effet inverse de celui recherché : « Il n'y a aucune aide » incrusté sur
-   une image devient la marque qui affirme qu'aucune aide n'existe. Si le
-   texte cite un prospect, il porte des guillemets **dans l'image** et une
-   attribution courte. Sinon, reformule-le du point de vue de l'annonceur.
+   En revanche, **réserve-lui la place** : demande une zone volontairement
+   dégagée — un mur, un ciel, une route, un arrière-plan flou — sur le tiers
+   bas de l'image, et un sujet décalé qui ne l'occupe pas. Une photo dont le
+   sujet remplit tout le cadre ne peut plus rien accueillir.
 
-   Évite les apostrophes et les accents dans le texte incrusté quand une
-   formulation équivalente s'en passe : les générateurs les rendent mal.
-   Précise une typographie sans empattement, en capitales ou en gras.
+   Les textes restent écrits dans \`textes_incrustes\` du bloc JSON : c'est
+   de là que l'application les prend.
 
-   Donne la position en pourcentage de la hauteur, pas en « tiers » : « bandeau
-   entre 20 % et 35 % de la hauteur » ne s'interprète pas, « tiers supérieur »
-   si.
 7. **Les zones à laisser vides** : en 9:16, le haut sur 15 % et le bas sur
    20 % sont couverts par l'interface Instagram ; en 1:1, garder le tiers
    inférieur respirant.

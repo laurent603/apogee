@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
 import { extraireFeuille, imprimerFeuille, imprimerBrief } from '@/lib/scalr/feuilleTournage'
+import { ComposeurImage } from './ComposeurImage'
 
 /**
  * Les briefs créa : la liste, et leur avancement.
@@ -296,18 +297,11 @@ export function OngletBriefs({ compte }: {
                               </div>
                             ))}
 
-                            {!!images[b.id]?.length && (
-                              <div className="flex flex-wrap gap-2 pt-1">
-                                {images[b.id].map((im) => (
-                                  <a key={im.id} href={im.src} download={`${b.adName}-${im.ratio}.png`}
-                                     className="block border border-[#E5E7EB] rounded-lg overflow-hidden hover:border-[#3434ef]"
-                                     title="Télécharger">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={im.src} alt={`Aperçu ${im.ratio}`} className="h-40 w-auto block" />
-                                  </a>
-                                ))}
-                              </div>
-                            )}
+                            {images[b.id]?.map((im) => (
+                              <ComposeurImage key={im.id} src={im.src} nom={b.adName}
+                                ratioInitial={im.ratio}
+                                textes={feuille?.textes_incrustes || {}} />
+                            ))}
                           </div>
                         )}
 
