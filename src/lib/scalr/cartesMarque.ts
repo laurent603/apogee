@@ -162,7 +162,16 @@ export function carteStyle(adn: AdnMarque): string {
       <circle cx="${64 + (952 * p) / 100}" cy="${y + 4}" r="14" fill="${accent}"/>`
   }
 
-  const adjectifs = adn.essence?.adjectifs ?? []
+  /**
+   * La colonne s'adapte au nombre d'adjectifs.
+   *
+   * Trois étaient demandés, le modèle en produit parfois quatre — et une
+   * largeur figée poussait le dernier hors de la carte. Mieux vaut resserrer
+   * que perdre une information que le modèle a jugée utile.
+   */
+  const adjectifs = (adn.essence?.adjectifs ?? []).slice(0, 4)
+  const pas = adjectifs.length > 1 ? Math.floor(952 / adjectifs.length) : 952
+  const parLigne = adjectifs.length >= 4 ? 22 : 30
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${L}" height="${H}" viewBox="0 0 ${L} ${H}">
   <rect width="${L}" height="${H}" fill="#ffffff"/>
@@ -172,9 +181,9 @@ export function carteStyle(adn: AdnMarque): string {
   ${texte(64, 150, (adn.identite?.nom ?? '') + ' — direction photographique', { taille: 21, couleur: '#74778a' })}
 
   ${titreSection(64, 224, 'Essence')}
-  ${adjectifs.slice(0, 3).map((a, i) => `
-    ${texte(64 + i * 320, 288, (a.mot ?? '').toUpperCase(), { taille: 34, gras: 700, couleur: accent })}
-    ${couper(a.explication ?? '', 30, 3).map((l, j) => texte(64 + i * 320, 326 + j * 26, l, { taille: 19, couleur: '#2c2f3a' })).join('')}
+  ${adjectifs.map((a, i) => `
+    ${texte(64 + i * pas, 288, (a.mot ?? '').toUpperCase(), { taille: adjectifs.length >= 4 ? 28 : 34, gras: 700, couleur: accent })}
+    ${couper(a.explication ?? '', parLigne, 4).map((l, j) => texte(64 + i * pas, 326 + j * 24, l, { taille: 18, couleur: '#2c2f3a' })).join('')}
   `).join('')}
 
   ${titreSection(64, 452, 'Direction photographique')}
