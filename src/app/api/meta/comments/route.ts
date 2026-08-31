@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
       return Number(actions?.find(a => a.action_type === 'comment')?.value || 0)
     }
 
-    type AdMeta = { adName: string; thumbnail?: string }
+    type AdMeta = { adName: string; thumbnail?: string; expected: number }
     const fbPostMap = new Map<string, AdMeta>()    // FB postId → meta
     const igMediaMap = new Map<string, AdMeta>()   // IG media ID → meta
 
@@ -187,9 +187,33 @@ export async function GET(req: NextRequest) {
       }
 
       // An ad runs on both networks, so scan both rather than picking one
-      if (postId && !fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail })
-      if (igMediaId && !igMediaMap.has(igMediaId)) igMediaMap.set(igMediaId, { adName, thumbnail })
+      if (postId && !fbPostMap.has(postId)) fbPostMap.set(postId, { adName, thumbnail, expected })
+      if (igMediaId && !igMediaMap.has(igMediaId)) igMediaMap.set(igMediaId, { adName, thumbnail, expected })
     }
+
+    /**
+     * On n'interroge pas les 1 600 posts d'un compte.
+     *
+     * Chaque post coûtait jusqu'à quatre appels — deux jetons, deux filtres.
+     * Sur un compte à 1 561 publicités en pause, cela faisait près de six
+     * mille appels : la route dépassait son budget de temps et rendait une
+     * erreur, alors que Meta avait déjà dit, dans les statistiques de chaque
+     * publicité, lesquelles portaient des commentaires.
+     *
+     * On garde donc d'abord celles-là. Le compteur de Meta n'étant pas
+     * infaillible, on complète avec les publicités les plus récentes jusqu'à
+     * un plafond : ce qui est probable est couvert, et le coût reste borné.
+     */
+    const PLAFOND_POSTS = 250
+    const restreindre = <T,>(m: Map<string, T & { expected: number }>) => {
+      const annonces = [...m.entries()].filter(([, v]) => v.expected > 0)
+      if (annonces.length >= PLAFOND_POSTS) return new Map(annonces.slice(0, PLAFOND_POSTS))
+      const reste = [...m.entries()].filter(([, v]) => !v.expected)
+      return new Map([...annonces, ...reste.slice(0, PLAFOND_POSTS - annonces.length)])
+    }
+    const postsAScanner = restreindre(fbPostMap)
+    const mediasAScanner = restreindre(igMediaMap)
+    const postsIgnores = (fbPostMap.size - postsAScanner.size) + (igMediaMap.size - mediasAScanner.size)
 
     // Fallback when /me/accounts came back short: ask each page that actually
     // owns an ad post for its own token and IG link.
@@ -274,7 +298,7 @@ export async function GET(req: NextRequest) {
     const fbDebugSummary: Record<string, number> = {}
     const fbTokenUsed: Record<string, string> = {}
 
-    await mapLimit(Array.from(fbPostMap.entries()), 6, async ([postId, meta]) => {
+    await mapLimit(Array.from(postsAScanner.entries()), 6, async ([postId, meta]) => {
       const [ownerId, storyId] = postId.split('_')
       const pageToken = pageTokens[ownerId]
       const candidates: [string, string][] = []
@@ -327,7 +351,7 @@ export async function GET(req: NextRequest) {
     // from a media that genuinely has none
     const igReported: Record<string, number> = {}
 
-    await mapLimit(Array.from(igMediaMap.entries()), 6, async ([igMediaId, meta]) => {
+    await mapLimit(Array.from(mediasAScanner.entries()), 6, async ([igMediaId, meta]) => {
       if (pageTokensIG.length === 0) { igDebugErrors.push(`${igMediaId}:no-token`); return }
       for (const pt of pageTokensIG) {
         try {
@@ -406,7 +430,10 @@ export async function GET(req: NextRequest) {
       totalComments,
       attributedComments: expectedTotal,
       adsWithUnreadableComments: silentAds.length,
-      adsScanned: fbPostMap.size + igMediaMap.size,
+      adsScanned: postsAScanner.size + mediasAScanner.size,
+      // Ce qui n'a pas été interrogé, pour que le décompte affiché ne laisse
+      // pas croire à un balayage exhaustif quand le plafond a joué.
+      postsIgnores,
       debug: {
         adsFetched: allAds.length,
         fbPosts: fbPostMap.size,
