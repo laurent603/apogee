@@ -197,21 +197,26 @@ Format : ${format || 'à recommander'}`
   try {
     // Le modèle et l'effort viennent du module partagé : un brief est un
     // rapport, il mérite le même raisonnement que les analyses.
-    const reponse = await anthropic.messages.create({
+    /**
+     * Le budget est un plafond, pas une dépense : on paie ce qui est produit.
+     *
+     * À 8 000, un brief complet accompagné de deux prompts d'image — près de
+     * quinze cents caractères chacun — était coupé en pleine phrase. Le bloc
+     * JSON final devenait invalide, l'écran croyait le brief dépourvu de
+     * feuille de tournage, et le prompt affiché s'arrêtait au milieu d'un mot.
+     * Les jetons de réflexion se comptent dans ce même budget, d'où la marge.
+     *
+     * Au-delà d'environ seize mille jetons, une requête d'un seul tenant peut
+     * expirer avant la fin de la génération. Le flux évite ce délai ; la
+     * réponse complète est récupérée à la fin, la route rend toujours du JSON.
+     */
+    const reponse = await anthropic.messages.stream({
       model: MODEL_REPORT,
-      /**
-       * Les jetons de réflexion se comptent dans ce budget.
-       *
-       * À 8 000, un brief complet accompagné de deux prompts d'image — près de
-       * quinze cents caractères chacun — était coupé en pleine phrase. Le bloc
-       * JSON final devenait invalide, l'écran croyait le brief dépourvu de
-       * feuille de tournage, et le prompt affiché s'arrêtait au milieu d'un mot.
-       */
       max_tokens: 32000,
       system: BRIEF_CREA,
       messages: [{ role: 'user', content: contexte }],
       ...REPORT_REASONING,
-    })
+    }).finalMessage()
 
     const texte = reponse.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
