@@ -62,8 +62,11 @@ const sansBlocJson = (md: string) => md.replace(/```json\s*[\s\S]*?```/g, '').tr
 const STYLE = `
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* À l'écran, la marge vient du corps : sur un téléphone, le texte touchait
+     les bords. À l'impression, c'est la règle @page qui la donne. */
+  body { margin: 0; padding: 0 16px 24px; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
          color: #0d0d12; line-height: 1.5; }
+  @media print { body { padding: 0; } }
   .entete { border-bottom: 2px solid #3434ef; padding-bottom: 10px; margin-bottom: 18px; }
   .entete h1 { font-size: 20px; margin: 0 0 4px; }
   .entete p { font-size: 12px; color: #74778a; margin: 0; }
@@ -83,6 +86,12 @@ const STYLE = `
   th { background: #3434ef; color: #fff; text-align: left; padding: 6px 8px; font-weight: 600; }
   td { border-bottom: 1px solid #e4e7ef; padding: 6px 8px; vertical-align: top; }
   code { background: #f1f2f6; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+  .barre { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #e4e7ef;
+           padding: 10px 0 12px; margin-bottom: 14px; display: flex; align-items: center;
+           gap: 10px; flex-wrap: wrap; }
+  .barre button { background: #3434ef; color: #fff; border: 0; border-radius: 8px;
+                  padding: 10px 16px; font: inherit; font-weight: 600; font-size: 15px; }
+  .barre span { font-size: 12px; color: #74778a; }
   @media print { .noprint { display: none; } }
 `
 
@@ -117,9 +126,53 @@ function segmentHtml(s: Segment, etiquette?: string, hook = false) {
  */
 const ID_CADRE = 'apogee-impression'
 
+/**
+ * Safari iOS n'imprime pas depuis un cadre.
+ *
+ * `contentWindow.print()` y est sans effet : ni erreur, ni boîte de dialogue,
+ * rien — le bouton paraissait simplement mort sur iPhone alors qu'il
+ * fonctionnait sur ordinateur. Le document doit y être un vrai document, dans
+ * son propre onglet, d'où l'utilisateur peut l'imprimer ou l'enregistrer.
+ *
+ * iPadOS se présente comme un Mac depuis 2019 ; seul le nombre de points de
+ * contact le distingue.
+ */
+function estIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iP(hone|od|ad)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+/**
+ * Ouvre le document dans un onglet, à partir d'un objet blob.
+ *
+ * Un blob plutôt qu'un `document.write` : sur iOS, écrire dans une fenêtre
+ * ouverte à la volée est peu fiable, alors qu'une URL se charge comme
+ * n'importe quelle page. L'URL est révoquée après une minute — la révoquer
+ * tout de suite viderait l'onglet avant qu'il n'ait fini de charger.
+ */
+function ouvrirDansUnOnglet(doc: string): boolean {
+  const url = URL.createObjectURL(new Blob([doc], { type: 'text/html;charset=utf-8' }))
+  const w = window.open(url, '_blank')
+  if (!w) { URL.revokeObjectURL(url); return false }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  return true
+}
+
 function imprimer(titre: string, corps: string) {
+  // Sur iOS, le document s'ouvre dans un onglet : il lui faut de quoi lancer
+  // l'impression, puisque le clic d'origine n'est plus là.
+  const barre = estIOS()
+    ? `<div class="noprint barre">
+         <button type="button" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+         <span>ou Partager → Imprimer</span>
+       </div>`
+    : ''
   const doc = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
-    <title>${echappe(titre)}</title><style>${STYLE}</style></head><body>${corps}</body></html>`
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${echappe(titre)}</title><style>${STYLE}</style></head><body>${barre}${corps}</body></html>`
+
+  if (estIOS()) return ouvrirDansUnOnglet(doc)
 
   const existant = document.getElementById(ID_CADRE)
   if (existant) existant.remove()

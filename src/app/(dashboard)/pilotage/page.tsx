@@ -341,6 +341,24 @@ export default function PilotagePage() {
     else if (niveau === 'ad') setDetailOuvert(row.id)
   }
 
+  /**
+   * Changer de niveau par les onglets, en abandonnant les filtres devenus
+   * absurdes.
+   *
+   * Une descente pose des filtres — voir les ad sets *de cette campagne*, puis
+   * les publicités *de cet ad set*. Remonter aux campagnes par l'onglet les
+   * laissait en place : une ligne de campagne n'a pas d'ad set, le filtre sur
+   * l'ad set ne gardait donc aucune ligne et l'écran affichait « Aucune ligne
+   * pour ce filtre » sur un compte parfaitement fourni.
+   *
+   * Un filtre ne garde son sens qu'au-dessus du niveau affiché.
+   */
+  function changerNiveau(vers: string) {
+    setNiveau(vers)
+    if (vers === 'campaign') set({ campagne: 'all', adset: 'all' })
+    else if (vers === 'adset') set({ adset: 'all' })
+  }
+
   function remonter(vers: 'campaign' | 'adset') {
     if (vers === 'campaign') { setNiveau('campaign'); set({ campagne: 'all', adset: 'all' }) }
     else { setNiveau('adset'); set({ adset: 'all' }) }
@@ -362,7 +380,7 @@ export default function PilotagePage() {
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-[#f8f9fc] rounded-lg p-1 border border-[#E5E7EB]">
             {NIVEAUX.map((n) => (
-              <button key={n.id} onClick={() => setNiveau(n.id)}
+              <button key={n.id} onClick={() => changerNiveau(n.id)}
                 className={clsx('px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap',
                   niveau === n.id ? 'bg-white text-[#3434ef] shadow-sm border border-[#E5E7EB]' : 'text-gray-500 hover:text-[#0d0d12]')}>
                 {n.label}

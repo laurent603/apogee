@@ -48,6 +48,9 @@ export function OngletBriefs({ compte }: {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [contenu, setContenu] = useState<Record<string, string>>({})
   const [chargement, setChargement] = useState(true)
+  // Sur iOS le document s'ouvre dans un onglet : un bloqueur de fenêtres peut
+  // l'empêcher, et sans message le bouton paraîtrait de nouveau mort.
+  const [bloque, setBloque] = useState(false)
 
   const charger = useCallback(() => {
     if (!compte?.id) { setBriefs([]); setChargement(false); return }
@@ -203,7 +206,11 @@ export function OngletBriefs({ compte }: {
                           {/* Ce qu'on tend à la personne qui tourne : les
                               répliques, rien d'autre. */}
                           <button
-                            onClick={() => { if (feuille) { imprimerFeuille(feuille, b.adName); marquer(b) } }}
+                            onClick={() => {
+                              if (!feuille) return
+                              setBloque(!imprimerFeuille(feuille, b.adName))
+                              marquer(b)
+                            }}
                             disabled={!feuille}
                             className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
                             title={feuille
@@ -212,7 +219,10 @@ export function OngletBriefs({ compte }: {
                             Feuille de tournage (PDF)
                           </button>
 
-                          <button onClick={() => { imprimerBrief(contenu[b.id], b.adName, horodatage(b.createdAt)); marquer(b) }}
+                          <button onClick={() => {
+                              setBloque(!imprimerBrief(contenu[b.id], b.adName, horodatage(b.createdAt)))
+                              marquer(b)
+                            }}
                             className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
                             Brief complet (PDF)
                           </button>
@@ -223,6 +233,13 @@ export function OngletBriefs({ compte }: {
                             Markdown
                           </button>
                         </div>
+
+                        {bloque && (
+                          <p className="text-[11px] text-amber-600 mt-2">
+                            Le document n’a pas pu s’ouvrir : autorisez les fenêtres surgissantes
+                            pour ce site, puis réessayez.
+                          </p>
+                        )}
 
                         {!feuille && (
                           <p className="text-[11px] text-amber-600 mt-2">
