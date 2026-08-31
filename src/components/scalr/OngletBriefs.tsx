@@ -55,6 +55,47 @@ export function OngletBriefs({ compte }: {
   // sinon le premier appui paraît sans effet le temps du téléchargement.
   const [prepare, setPrepare] = useState<string | null>(null)
   const [copie, setCopie] = useState<string | null>(null)
+  /**
+   * La génération d'images s'annonce, elle ne s'impose pas.
+   *
+   * Sans clé OpenAI côté serveur, `disponible` est faux et aucun bouton
+   * n'apparaît : retirer la variable d'environnement suffit à faire
+   * disparaître la fonctionnalité, sans toucher au code.
+   */
+  const [imagesActives, setImagesActives] = useState(false)
+  const [imgEnCours, setImgEnCours] = useState<string | null>(null)
+  const [imgErreur, setImgErreur] = useState<Record<string, string>>({})
+  const [images, setImages] = useState<Record<string, { id: string; ratio: string; src: string }[]>>({})
+
+  useEffect(() => {
+    fetch('/api/briefs/image')
+      .then((r) => r.json())
+      .then((d) => setImagesActives(Boolean(d?.disponible)))
+      .catch(() => setImagesActives(false))
+  }, [])
+
+  async function genererImage(briefId: string, ratio: string, prompt: string) {
+    const cle = `${briefId}:${ratio}`
+    setImgEnCours(cle)
+    setImgErreur((e) => ({ ...e, [cle]: '' }))
+    try {
+      const res = await fetch('/api/briefs/image', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ briefId, ratio, prompt }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok || d?.error) throw new Error(d?.error || `HTTP ${res.status}`)
+      setImages((m) => ({
+        ...m,
+        [briefId]: [{ id: d.image.id, ratio, src: `data:image/png;base64,${d.donnees}` },
+                    ...(m[briefId] || [])],
+      }))
+    } catch (err) {
+      setImgErreur((e) => ({ ...e, [cle]: err instanceof Error ? err.message.slice(0, 200) : 'Échec' }))
+    } finally {
+      setImgEnCours(null)
+    }
+  }
 
   const charger = useCallback(() => {
     if (!compte?.id) { setBriefs([]); setChargement(false); return }
@@ -233,8 +274,40 @@ export function OngletBriefs({ compte }: {
                                   </button>
                                 </div>
                                 <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">{v.prompt}</p>
+
+                                {imagesActives && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <button
+                                      onClick={() => genererImage(b.id, v.ratio, v.prompt)}
+                                      disabled={imgEnCours === `${b.id}:${v.ratio}`}
+                                      className="text-[11px] px-2.5 py-1 rounded-lg border border-[#3434ef] text-[#3434ef] hover:bg-[#3434ef]/5 disabled:opacity-40">
+                                      {imgEnCours === `${b.id}:${v.ratio}` ? 'Génération…' : 'Générer l’image'}
+                                    </button>
+                                    {v.ratio === '9:16' && (
+                                      <span className="text-[10px] text-gray-400">
+                                        rendu en 2:3 — recadrage exact à venir
+                                      </span>
+                                    )}
+                                    {imgErreur[`${b.id}:${v.ratio}`] && (
+                                      <span className="text-[10px] text-amber-600">{imgErreur[`${b.id}:${v.ratio}`]}</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             ))}
+
+                            {!!images[b.id]?.length && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {images[b.id].map((im) => (
+                                  <a key={im.id} href={im.src} download={`${b.adName}-${im.ratio}.png`}
+                                     className="block border border-[#E5E7EB] rounded-lg overflow-hidden hover:border-[#3434ef]"
+                                     title="Télécharger">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={im.src} alt={`Aperçu ${im.ratio}`} className="h-40 w-auto block" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 

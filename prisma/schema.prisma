@@ -547,3 +547,31 @@ model Brief {
   @@index([adAccountId, createdAt])
   @@index([adId])
 }
+
+/// Une image générée depuis un prompt de brief.
+///
+/// Table à part, volontairement : la fonctionnalité doit pouvoir disparaître
+/// sans laisser de trace dans les modèles existants. Supprimer cette table
+/// suffit à tout défaire.
+///
+/// L'image est stockée en base64 plutôt que dans un service de fichiers, pour
+/// la même raison — aucun compte, aucun jeton, aucun seau à créer ou à
+/// nettoyer. Le volume le permet : quelques images par semaine, pas un
+/// catalogue. Si l'usage s'installe, un stockage objet sera le bon moment.
+model BriefImage {
+  id        String   @id @default(cuid())
+  briefId   String
+  /// Le ratio demandé — celui du brief, pas forcément celui rendu.
+  ratio     String
+  /// La taille réellement demandée au générateur.
+  taille    String
+  /// L'image, en base64, sans préfixe de type.
+  donnees   String
+  mimeType  String   @default("image/png")
+  /// Le prompt exact ayant produit cette image : sans lui, impossible de
+  /// savoir laquelle des variantes on regarde.
+  prompt    String
+  createdAt DateTime @default(now())
+
+  @@index([briefId, createdAt])
+}
