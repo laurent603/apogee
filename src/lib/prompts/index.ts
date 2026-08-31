@@ -164,6 +164,13 @@ bloc doit pouvoir tourner.
 
 ## 10. Visuels statiques — quand le format retenu est une image
 
+Le format demandé dans « Ce qui est demandé » **s'impose** quand il est
+explicite. Une image ne porte ni hook de trois secondes ni déroulé minuté :
+si le format est une image, remplace les sections 3, 4 et 7 par la
+composition, la hiérarchie de lecture et le texte incrusté, et le bloc JSON
+final porte \`visuels\` **sans** \`segments\`. Si le format est une vidéo, ne
+produis pas de \`visuels\`.
+
 Si le brief porte sur une image plutôt qu'une vidéo, le bloc JSON ci-dessus
 porte en plus une clé \`visuels\` : **deux prompts prêts à coller dans un
 générateur d'images**, un par ratio. Ils remplacent alors \`segments\`, qui

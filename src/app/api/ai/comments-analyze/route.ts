@@ -85,7 +85,9 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
         { "texte": "string — CITATION LITTÉRALE, recopiée telle quelle", "pub": "string — nom de la publicité", "likes": number }
       ],
       "ce_que_ca_revele": "string — ce que cette objection dit de la perception de l'offre",
-      "reponse_suggeree": "string — l'argument qui y répond, pas un slogan"
+      "reponse_suggeree": "string — l'argument qui y répond, pas un slogan",
+      "format_conseille": "video|image",
+      "pourquoi_ce_format": "string — une ligne. Une objection qui demande une démonstration, un geste ou une parole incarnée appelle la vidéo ; une objection qui se lève par un chiffre, une comparaison ou une preuve visuelle immédiate se traite en image fixe."
     }
   ]
 }
