@@ -236,20 +236,49 @@ function imprimer(titre: string, corps: string) {
  * nulle part. Ailleurs, il s'enregistre.
  */
 export async function imprimerFeuille(feuille: Feuille, nomCrea: string): Promise<boolean> {
-  const { pdfFeuille } = await import('./pdfFeuille')
-  const blob = await pdfFeuille(feuille, nomCrea)
-  const nom = `Feuille de tournage - ${nomCrea}`.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 70).trim()
-  return remettre(blob, `${nom || 'feuille'}.pdf`)
+  /**
+   * L'onglet s'ouvre **avant** toute attente.
+   *
+   * Sur iOS, l'autorisation d'ouvrir une fenêtre ne vaut que pendant le geste
+   * de l'utilisateur : elle ne survit pas à une promesse. En ouvrant après la
+   * génération du PDF, le premier clic était refusé — et le second passait,
+   * la bibliothèque étant alors en cache et la promesse résolue assez vite
+   * pour rester dans le geste. D'où un bouton qui échouait une fois sur deux
+   * sans raison apparente.
+   *
+   * L'onglet est donc réservé tout de suite, avec un mot d'attente, et reçoit
+   * le document dès qu'il est prêt.
+   */
+  const onglet = estIOS() ? window.open('', '_blank') : null
+  if (estIOS() && !onglet) return false
+  if (onglet) {
+    onglet.document.write(`<!doctype html><meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Feuille de tournage</title>
+      <body style="margin:0;display:grid;place-items:center;height:100vh;font-family:-apple-system,system-ui,sans-serif;color:#74778a">
+      <p>Préparation du document…</p>`)
+    onglet.document.close()
+  }
+
+  try {
+    const { pdfFeuille } = await import('./pdfFeuille')
+    const blob = await pdfFeuille(feuille, nomCrea)
+    const nom = `Feuille de tournage - ${nomCrea}`.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 70).trim()
+    return remettre(blob, `${nom || 'feuille'}.pdf`, onglet)
+  } catch {
+    // Laisser un onglet bloqué sur « Préparation » serait pire que rien.
+    onglet?.close()
+    return false
+  }
 }
 
-function remettre(blob: Blob, nomFichier: string): boolean {
+function remettre(blob: Blob, nomFichier: string, onglet: Window | null): boolean {
   const url = URL.createObjectURL(blob)
-  const nettoyer = () => setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  // Révoquer trop tôt viderait l'onglet avant qu'il ait fini de charger.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 
-  if (estIOS()) {
-    const w = window.open(url, '_blank')
-    if (!w) { URL.revokeObjectURL(url); return false }
-    nettoyer()
+  if (onglet) {
+    onglet.location.href = url
     return true
   }
 
@@ -260,7 +289,6 @@ function remettre(blob: Blob, nomFichier: string): boolean {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  nettoyer()
   return true
 }
 
