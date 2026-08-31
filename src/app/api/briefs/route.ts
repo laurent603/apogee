@@ -150,6 +150,70 @@ export async function POST(req: NextRequest) {
     clicVersLead: pct(leads, n(s.linkClicks)),
   }
 
+  /**
+   * Ce que le compte sait déjà, et que le brief ignorait.
+   *
+   * Un brief écrit dans le vide reproposait des angles déjà usés et
+   * inventait des promesses chiffrées que l'économie du compte ne soutient
+   * pas. L'application connaît pourtant ses gagnantes et son point mort : les
+   * lui donner coûte deux requêtes et change la nature du conseil.
+   */
+  const [parPub, entitesAds] = await Promise.all([
+    prisma.metaDailyAd.groupBy({
+      by: ['adId'],
+      where: { adAccountId: dbAccountId, attribution: 'default', date: { gte: since, lte: until } },
+      _sum: { spend: true, formLeads: true, pixelLeads: true, totalLeads: true, impressions: true, clicks: true },
+    }),
+    prisma.metaEntity.findMany({
+      where: { adAccountId: dbAccountId, level: 'ad' },
+      select: { metaId: true, name: true, creativeType: true },
+    }),
+  ])
+  const nomDe = new Map(entitesAds.map((e) => [e.metaId, e]))
+
+  /**
+   * Les publicités qui marchent, mesurées et nommées.
+   *
+   * Le nom d'une créa porte son angle chez vous — « avis-client-2 »,
+   * « statique_made-in-fr ». Les donner avec leur CPL évite de proposer une
+   * variation de ce qui tourne déjà, ou de rejouer ce qui a échoué.
+   */
+  const gagnantes = parPub
+    .map((r) => {
+      const leads = n(r._sum.formLeads) || n(r._sum.pixelLeads) || n(r._sum.totalLeads)
+      const depense = n(r._sum.spend)
+      const e = nomDe.get(String(r.adId ?? ''))
+      return {
+        nom: e?.name ?? String(r.adId ?? ''),
+        format: e?.creativeType ?? null,
+        depense: Math.round(depense),
+        prospects: leads,
+        cpl: leads > 0 ? Math.round((depense / leads) * 100) / 100 : null,
+      }
+    })
+    .filter((r) => r.prospects >= 3 && r.cpl !== null)
+    .sort((a, b) => (a.cpl as number) - (b.cpl as number))
+    .slice(0, 6)
+
+  const perdantes = parPub
+    .map((r) => {
+      const leads = n(r._sum.formLeads) || n(r._sum.pixelLeads) || n(r._sum.totalLeads)
+      const depense = n(r._sum.spend)
+      const e = nomDe.get(String(r.adId ?? ''))
+      return { nom: e?.name ?? '', depense: Math.round(depense), prospects: leads }
+    })
+    .filter((r) => r.nom && r.prospects === 0 && r.depense >= 50)
+    .sort((a, b) => b.depense - a.depense)
+    .slice(0, 4)
+
+  const economie = {
+    cplCible: reglages?.targetCpa ?? null,
+    cplMaximum: reglages?.maxCpa ?? null,
+    cplDerive: reglages?.cplDerive ?? null,
+    panierMoyen: reglages?.averageOrderValue ?? null,
+    margeProduitPct: reglages?.productMarginPct ?? null,
+  }
+
   const nom = adName || entite?.name || adId
 
   const contexte = `# Publicité analysée
@@ -164,6 +228,21 @@ ${JSON.stringify(mesures, null, 2)}
 ${analyse?.content
   ? `Datée du ${analyse.createdAt.toLocaleDateString('fr-FR')} :\n\n${analyse.content}`
   : "Aucune analyse enregistrée pour cette créa — appuie-toi uniquement sur les chiffres ci-dessus, et dis-le."}
+
+## Ce qui marche déjà sur ce compte
+${gagnantes.length
+  ? `Les publicités les plus efficaces des 30 derniers jours, du meilleur CPL au moins bon.
+Leur nom porte souvent leur angle : ne repropose pas une variation de ce qui
+tourne déjà, et ne rejoue pas un angle qui a échoué.
+
+${JSON.stringify(gagnantes, null, 2)}`
+  : 'Aucune publicité n’a produit assez de prospects sur 30 jours pour servir de référence.'}
+${perdantes.length ? `\nCes publicités ont dépensé sans produire un seul prospect — leur angle est à écarter :\n${JSON.stringify(perdantes, null, 2)}` : ''}
+
+## L'économie du compte
+${JSON.stringify(economie, null, 2)}
+Aucune promesse chiffrée ne doit contredire ces seuils, et aucun chiffre
+absent d'ici ne doit apparaître dans la créa.
 
 ## Contexte du compte
 ${reglages ? JSON.stringify({

@@ -214,6 +214,81 @@ explicite. Une image ne porte ni hook de trois secondes ni déroulé minuté :
 si le format est une image, remplace les sections 3, 4 et 7 par la
 composition, la hiérarchie de lecture et le texte incrusté.
 
+### 10.a — Direction artistique : la méthode avant le prompt
+
+**Tu ne décris pas une photo. Tu conçois une publicité.** Une créa statique
+qui performe n'est pas un joli visuel légendé : c'est une composition où
+chaque élément a une fonction, une taille justifiée et une place décidée.
+
+Avant d'écrire quoi que ce soit, réponds à ces questions **dans cet ordre**,
+et écris tes réponses dans le brief. Elles constituent la direction
+artistique, et le prompt n'en est que la traduction.
+
+**1. Quel est le seul travail de cette image ?**
+Arrêter le pouce sur *quoi* — un prix, une objection, une comparaison, une
+promesse, une preuve ? Un seul. Une image qui essaie deux choses n'en réussit
+aucune.
+
+**2. Quel élément est le plus gros de l'image ?**
+Un seul, et il doit correspondre à la réponse précédente. Si la créa vend un
+prix, le prix écrase tout le reste. Si elle lève une objection, c'est
+l'objection qui domine, pas le nom de l'entreprise.
+
+**3. L'ordre de lecture, en quatre arrêts maximum.**
+Ce que l'œil voit en premier, deuxième, troisième, quatrième. Au-delà de
+quatre, personne ne suit. Nomme chaque arrêt et son rôle.
+
+**4. Quels dispositifs graphiques l'expriment ?**
+Pastille de contexte, bloc prix, comparatif avant/après, liste à coches,
+badge, bouton, bandeau, mention légale. Choisis **ceux qui servent le
+travail défini en 1**, pas ceux qui remplissent l'espace. Trois dispositifs
+bien posés valent mieux que sept.
+
+**5. Où va la couleur d'accent ?**
+Une seule couleur d'accent, et **uniquement sur les mots qui portent la
+promesse**. Jamais sur un mot neutre, jamais sur une phrase entière. C'est
+cette discipline qui sépare une créa professionnelle d'une créa bariolée.
+
+**6. Qu'est-ce qui est volontairement absent ?**
+Ce que tu refuses de mettre, et pourquoi. Une créa se juge autant à ce
+qu'elle écarte.
+
+**7. La densité.**
+Combien d'éléments au total. Une créa « prix roi » en supporte beaucoup ; une
+créa d'objection doit rester nue. La densité découle de l'angle, pas du
+goût.
+
+Écris cette direction artistique en section 3 du brief, sous le titre
+**« Direction artistique »**, avant la composition. Le prompt d'image la
+traduit ensuite fidèlement, dispositif par dispositif.
+
+### 10.b — Contraintes de fabrication, non négociables
+
+Elles valent pour toute créa statique, quel que soit l'angle.
+
+**Format et zones.** Story 9:16 en 1080×1920 : rien d'important dans les
+270 px du haut ni les 340 px du bas. Fil 1:1 en 1080×1080 et 4:5 en
+1080×1350 : garder le bas respirant. Une créa dont le prix passe sous
+l'interface est une créa perdue.
+
+**Lisibilité.** Aucun texte en dessous de l'équivalent de 24 px sur 1080 de
+large. Contraste fort systématique : texte clair sur fond sombre, ou l'
+inverse — jamais un gris sur un gris. Les lignes courtes se lisent, les
+paragraphes non.
+
+**Langue.** Tout en français. Vérifie l'orthographe des mots qui se trompent :
+*photovoltaïque*, *éligibilité*, *démarches administratives*,
+*micro-onduleur*, *autoconsommation*, *rénovation*.
+
+**Honnêteté.** Aucun avis inventé, aucune certification inventée, aucune
+fausse urgence, aucun chiffre que le compte n'a pas fourni. Si une promesse
+chiffrée n'est pas documentée, elle ne figure pas — ni dans l'image, ni dans
+la copy. C'est la survente chiffrée qui produit le mot « arnaque » en
+commentaire.
+
+**Sobriété.** Pas de cadre autour de l'image, pas de collage multi-panneaux,
+pas d'esthétique de banque d'images, pas de logo inventé.
+
 Le bloc JSON porte alors \`visuels\` : **deux prompts prêts à coller dans un
 générateur d'images**, un par ratio.
 
