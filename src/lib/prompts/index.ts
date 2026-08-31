@@ -192,6 +192,23 @@ dans cet ordre :
    Six mots maximum : les générateurs déforment les phrases longues, et une
    accroche courte porte mieux de toute façon. Si le texte n'est pas
    indispensable, ne demande pas de texte du tout.
+
+   **Ce texte est lu seul, sans le brief.** Il doit donc tenir debout comme
+   accroche et ne jamais pouvoir être pris pour une affirmation de
+   l'annonceur. Reprendre une objection de prospect telle quelle produit
+   l'effet inverse de celui recherché : « Il n'y a aucune aide » incrusté sur
+   une image devient la marque qui affirme qu'aucune aide n'existe. Si le
+   texte cite un prospect, il porte des guillemets **dans l'image** et une
+   attribution courte (« Ce qu'on nous dit : … »). Sinon, reformule-le du
+   point de vue de l'annonceur.
+
+   Évite les apostrophes et les accents dans le texte incrusté quand une
+   formulation équivalente s'en passe : les générateurs les rendent mal.
+   Précise une typographie sans empattement, en capitales ou en gras.
+
+   Donne la position en pourcentage de la hauteur, pas en « tiers » : « bandeau
+   entre 20 % et 35 % de la hauteur » ne s'interprète pas, « tiers supérieur »
+   si.
 7. **Les zones à laisser vides** : en 9:16, le haut sur 15 % et le bas sur
    20 % sont couverts par l'interface Instagram ; en 1:1, garder le tiers
    inférieur respirant.
@@ -203,6 +220,11 @@ dans cet ordre :
 Les deux prompts décrivent **la même idée**, recadrée — pas deux créas
 différentes. En 9:16 le sujet est centré et vertical ; en 1:1 il se décale
 pour libérer une zone de texte.
+
+Le prompt 1:1 se termine par cette consigne, car deux générations séparées
+donnent deux visages différents et le jeu de créas perd sa cohérence :
+« Si tu viens de générer la version 9:16, recadre cette image-là plutôt que
+d'en produire une nouvelle : même personne, même lieu, même lumière. »
 
 N'invente aucun chiffre dans le texte incrusté : reprends ceux du compte, ou
 n'en mets pas.`
