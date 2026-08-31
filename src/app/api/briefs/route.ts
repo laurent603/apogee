@@ -199,7 +199,15 @@ Format : ${format || 'à recommander'}`
     // rapport, il mérite le même raisonnement que les analyses.
     const reponse = await anthropic.messages.create({
       model: MODEL_REPORT,
-      max_tokens: 8000,
+      /**
+       * Les jetons de réflexion se comptent dans ce budget.
+       *
+       * À 8 000, un brief complet accompagné de deux prompts d'image — près de
+       * quinze cents caractères chacun — était coupé en pleine phrase. Le bloc
+       * JSON final devenait invalide, l'écran croyait le brief dépourvu de
+       * feuille de tournage, et le prompt affiché s'arrêtait au milieu d'un mot.
+       */
+      max_tokens: 32000,
       system: BRIEF_CREA,
       messages: [{ role: 'user', content: contexte }],
       ...REPORT_REASONING,
@@ -210,6 +218,16 @@ Format : ${format || 'à recommander'}`
       .map((b) => b.text).join('\n')
 
     if (!texte.trim()) return NextResponse.json({ error: 'Brief vide' }, { status: 502 })
+
+    // Un brief coupé n'est pas à moitié utile : son bloc technique est
+    // invalide, donc ni feuille de tournage ni prompts d'image. Mieux vaut le
+    // refuser que l'enregistrer et le laisser décevoir plus tard.
+    if (reponse.stop_reason === 'max_tokens') {
+      return NextResponse.json(
+        { error: 'Brief interrompu avant la fin — relancez la génération.' },
+        { status: 502 },
+      )
+    }
 
     const brief = await prisma.brief.create({
       data: {

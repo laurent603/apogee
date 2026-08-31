@@ -282,8 +282,9 @@ export function OngletBriefs({ compte }: {
 
                         {!feuille && (
                           <p className="text-[11px] text-amber-600 mt-2">
-                            Feuille de tournage indisponible : ce brief est antérieur à sa mise en place.
-                            Les prochains la porteront — régénérez-en un depuis la créa si vous en avez besoin.
+                            Feuille de tournage indisponible : le bloc technique de fin de brief est
+                            absent ou incomplet. Régénérez le brief — c&apos;est le plus souvent une
+                            génération interrompue avant la fin.
                           </p>
                         )}
                       </>
