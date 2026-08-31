@@ -31,7 +31,24 @@ export async function GET() {
       return true
     })
   } catch (err) {
-    console.error('Meta accounts error:', err)
+    /**
+     * Meta n'a pas répondu — la base, elle, connaît les comptes.
+     *
+     * On rendait une erreur 500, et l'écran perdait toute la liste pour un
+     * incident passager chez Meta. Or les comptes changent rarement : la liste
+     * enregistrée est presque toujours juste, et elle permet de continuer à
+     * travailler. Seule la découverte d'un compte tout neuf attendra le
+     * prochain passage.
+     */
+    console.error('Meta accounts error — repli sur la base :', err)
+    try {
+      const enBase = await prisma.adAccount.findMany({
+        where: { userId: session.user.id },
+        include: { brandSettings: true },
+        orderBy: { name: 'asc' },
+      })
+      if (enBase.length) return NextResponse.json({ accounts: enBase, metaIndisponible: true })
+    } catch { /* la base non plus : il ne reste rien à proposer */ }
     return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500 })
   }
 

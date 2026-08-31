@@ -8,16 +8,35 @@ const cle = (a: AdAccountMeta) => a.id || a.metaAccountId || a.name
 
 export function AccountSelector() {
   const { selectedAccount, setSelectedAccount, accounts, setAccounts, setDegrade } = useStore()
-  const [loading, setLoading] = useState(false)
+  // Vrai dès le premier rendu : sinon « Aucun compte trouvé » s'affiche le
+  // temps d'une image, avant que la requête n'ait seulement commencé.
+  const [loading, setLoading] = useState(true)
   const [echec, setEchec] = useState(false)
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
 
+  /**
+   * Une requête ratée ne vide pas la liste.
+   *
+   * Le résultat était lu sans regarder le code HTTP : une réponse d'erreur
+   * porte `{ error }` et pas `accounts`, donc la liste mémorisée était
+   * remplacée par une liste vide et l'écran annonçait « Aucun compte trouvé »
+   * jusqu'au rechargement suivant. La route interroge Meta puis réenregistre
+   * une trentaine de comptes — elle échoue assez souvent pour que ce soit
+   * quotidien.
+   *
+   * On garde donc ce qu'on avait. Une liste d'hier vaut infiniment mieux
+   * qu'une liste vide : elle permet de continuer à travailler.
+   */
   useEffect(() => {
     setLoading(true)
     fetch('/api/meta/accounts')
-      .then((r) => r.json())
+      .then(async (r) => {
+        const d = await r.json().catch(() => null)
+        if (!r.ok || d?.error) throw new Error(d?.error || `HTTP ${r.status}`)
+        return d
+      })
       .then((d) => {
         const fresh: AdAccountMeta[] = (d.accounts || []).filter((a: AdAccountMeta) => {
           const n = (a.name || '').toLowerCase()
@@ -43,7 +62,13 @@ export function AccountSelector() {
         }
         setLoading(false)
       })
-      .catch(() => { setEchec(true); setLoading(false) })
+      .catch(() => {
+        // L'échec ne se signale que s'il ne reste rien à afficher : avec une
+        // liste mémorisée, l'utilisateur n'a pas à savoir qu'un rafraîchissement
+        // a échoué en arrière-plan.
+        setEchec(useStore.getState().accounts.length === 0)
+        setLoading(false)
+      })
   }, [])
 
   // Close on outside click
