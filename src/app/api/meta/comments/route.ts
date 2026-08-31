@@ -172,7 +172,10 @@ export async function GET(req: NextRequest) {
     const adFields =
       'id,name,effective_status,' +
       'creative{effective_object_story_id,object_story_id,thumbnail_url,' +
-      'effective_instagram_media_id,instagram_user_id}'
+      // `asset_feed_spec` ne sert qu'à reconnaître une créa dynamique : c'est
+      // elle qui rend les commentaires illisibles, et le dire évite d'envoyer
+      // l'utilisateur chercher une panne de permissions qui n'existe pas.
+      'effective_instagram_media_id,instagram_user_id,asset_feed_spec}'
 
     /**
      * Les publicités visées, lues une par une mais en parallèle.
@@ -499,6 +502,12 @@ export async function GET(req: NextRequest) {
       // Ce qui n'a pas été interrogé, pour que le décompte affiché ne laisse
       // pas croire à un balayage exhaustif quand le plafond a joué.
       postsIgnores,
+      // Combien de publicités muettes sont en créa dynamique : Meta y répartit
+      // l'engagement sur des variantes qu'elle n'expose pas.
+      silentAdsDynamiques: silentAds.filter((a) => {
+        const ad = allAds.find((x) => String(x.id) === String((a as { adId?: string }).adId))
+        return !!(ad?.creative as Record<string, unknown> | undefined)?.asset_feed_spec
+      }).length,
       // L'analyse s'est arrêtée sur le temps : le décompte est un plancher.
       tronque,
       dureeMs: Date.now() - debut,

@@ -47,7 +47,7 @@ export default function CommentAnalysisPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [totalComments, setTotalComments] = useState(0)
   const [adsScanned, setAdsScanned] = useState(0)
-  const [coverage, setCoverage] = useState({ attributed: 0, silentAds: 0 })
+  const [coverage, setCoverage] = useState({ attributed: 0, silentAds: 0, silentAdsDynamiques: 0 })
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'insights' | 'briefs' | 'comments'>('insights')
@@ -80,6 +80,7 @@ export default function CommentAnalysisPage() {
       setCoverage({
         attributed: data.attributedComments ?? 0,
         silentAds: data.adsWithUnreadableComments ?? 0,
+        silentAdsDynamiques: data.silentAdsDynamiques ?? 0,
       })
 
       if (data.totalComments === 0) {
@@ -228,9 +229,13 @@ export default function CommentAnalysisPage() {
                 Analyse incomplète : {coverage.silentAds} publicité{coverage.silentAds > 1 ? 's' : ''} ont des commentaires illisibles
               </p>
               <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                Meta attribue des commentaires à {coverage.silentAds} publicité{coverage.silentAds > 1 ? 's' : ''} dont il refuse de servir le texte via l&apos;API —
-                leurs publications publicitaires ne sont pas publiées sur la Page. L&apos;analyse ci-dessous porte donc
-                sur {totalComments} commentaire{totalComments > 1 ? 's' : ''} lisible{totalComments > 1 ? 's' : ''}, pas sur la totalité du compte.
+                Meta compte des commentaires sur {coverage.silentAds} publicité{coverage.silentAds > 1 ? 's' : ''} dont les publications
+                sont vides quand on les interroge{coverage.silentAdsDynamiques
+                  ? ` — ${coverage.silentAdsDynamiques} ${coverage.silentAdsDynamiques > 1 ? 'sont' : 'est'} en créa dynamique (Advantage+)`
+                  : ''}. Avec la créa dynamique, Meta sert une publication par combinaison
+                d&apos;éléments et n&apos;expose aucune d&apos;elles : le Gestionnaire de publicités agrège ces
+                commentaires, l&apos;API ne les rend pas. L&apos;analyse porte donc sur {totalComments} commentaire{totalComments > 1 ? 's' : ''} lisible{totalComments > 1 ? 's' : ''}.
+                Pour qu&apos;une créa soit analysable, il faut la lancer sans créa dynamique.
               </p>
             </div>
           </div>
