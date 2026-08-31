@@ -31,6 +31,8 @@ export type Feuille = {
   segments?: Segment[]
   cta?: Segment
   materiel?: string
+  /** Créas statiques : un prompt d'image prêt à coller, par ratio. */
+  visuels?: { ratio: string; prompt: string }[]
 }
 
 /**
@@ -48,7 +50,7 @@ export function extraireFeuille(markdown: string): Feuille | null {
   for (const brut of blocs.reverse()) {
     try {
       const o = JSON.parse(brut) as Feuille
-      if (o && (o.hook || o.segments?.length)) return o
+      if (o && (o.hook || o.segments?.length || o.visuels?.length)) return o
     } catch { /* bloc non exploitable : on essaie le précédent */ }
   }
   return null

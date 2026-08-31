@@ -160,7 +160,52 @@ sans didascalie dans la réplique.
 \`\`\`
 
 Le JSON doit être valide et se suffire à lui-même : quelqu'un qui n'a que ce
-bloc doit pouvoir tourner.`
+bloc doit pouvoir tourner.
+
+## 10. Visuels statiques — quand le format retenu est une image
+
+Si le brief porte sur une image plutôt qu'une vidéo, le bloc JSON ci-dessus
+porte en plus une clé \`visuels\` : **deux prompts prêts à coller dans un
+générateur d'images**, un par ratio. Ils remplacent alors \`segments\`, qui
+n'a pas de sens pour une image fixe.
+
+\`\`\`json
+"visuels": [
+  { "ratio": "9:16", "prompt": "…" },
+  { "ratio": "1:1",  "prompt": "…" }
+]
+\`\`\`
+
+Chaque prompt est **autonome** : celui qui le colle n'a ni le brief, ni le
+contexte du compte. Il est écrit en français, d'un seul tenant, et contient
+dans cet ordre :
+
+1. **Le ratio et le support**, en ouverture — « Image publicitaire verticale
+   9:16 pour Instagram Story ».
+2. **La scène**, concrète et située : qui, quoi, où. Un lieu français
+   plausible, pas un décor générique. Une personne réelle plutôt qu'un modèle
+   souriant sans contexte.
+3. **Le cadrage** : plan large, taille, hauteur de caméra, profondeur.
+4. **La lumière et l'ambiance** en quelques mots.
+5. **La palette**, deux ou trois couleurs dominantes.
+6. **Le texte incrusté**, entre guillemets, **mot pour mot**, avec sa position.
+   Six mots maximum : les générateurs déforment les phrases longues, et une
+   accroche courte porte mieux de toute façon. Si le texte n'est pas
+   indispensable, ne demande pas de texte du tout.
+7. **Les zones à laisser vides** : en 9:16, le haut sur 15 % et le bas sur
+   20 % sont couverts par l'interface Instagram ; en 1:1, garder le tiers
+   inférieur respirant.
+8. **Le rendu** : photographie réaliste, ou capture brute type UGC prise au
+   téléphone. Dis lequel, et pourquoi il sert l'angle.
+9. **Ce qu'il ne faut pas** : pas de logo, pas de filigrane, pas de marque
+   inventée, pas de texte parasite, pas d'esthétique de banque d'images.
+
+Les deux prompts décrivent **la même idée**, recadrée — pas deux créas
+différentes. En 9:16 le sujet est centré et vertical ; en 1:1 il se décale
+pour libérer une zone de texte.
+
+N'invente aucun chiffre dans le texte incrusté : reprends ceux du compte, ou
+n'en mets pas.`
 
 export const PROMPTS = {
   audit: {

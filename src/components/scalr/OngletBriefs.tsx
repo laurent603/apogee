@@ -54,6 +54,7 @@ export function OngletBriefs({ compte }: {
   // La bibliothèque PDF n'est chargée qu'au clic : le bouton doit le dire,
   // sinon le premier appui paraît sans effet le temps du téléchargement.
   const [prepare, setPrepare] = useState<string | null>(null)
+  const [copie, setCopie] = useState<string | null>(null)
 
   const charger = useCallback(() => {
     if (!compte?.id) { setBriefs([]); setChargement(false); return }
@@ -204,6 +205,38 @@ export function OngletBriefs({ compte }: {
                       <>
                         <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
                           dangerouslySetInnerHTML={{ __html: markdownToHtml(sansJson(contenu[b.id])) }} />
+
+                        {/* Créas statiques : le prompt part tel quel dans un
+                            générateur d'images. Le but de l'application est de
+                            tester vite — dessiner soi-même chaque variante est
+                            exactement ce qui ralentit. */}
+                        {!!feuille?.visuels?.length && (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                              Prompts image — à coller dans ChatGPT
+                            </p>
+                            {feuille.visuels.map((v) => (
+                              <div key={v.ratio} className="border border-[#E5E7EB] rounded-lg p-3 bg-[#f8f9fc]">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#3434ef]/10 text-[#3434ef]">
+                                    {v.ratio}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(v.prompt).then(
+                                        () => setCopie(`${b.id}:${v.ratio}`),
+                                        () => setCopie(null),
+                                      )
+                                    }}
+                                    className="text-[11px] px-2 py-1 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
+                                    {copie === `${b.id}:${v.ratio}` ? 'Copié' : 'Copier'}
+                                  </button>
+                                </div>
+                                <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">{v.prompt}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           {/* Ce qu'on tend à la personne qui tourne : les
