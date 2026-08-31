@@ -19,6 +19,17 @@ import { prisma } from '@/lib/db'
 
 export const maxDuration = 300
 
+/**
+ * La clé OpenAI, quel que soit le nom qu'elle porte.
+ *
+ * `OPENAI_API_KEY` est le nom attendu, mais la clé avait été enregistrée sous
+ * `API_Open_AI`. Une clé secrète ne se relit pas dans Vercel : exiger le
+ * renommage aurait obligé à la regénérer chez OpenAI pour un détail
+ * d'orthographe. On accepte donc les deux formes, la canonique d'abord.
+ */
+const cleOpenAI = () =>
+  process.env.OPENAI_API_KEY || process.env.API_Open_AI || process.env.OPENAI_KEY || ''
+
 /** Ce que le générateur sait produire, et ce qu'on en fait. */
 const TAILLES: Record<string, { taille: string; exact: boolean }> = {
   '1:1': { taille: '1024x1024', exact: true },
@@ -33,7 +44,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const briefId = req.nextUrl.searchParams.get('briefId')
-  const disponible = Boolean(process.env.OPENAI_API_KEY)
+  const disponible = Boolean(cleOpenAI())
 
   if (!briefId) {
     /**
@@ -53,7 +64,7 @@ export async function GET(req: NextRequest) {
       images: [],
       diagnostic: {
         variablesApprochantes: approchantes,
-        longueurCle: process.env.OPENAI_API_KEY?.length ?? 0,
+        longueurCle: cleOpenAI().length,
         environnement: process.env.VERCEL_ENV ?? 'local',
         deploiement: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
       },
@@ -72,7 +83,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const cle = process.env.OPENAI_API_KEY
+  const cle = cleOpenAI()
   if (!cle) {
     return NextResponse.json({ error: 'Clé OpenAI absente : la génération d’images est désactivée.' }, { status: 503 })
   }
