@@ -94,17 +94,60 @@ export async function POST(req: NextRequest) {
 
   const cible = TAILLES[ratio || '1:1'] ?? TAILLES['1:1']
 
+  /**
+   * Les références de marque, jointes à la génération.
+   *
+   * Une image envoyée en référence vaut mille mots de description : le
+   * générateur voit la palette, la typographie, le bouton, au lieu de lire
+   * « bleu foncé ». Sans elles, les visuels sortaient génériques quel que
+   * soit le soin mis au texte du prompt.
+   *
+   * Elles sont facultatives : un compte sans ADN génère comme avant.
+   */
+  const brief = await prisma.brief.findUnique({
+    where: { id: briefId },
+    select: { adAccountId: true },
+  })
+  const adn = brief?.adAccountId
+    ? await prisma.brandDna.findUnique({
+        where: { adAccountId: brief.adAccountId },
+        select: { carteMarque: true, carteStyle: true, photoProduit: true },
+      })
+    : null
+
+  const references = [
+    ['carte-marque.png', adn?.carteMarque],
+    ['carte-style.png', adn?.carteStyle],
+    ['produit.png', adn?.photoProduit],
+  ].filter((r): r is [string, string] => Boolean(r[1]))
+
   try {
-    const r = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cle}` },
-      body: JSON.stringify({
-        model: 'gpt-image-1',
-        prompt,
-        n: 1,
-        size: cible.taille,
-      }),
-    })
+    let r: Response
+    if (references.length) {
+      /**
+       * Avec des références, on passe par le point d'entrée qui accepte des
+       * images en entrée — la génération simple n'en prend pas.
+       */
+      const form = new FormData()
+      form.append('model', 'gpt-image-1')
+      form.append('prompt', prompt)
+      form.append('n', '1')
+      form.append('size', cible.taille)
+      for (const [nomFichier, b64] of references) {
+        form.append('image[]', new Blob([Buffer.from(b64, 'base64')], { type: 'image/png' }), nomFichier)
+      }
+      r = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cle}` },
+        body: form,
+      })
+    } else {
+      r = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cle}` },
+        body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size: cible.taille }),
+      })
+    }
 
     const json = await r.json().catch(() => null)
     if (!r.ok) {
@@ -133,6 +176,7 @@ export async function POST(req: NextRequest) {
       image: { ...image, donnees: undefined },
       donnees,
       exact: cible.exact,
+      references: references.map(([n]) => n),
     })
   } catch (e) {
     return NextResponse.json(

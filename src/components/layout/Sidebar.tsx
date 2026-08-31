@@ -80,6 +80,11 @@ const sections: Section[] = [
   {
     titre: 'Réglages',
     items: [
+      { href: '/adn', label: 'ADN de marque', icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 21c0-4 10-6 10-10S7 7 7 3m10 18c0-4-10-6-10-10S17 7 17 3M8.5 7h7M8.5 17h7" />
+      </svg>
+    ) },
       { href: '/brand-settings', label: 'Brand Settings', icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />

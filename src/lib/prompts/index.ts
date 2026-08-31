@@ -731,3 +731,106 @@ Inclus : executive summary, performance par semaine, top 5 ads, analyse créativ
 Présentable à un client ou un investisseur. Chiffre chaque affirmation.`,
   },
 }
+
+/**
+ * Les angles marketing du suivi créatif, tels qu'ils existent déjà.
+ *
+ * Cette liste n'est pas inventée : c'est la propriété « Angle Marketing » de
+ * la base Concepts. Un brief qui choisit hors de cette liste produit une
+ * fiche qui ne rentre pas dans le classement — et personne ne la retrouve.
+ */
+export const ANGLES_MARKETING = [
+  'Performances', 'Prix', 'Réassurance', 'Fin des aides',
+  'Offre batterie', 'Installation', 'Prime', 'Economies',
+] as const
+
+/** Les sous-formats de la même base. */
+export const SOUS_FORMATS = [
+  'UGC', 'Graphique', 'Motion', 'FGC', 'Trend', 'carrousel', 'réadaptation',
+] as const
+
+/**
+ * L'ADN de marque : ce qu'on montrera au générateur d'images.
+ *
+ * Le modèle ne dessine pas les cartes — il fournit les données, et
+ * l'application les met en page. Un modèle qui écrit du SVG produit des
+ * cartes différentes à chaque fois ; un gabarit codé produit toujours une
+ * carte lisible. La créativité est dans le contenu, pas dans la grille.
+ */
+export const BRAND_DNA = `${SYSTEM_BASE}
+
+Tu établis l'ADN visuel et éditorial d'un annonceur, à partir de ce qu'on te
+donne : ses réglages de marque, ses publicités qui tournent, son secteur.
+
+Ce que tu produis servira de **référence montrée à un générateur d'images**.
+Chaque valeur doit donc être précise et utilisable : un code hexadécimal, pas
+« bleu foncé » ; une règle vérifiable, pas « rester cohérent ».
+
+## Comment travailler
+
+**Déduis, ne devine pas.** Ce que les données permettent d'établir, tu
+l'établis. Ce qu'elles ne permettent pas, tu le marques \`null\` — un ADN
+partiel et honnête vaut mieux qu'un ADN inventé qui orientera toutes les
+créas du compte dans la mauvaise direction.
+
+**Les couleurs se déduisent du secteur et du positionnement** quand rien
+n'est fourni, et tu le signales dans \`incertitudes\`. Trois couleurs
+suffisent : une dominante, une secondaire, une d'accent.
+
+**La règle d'accent est le point le plus important de tout ce document.**
+Une couleur d'accent ne se pose pas « un peu partout » : elle marque
+exclusivement les mots qui portent la promesse. Écris cette règle
+explicitement, avec un exemple tiré du compte.
+
+## Le format de sortie
+
+Réponds **uniquement** en JSON valide, sans texte autour, sans balises.
+
+{
+  "identite": {
+    "nom": "",
+    "promesse": "la promesse centrale, en une phrase",
+    "ton": ["trois adjectifs"],
+    "mots_bannis": ["ce que cette marque ne dit jamais"],
+    "a_qui": "à qui elle parle, en une phrase"
+  },
+  "systeme_visuel": {
+    "couleur_principale": "#RRGGBB",
+    "couleur_secondaire": "#RRGGBB",
+    "couleur_accent": "#RRGGBB",
+    "regle_accent": "où l'accent a le droit d'apparaître, et nulle part ailleurs",
+    "fond": "clair | sombre | photo",
+    "police_titre": "famille sans empattement, graisse",
+    "police_texte": "famille, graisse",
+    "formes": "arrondies | nettes | mixtes",
+    "style_image": "reportage | studio | UGC brut | éditorial"
+  },
+  "bouton": { "libelle": "le libellé type", "forme": "pilule | rectangle arrondi", "fond": "#RRGGBB", "texte": "#RRGGBB" },
+  "regles": {
+    "toujours": ["quatre règles, concrètes et vérifiables"],
+    "jamais": ["quatre interdits, concrets"]
+  },
+  "essence": {
+    "adjectifs": [{ "mot": "", "explication": "" }],
+    "spectre": { "bruyant_calme": 50, "jeune_intemporel": 50, "clinique_chaleureux": 50, "ornemental_fonctionnel": 50 }
+  },
+  "direction_photo": {
+    "produit": "angles, lumière, mise en scène",
+    "personnes": "qui, comment, quelle attitude",
+    "contexte": "environnement, accessoires",
+    "fonds": "textures, couleurs, matières"
+  },
+  "preuves": {
+    "chiffres": [{ "valeur": "", "source": "" }],
+    "avis": [{ "citation": "", "auteur": "" }],
+    "certifications": [],
+    "anciennete": ""
+  },
+  "angles": [
+    { "angle": "un des angles marketing listés dans le contexte", "accroches": ["trois accroches prêtes à poser"] }
+  ],
+  "incertitudes": ["ce que tu as déduit faute de donnée, et qu'il faut confirmer"]
+}
+
+Les angles doivent être choisis **dans la liste fournie en contexte**, jamais
+inventés : ils servent de classement dans un suivi créatif existant.`
