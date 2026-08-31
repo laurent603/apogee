@@ -74,22 +74,15 @@ export function OngletBriefs({ compte }: {
    * client dont la marque est jaune — la signature de l'outil au milieu de la
    * publicité.
    */
-  const [marque, setMarque] = useState<{ accent?: string; policeTitre?: string; policeTexte?: string }>({})
+  const [adn, setAdn] = useState<Record<string, unknown> | null>(null)
   const [refsJointes, setRefsJointes] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
-    if (!compte?.id) { setMarque({}); return }
+    if (!compte?.id) { setAdn(null); return }
     fetch(`/api/brand-dna?dbAccountId=${compte.id}`)
       .then((r) => r.json())
-      .then((d) => {
-        const adn = d?.adn?.contenu ? JSON.parse(d.adn.contenu) : null
-        setMarque({
-          accent: adn?.systeme_visuel?.couleur_accent,
-          policeTitre: adn?.systeme_visuel?.police_titre,
-          policeTexte: adn?.systeme_visuel?.police_texte,
-        })
-      })
-      .catch(() => setMarque({}))
+      .then((d) => setAdn(d?.adn?.contenu ? JSON.parse(d.adn.contenu) : null))
+      .catch(() => setAdn(null))
   }, [compte?.id])
 
   useEffect(() => {
@@ -333,8 +326,7 @@ export function OngletBriefs({ compte }: {
 
                             {images[b.id]?.map((im) => (
                               <ComposeurImage key={im.id} src={im.src} nom={b.adName}
-                                ratioInitial={im.ratio} marque={marque}
-                                textes={feuille?.textes_incrustes || {}} />
+                                ratioInitial={im.ratio} adn={adn} feuille={feuille} />
                             ))}
                           </div>
                         )}
