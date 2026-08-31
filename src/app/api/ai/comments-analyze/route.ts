@@ -4,8 +4,36 @@ import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_CHAT } from '@/lib/anthropic'
 import { notifyIncident } from '@/lib/notify'
 
-const SYSTEM = `Tu es un expert en stratégie créative publicitaire Meta (Facebook/Instagram).
-Tu analyses des commentaires de publicités pour extraire des insights actionnables qui permettront de créer de meilleures publicités — textes, hooks, angles créatifs, briefs vidéo/image.
+/**
+ * L'analyse produit des preuves, pas des scripts.
+ *
+ * Elle produisait les deux : six livrables dans un seul appel, dont des
+ * « angles créatifs » et des « briefs » en quatre champs. Le budget se
+ * répartissait sur les six, chaque angle recevait trois phrases, et rien
+ * n'était utilisable en production.
+ *
+ * Écrire le script est déjà le métier du générateur de briefs, qui dispose
+ * des chiffres de la publicité, du contexte de marque et d'un raisonnement
+ * étendu. Ici on prépare sa matière première : des objections regroupées,
+ * comptées, et surtout **citées mot pour mot**. Une paraphrase — « les gens
+ * trouvent ça cher » — ne se tourne pas ; une phrase réelle de prospect se
+ * lit à voix haute devant une caméra.
+ */
+const SYSTEM = `Tu es analyste de commentaires publicitaires Meta.
+
+Ton rôle est le diagnostic, pas la rédaction. Tu ne proposes ni script, ni
+accroche, ni concept : tu établis ce que les gens disent réellement, en le
+prouvant.
+
+Règles :
+- Une objection n'existe que si plusieurs commentaires la portent. Compte-les.
+- Chaque objection est appuyée par des citations LITTÉRALES, recopiées sans
+  reformulation, faute d'orthographe comprise. Ne fabrique jamais une citation.
+- Regroupe par ce que la personne veut dire, pas par les mots employés :
+  « c'est cher » et « 22000 balles pour ça ? » sont la même objection.
+- Classe par nombre d'occurrences décroissant. Ce qui revient trois fois pèse
+  plus que ce qui frappe une fois.
+
 Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks.`
 
 export async function POST(req: NextRequest) {
@@ -49,15 +77,23 @@ Réponds avec ce JSON exact (toutes les clés en français, valeurs en français
     { "theme": "string", "frequence": "haute|moyenne|faible", "description": "string", "exemples": ["string","string"] }
   ],
   "objections": [
-    { "objection": "string", "frequence": "haute|moyenne|faible", "reponse_suggeree": "string" }
-  ],
-  "angles_creatifs": [
-    { "angle": "string", "hook": "string — accroche concrète à utiliser en début de vidéo ou titre", "pourquoi": "string" }
-  ],
-  "briefs_creation": [
-    { "type": "video|image", "format": "feed|story|les_deux", "titre": "string", "concept": "string", "script_hook": "string", "cta": "string" }
+    {
+      "objection": "string — ce qui bloque, formulé du point de vue du prospect",
+      "occurrences": number,
+      "frequence": "haute|moyenne|faible",
+      "verbatims": [
+        { "texte": "string — CITATION LITTÉRALE, recopiée telle quelle", "pub": "string — nom de la publicité", "likes": number }
+      ],
+      "ce_que_ca_revele": "string — ce que cette objection dit de la perception de l'offre",
+      "reponse_suggeree": "string — l'argument qui y répond, pas un slogan"
+    }
   ]
-}`
+}
+
+Contraintes :
+- 3 à 8 objections, classées par occurrences décroissantes.
+- 2 à 4 verbatims par objection, recopiés mot pour mot depuis la liste.
+- Pas d'angle, pas de hook, pas de brief : ce n'est pas ton rôle ici.`
 
   const context = `${allComments.length} commentaires · ${posts.length} publicité${posts.length > 1 ? 's' : ''}\nPublicités : ${posts.map((p) => p.adName).slice(0, 10).join(', ')}`
 

@@ -77,7 +77,18 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { dbAccountId, adId, adName, ton, conscience, format } = await req.json().catch(() => ({}))
+  const { dbAccountId, adId, adName, ton, conscience, format, angle } = await req.json().catch(() => ({})) as {
+    dbAccountId?: string; adId?: string; adName?: string
+    ton?: string; conscience?: string; format?: string
+    /** Une objection relevée dans les commentaires, avec ses preuves. */
+    angle?: {
+      objection: string
+      occurrences?: number
+      verbatims?: { texte: string; pub?: string; likes?: number }[]
+      ce_que_ca_revele?: string
+      reponse_suggeree?: string
+    }
+  }
   if (!dbAccountId || !adId) {
     return NextResponse.json({ error: 'Compte et publicité requis' }, { status: 400 })
   }
@@ -162,7 +173,23 @@ ${reglages ? JSON.stringify({
     objections: reglages.audienceObjections, positionnement: reglages.marketPositioning,
   }, null, 2) : 'Non renseigné'}
 
-## Ce qui est demandé
+${angle ? `## L'objection à traiter
+
+Ce brief ne part pas d'un diagnostic de performance mais d'une objection
+relevée dans les commentaires de ce compte. Elle revient ${angle.occurrences ?? 'plusieurs'} fois.
+
+**« ${angle.objection} »**
+
+${angle.ce_que_ca_revele ? `Ce qu'elle révèle : ${angle.ce_que_ca_revele}\n` : ''}
+${angle.reponse_suggeree ? `Piste de réponse déjà identifiée : ${angle.reponse_suggeree}\n` : ''}
+Mots exacts des prospects — sers-t'en, ce sont eux qui donnent le ton juste,
+et une accroche qui reprend leur formulation est reconnue immédiatement :
+${(angle.verbatims || []).map((v) => `- « ${v.texte} »${v.pub ? ` (${v.pub})` : ''}`).join('\n')}
+
+La créa doit **désamorcer cette objection**, pas la contourner. Nomme-la si
+c'est plus honnête que de l'éviter.
+
+` : ''}## Ce qui est demandé
 Ton : ${ton || 'à choisir selon les données'}
 Niveau de conscience visé : ${CONSCIENCE[conscience as string] || 'à déduire des données'}
 Format : ${format || 'à recommander'}`
@@ -187,7 +214,7 @@ Format : ${format || 'à recommander'}`
     const brief = await prisma.brief.create({
       data: {
         adAccountId: dbAccountId, adId, adName: nom,
-        title: `Brief — ${nom}`,
+        title: angle ? `Brief — objection : ${String(angle.objection).slice(0, 70)}` : `Brief — ${nom}`,
         content: texte,
         reportId: analyse?.id ?? null,
         ton: ton || null, conscience: conscience || null, format: format || null,

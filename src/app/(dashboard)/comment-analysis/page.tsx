@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { useStore } from '@/lib/store'
 
 interface Comment { message: string; createdTime: string; likeCount: number; author: string }
@@ -10,9 +11,17 @@ interface Analysis {
   synthese: string
   pain_points: { theme: string; frequence: string; description: string; exemples: string[] }[]
   signaux_positifs: { theme: string; frequence: string; description: string; exemples: string[] }[]
-  objections: { objection: string; frequence: string; reponse_suggeree: string }[]
-  angles_creatifs: { angle: string; hook: string; pourquoi: string }[]
-  briefs_creation: { type: string; format: string; titre: string; concept: string; script_hook: string; cta: string }[]
+  objections: Objection[]
+}
+
+/** Une objection et ses preuves : c'est la matière première d'un brief. */
+interface Objection {
+  objection: string
+  occurrences?: number
+  frequence: string
+  verbatims?: { texte: string; pub?: string; likes?: number }[]
+  ce_que_ca_revele?: string
+  reponse_suggeree: string
 }
 
 const FREQ_COLOR: Record<string, string> = {
@@ -48,9 +57,58 @@ export default function CommentAnalysisPage() {
   const [totalComments, setTotalComments] = useState(0)
   const [adsScanned, setAdsScanned] = useState(0)
   const [coverage, setCoverage] = useState({ attributed: 0, silentAds: 0, silentAdsDynamiques: 0 })
+  const [briefEnCours, setBriefEnCours] = useState<string | null>(null)
+  const [briefFait, setBriefFait] = useState<Record<string, boolean>>({})
+  const [briefErreur, setBriefErreur] = useState<Record<string, string>>({})
+
+  /**
+   * L'objection part au générateur de briefs, pas à un second générateur.
+   *
+   * Écrire un script demande les chiffres de la publicité, le contexte de
+   * marque et du raisonnement — tout cela existe déjà dans /api/briefs. En
+   * fabriquer une version allégée ici donnait des concepts en quatre lignes,
+   * inutilisables en production.
+   *
+   * La publicité rattachée est celle d'où vient le premier verbatim : le brief
+   * hérite ainsi de vraies métriques plutôt que d'être écrit dans le vide.
+   */
+  async function genererBrief(o: Objection) {
+    if (!selectedAccount) return
+    const nomPub = o.verbatims?.find((v) => v.pub)?.pub
+    const pub = posts.find((x) => x.adName === nomPub) || posts[0]
+    if (!pub) {
+      setBriefErreur((e) => ({ ...e, [o.objection]: 'Aucune publicité rattachée à cette objection.' }))
+      return
+    }
+    setBriefEnCours(o.objection)
+    setBriefErreur((e) => ({ ...e, [o.objection]: '' }))
+    try {
+      const res = await fetch('/api/briefs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dbAccountId: selectedAccount.id,
+          adId: pub.adId, adName: pub.adName,
+          angle: {
+            objection: o.objection,
+            occurrences: o.occurrences,
+            verbatims: o.verbatims,
+            ce_que_ca_revele: o.ce_que_ca_revele,
+            reponse_suggeree: o.reponse_suggeree,
+          },
+        }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok || d?.error) throw new Error(d?.error || `HTTP ${res.status}`)
+      setBriefFait((f) => ({ ...f, [o.objection]: true }))
+    } catch (err) {
+      setBriefErreur((e) => ({ ...e, [o.objection]: err instanceof Error ? err.message.slice(0, 120) : 'Échec' }))
+    } finally {
+      setBriefEnCours(null)
+    }
+  }
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'insights' | 'briefs' | 'comments'>('insights')
+  const [activeTab, setActiveTab] = useState<'insights' | 'comments'>('insights')
   const [rawBuffer, setRawBuffer] = useState('')
 
   async function run() {
@@ -256,8 +314,8 @@ export default function CommentAnalysisPage() {
               <p className="text-xs text-gray-400 mt-0.5">Publicités scannées</p>
             </div>
             <div className="card text-center py-5">
-              <p className="text-2xl font-bold text-[#0d0d12]">{analysis.angles_creatifs.length}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Angles créatifs identifiés</p>
+              <p className="text-2xl font-bold text-[#0d0d12]">{analysis.objections.length}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Objections identifiées</p>
             </div>
           </div>
 
@@ -288,7 +346,7 @@ export default function CommentAnalysisPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-gray-100">
-            {([['insights', 'Insights'], ['briefs', 'Briefs de création'], ['comments', 'Commentaires bruts']] as const).map(([t, label]) => (
+            {([['insights', 'Insights'], ['comments', 'Commentaires bruts']] as const).map(([t, label]) => (
               <button
                 key={t}
                 onClick={() => setActiveTab(t)}
@@ -367,84 +425,63 @@ export default function CommentAnalysisPage() {
                   </h2>
                   <div className="space-y-2">
                     {analysis.objections.map((o, i) => (
-                      <div key={i} className="card space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-[#0d0d12]">{o.objection}</p>
-                          <FreqBadge f={o.frequence} />
+                      <div key={i} className="card space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-semibold text-[#0d0d12] flex-1">{o.objection}</p>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {typeof o.occurrences === 'number' && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 tabular-nums">
+                                {o.occurrences}×
+                              </span>
+                            )}
+                            <FreqBadge f={o.frequence} />
+                          </div>
                         </div>
+
+                        {/* Les mots exacts des prospects : c'est ce qui se tourne. */}
+                        {!!o.verbatims?.length && (
+                          <div className="space-y-1.5 border-l-2 border-[#E5E7EB] pl-3">
+                            {o.verbatims.map((v, j) => (
+                              <div key={j}>
+                                <p className="text-xs text-[#0d0d12] leading-relaxed">&ldquo;{v.texte}&rdquo;</p>
+                                {v.pub && <p className="text-[10px] text-gray-400 mt-0.5">{v.pub}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {o.ce_que_ca_revele && (
+                          <p className="text-xs text-gray-500 leading-relaxed">{o.ce_que_ca_revele}</p>
+                        )}
+
                         <div className="bg-[#3434ef]/4 rounded-lg px-3 py-2">
                           <p className="text-[11px] text-[#3434ef] font-medium mb-0.5">Réponse suggérée</p>
                           <p className="text-xs text-gray-600 leading-relaxed">{o.reponse_suggeree}</p>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Creative angles */}
-              {analysis.angles_creatifs.length > 0 && (
-                <div className="space-y-3">
-                  <h2 className="text-sm font-semibold text-[#0d0d12] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-[#3434ef]/10 flex items-center justify-center text-xs text-[#3434ef]">→</span>
-                    Angles créatifs suggérés
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {analysis.angles_creatifs.map((a, i) => (
-                      <div key={i} className="card border border-[#3434ef]/10 space-y-3">
-                        <p className="text-sm font-semibold text-[#0d0d12]">{a.angle}</p>
-                        <div className="bg-gray-50 rounded-lg px-3 py-2">
-                          <p className="text-[11px] text-gray-400 font-medium mb-1 uppercase tracking-wide">Hook</p>
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-xs text-[#0d0d12] font-medium leading-relaxed flex-1">{a.hook}</p>
-                            <CopyBtn text={a.hook} />
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => genererBrief(o)}
+                            disabled={briefEnCours === o.objection}
+                            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+                            title="Produit un brief complet, avec feuille de tournage, à partir de cette objection">
+                            {briefEnCours === o.objection ? 'Génération…' : 'Générer un brief'}
+                          </button>
+                          {briefFait[o.objection] && (
+                            <Link href="/creative-strategist" className="text-[11px] text-[#3434ef] hover:underline">
+                              Brief créé — l&apos;ouvrir dans Creative Strategist →
+                            </Link>
+                          )}
+                          {briefErreur[o.objection] && (
+                            <span className="text-[11px] text-amber-600">{briefErreur[o.objection]}</span>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-400 leading-relaxed">{a.pourquoi}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Tab: Briefs */}
-          {activeTab === 'briefs' && (
-            <div className="space-y-4">
-              {analysis.briefs_creation.length === 0 ? (
-                <div className="card text-center py-10">
-                  <p className="text-sm text-gray-400">Aucun brief généré.</p>
-                </div>
-              ) : (
-                analysis.briefs_creation.map((b, i) => (
-                  <div key={i} className="card space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${b.type === 'video' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {b.type === 'video' ? '▶ Vidéo' : '⬜ Image'}
-                        </span>
-                        <span className="text-xs text-gray-400 capitalize">{b.format}</span>
-                      </div>
-                      <CopyBtn text={`BRIEF : ${b.titre}\n\nConcept : ${b.concept}\n\nHook/Script : ${b.script_hook}\n\nCTA : ${b.cta}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#0d0d12]">{b.titre}</p>
-                      <p className="text-xs text-gray-500 mt-1 leading-relaxed">{b.concept}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                        {b.type === 'video' ? 'Script / Hook d\'ouverture' : 'Texte principal'}
-                      </p>
-                      <p className="text-xs text-[#0d0d12] leading-relaxed">{b.script_hook}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">CTA</span>
-                      <span className="text-xs font-medium text-[#3434ef]">{b.cta}</span>
-                    </div>
-                  </div>
-                ))
-              )}
             </div>
           )}
 
