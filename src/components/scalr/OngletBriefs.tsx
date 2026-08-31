@@ -51,6 +51,9 @@ export function OngletBriefs({ compte }: {
   // Sur iOS le document s'ouvre dans un onglet : un bloqueur de fenêtres peut
   // l'empêcher, et sans message le bouton paraîtrait de nouveau mort.
   const [bloque, setBloque] = useState(false)
+  // La bibliothèque PDF n'est chargée qu'au clic : le bouton doit le dire,
+  // sinon le premier appui paraît sans effet le temps du téléchargement.
+  const [prepare, setPrepare] = useState<string | null>(null)
 
   const charger = useCallback(() => {
     if (!compte?.id) { setBriefs([]); setChargement(false); return }
@@ -206,17 +209,20 @@ export function OngletBriefs({ compte }: {
                           {/* Ce qu'on tend à la personne qui tourne : les
                               répliques, rien d'autre. */}
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (!feuille) return
-                              setBloque(!imprimerFeuille(feuille, b.adName))
-                              marquer(b)
+                              setPrepare(b.id)
+                              try {
+                                setBloque(!(await imprimerFeuille(feuille, b.adName)))
+                                marquer(b)
+                              } finally { setPrepare(null) }
                             }}
-                            disabled={!feuille}
+                            disabled={!feuille || prepare === b.id}
                             className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
                             title={feuille
                               ? 'Ouvre la feuille prête à imprimer ou enregistrer en PDF'
                               : 'Ce brief a été généré avant la feuille de tournage'}>
-                            Feuille de tournage (PDF)
+                            {prepare === b.id ? 'Préparation…' : 'Feuille de tournage (PDF)'}
                           </button>
 
                           <button onClick={() => {

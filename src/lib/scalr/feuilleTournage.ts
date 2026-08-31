@@ -14,10 +14,12 @@ import { markdownToHtml } from '@/lib/markdown'
  * le ranger dans un Drive ; le Markdown reste pour Notion, qui convertit un
  * collage Markdown nativement.
  *
- * Les deux passent par l'impression du navigateur plutôt que par une
- * bibliothèque PDF : la boîte de dialogue système propose « Enregistrer en
- * PDF », le rendu est celui du navigateur, et l'application ne grossit pas
- * d'un mégaoctet pour deux boutons.
+ * Les deux ne sortent pas par le même chemin, et c'est délibéré. La feuille
+ * est un vrai fichier PDF : elle se lit sur le tournage, souvent depuis un
+ * téléphone, et l'impression du navigateur n'existe pas sur Chrome iOS. Le
+ * brief reste une page imprimable — sa mise en page vient du Markdown et
+ * change à chaque analyse, la redessiner en PDF coûterait bien plus que ce
+ * qu'elle rapporterait.
  */
 
 export type Segment = { temps?: string; dit?: string; ecran?: string; visuel?: string }
@@ -144,6 +146,19 @@ function estIOS(): boolean {
 }
 
 /**
+ * Les navigateurs iOS qui n'impriment pas du tout.
+ *
+ * Chrome, Firefox et Edge sur iOS sont des habillages de WebKit auxquels il
+ * manque l'impression : `window.print()` y existe, ne fait rien, et ne
+ * signale rien. Leur proposer un bouton « Imprimer » est une promesse qu'on
+ * ne peut pas tenir — il faut nommer le chemin qui, lui, fonctionne.
+ */
+function sansImpression(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /CriOS|FxiOS|EdgiOS/.test(navigator.userAgent)
+}
+
+/**
  * Ouvre le document dans un onglet, à partir d'un objet blob.
  *
  * Un blob plutôt qu'un `document.write` : sur iOS, écrire dans une fenêtre
@@ -162,12 +177,19 @@ function ouvrirDansUnOnglet(doc: string): boolean {
 function imprimer(titre: string, corps: string) {
   // Sur iOS, le document s'ouvre dans un onglet : il lui faut de quoi lancer
   // l'impression, puisque le clic d'origine n'est plus là.
-  const barre = estIOS()
-    ? `<div class="noprint barre">
-         <button type="button" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
-         <span>ou Partager → Imprimer</span>
-       </div>`
-    : ''
+  const barre = !estIOS()
+    ? ''
+    : sansImpression()
+      // Ce navigateur n'imprime pas : un bouton mentirait. On donne le geste.
+      ? `<div class="noprint barre">
+           <span><b>Pour l'enregistrer en PDF</b> : menu ··· en bas à droite →
+           Partager → Imprimer → Enregistrer en PDF.<br>
+           Ou ouvrez cette page dans Safari.</span>
+         </div>`
+      : `<div class="noprint barre">
+           <button type="button" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+           <span>ou Partager → Imprimer</span>
+         </div>`
   const doc = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${echappe(titre)}</title><style>${STYLE}</style></head><body>${barre}${corps}</body></html>`
@@ -202,19 +224,44 @@ function imprimer(titre: string, corps: string) {
   return true
 }
 
-export function imprimerFeuille(feuille: Feuille, nomCrea: string): boolean {
-  const meta = [feuille.format, feuille.duree].filter(Boolean).join(' · ')
-  const corps = `
-    <div class="entete">
-      <h1>${echappe(feuille.titre || nomCrea)}</h1>
-      <p>Feuille de tournage${meta ? ` — ${echappe(meta)}` : ''}</p>
-    </div>
-    ${feuille.hook ? segmentHtml(feuille.hook, 'Hook — 0 à 3 s', true) : ''}
-    ${(feuille.segments || []).map((s) => segmentHtml(s)).join('')}
-    ${feuille.cta ? segmentHtml(feuille.cta, 'Call to action') : ''}
-    ${feuille.materiel ? `<p class="pied"><b>À prévoir :</b> ${echappe(feuille.materiel)}</p>` : ''}
-  `
-  return imprimer(`Feuille — ${nomCrea}`, corps)
+/**
+ * La feuille part en PDF, pas par l'impression du navigateur.
+ *
+ * Elle passait par la boîte d'impression, qui n'existe pas sur Chrome iOS :
+ * le bouton y restait sans effet. Un fichier lève la question partout, et
+ * c'est ce que son libellé promet depuis le début.
+ *
+ * Sur téléphone il s'ouvre dans un onglet — la visionneuse offre le partage
+ * et l'enregistrement, alors qu'un téléchargement direct y finit souvent
+ * nulle part. Ailleurs, il s'enregistre.
+ */
+export async function imprimerFeuille(feuille: Feuille, nomCrea: string): Promise<boolean> {
+  const { pdfFeuille } = await import('./pdfFeuille')
+  const blob = await pdfFeuille(feuille, nomCrea)
+  const nom = `Feuille de tournage - ${nomCrea}`.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 70).trim()
+  return remettre(blob, `${nom || 'feuille'}.pdf`)
+}
+
+function remettre(blob: Blob, nomFichier: string): boolean {
+  const url = URL.createObjectURL(blob)
+  const nettoyer = () => setTimeout(() => URL.revokeObjectURL(url), 60_000)
+
+  if (estIOS()) {
+    const w = window.open(url, '_blank')
+    if (!w) { URL.revokeObjectURL(url); return false }
+    nettoyer()
+    return true
+  }
+
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nomFichier
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  nettoyer()
+  return true
 }
 
 export function imprimerBrief(markdown: string, nomCrea: string, date: string): boolean {
