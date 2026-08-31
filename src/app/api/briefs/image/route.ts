@@ -34,7 +34,31 @@ export async function GET(req: NextRequest) {
 
   const briefId = req.nextUrl.searchParams.get('briefId')
   const disponible = Boolean(process.env.OPENAI_API_KEY)
-  if (!briefId) return NextResponse.json({ disponible, images: [] })
+
+  if (!briefId) {
+    /**
+     * Le diagnostic dit ce que le serveur voit, pas ce qu'on espère.
+     *
+     * Une clé absente peut l'être pour trois raisons — mauvais nom, mauvais
+     * environnement, déploiement antérieur à l'enregistrement — et aucune ne
+     * se distingue des autres depuis l'écran. On rend donc les **noms** des
+     * variables approchantes, jamais leur valeur, et de quoi identifier le
+     * déploiement interrogé.
+     */
+    const approchantes = Object.keys(process.env)
+      .filter((k) => /open.?ai/i.test(k))
+      .sort()
+    return NextResponse.json({
+      disponible,
+      images: [],
+      diagnostic: {
+        variablesApprochantes: approchantes,
+        longueurCle: process.env.OPENAI_API_KEY?.length ?? 0,
+        environnement: process.env.VERCEL_ENV ?? 'local',
+        deploiement: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      },
+    })
+  }
 
   const images = await prisma.briefImage.findMany({
     where: { briefId },
