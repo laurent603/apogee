@@ -23,16 +23,53 @@ import { markdownToHtml } from '@/lib/markdown'
  */
 
 export type Segment = { temps?: string; dit?: string; ecran?: string; visuel?: string }
+
+/**
+ * Le brief entier, sous forme exploitable.
+ *
+ * Ce bloc ne portait que les répliques : le reste — angle, accroches,
+ * preuves, appel à l'action, copy — restait prisonnier de la prose, donc
+ * illisible par l'application et absent des exports. Il porte désormais tout
+ * ce qui sert à produire ; seuls le diagnostic et les justifications
+ * demeurent dans le texte.
+ */
 export type Feuille = {
   titre?: string
   format?: string
+  ratios?: string[]
   duree?: string
+  angle?: string
+  conscience?: string
+  ton?: string
+  promesse?: string
+
   hook?: Segment
+  variantes_hook?: string[]
   segments?: Segment[]
-  cta?: Segment
-  materiel?: string
-  /** Créas statiques : un prompt d'image prêt à coller, par ratio. */
+
+  /** Créas statiques : ce qui est écrit sur l'image. */
+  textes_incrustes?: {
+    accroche?: string
+    sous_accroche?: string
+    mention?: string
+    variantes_accroche?: string[]
+    positions?: string
+  }
+
+  bullets?: string[]
+  preuves?: string[]
+  cta?: Segment & { bouton_meta?: string }
+
+  copy?: {
+    texte_principal?: string
+    titre?: string
+    description?: string
+    variante?: { texte_principal?: string; titre?: string; description?: string }
+  }
+
+  /** Un prompt d'image prêt à coller, par ratio. */
   visuels?: { ratio: string; prompt: string }[]
+  materiel?: string
 }
 
 /**
@@ -50,7 +87,7 @@ export function extraireFeuille(markdown: string): Feuille | null {
   for (const brut of blocs.reverse()) {
     try {
       const o = JSON.parse(brut) as Feuille
-      if (o && (o.hook || o.segments?.length || o.visuels?.length)) return o
+      if (o && (o.hook || o.segments?.length || o.visuels?.length || o.textes_incrustes)) return o
     } catch { /* bloc non exploitable : on essaie le précédent */ }
   }
   return null

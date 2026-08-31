@@ -137,51 +137,85 @@ Texte principal, titre, description. Deux variantes.
 « pensez à ». Chaque phrase est soit une instruction, soit une justification
 chiffrée.
 
-## 9. Feuille de tournage — bloc obligatoire, en dernier
+## 9. Bloc final obligatoire — le brief entier, en JSON
 
-Termine **impérativement** par un bloc \`\`\`json délimité comme ci-dessous.
-C'est lui qui produit la feuille remise à la personne qui tourne : elle ne lit
-rien d'autre, ni le diagnostic, ni la copy. Elle n'apprend pas le texte, elle
-le lit — écris donc les répliques telles qu'elles doivent être **prononcées**,
-sans didascalie dans la réplique.
+Termine **impérativement** par un bloc \`\`\`json délimité. C'est lui qui
+alimente la feuille remise à la production et les exports.
+
+**Il doit se suffire à lui-même.** Quelqu'un qui n'a que ce bloc, sans la
+prose au-dessus, doit pouvoir tourner ou fabriquer la créa sans poser une
+question. Tout ce que tu as écrit plus haut et qui sert à produire s'y
+retrouve : angle, accroche et ses variantes, textes, listes à puces s'il en
+faut, preuves, appel à l'action, copy, matériel. Ce qui reste dehors, c'est
+le diagnostic et les justifications — eux seuls appartiennent à la prose.
+
+Ne reformule pas en le recopiant : le JSON porte **les mêmes mots** que le
+brief. Un écart entre les deux est un défaut.
 
 \`\`\`json
 {
   "titre": "nom court de la créa",
-  "format": "format retenu",
-  "duree": "durée visée, ex. 30 s",
-  "hook": { "dit": "la phrase prononcée mot pour mot", "ecran": "texte affiché", "visuel": "ce qu'on filme" },
+  "format": "video | image",
+  "ratios": ["9:16", "1:1"],
+  "duree": "durée visée si vidéo, sinon « image fixe »",
+  "angle": "l'angle en une phrase",
+  "conscience": "niveau de conscience visé",
+  "ton": "le ton retenu, en trois mots",
+  "promesse": "ce que le prospect obtient s'il clique",
+
+  "hook": { "dit": "phrase prononcée mot pour mot", "ecran": "texte affiché", "visuel": "ce qu'on filme" },
+  "variantes_hook": ["variante 2", "variante 3"],
   "segments": [
     { "temps": "3-8 s", "dit": "réplique exacte", "ecran": "texte affiché", "visuel": "ce qu'on filme" }
   ],
-  "cta": { "dit": "réplique finale", "ecran": "texte affiché", "visuel": "ce qu'on filme" },
+
+  "textes_incrustes": {
+    "accroche": "TEXTE EXACT",
+    "sous_accroche": "TEXTE EXACT",
+    "mention": "texte exact",
+    "variantes_accroche": ["…", "…"],
+    "positions": "où chaque bloc se place, en pourcentage de hauteur, par ratio"
+  },
+
+  "bullets": ["puce 1", "puce 2"],
+  "preuves": ["avis, chiffre, démonstration, avant/après — et à quel moment il apparaît"],
+
+  "cta": { "dit": "ce qui est dit ou écrit", "ecran": "ce qui est affiché", "bouton_meta": "libellé du bouton Meta" },
+
+  "copy": {
+    "texte_principal": "le texte principal, entier",
+    "titre": "le titre",
+    "description": "la description",
+    "variante": { "texte_principal": "…", "titre": "…", "description": "…" }
+  },
+
+  "visuels": [
+    { "ratio": "9:16", "prompt": "prompt d'image complet et autonome" },
+    { "ratio": "1:1",  "prompt": "prompt d'image complet et autonome" }
+  ],
+
   "materiel": "ce qu'il faut prévoir, en une ligne"
 }
 \`\`\`
 
-Le JSON doit être valide et se suffire à lui-même : quelqu'un qui n'a que ce
-bloc doit pouvoir tourner.
+**Les clés sans objet sont omises, pas laissées vides.** Une vidéo n'a ni
+\`textes_incrustes\` ni \`visuels\` ; une image n'a ni \`segments\` ni
+\`variantes_hook\`, et son \`hook\` ne porte pas de \`dit\`. \`bullets\`
+n'existe que si la créa comporte réellement une liste. \`preuves\` est
+attendu dès qu'une preuve est mobilisée — avis client, chiffre, démonstration,
+ancienneté, avant/après.
+
+Le JSON doit être valide : pas de commentaire, pas de virgule finale.
 
 ## 10. Visuels statiques — quand le format retenu est une image
 
 Le format demandé dans « Ce qui est demandé » **s'impose** quand il est
 explicite. Une image ne porte ni hook de trois secondes ni déroulé minuté :
 si le format est une image, remplace les sections 3, 4 et 7 par la
-composition, la hiérarchie de lecture et le texte incrusté, et le bloc JSON
-final porte \`visuels\` **sans** \`segments\`. Si le format est une vidéo, ne
-produis pas de \`visuels\`.
+composition, la hiérarchie de lecture et le texte incrusté.
 
-Si le brief porte sur une image plutôt qu'une vidéo, le bloc JSON ci-dessus
-porte en plus une clé \`visuels\` : **deux prompts prêts à coller dans un
-générateur d'images**, un par ratio. Ils remplacent alors \`segments\`, qui
-n'a pas de sens pour une image fixe.
-
-\`\`\`json
-"visuels": [
-  { "ratio": "9:16", "prompt": "…" },
-  { "ratio": "1:1",  "prompt": "…" }
-]
-\`\`\`
+Le bloc JSON porte alors \`visuels\` : **deux prompts prêts à coller dans un
+générateur d'images**, un par ratio.
 
 Chaque prompt est **autonome** : celui qui le colle n'a ni le brief, ni le
 contexte du compte. Il est écrit en français, d'un seul tenant, et contient
@@ -196,8 +230,8 @@ dans cet ordre :
 4. **La lumière et l'ambiance** en quelques mots.
 5. **La palette**, deux ou trois couleurs dominantes.
 6. **Le texte incrusté**, entre guillemets, **mot pour mot**, avec sa position.
-   Six mots maximum : les générateurs déforment les phrases longues, et une
-   accroche courte porte mieux de toute façon. Si le texte n'est pas
+   Six mots maximum par bloc : les générateurs déforment les phrases longues,
+   et une accroche courte porte mieux de toute façon. Si le texte n'est pas
    indispensable, ne demande pas de texte du tout.
 
    **Ce texte est lu seul, sans le brief.** Il doit donc tenir debout comme
@@ -206,8 +240,7 @@ dans cet ordre :
    l'effet inverse de celui recherché : « Il n'y a aucune aide » incrusté sur
    une image devient la marque qui affirme qu'aucune aide n'existe. Si le
    texte cite un prospect, il porte des guillemets **dans l'image** et une
-   attribution courte (« Ce qu'on nous dit : … »). Sinon, reformule-le du
-   point de vue de l'annonceur.
+   attribution courte. Sinon, reformule-le du point de vue de l'annonceur.
 
    Évite les apostrophes et les accents dans le texte incrusté quand une
    formulation équivalente s'en passe : les générateurs les rendent mal.
