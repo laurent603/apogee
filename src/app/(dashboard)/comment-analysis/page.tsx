@@ -65,7 +65,14 @@ export default function CommentAnalysisPage() {
       // Step 1: fetch comments
       const metaId = selectedAccount.metaAccountId || selectedAccount.id
       const res = await fetch(`/api/meta/comments?accountId=${metaId}`)
-      if (!res.ok) throw new Error('Erreur lors de la récupération des commentaires')
+      if (!res.ok) {
+        // Le message de la route porte la cause : la masquer derrière un texte
+        // générique a coûté deux allers-retours pour rien.
+        const d = await res.json().catch(() => null)
+        throw new Error(d?.error
+          ? `Récupération des commentaires : ${String(d.error).slice(0, 300)}`
+          : `Erreur lors de la récupération des commentaires (HTTP ${res.status})`)
+      }
       const data = await res.json()
       setPosts(data.posts)
       setTotalComments(data.totalComments)

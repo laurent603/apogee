@@ -132,32 +132,74 @@ export async function GET(req: NextRequest) {
       meAccountsError = e instanceof Error ? e.message.slice(0, 150) : 'unknown'
     }
 
-    // Toutes les pubs du compte, quel que soit leur statut, pagination comprise.
-    // insights.actions donne le nombre de commentaires que Meta attribue à la pub :
-    // source indépendante du post, qui révèle un effective_object_story_id erroné.
+    /**
+     * Les publicités à examiner, et elles seules.
+     *
+     * On listait tout le compte en dépliant les statistiques publicité par
+     * publicité. Sur un compte à 1 618 publicités, cette seule liste demandait
+     * 48 secondes, et la route mourait avant d'avoir lu un commentaire.
+     *
+     * Les statistiques demandées en une fois, au niveau publicité, coûtent six
+     * secondes et disent exactement lesquelles ont reçu des commentaires. On ne
+     * va chercher les créatifs que de celles-là, par paquets — plus une page de
+     * publicités récentes, parce qu'une publicité trop jeune pour avoir des
+     * statistiques peut déjà porter des commentaires.
+     */
+    const insightsRows = await drainPages(
+      await metaFetch(`/${metaAccountId}/insights`, token, {
+        level: 'ad', fields: 'ad_id,actions', date_preset: 'maximum', limit: '500',
+      }),
+    )
+    const commentairesPar = new Map<string, number>()
+    for (const r of insightsRows as unknown as { ad_id?: string; actions?: { action_type: string; value: string }[] }[]) {
+      const n = Number(r.actions?.find(a => a.action_type === 'comment')?.value || 0)
+      if (r.ad_id && n > 0) commentairesPar.set(r.ad_id, n)
+    }
+
     const adFields =
       'id,name,effective_status,' +
       'creative{effective_object_story_id,object_story_id,thumbnail_url,' +
-      'effective_instagram_media_id,instagram_user_id},' +
-      'insights.date_preset(maximum){actions}'
-    const adsFirst = await metaFetch(`/${metaAccountId}/ads`, token, {
-      fields: adFields,
-      limit: '100',
-      filtering: JSON.stringify([{
-        field: 'ad.effective_status',
-        operator: 'IN',
-        value: ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED', 'PENDING_REVIEW',
-                'DISAPPROVED', 'PREAPPROVED', 'PENDING_BILLING_INFO', 'IN_PROCESS',
-                'WITH_ISSUES', 'ARCHIVED'],
-      }]),
+      'effective_instagram_media_id,instagram_user_id}'
+
+    /**
+     * Les publicités visées, lues une par une mais en parallèle.
+     *
+     * Le paramètre `ids`, qui aurait permis de les demander par cinquante, est
+     * refusé par Meta depuis la v26 — y compris sur les versions antérieures.
+     * Cent soixante-quatorze appels concurrents coûtent quelques secondes ;
+     * lister le compte entier en coûtait quarante-huit.
+     */
+    const parId = new Map<string, Record<string, unknown>>()
+    await mapLimit([...commentairesPar.keys()], 8, async (adId) => {
+      try {
+        const ad = await metaFetch(`/${adId}`, token, { fields: adFields })
+        if (ad?.id) parId.set(String(ad.id), ad as Record<string, unknown>)
+      } catch { /* une publicité perdue n'emporte pas les autres */ }
     })
-    const allAds = await drainPages(adsFirst)
+
+    // Le complément récent : une seule page, pas la pagination entière.
+    try {
+      const recentes = await metaFetch(`/${metaAccountId}/ads`, token, {
+        fields: adFields,
+        limit: '200',
+        filtering: JSON.stringify([{
+          field: 'ad.effective_status',
+          operator: 'IN',
+          value: ['ACTIVE', 'PAUSED', 'ADSET_PAUSED', 'CAMPAIGN_PAUSED', 'PENDING_REVIEW',
+                  'DISAPPROVED', 'PREAPPROVED', 'PENDING_BILLING_INFO', 'IN_PROCESS',
+                  'WITH_ISSUES'],
+        }]),
+      })
+      for (const ad of (recentes.data || []) as Record<string, unknown>[]) {
+        if (ad?.id && !parId.has(String(ad.id))) parId.set(String(ad.id), ad)
+      }
+    } catch { /* le complément est un bonus, pas une condition */ }
+
+    const allAds = [...parId.values()]
 
     /** Comments Meta attributes to an ad, whichever post they actually landed on. */
     function adCommentCount(ad: Record<string, unknown>): number {
-      const rows = (ad.insights as { data?: Record<string, unknown>[] } | undefined)?.data?.[0]
-      const actions = rows?.actions as { action_type: string; value: string }[] | undefined
-      return Number(actions?.find(a => a.action_type === 'comment')?.value || 0)
+      return commentairesPar.get(String(ad.id)) ?? 0
     }
 
     type AdMeta = { adName: string; thumbnail?: string; expected: number }
