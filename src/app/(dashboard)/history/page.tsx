@@ -72,6 +72,8 @@ export default function HistoryPage() {
   const [filtre, setFiltre] = useState('all')
   const [recherche, setRecherche] = useState('')
   const [ouvert, setOuvert] = useState<string | null>(null)
+  const [aSupprimer, setASupprimer] = useState<string | null>(null)
+  const [message, setMessage] = useState('')
   const [contenu, setContenu] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
@@ -101,6 +103,29 @@ export default function HistoryPage() {
     if (contenu[r.id]) return
     const d = await fetch(`/api/reports?id=${r.id}`).then((x) => x.json()).catch(() => null)
     if (d?.report?.content) setContenu((c) => ({ ...c, [r.id]: d.report.content }))
+  }
+
+  /**
+   * La suppression demande deux clics, pas une boîte de dialogue.
+   *
+   * Un historique se nettoie par lots — surtout après une série de tests — et
+   * une confirmation modale à chaque ligne rend l'opération pénible. Le bouton
+   * change d'état et se rétracte au bout de quelques secondes : l'erreur reste
+   * difficile, le ménage reste rapide.
+   */
+  async function supprimer(r: Rapport) {
+    if (aSupprimer !== r.id) {
+      setASupprimer(r.id)
+      setTimeout(() => setASupprimer((x) => (x === r.id ? null : x)), 4000)
+      return
+    }
+    setASupprimer(null)
+    // La ligne disparaît tout de suite : attendre le serveur pour un ménage de
+    // vingt lignes donnerait l'impression que rien ne se passe.
+    setRapports((liste) => liste.filter((x) => x.id !== r.id))
+    if (ouvert === r.id) setOuvert(null)
+    const res = await fetch(`/api/reports?id=${r.id}`, { method: 'DELETE' }).catch(() => null)
+    if (!res?.ok) { setMessage('Suppression refusée — rechargez la page.'); charger() }
   }
 
   async function telecharger(r: Rapport) {
@@ -146,6 +171,12 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-4 max-w-5xl">
+      {message && (
+        <div className="card border border-amber-200 bg-amber-50 py-2">
+          <p className="text-xs text-amber-800">{message}</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="page-title">Historique</h1>
@@ -245,6 +276,13 @@ export default function HistoryPage() {
                     <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">{horodatage(e.date)}</span>
                     <button onClick={() => ouvrir(e)} className="text-xs text-[#3434ef] hover:underline">
                       {estOuvert ? 'Masquer' : 'Lire'}
+                    </button>
+                    <button onClick={() => supprimer(e)}
+                      title={aSupprimer === e.id ? 'Cliquez à nouveau pour supprimer' : 'Supprimer'}
+                      className={aSupprimer === e.id
+                        ? 'text-xs font-semibold text-red-600 hover:underline'
+                        : 'text-xs text-gray-300 hover:text-red-500 transition-colors'}>
+                      {aSupprimer === e.id ? 'Confirmer' : 'Supprimer'}
                     </button>
                   </div>
                 </div>
