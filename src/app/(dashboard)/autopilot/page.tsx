@@ -556,10 +556,11 @@ export default function AutopilotPage() {
 
       {/* --- TAB: Nouvelle session --- */}
       {tab === 'session' && (
-        // La hauteur n'est réservée qu'une fois la conversation entamée :
-        // sinon un vide de 620 px s'installait entre l'en-tête et le champ
-        // de saisie, particulièrement pénalisant sur mobile.
-        <div className={clsx('flex flex-col', messages.length > 0 && 'min-h-[620px]')}>
+        // La conversation défile, le champ de saisie reste collé au bas de
+        // l'écran — comme une messagerie. Avant, il défilait avec la page :
+        // la bibliothèque de prompts s'ouvrait alors vers le haut depuis un
+        // point quelconque et sortait de l'écran.
+        <div className="flex flex-col">
 
           {/* Top bar */}
           <div className="card p-3 mb-3 flex items-center justify-between flex-shrink-0">
@@ -579,7 +580,7 @@ export default function AutopilotPage() {
           {/* Messages — se réduit à zéro tant qu'aucun échange n'a eu lieu.
               Aucun texte d'accroche : le champ de saisie porte déjà sa propre
               invite et le bouton « + » est visible juste à côté. */}
-          <div className={clsx('overflow-y-auto', messages.length > 0 && 'flex-1 pb-4 space-y-4')}>
+          <div className={clsx(messages.length > 0 && 'pb-4 space-y-4')}>
             {messages.map((m, i) => (
               <div key={i}>
                 {m.role === 'user' ? (
@@ -631,7 +632,10 @@ export default function AutopilotPage() {
           </div>
 
           {/* Composer */}
-          <div className="card p-3 mt-3 flex-shrink-0 relative">
+          {/* Collé au bas de la zone défilante : les marges négatives lui
+              rendent toute la largeur, et le fond masque ce qui passe dessous. */}
+          <div className="sticky bottom-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-4 pt-3 bg-[#f8f9fc]">
+          <div className="card p-3 relative">
             {/* Prompt library — inserts into the field so the prompt can be read
                 and adjusted before it runs, instead of firing on click */}
             {pickerOpen && (
@@ -755,6 +759,7 @@ export default function AutopilotPage() {
                 )}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
