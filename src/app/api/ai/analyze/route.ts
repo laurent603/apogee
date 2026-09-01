@@ -98,12 +98,17 @@ export async function POST(req: NextRequest) {
          * La consigne vit ici, et non dans les instructions de l'agent :
          * celles-ci dorment en base, et modifier les modèles du code
          * n'aurait rien changé aux agents déjà créés.
+         *
+         * Elle est jointe au **message**, pas au prompt système : placée dans
+         * le système, à quinze mille jetons de la fin, le premier rapport
+         * produit l'a purement ignorée. En dernière position, c'est la
+         * dernière chose lue avant la rédaction.
          */
         const blocFinal = deep ? BLOC_ACTIONNABLES : ''
 
         const systemPrompt = customPrompt
-          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}${blocFinal}`
-          : `${getPrompt(category as PromptCategory, analysisType)}${blocFinal}`
+          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}`
+          : getPrompt(category as PromptCategory, analysisType)
 
         const leadSourceNote = {
           total: `Le champ "Prospects (leads)" est le total Meta (site web + formulaires). Si "Alerte prospects" est présente dans les données, les deux sources sont actives et le total peut être un double comptage : signale-le au lieu de raisonner dessus comme si c'était fiable.`,
@@ -211,7 +216,7 @@ ${JSON.stringify(previous.ads, null, 2)}`
             {
               role: 'user' as const,
               content: [
-                { type: 'text' as const, text: userMessage + imageNote },
+                { type: 'text' as const, text: userMessage + imageNote + blocFinal },
                 ...toImageBlocks(images),
               ],
             },

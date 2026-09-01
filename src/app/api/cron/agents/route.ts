@@ -143,8 +143,10 @@ export async function GET(req: NextRequest) {
         model: MODEL_REPORT,
         max_tokens: 16000,
         ...REPORT_REASONING,
-        system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.${BLOC_ACTIONNABLES}`,
-        messages: [{ role: 'user', content: userMessage }],
+        system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
+        // Le bloc final est joint au message, en dernière position : dans le
+        // prompt système, il était ignoré (voir /api/ai/analyze).
+        messages: [{ role: 'user', content: userMessage + BLOC_ACTIONNABLES }],
       })
       for await (const chunk of stream) {
         if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {

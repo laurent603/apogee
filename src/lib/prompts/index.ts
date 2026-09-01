@@ -65,12 +65,20 @@ Indique toujours la variation signée et la période de comparaison.`
  */
 export const BLOC_ACTIONNABLES = `
 
-## Bloc final obligatoire — à produire après ton rapport
+---
 
-Termine par un bloc JSON, et **rien après lui**, listant les points de ton
-analyse qui appellent la production d'une nouvelle créa. Uniquement ceux-là :
-une hausse de budget, un changement d'audience ou une correction de tracking
-n'y figurent pas.
+# CONSIGNE FINALE — OBLIGATOIRE
+
+Écris ton rapport normalement. Puis, **après sa dernière ligne**, ajoute un
+bloc JSON et **rien après lui**. Ce bloc s'ajoute au rapport, il ne le
+remplace pas et n'en modifie pas le plan.
+
+Il liste les points de ton analyse qui appellent la production d'une nouvelle
+créa. Uniquement ceux-là : une hausse de budget, un changement d'audience ou
+une correction de tracking n'y figurent pas.
+
+Un rapport rendu sans ce bloc est incomplet, quelle que soit sa qualité :
+c'est lui, et lui seul, qui permet d'envoyer un point en production.
 
 \`\`\`json
 {"actionnables":[{"titre":"…","adId":"…","adName":"…","constat":"…","piste":"…"}]}
