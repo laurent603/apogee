@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
+import { sansBlocActionnables } from '@/lib/scalr/actionnables'
 
 /**
  * L'historique du compte : ce qui s'est passé, dans l'ordre.
@@ -129,7 +130,7 @@ export default function HistoryPage() {
   }
 
   async function telecharger(r: Rapport) {
-    const texte = contenu[r.id]
+    const texte = sansBlocActionnables(contenu[r.id])
     if (!texte) return
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([texte], { type: 'text/markdown;charset=utf-8' }))
@@ -297,7 +298,7 @@ export default function HistoryPage() {
                             noyait les titres dans les dièses et laissait les
                             tableaux en barres verticales. */}
                         <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
-                          dangerouslySetInnerHTML={{ __html: markdownToHtml(contenu[e.id]) }} />
+                          dangerouslySetInnerHTML={{ __html: markdownToHtml(sansBlocActionnables(contenu[e.id])) }} />
                         <button onClick={() => telecharger(e)}
                           className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
                           Télécharger en Markdown

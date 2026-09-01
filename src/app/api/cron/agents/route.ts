@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
-import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD } from '@/lib/prompts'
+import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES } from '@/lib/prompts'
 
 /**
  * Le format de sortie demandé à l'agent, débarrassé de toute demande de HTML.
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
         model: MODEL_REPORT,
         max_tokens: 16000,
         ...REPORT_REASONING,
-        system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
+        system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.${BLOC_ACTIONNABLES}`,
         messages: [{ role: 'user', content: userMessage }],
       })
       for await (const chunk of stream) {

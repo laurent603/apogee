@@ -89,13 +89,22 @@ export async function POST(req: NextRequest) {
   const { dbAccountId, adId, adName, ton, conscience, format, angle } = await req.json().catch(() => ({})) as {
     dbAccountId?: string; adId?: string; adName?: string
     ton?: string; conscience?: string; format?: string
-    /** Une objection relevée dans les commentaires, avec ses preuves. */
+    /**
+     * Le point de départ du brief, quand il ne vient pas d'un diagnostic de
+     * performance : une objection relevée dans les commentaires, ou un point
+     * actionnable extrait d'un rapport d'agent. Les deux se rangent dans la
+     * même forme — un constat, ses preuves, une piste — et se distinguent par
+     * leur origine, qui change ce que le prompt en dit.
+     */
     angle?: {
       objection: string
       occurrences?: number
       verbatims?: { texte: string; pub?: string; likes?: number }[]
       ce_que_ca_revele?: string
       reponse_suggeree?: string
+      origine?: 'commentaires' | 'agent'
+      /** Le rapport dont il est tiré, pour que le brief sache d'où il parle. */
+      agent?: string
     }
   }
   if (!dbAccountId || !adId) {
@@ -261,7 +270,20 @@ ${reglages ? JSON.stringify({
     objections: reglages.audienceObjections, positionnement: reglages.marketPositioning,
   }, null, 2) : 'Non renseigné'}
 
-${angle ? `## L'objection à traiter
+${angle && angle.origine === 'agent' ? `## Le point à traiter
+
+Ce brief ne part pas d'un diagnostic de performance que tu établis toi-même :
+il répond à un point relevé par ${angle.agent ? `l'agent « ${angle.agent} »` : 'un agent d\'analyse'} sur ce compte.
+
+**${angle.objection}**
+
+${angle.ce_que_ca_revele ? `Le constat chiffré : ${angle.ce_que_ca_revele}\n` : ''}
+${angle.reponse_suggeree ? `La piste déjà identifiée : ${angle.reponse_suggeree}\n` : ''}
+Traite ce point précis. Les chiffres ci-dessus viennent de l'analyse : reprends-les
+plutôt que d'en recalculer d'approchants, et ne t'écarte pas vers un autre sujet
+même si les données du compte t'en suggèrent un.
+
+` : angle ? `## L'objection à traiter
 
 Ce brief ne part pas d'un diagnostic de performance mais d'une objection
 relevée dans les commentaires de ce compte. Elle revient ${angle.occurrences ?? 'plusieurs'} fois.
@@ -325,7 +347,11 @@ Format : ${format || 'à recommander'}`
     const brief = await prisma.brief.create({
       data: {
         adAccountId: dbAccountId, adId, adName: nom,
-        title: angle ? `Brief — objection : ${String(angle.objection).slice(0, 70)}` : `Brief — ${nom}`,
+        title: angle
+          ? angle.origine === 'agent'
+            ? `Brief — ${angle.agent || 'agent'} : ${String(angle.objection).slice(0, 70)}`
+            : `Brief — objection : ${String(angle.objection).slice(0, 70)}`
+          : `Brief — ${nom}`,
         content: texte,
         reportId: analyse?.id ?? null,
         ton: ton || null, conscience: conscience || null, format: format || null,

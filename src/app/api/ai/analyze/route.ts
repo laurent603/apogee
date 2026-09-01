@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING } from '@/lib/anthropic'
-import { PROMPTS } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -90,9 +90,20 @@ export async function POST(req: NextRequest) {
         const formatDemande = /html|<[a-z]/i.test(outputFormat || '') ? '' : (outputFormat || '')
         const outputInstruction = formatDemande ? `\n\nFormat de sortie attendu : ${formatDemande}` : ''
 
+        /**
+         * Seul un rapport d'agent porte le bloc final : `deep` n'est envoyé
+         * que par l'exécution d'un agent. Une réponse de discussion qui se
+         * terminerait par du JSON serait du bruit.
+         *
+         * La consigne vit ici, et non dans les instructions de l'agent :
+         * celles-ci dorment en base, et modifier les modèles du code
+         * n'aurait rien changé aux agents déjà créés.
+         */
+        const blocFinal = deep ? BLOC_ACTIONNABLES : ''
+
         const systemPrompt = customPrompt
-          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}`
-          : getPrompt(category as PromptCategory, analysisType)
+          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}${blocFinal}`
+          : `${getPrompt(category as PromptCategory, analysisType)}${blocFinal}`
 
         const leadSourceNote = {
           total: `Le champ "Prospects (leads)" est le total Meta (site web + formulaires). Si "Alerte prospects" est présente dans les données, les deux sources sont actives et le total peut être un double comptage : signale-le au lieu de raisonner dessus comme si c'était fiable.`,

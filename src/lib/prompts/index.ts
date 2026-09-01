@@ -53,6 +53,38 @@ Ne fais jamais figurer dans une section « problème » une variation allant dan
 (un Hold Rate à +300 % est un succès, pas une fatigue).
 Indique toujours la variation signée et la période de comparaison.`
 
+/**
+ * Ce qu'un rapport d'agent appelle comme nouvelles créas, sous forme lisible
+ * par l'écran.
+ *
+ * Un rapport dit déjà « avis-client-2 est saturée, il faut la remplacer », mais
+ * en prose : rien ne permettait d'en faire un brief sans que quelqu'un
+ * recopie le nom de la publicité à la main. Le bloc délimité rend cette
+ * intention exploitable — et il est ajouté côté serveur, pour valoir aussi
+ * pour les agents déjà créés, dont les instructions dorment en base.
+ */
+export const BLOC_ACTIONNABLES = `
+
+## Bloc final obligatoire — à produire après ton rapport
+
+Termine par un bloc JSON, et **rien après lui**, listant les points de ton
+analyse qui appellent la production d'une nouvelle créa. Uniquement ceux-là :
+une hausse de budget, un changement d'audience ou une correction de tracking
+n'y figurent pas.
+
+\`\`\`json
+{"actionnables":[{"titre":"…","adId":"…","adName":"…","constat":"…","piste":"…"}]}
+\`\`\`
+
+- **titre** : ce qu'il y a à produire, en une ligne — « Remplacer avis-client-2, fréquence à 4,1 »
+- **adId** / **adName** : la publicité concernée, repris **tels quels** des
+  données fournies. Omets les deux si le point ne vise aucune publicité précise.
+- **constat** : ce que montrent les chiffres, avec les chiffres.
+- **piste** : ce que la nouvelle créa doit faire autrement.
+
+N'invente jamais un identifiant. Cinq éléments au maximum, les plus urgents.
+Si ton analyse n'appelle aucune créa, rends \`{"actionnables":[]}\`.`
+
 export const SYSTEM_BASE = `Tu es LEADSCORE, un agent IA expert en Meta Ads pour une agence de publicité digitale.
 Tu analyses des données réelles de comptes Meta Ads et fournis des recommandations précises et actionnables.
 Tu parles en français, tu es direct, factuel, et tu bases chaque recommandation sur les données réelles.

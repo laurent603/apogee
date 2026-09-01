@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import type { AutopilotAgent } from '@/types'
+import { extraireActionnables, sansBlocActionnables, type Actionnable } from '@/lib/scalr/actionnables'
 
 type Tab = 'session' | 'agent' | 'history' | 'settings'
 
@@ -373,6 +374,48 @@ export default function AutopilotPage() {
    * liste figée afficherait des filtres vides.
    */
   const [filtreRapport, setFiltreRapport] = useState('all')
+
+  /**
+   * Les créas qu'un rapport réclame partent au générateur de briefs.
+   *
+   * Même raisonnement que pour les objections de commentaires : écrire un
+   * script demande les chiffres de la publicité, le contexte de marque et du
+   * raisonnement — tout cela vit déjà dans /api/briefs. Ce qui change, c'est
+   * le point de départ, et l'origine le dit au prompt.
+   */
+  const [briefEnCours, setBriefEnCours] = useState<string | null>(null)
+  const [briefFait, setBriefFait] = useState<Record<string, boolean>>({})
+  const [briefErreur, setBriefErreur] = useState<Record<string, string>>({})
+
+  async function genererBrief(cle: string, a: Actionnable, agentNom?: string) {
+    if (!selectedAccount || !a.adId) return
+    setBriefEnCours(cle)
+    setBriefErreur((e) => ({ ...e, [cle]: '' }))
+    try {
+      const res = await fetch('/api/briefs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dbAccountId: selectedAccount.id,
+          adId: a.adId, adName: a.adName,
+          angle: {
+            origine: 'agent',
+            agent: agentNom,
+            objection: a.titre,
+            ce_que_ca_revele: a.constat,
+            reponse_suggeree: a.piste,
+          },
+        }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok || d?.error) throw new Error(d?.error || `HTTP ${res.status}`)
+      setBriefFait((f) => ({ ...f, [cle]: true }))
+      toast.success('Brief généré')
+    } catch (err) {
+      setBriefErreur((e) => ({ ...e, [cle]: err instanceof Error ? err.message.slice(0, 120) : 'Échec' }))
+    } finally {
+      setBriefEnCours(null)
+    }
+  }
 
   async function supprimerRapport(id: string) {
     if (aSupprimer !== id) {
@@ -1177,14 +1220,70 @@ export default function AutopilotPage() {
                     </div>
 
                     {/* Report content */}
-                    {isExpanded && (
+                    {isExpanded && (() => {
+                      const aProduire = extraireActionnables(report.content)
+                      return (
                       <div className="border-t border-[#E5E7EB]">
                         <div className="px-5 py-5">
-                          <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(report.content) }} />
+                          <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(sansBlocActionnables(report.content)) }} />
                         </div>
+
+                        {/* Ce que le rapport réclame comme nouvelles créas.
+                            Sous le rapport et non dedans : c'est la suite à
+                            donner, pas une section d'analyse. */}
+                        {aProduire.length > 0 && (
+                          <div className="px-5 pb-5 pt-1">
+                            <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wide mb-2">
+                              Créas à produire
+                            </p>
+                            <div className="space-y-2">
+                              {aProduire.map((a, i) => {
+                                const cle = `${report.id}-${i}`
+                                return (
+                                  <div key={cle} className="border border-[#E5E7EB] rounded-xl p-3">
+                                    <p className="text-sm font-medium text-[#0d0d12]">{a.titre}</p>
+                                    {a.adName && (
+                                      <p className="text-xs text-gray-400 mt-0.5">{a.adName}</p>
+                                    )}
+                                    {a.constat && <p className="text-xs text-gray-500 mt-1.5">{a.constat}</p>}
+                                    {a.piste && <p className="text-xs text-gray-500 mt-1">→ {a.piste}</p>}
+                                    <div className="mt-2.5 flex items-center gap-3 flex-wrap">
+                                      {a.adId ? (
+                                        <button
+                                          onClick={() => genererBrief(cle, a, report.agent?.name)}
+                                          disabled={briefEnCours === cle || briefFait[cle]}
+                                          className={clsx('text-xs rounded-lg px-3 py-1.5 font-medium transition-colors',
+                                            briefFait[cle]
+                                              ? 'bg-green-50 text-green-700 cursor-default'
+                                              : 'bg-[#3434ef] text-white hover:bg-[#2a2ac4] disabled:opacity-60')}
+                                        >
+                                          {briefFait[cle] ? 'Brief généré ✓'
+                                            : briefEnCours === cle ? 'Génération…'
+                                            : 'Générer un brief'}
+                                        </button>
+                                      ) : (
+                                        // Un angle de compte ne vise aucune créa
+                                        // existante : sans publicité, le brief
+                                        // n'aurait aucun chiffre sur quoi s'appuyer.
+                                        <span className="text-xs text-gray-400">Aucune publicité rattachée</span>
+                                      )}
+                                      {briefFait[cle] && (
+                                        <a href="/briefs" className="text-xs text-[#3434ef] hover:underline">Voir dans Briefs</a>
+                                      )}
+                                      {briefErreur[cle] && (
+                                        <span className="text-xs text-red-600">{briefErreur[cle]}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="px-5 pb-4 flex items-center gap-3">
                           <button
-                            onClick={() => { navigator.clipboard.writeText(report.content); toast.success('Rapport copié !') }}
+                            onClick={() => { navigator.clipboard.writeText(sansBlocActionnables(report.content)); toast.success('Rapport copié !') }}
                             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#0d0d12] transition-colors border border-[#E5E7EB] rounded-lg px-3 py-1.5"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
@@ -1192,7 +1291,8 @@ export default function AutopilotPage() {
                           </button>
                         </div>
                       </div>
-                    )}
+                      )
+                    })()}
                   </div>
                 )
               })}
