@@ -353,7 +353,7 @@ export default function AutopilotPage() {
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
 
   // --- History ---
-  type Report = { id: string; title: string; content: string; createdAt: string; agent: { name: string } | null }
+  type Report = { id: string; title: string; content: string; createdAt: string; type?: string; agent: { name: string } | null }
   const [reports, setReports] = useState<Report[]>([])
   const [expandedReport, setExpandedReport] = useState<string | null>(null)
 
@@ -364,6 +364,15 @@ export default function AutopilotPage() {
    * sans une boîte de dialogue par ligne. Le bouton se rétracte seul.
    */
   const [aSupprimer, setASupprimer] = useState<string | null>(null)
+  /**
+   * Le filtre se construit sur ce que la liste contient.
+   *
+   * L'onglet mélange les rapports d'agent et les discussions libres : sur un
+   * compte à vingt entrées, retrouver un rapport parmi les essais demandait de
+   * tout parcourir. Les catégories proposées sont celles qui existent — une
+   * liste figée afficherait des filtres vides.
+   */
+  const [filtreRapport, setFiltreRapport] = useState('all')
 
   async function supprimerRapport(id: string) {
     if (aSupprimer !== id) {
@@ -593,7 +602,11 @@ export default function AutopilotPage() {
         // l'écran — comme une messagerie. Avant, il défilait avec la page :
         // la bibliothèque de prompts s'ouvrait alors vers le haut depuis un
         // point quelconque et sortait de l'écran.
-        <div className="flex flex-col">
+        // Le conteneur occupe au moins la hauteur visible : sans cela, sur une
+        // discussion neuve, le contenu ne dépasse pas et l'ancrage collant n'a
+        // rien à quoi s'accrocher — le champ restait sous l'en-tête, au milieu
+        // de l'écran, au lieu d'être en bas comme dans une messagerie.
+        <div className="flex flex-col min-h-[calc(100vh-13rem)]">
 
           {/* Top bar */}
           <div className="card p-3 mb-3 flex items-center justify-between flex-shrink-0">
@@ -613,7 +626,7 @@ export default function AutopilotPage() {
           {/* Messages — se réduit à zéro tant qu'aucun échange n'a eu lieu.
               Aucun texte d'accroche : le champ de saisie porte déjà sa propre
               invite et le bouton « + » est visible juste à côté. */}
-          <div className={clsx(messages.length > 0 && 'pb-4 space-y-4')}>
+          <div className={clsx('flex-1', messages.length > 0 && 'pb-4 space-y-4')}>
             {messages.map((m, i) => (
               <div key={i}>
                 {m.role === 'user' ? (
@@ -1077,6 +1090,33 @@ export default function AutopilotPage() {
               Actualiser
             </button>
           </div>
+          {reports.length > 0 && (() => {
+            const parAgent = new Map<string, number>()
+            let discussions = 0
+            for (const r of reports) {
+              if (r.type === 'session') discussions++
+              else parAgent.set(r.agent?.name || 'Sans agent', (parAgent.get(r.agent?.name || 'Sans agent') ?? 0) + 1)
+            }
+            const chips = [
+              { id: 'all', label: 'Tous', n: reports.length },
+              ...(discussions ? [{ id: 'session', label: 'Discussions', n: discussions }] : []),
+              ...[...parAgent.entries()].sort((a, b) => b[1] - a[1]).map(([nom, n]) => ({ id: `agent:${nom}`, label: nom, n })),
+            ]
+            return (
+              <div className="flex flex-wrap gap-2">
+                {chips.map((c) => (
+                  <button key={c.id} onClick={() => setFiltreRapport(c.id)}
+                    className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                      filtreRapport === c.id
+                        ? 'bg-[#3434ef] text-white border-[#3434ef]'
+                        : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
+                    {c.label} <span className={filtreRapport === c.id ? 'text-white/70' : 'text-gray-400'}>{c.n}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
+
           {reports.length === 0 ? (
             <div className="card text-center py-16">
               <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -1088,7 +1128,13 @@ export default function AutopilotPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {reports.map((report, idx) => {
+              {reports.filter((r) =>
+                filtreRapport === 'all'
+                || (filtreRapport === 'session' && r.type === 'session')
+                || (filtreRapport.startsWith('agent:')
+                    && r.type !== 'session'
+                    && (r.agent?.name || 'Sans agent') === filtreRapport.slice(6))
+              ).map((report, idx) => {
                 const isNew = report.id === newReportId
                 const isExpanded = expandedReport === report.id
                 return (
