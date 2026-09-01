@@ -132,11 +132,26 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Clé Anthropic absente' }, { status: 500 })
   }
 
-  const { id } = await req.json().catch(() => ({})) as { id?: string }
+  const { id, plan } = await req.json().catch(() => ({})) as { id?: string; plan?: string }
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
 
   const ref = await prisma.creaReference.findUnique({ where: { id } })
   if (!ref) return NextResponse.json({ error: 'Référence introuvable' }, { status: 404 })
+
+  /**
+   * Un plan corrigé à la main l'emporte sur une nouvelle extraction.
+   *
+   * Le plan est un texte, pas une boîte noire : rectifier une zone mal lue
+   * doit coûter dix secondes, pas une régénération complète — et personne ne
+   * fait confiance à ce qu'il ne peut pas relire.
+   */
+  if (plan !== undefined) {
+    try { JSON.parse(plan) } catch {
+      return NextResponse.json({ error: 'JSON invalide — rien n’a été enregistré.' }, { status: 400 })
+    }
+    await prisma.creaReference.update({ where: { id }, data: { plan } })
+    return NextResponse.json({ plan })
+  }
 
   try {
     const reponse = await anthropic.messages.stream({

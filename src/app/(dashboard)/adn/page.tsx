@@ -38,6 +38,18 @@ export default function AdnPage() {
   const [refs, setRefs] = useState<Ref[]>([])
   const [gagnantes, setGagnantes] = useState<Gagnante[]>([])
   const [refOccupe, setRefOccupe] = useState<string | null>(null)
+  const [planOuvert, setPlanOuvert] = useState<string | null>(null)
+  const [planTexte, setPlanTexte] = useState('')
+
+  async function enregistrerPlan(id: string) {
+    try { JSON.parse(planTexte) } catch { setMessage('JSON invalide — rien n’a été enregistré.'); return }
+    const res = await fetch('/api/references', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, plan: planTexte }),
+    })
+    if (!res.ok) { setMessage('Enregistrement refusé.'); return }
+    chargerRefs(); setMessage('Plan enregistré.')
+  }
 
   const chargerRefs = useCallback(() => {
     if (!compteId) return
@@ -320,13 +332,39 @@ export default function AdnPage() {
                     </button>
                   </div>
                   {r.plan && (
-                    <p className="text-[10px] text-gray-400 truncate" title={r.plan}>
-                      {(() => { try { const p = JSON.parse(r.plan!); return `${p.nom} · ${p.densite}` } catch { return 'plan' } })()}
-                    </p>
+                    <button
+                      onClick={() => {
+                        const ouvre = planOuvert !== r.id
+                        setPlanOuvert(ouvre ? r.id : null)
+                        if (ouvre) setPlanTexte(JSON.stringify(JSON.parse(r.plan!), null, 2))
+                      }}
+                      className="text-[10px] text-[#3434ef] hover:underline truncate max-w-full text-left">
+                      {(() => { try { const p = JSON.parse(r.plan!); return `${p.nom} · ${p.densite} · lire le plan` } catch { return 'lire le plan' } })()}
+                    </button>
                   )}
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {planOuvert && (
+          <div className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[#f8f9fc] border-b border-[#E5E7EB]">
+              <p className="text-[11px] font-semibold text-gray-500">
+                Plan de composition — {refs.find((x) => x.id === planOuvert)?.adName || 'référence'}
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => enregistrerPlan(planOuvert)}
+                  className="text-[11px] px-2.5 py-1 rounded border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
+                  Enregistrer
+                </button>
+                <button onClick={() => setPlanOuvert(null)}
+                  className="text-[11px] text-gray-400 hover:text-gray-600">Fermer</button>
+              </div>
+            </div>
+            <textarea value={planTexte} onChange={(e) => setPlanTexte(e.target.value)} spellCheck={false}
+              className="w-full h-96 font-mono text-[11px] leading-relaxed p-3 border-0 focus:outline-none resize-none" />
           </div>
         )}
 
