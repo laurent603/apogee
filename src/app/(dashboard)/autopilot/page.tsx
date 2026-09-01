@@ -1268,7 +1268,7 @@ export default function AutopilotPage() {
                                         <span className="text-xs text-gray-400">Aucune publicité rattachée</span>
                                       )}
                                       {briefFait[cle] && (
-                                        <a href="/briefs" className="text-xs text-[#3434ef] hover:underline">Voir dans Briefs</a>
+                                        <a href="/creative-strategist?vue=briefs" className="text-xs text-[#3434ef] hover:underline">Voir dans Briefs</a>
                                       )}
                                       {briefErreur[cle] && (
                                         <span className="text-xs text-red-600">{briefErreur[cle]}</span>

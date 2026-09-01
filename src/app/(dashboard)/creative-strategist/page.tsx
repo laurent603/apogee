@@ -67,8 +67,16 @@ function toVariantes(c: GeneratedCopy | null): Variante[] {
 
 export default function CreativeStrategistPage() {
   const { selectedAccount } = useStore()
-  /** L'onglet affiché : la copy ou les briefs. */
+  /**
+   * L'onglet affiché : la copy ou les briefs.
+   *
+   * `?vue=briefs` ouvre directement les briefs — c'est ainsi qu'Autopilot
+   * renvoie ici après avoir généré un brief depuis un rapport d'agent.
+   */
   const [vue, setVue] = useState<'copy' | 'briefs'>('copy')
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('vue') === 'briefs') setVue('briefs')
+  }, [])
   const [mode, setMode] = useState('direct')
   const [product, setProduct] = useState('')
   const [offer, setOffer] = useState('')

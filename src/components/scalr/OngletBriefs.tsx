@@ -150,9 +150,11 @@ export function OngletBriefs({ compte }: {
             {briefs.length ? 'Aucun brief pour ce filtre.' : 'Aucun brief pour ce compte.'}
           </p>
           <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto leading-relaxed">
-            Un brief se génère depuis une créa, dans <strong>Media buying → Créas</strong> :
-            ouvrez une publicité et cliquez « Générer un brief ». Ses chiffres et son analyse
-            nourrissent le script — c’est ce qui lui permet de dire quelle faiblesse il corrige.
+            Un brief part toujours d’une créa et de ses chiffres — c’est ce qui lui permet de
+            dire quelle faiblesse il corrige. Trois chemins y mènent :
+            <strong> Media buying → Créas</strong> (ouvrez une publicité),
+            <strong> Analyse des commentaires</strong> (partez d’une objection), ou
+            <strong> Autopilot → Historique</strong> (partez de ce qu’un agent a relevé).
           </p>
         </div>
       )}
