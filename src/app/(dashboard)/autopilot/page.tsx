@@ -357,6 +357,28 @@ export default function AutopilotPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [expandedReport, setExpandedReport] = useState<string | null>(null)
 
+  /**
+   * La suppression demande deux clics, comme dans l'Historique du menu.
+   *
+   * Un compte accumule vite des essais : le ménage doit se faire par lots,
+   * sans une boîte de dialogue par ligne. Le bouton se rétracte seul.
+   */
+  const [aSupprimer, setASupprimer] = useState<string | null>(null)
+
+  async function supprimerRapport(id: string) {
+    if (aSupprimer !== id) {
+      setASupprimer(id)
+      setTimeout(() => setASupprimer((x) => (x === id ? null : x)), 4000)
+      return
+    }
+    setASupprimer(null)
+    setReports((liste) => liste.filter((r) => r.id !== id))
+    if (expandedReport === id) setExpandedReport(null)
+    const res = await fetch(`/api/reports?id=${id}`, { method: 'DELETE' }).catch(() => null)
+    if (!res?.ok) { toast.error('Suppression refusée'); loadReports() }
+    else toast.success('Rapport supprimé')
+  }
+
   const loadReports = useCallback(async () => {
     if (!selectedAccount?.id) return
     const res = await fetch(`/api/autopilot/report?dbAccountId=${selectedAccount.id}`)
@@ -1071,7 +1093,10 @@ export default function AutopilotPage() {
                 const isExpanded = expandedReport === report.id
                 return (
                   <div key={report.id} className={clsx('card p-0 overflow-hidden transition-shadow', isNew && 'ring-2 ring-[#3434ef] ring-offset-1')}>
-                    {/* Card header */}
+                    {/* Card header — le bouton de suppression est à côté de
+                        l'en-tête et non dedans : un bouton n'en contient pas
+                        un autre, et le clic déplierait le rapport. */}
+                    <div className="flex items-center">
                     <button
                       onClick={() => { setExpandedReport(isExpanded ? null : report.id); if (isNew) setNewReportId(null) }}
                       className="w-full text-left px-5 py-4 flex items-center gap-3 hover:bg-[#f8f9fc] transition-colors"
@@ -1094,6 +1119,16 @@ export default function AutopilotPage() {
                       </div>
                       <svg className={clsx('w-4 h-4 text-gray-400 transition-transform flex-shrink-0', isExpanded && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     </button>
+                    <button
+                      onClick={() => supprimerRapport(report.id)}
+                      title={aSupprimer === report.id ? 'Cliquez à nouveau pour supprimer' : 'Supprimer ce rapport'}
+                      className={clsx('text-xs px-4 py-4 flex-shrink-0 transition-colors',
+                        aSupprimer === report.id
+                          ? 'font-semibold text-red-600'
+                          : 'text-gray-400 hover:text-red-500')}>
+                      {aSupprimer === report.id ? 'Confirmer' : 'Supprimer'}
+                    </button>
+                    </div>
 
                     {/* Report content */}
                     {isExpanded && (
