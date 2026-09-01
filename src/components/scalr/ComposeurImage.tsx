@@ -4,6 +4,8 @@ import { clsx } from 'clsx'
 import type { Feuille } from '@/lib/scalr/feuilleTournage'
 import { dispositifsDeLaFeuille, motsAccentues, type Marque } from '@/lib/scalr/dispositifs'
 import { dessinerCrea, FORMATS } from '@/lib/scalr/rendu'
+import { dessinerDepuisPlan } from '@/lib/scalr/renduPlan'
+import { planValide, type Plan } from '@/lib/scalr/plan'
 
 /**
  * La créa composée : photo, dispositifs, couleurs du compte.
@@ -38,13 +40,15 @@ function familles(description: string | undefined, repli: string): string {
 const hex = (v: unknown, repli: string) =>
   /^#[0-9a-f]{6}$/i.test(String(v ?? '')) ? String(v) : repli
 
-export function ComposeurImage({ src, feuille, ratioInitial = '9:16', nom, adn }: {
+export function ComposeurImage({ src, feuille, ratioInitial = '9:16', nom, adn, plans = [] }: {
   src: string
   feuille: Feuille | null
   ratioInitial?: string
   nom: string
   /** L'ADN du compte tel qu'enregistré : couleurs, polices, bouton. */
   adn?: Record<string, unknown> | null
+  /** Les plans extraits des créas de référence du compte. */
+  plans?: { id: string; nom: string; plan: Plan }[]
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [ratio, setRatio] = useState(FORMATS[ratioInitial] ? ratioInitial : '9:16')
@@ -52,6 +56,14 @@ export function ComposeurImage({ src, feuille, ratioInitial = '9:16', nom, adn }
   const [actifs, setActifs] = useState<Record<number, boolean>>({})
   const [accentChoisi, setAccentChoisi] = useState('')
   const [pret, setPret] = useState(false)
+  /**
+   * Le plan choisi, ou l'empilement simple.
+   *
+   * Deux créas d'un même compte ne partagent que le vocabulaire, jamais la
+   * structure : le plan ne peut donc pas être deviné, il se choisit.
+   */
+  const [planId, setPlanId] = useState<string>('')
+  const planActif = plans.find((p) => p.id === planId)?.plan ?? null
 
   const dispositifs = useMemo(() => dispositifsDeLaFeuille(feuille), [feuille])
 
@@ -79,10 +91,11 @@ export function ComposeurImage({ src, feuille, ratioInitial = '9:16', nom, adn }
   const dessiner = useCallback(async () => {
     const c = canvas.current
     if (!c) return
-    const ok = await dessinerCrea(c, src, dispositifs, marque,
-      { ratio, position, actifs, accentChoisi }, mots)
+    const ok = planActif
+      ? await dessinerDepuisPlan(c, src, dispositifs, marque, planActif, { ratio, actifs, accentChoisi })
+      : await dessinerCrea(c, src, dispositifs, marque, { ratio, position, actifs, accentChoisi }, mots)
     setPret(ok)
-  }, [src, dispositifs, marque, ratio, position, actifs, accentChoisi, mots])
+  }, [src, dispositifs, marque, ratio, position, actifs, accentChoisi, mots, planActif])
 
   useEffect(() => { dessiner() }, [dessiner])
 
@@ -111,8 +124,18 @@ export function ComposeurImage({ src, feuille, ratioInitial = '9:16', nom, adn }
             {id} <span className="opacity-60">{f.libelle}</span>
           </button>
         ))}
-        <span className="w-px h-4 bg-[#E5E7EB] mx-1" />
-        {(['bas', 'haut'] as const).map((p) => (
+        {plans.length > 0 && (
+          <>
+            <span className="w-px h-4 bg-[#E5E7EB] mx-1" />
+            <select value={planId} onChange={(e) => setPlanId(e.target.value)}
+              className="text-[11px] border border-[#E5E7EB] rounded-lg px-2 py-1 bg-white text-gray-600 focus:outline-none focus:border-[#3434ef]">
+              <option value="">Empilement simple</option>
+              {plans.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+            </select>
+          </>
+        )}
+        {!planActif && <span className="w-px h-4 bg-[#E5E7EB] mx-1" />}
+        {!planActif && (['bas', 'haut'] as const).map((p) => (
           <button key={p} onClick={() => setPosition(p)}
             className={clsx(pastille, position === p
               ? 'bg-[#3434ef] text-white border-[#3434ef]'

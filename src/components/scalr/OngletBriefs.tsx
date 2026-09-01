@@ -4,6 +4,7 @@ import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
 import { extraireFeuille, imprimerFeuille, imprimerBrief } from '@/lib/scalr/feuilleTournage'
 import { ComposeurImage } from './ComposeurImage'
+import { planValide, type Plan as PlanCompo } from '@/lib/scalr/plan'
 
 /**
  * Les briefs créa : la liste, et leur avancement.
@@ -75,6 +76,7 @@ export function OngletBriefs({ compte }: {
    * publicité.
    */
   const [adn, setAdn] = useState<Record<string, unknown> | null>(null)
+  const [plans, setPlans] = useState<{ id: string; nom: string; plan: PlanCompo }[]>([])
   const [refsJointes, setRefsJointes] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
@@ -83,6 +85,22 @@ export function OngletBriefs({ compte }: {
       .then((r) => r.json())
       .then((d) => setAdn(d?.adn?.contenu ? JSON.parse(d.adn.contenu) : null))
       .catch(() => setAdn(null))
+    // Les plans extraits des créas de référence : c'est eux qui donnent sa
+    // structure à la composition.
+    fetch(`/api/references?dbAccountId=${compte.id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const out: { id: string; nom: string; plan: PlanCompo }[] = []
+        for (const r of d?.references || []) {
+          if (!r.plan) continue
+          try {
+            const p = planValide(JSON.parse(r.plan))
+            if (p) out.push({ id: r.id, nom: p.nom || r.adName || 'plan', plan: p })
+          } catch { /* plan illisible : on l'ignore plutôt que de casser l'écran */ }
+        }
+        setPlans(out)
+      })
+      .catch(() => setPlans([]))
   }, [compte?.id])
 
   useEffect(() => {
@@ -326,7 +344,7 @@ export function OngletBriefs({ compte }: {
 
                             {images[b.id]?.map((im) => (
                               <ComposeurImage key={im.id} src={im.src} nom={b.adName}
-                                ratioInitial={im.ratio} adn={adn} feuille={feuille} />
+                                ratioInitial={im.ratio} adn={adn} feuille={feuille} plans={plans} />
                             ))}
                           </div>
                         )}
