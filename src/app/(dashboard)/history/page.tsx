@@ -43,6 +43,7 @@ const NOMS_TYPE: Record<string, string> = {
   creative: 'Analyse créa',
   audit: 'Audit technique',
   autopilot: 'Autopilot',
+  session: 'Discussion',
   mediaBuying: 'Média buying',
   performance: 'Performance',
 }
@@ -53,6 +54,7 @@ const TEINTE_TYPE: Record<string, string> = {
   creative: 'bg-violet-50 text-violet-700 border-violet-200',
   audit: 'bg-amber-50 text-amber-700 border-amber-200',
   autopilot: 'bg-blue-50 text-blue-700 border-blue-200',
+  session: 'bg-gray-100 text-gray-600 border-gray-200',
   mediaBuying: 'bg-teal-50 text-teal-700 border-teal-200',
   performance: 'bg-teal-50 text-teal-700 border-teal-200',
 }

@@ -303,6 +303,10 @@ export default function AutopilotPage() {
           dbAccountId: selectedAccount.id,
           category: 'autopilot',
           analysisType: 'session',
+          // Une discussion n'est pas un rapport d'agent : elle porte son propre
+          // type et un titre lisible, pour se distinguer dans l'historique.
+          typeRapport: 'session',
+          titre: `Discussion — ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
           datePreset: 'last_7d',
           brandSettings: bsData.settings,
           customPrompt: msg,

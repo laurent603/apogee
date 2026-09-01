@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName, enregistrer } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName, enregistrer, titre, typeRapport } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -206,10 +206,18 @@ ${JSON.stringify(previous.ads, null, 2)}`
             data: {
               // Le nom de la créa fait un bien meilleur titre que la catégorie :
               // c'est ce qu'on cherche en revenant six semaines plus tard.
-              title: adName
-                ? `${adName} — ${new Date().toLocaleDateString('fr-FR')}`
-                : `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`,
-              type: category,
+              /**
+               * Un titre fourni l'emporte sur le titre construit.
+               *
+               * Une conversation libre s'enregistrait sous « autopilot —
+               * session — 01/09/2026 » : un intitulé technique, impossible à
+               * distinguer d'un rapport d'agent dans l'historique.
+               */
+              title: titre
+                || (adName
+                  ? `${adName} — ${new Date().toLocaleDateString('fr-FR')}`
+                  : `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`),
+              type: typeRapport || category,
               content: fullResult,
               adAccountId: dbAccountId,
               adId: typeof adId === 'string' ? adId : null,
