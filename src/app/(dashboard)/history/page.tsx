@@ -281,7 +281,9 @@ export default function HistoryPage() {
                       title={aSupprimer === e.id ? 'Cliquez à nouveau pour supprimer' : 'Supprimer'}
                       className={aSupprimer === e.id
                         ? 'text-xs font-semibold text-red-600 hover:underline'
-                        : 'text-xs text-gray-300 hover:text-red-500 transition-colors'}>
+                        // Se révéler au survol condamne le bouton sur mobile, où
+                        // le survol n'existe pas — et le rend invisible ailleurs.
+                        : 'text-xs text-gray-400 hover:text-red-500 transition-colors'}>
                       {aSupprimer === e.id ? 'Confirmer' : 'Supprimer'}
                     </button>
                   </div>
