@@ -635,8 +635,14 @@ export default function AutopilotPage() {
             {/* Prompt library — inserts into the field so the prompt can be read
                 and adjusted before it runs, instead of firing on click */}
             {pickerOpen && (
-              <div ref={pickerRef} className="absolute bottom-full left-3 right-3 sm:right-auto mb-2 z-50 w-auto sm:w-[420px] max-w-full bg-white border border-[#E5E7EB] rounded-xl shadow-xl overflow-hidden">
-                <div className="p-2 border-b border-[#E5E7EB]">
+              /**
+               * Le panneau s'ouvrait vers le haut sans plafond de hauteur : sur
+               * un écran ordinaire il sortait par le haut, et les premières
+               * catégories devenaient inatteignables. Il est désormais borné à
+               * la place réellement disponible et défile à l'intérieur.
+               */
+              <div ref={pickerRef} className="absolute bottom-full left-3 right-3 sm:right-auto mb-2 z-50 w-auto sm:w-[420px] max-w-full bg-white border border-[#E5E7EB] rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[min(60vh,26rem)]">
+                <div className="p-2 border-b border-[#E5E7EB] flex-shrink-0">
                   <div className="relative">
                     <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     <input
@@ -651,7 +657,7 @@ export default function AutopilotPage() {
                 </div>
 
                 {search.trim() ? (
-                  <div className="max-h-80 overflow-y-auto py-1">
+                  <div className="flex-1 min-h-0 overflow-y-auto py-1">
                     {searchResults.length === 0 ? (
                       <p className="text-xs text-gray-400 text-center py-6">Aucun résultat</p>
                     ) : searchResults.map((p) => (
@@ -666,7 +672,7 @@ export default function AutopilotPage() {
                     ))}
                   </div>
                 ) : openCategory ? (
-                  <div className="max-h-80 overflow-y-auto py-1">
+                  <div className="flex-1 min-h-0 overflow-y-auto py-1">
                     <button
                       onClick={() => setOpenCategory(null)}
                       className="w-full text-left px-3 py-2 flex items-center gap-2 text-xs text-gray-500 hover:text-[#0d0d12] border-b border-[#E5E7EB]"
@@ -685,7 +691,7 @@ export default function AutopilotPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="py-1">
+                  <div className="flex-1 min-h-0 overflow-y-auto py-1">
                     <p className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bibliothèque</p>
                     {(Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).map((cat) => (
                       <button
