@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName, enregistrer, titre, typeRapport } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName, enregistrer, titre, typeRapport, historique } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -176,13 +176,35 @@ ${JSON.stringify(previous.ads, null, 2)}`
           model: deep ? MODEL_REPORT : MODEL_CHAT,
           max_tokens: 16000,
           system: systemPrompt,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text' as const, text: userMessage + imageNote },
-              ...toImageBlocks(images),
-            ],
-          }],
+          messages: [
+            /**
+             * Les tours précédents, quand l'appelant en tient.
+             *
+             * Une discussion n'envoyait que le dernier message : l'agent
+             * redécouvrait le compte et la question à chaque tour, sans rien
+             * savoir de ce qui avait été dit. D'où l'impression qu'il oublie
+             * les questions de base et part dans toutes les directions — il
+             * n'avait aucun fil à suivre.
+             *
+             * Les dix derniers échanges suffisent : au-delà, on paie un
+             * contexte que la conversation n'exploite plus.
+             */
+            ...(Array.isArray(historique) ? historique : [])
+              .filter((m: { role?: string; content?: string }) =>
+                (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+              .slice(-10)
+              .map((m: { role: string; content: string }) => ({
+                role: m.role as 'user' | 'assistant',
+                content: m.content.slice(0, 12000),
+              })),
+            {
+              role: 'user' as const,
+              content: [
+                { type: 'text' as const, text: userMessage + imageNote },
+                ...toImageBlocks(images),
+              ],
+            },
+          ],
           ...(deep ? REPORT_REASONING : {}),
         })
 

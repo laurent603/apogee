@@ -311,6 +311,8 @@ export default function AutopilotPage() {
           brandSettings: bsData.settings,
           customPrompt: msg,
           agentRole: chatRole,
+          // Les échanges précédents : sans eux, chaque tour repartait de zéro.
+          historique: messages,
         }),
       })
 
