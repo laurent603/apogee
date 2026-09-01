@@ -39,6 +39,13 @@ export default function AdnPage() {
   const [gagnantes, setGagnantes] = useState<Gagnante[]>([])
   const [refOccupe, setRefOccupe] = useState<string | null>(null)
   const [planOuvert, setPlanOuvert] = useState<string | null>(null)
+  const [refErreur, setRefErreur] = useState<Record<string, string>>({})
+
+  /** Le type d'une image, lu dans ses octets : une créa Meta est en JPEG. */
+  const typeDeplus = (b64: string) =>
+    b64.startsWith('/9j/') ? 'image/jpeg'
+      : b64.startsWith('R0lGOD') ? 'image/gif'
+        : b64.startsWith('UklGR') ? 'image/webp' : 'image/png'
   const [planTexte, setPlanTexte] = useState('')
 
   async function enregistrerPlan(id: string) {
@@ -89,7 +96,9 @@ export default function AdnPage() {
       chargerRefs()
       setMessage('Plan de composition extrait.')
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Déconstruction impossible.')
+      // L'erreur s'affiche sous la référence concernée : en haut de page, elle
+      // passait inaperçue et le bouton semblait sans effet.
+      setRefErreur((x) => ({ ...x, [id]: e instanceof Error ? e.message.slice(0, 160) : 'Échec' }))
     } finally { setRefOccupe(null) }
   }
 
@@ -312,7 +321,7 @@ export default function AdnPage() {
             {refs.map((r) => (
               <div key={r.id} className="border border-[#E5E7EB] rounded-lg overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`data:image/png;base64,${r.image}`} alt={r.adName || 'référence'}
+                <img src={`data:${typeDeplus(r.image)};base64,${r.image}`} alt={r.adName || 'référence'}
                   className="w-full aspect-square object-cover" />
                 <div className="p-2 space-y-1.5">
                   <p className="text-[10px] text-gray-500 truncate">
@@ -331,6 +340,9 @@ export default function AdnPage() {
                       Retirer
                     </button>
                   </div>
+                  {refErreur[r.id] && (
+                    <p className="text-[10px] text-amber-600 leading-snug">{refErreur[r.id]}</p>
+                  )}
                   {r.plan && (
                     <button
                       onClick={() => {

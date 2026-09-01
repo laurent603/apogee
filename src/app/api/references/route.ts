@@ -19,6 +19,22 @@ export const maxDuration = 300
 
 const V = process.env.META_API_VERSION || 'v21.0'
 
+/**
+ * Le type réel de l'image, lu dans ses premiers octets.
+ *
+ * Les créas Meta sont presque toujours en JPEG. Déclarer `image/png` au
+ * modèle le fait refuser l'image — sans que rien ne le laisse deviner depuis
+ * l'écran. L'extension et l'origine ne disent rien de fiable ; les octets, si.
+ */
+function typeImage(b64: string): string | null {
+  const tete = b64.slice(0, 12)
+  if (tete.startsWith('iVBORw0KGgo')) return 'image/png'
+  if (tete.startsWith('/9j/')) return 'image/jpeg'
+  if (tete.startsWith('R0lGOD')) return 'image/gif'
+  if (tete.startsWith('UklGR')) return 'image/webp'
+  return null
+}
+
 /** Récupère l'image pleine taille d'une publicité, pas sa vignette. */
 async function imageDeLaPub(adId: string, token: string): Promise<string | null> {
   try {
@@ -153,6 +169,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ plan })
   }
 
+  const media = typeImage(ref.image)
+  if (!media) {
+    return NextResponse.json(
+      { error: 'Format d’image non reconnu — seuls PNG, JPEG, GIF et WebP sont lisibles.' },
+      { status: 415 },
+    )
+  }
+
   try {
     const reponse = await anthropic.messages.stream({
       model: MODEL_REPORT,
@@ -163,7 +187,7 @@ export async function PATCH(req: NextRequest) {
         content: [
           // Le modèle doit voir la publicité : c'est tout l'objet de la
           // manœuvre. La décrire en mots reviendrait au point de départ.
-          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: ref.image } },
+          { type: 'image', source: { type: 'base64', media_type: media as 'image/png', data: ref.image } },
           { type: 'text', text: 'Extrais le plan de composition de cette publicité.' },
         ],
       }],
