@@ -478,6 +478,10 @@ export default function AutopilotPage() {
           agentRole: agent.role,
           outputFormat: agent.outputFormat,
           deep: true,
+          // La route d'agent enregistre elle-même, avec l'envoi et la
+          // prochaine échéance : laisser l'analyse enregistrer aussi créait
+          // deux lignes pour un seul rapport.
+          enregistrer: false,
         }),
       })
       if (!res.ok || !res.body) throw new Error()
@@ -500,8 +504,9 @@ export default function AutopilotPage() {
       const saveData = await saveRes.json()
       if (saveData.report?.id) setNewReportId(saveData.report.id)
       await loadReports()
-      setTab('history')
-      toast.success(`Rapport "${agent.name}" généré`)
+      // On ne change plus d'onglet : un rapport qui se termine pendant une
+      // conversation éjectait l'utilisateur de son échange en cours.
+      toast.success(`Rapport « ${agent.name} » généré — onglet Historique`)
     } catch { toast.error('Erreur lors de l\'exécution') }
     setRunning(null)
   }

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName } = body
+  const { accountId, dbAccountId, category, analysisType, datePreset = 'last_7d', brandSettings, customPrompt, agentRole, outputFormat, deep, adId, adName, enregistrer } = body
 
   if (!accountId || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -193,7 +193,15 @@ ${JSON.stringify(previous.ads, null, 2)}`
           }
         }
 
-        if (dbAccountId && fullResult) {
+        /**
+         * L'appelant enregistre parfois lui-même.
+         *
+         * Une exécution d'agent passait par ici puis réenregistrait le rapport
+         * par sa propre route — celle qui gère aussi l'envoi par courriel et la
+         * prochaine échéance. Résultat : deux lignes dans l'historique pour une
+         * seule analyse, l'une préfixée « autopilot — », l'autre non.
+         */
+        if (dbAccountId && fullResult && enregistrer !== false) {
           await prisma.report.create({
             data: {
               // Le nom de la créa fait un bien meilleur titre que la catégorie :
