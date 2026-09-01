@@ -169,14 +169,6 @@ brief. Un écart entre les deux est un défaut.
     { "temps": "3-8 s", "dit": "réplique exacte", "ecran": "texte affiché", "visuel": "ce qu'on filme" }
   ],
 
-  "textes_incrustes": {
-    "accroche": "TEXTE EXACT",
-    "sous_accroche": "TEXTE EXACT",
-    "mention": "texte exact",
-    "variantes_accroche": ["…", "…"],
-    "positions": "où chaque bloc se place, en pourcentage de hauteur, par ratio"
-  },
-
   "bullets": ["puce 1", "puce 2"],
   "preuves": ["avis, chiffre, démonstration, avant/après — et à quel moment il apparaît"],
 
@@ -189,203 +181,17 @@ brief. Un écart entre les deux est un défaut.
     "variante": { "texte_principal": "…", "titre": "…", "description": "…" }
   },
 
-  "visuels": [
-    { "ratio": "9:16", "prompt": "prompt d'image complet et autonome" },
-    { "ratio": "1:1",  "prompt": "prompt d'image complet et autonome" }
-  ],
 
   "materiel": "ce qu'il faut prévoir, en une ligne"
 }
 \`\`\`
 
-**Les clés sans objet sont omises, pas laissées vides.** Une vidéo n'a ni
-\`textes_incrustes\` ni \`visuels\` ; une image n'a ni \`segments\` ni
-\`variantes_hook\`, et son \`hook\` ne porte pas de \`dit\`. \`bullets\`
-n'existe que si la créa comporte réellement une liste. \`preuves\` est
-attendu dès qu'une preuve est mobilisée — avis client, chiffre, démonstration,
-ancienneté, avant/après.
+**Les clés sans objet sont omises, pas laissées vides.** \`bullets\` n'existe
+que si la créa comporte réellement une liste ; \`preuves\` est attendu dès
+qu'une preuve est mobilisée — avis client, chiffre, démonstration, ancienneté,
+avant/après.
 
-Le JSON doit être valide : pas de commentaire, pas de virgule finale.
-
-## 10. Visuels statiques — quand le format retenu est une image
-
-Le format demandé dans « Ce qui est demandé » **s'impose** quand il est
-explicite. Une image ne porte ni hook de trois secondes ni déroulé minuté :
-si le format est une image, remplace les sections 3, 4 et 7 par la
-composition, la hiérarchie de lecture et le texte incrusté.
-
-### 10.a — Direction artistique : la méthode avant le prompt
-
-**Tu ne décris pas une photo. Tu conçois une publicité.** Une créa statique
-qui performe n'est pas un joli visuel légendé : c'est une composition où
-chaque élément a une fonction, une taille justifiée et une place décidée.
-
-Avant d'écrire quoi que ce soit, réponds à ces questions **dans cet ordre**,
-et écris tes réponses dans le brief. Elles constituent la direction
-artistique, et le prompt n'en est que la traduction.
-
-**1. Quel est le seul travail de cette image ?**
-Arrêter le pouce sur *quoi* — un prix, une objection, une comparaison, une
-promesse, une preuve ? Un seul. Une image qui essaie deux choses n'en réussit
-aucune.
-
-**2. Quel élément est le plus gros de l'image ?**
-Un seul, et il doit correspondre à la réponse précédente. Si la créa vend un
-prix, le prix écrase tout le reste. Si elle lève une objection, c'est
-l'objection qui domine, pas le nom de l'entreprise.
-
-**3. L'ordre de lecture, en quatre arrêts maximum.**
-Ce que l'œil voit en premier, deuxième, troisième, quatrième. Au-delà de
-quatre, personne ne suit. Nomme chaque arrêt et son rôle.
-
-**4. Quels dispositifs graphiques l'expriment ?**
-Pastille de contexte, bloc prix, comparatif avant/après, liste à coches,
-badge, bouton, bandeau, mention légale. Choisis **ceux qui servent le
-travail défini en 1**, pas ceux qui remplissent l'espace. Trois dispositifs
-bien posés valent mieux que sept.
-
-**5. Où va la couleur d'accent ?**
-Une seule couleur d'accent, et **uniquement sur les mots qui portent la
-promesse**. Jamais sur un mot neutre, jamais sur une phrase entière. C'est
-cette discipline qui sépare une créa professionnelle d'une créa bariolée.
-
-**6. Qu'est-ce qui est volontairement absent ?**
-Ce que tu refuses de mettre, et pourquoi. Une créa se juge autant à ce
-qu'elle écarte.
-
-**7. La densité.**
-Combien d'éléments au total. Une créa « prix roi » en supporte beaucoup ; une
-créa d'objection doit rester nue. La densité découle de l'angle, pas du
-goût.
-
-Écris cette direction artistique en section 3 du brief, sous le titre
-**« Direction artistique »**, avant la composition. Le prompt d'image la
-traduit ensuite fidèlement, dispositif par dispositif.
-
-### 10.b — Contraintes de fabrication, non négociables
-
-Elles valent pour toute créa statique, quel que soit l'angle.
-
-**Format et zones.** Story 9:16 en 1080×1920 : rien d'important dans les
-270 px du haut ni les 340 px du bas. Fil 1:1 en 1080×1080 et 4:5 en
-1080×1350 : garder le bas respirant. Une créa dont le prix passe sous
-l'interface est une créa perdue.
-
-**Lisibilité.** Aucun texte en dessous de l'équivalent de 24 px sur 1080 de
-large. Contraste fort systématique : texte clair sur fond sombre, ou l'
-inverse — jamais un gris sur un gris. Les lignes courtes se lisent, les
-paragraphes non.
-
-**Langue.** Tout en français. Vérifie l'orthographe des mots qui se trompent :
-*photovoltaïque*, *éligibilité*, *démarches administratives*,
-*micro-onduleur*, *autoconsommation*, *rénovation*.
-
-**Honnêteté.** Aucun avis inventé, aucune certification inventée, aucune
-fausse urgence, aucun chiffre que le compte n'a pas fourni. Si une promesse
-chiffrée n'est pas documentée, elle ne figure pas — ni dans l'image, ni dans
-la copy. C'est la survente chiffrée qui produit le mot « arnaque » en
-commentaire.
-
-**Sobriété.** Pas de cadre autour de l'image, pas de collage multi-panneaux,
-pas d'esthétique de banque d'images, pas de logo inventé.
-
-Le bloc JSON porte alors \`visuels\` : **deux prompts prêts à coller dans un
-générateur d'images**, un par ratio.
-
-Chaque prompt est **autonome** : celui qui le colle n'a ni le brief, ni le
-contexte du compte. Il est écrit en français, d'un seul tenant, et contient
-dans cet ordre :
-
-1. **Le ratio et le support**, en ouverture — « Image publicitaire verticale
-   9:16 pour Instagram Story ».
-2. **La scène**, concrète et située : qui, quoi, où. Un lieu français
-   plausible, pas un décor générique. Une personne réelle plutôt qu'un modèle
-   souriant sans contexte.
-3. **Le cadrage** : plan large, taille, hauteur de caméra, profondeur.
-4. **La lumière et l'ambiance** en quelques mots.
-5. **La palette**, deux ou trois couleurs dominantes.
-6. **Aucun texte dans l'image.** Demande explicitement une photo **sans
-   aucun texte, sans lettre, sans chiffre, sans panneau écrit**. Les
-   générateurs dessinent le texte au lieu de le composer : les lettres se
-   déforment, les polices changent d'un bloc à l'autre, et le bandeau tombe
-   sur le sujet. L'application incruste elle-même l'accroche, avec ses
-   propres polices et aux bonnes positions.
-
-   En revanche, **réserve-lui la place** : demande une zone volontairement
-   dégagée — un mur, un ciel, une route, un arrière-plan flou — sur le tiers
-   bas de l'image, et un sujet décalé qui ne l'occupe pas. Une photo dont le
-   sujet remplit tout le cadre ne peut plus rien accueillir.
-
-   Les textes restent écrits dans \`textes_incrustes\` du bloc JSON : c'est
-   de là que l'application les prend.
-
-7. **Les zones à laisser vides** : en 9:16, le haut sur 15 % et le bas sur
-   20 % sont couverts par l'interface Instagram ; en 1:1, garder le tiers
-   inférieur respirant.
-8. **Le rendu** : photographie réaliste, ou capture brute type UGC prise au
-   téléphone. Dis lequel, et pourquoi il sert l'angle.
-9. **Ce qu'il ne faut pas** : pas de logo, pas de filigrane, pas de marque
-   inventée, pas de texte parasite, pas d'esthétique de banque d'images.
-
-Les deux prompts décrivent **la même idée**, recadrée — pas deux créas
-différentes. En 9:16 le sujet est centré et vertical ; en 1:1 il se décale
-pour libérer une zone de texte.
-
-Le prompt 1:1 se termine par cette consigne, car deux générations séparées
-donnent deux visages différents et le jeu de créas perd sa cohérence :
-« Si tu viens de générer la version 9:16, recadre cette image-là plutôt que
-d'en produire une nouvelle : même personne, même lieu, même lumière. »
-
-### 10.c — Le second prompt : la créa finie
-
-Chaque entrée de \`visuels\` porte **deux** prompts, pas un :
-
-- \`prompt\` — la photo de fond seule, sans texte, décrite ci-dessus. Elle sert
-  à une composition faite ensuite par l'application.
-- \`prompt_complet\` — la **publicité entière**, texte compris, à coller dans un
-  générateur qui compose lui-même.
-
-Le second n'est pas une variante du premier : c'est une commande de mise en
-page. Il est autonome, en français, d'un seul tenant, et contient dans cet
-ordre :
-
-1. **Le format exact** : « Publicité statique 1080×1080 » ou « 1080×1920 ».
-2. **La structure**, reprise du plan de composition fourni en contexte s'il y
-   en a un : le fond (aplat de couleur, photo plein cadre sous voile, photo en
-   encart), la position de chaque élément en pourcentage de hauteur, et
-   l'ordre de lecture en quatre arrêts. **Ne réinvente pas une structure quand
-   un plan est fourni** — c'est une structure déjà validée par les
-   performances du compte.
-3. **La palette exacte**, en codes hexadécimaux, tirée de l'ADN de marque
-   fourni en contexte. Précise pour chaque couleur ce qu'elle habille.
-4. **La règle d'accent, mot pour mot**, telle que l'ADN la formule. C'est la
-   consigne la plus importante du prompt : sans elle, le générateur colore au
-   hasard.
-5. **Tous les textes, entre guillemets et mot pour mot** — accroche,
-   sous-accroche, puces, prix, bouton, mention — avec leur place. **Avec leurs
-   accents** : ce texte-ci sera composé par un moteur récent qui les rend
-   correctement, et une publicité française sans accents est une faute.
-6. **Les dispositifs** : pastille, carte, comparatif, liste à coches, bouton,
-   bandeau d'icônes — nommés, avec leur forme et leur couleur.
-7. **La typographie** : famille, graisses, capitales ou bas de casse, rapports
-   de taille entre les blocs.
-8. **Les zones de sécurité** en pixels, et la taille minimale de texte.
-9. **Les interdits**, repris des règles « jamais » de l'ADN, plus : pas de
-   logo inventé, pas de fausse certification, pas d'avis fabriqué, aucun
-   chiffre absent du contexte, pas d'anglais.
-
-Termine par : « Je fournirai en référence la carte de marque et la carte de
-style : respecte leurs couleurs et leur typographie plutôt que d'en inventer. »
-
-\`\`\`json
-"visuels": [
-  { "ratio": "1:1",  "prompt": "photo de fond, sans texte…", "prompt_complet": "publicité entière…" },
-  { "ratio": "9:16", "prompt": "…", "prompt_complet": "…" }
-]
-\`\`\`
-
-N'invente aucun chiffre dans le texte incrusté : reprends ceux du compte, ou
-n'en mets pas.`
+Le JSON doit être valide : pas de commentaire, pas de virgule finale.`
 
 export const PROMPTS = {
   audit: {

@@ -47,15 +47,6 @@ export type Feuille = {
   variantes_hook?: string[]
   segments?: Segment[]
 
-  /** Créas statiques : ce qui est écrit sur l'image. */
-  textes_incrustes?: {
-    accroche?: string
-    sous_accroche?: string
-    mention?: string
-    variantes_accroche?: string[]
-    positions?: string
-  }
-
   bullets?: string[]
   preuves?: string[]
   cta?: Segment & { bouton_meta?: string }
@@ -67,11 +58,6 @@ export type Feuille = {
     variante?: { texte_principal?: string; titre?: string; description?: string }
   }
 
-  /**
-   * Deux prompts par ratio : la photo de fond seule pour le composeur, et la
-   * publicité entière pour un générateur qui compose lui-même.
-   */
-  visuels?: { ratio: string; prompt: string; prompt_complet?: string }[]
   materiel?: string
 }
 
@@ -90,7 +76,7 @@ export function extraireFeuille(markdown: string): Feuille | null {
   for (const brut of blocs.reverse()) {
     try {
       const o = JSON.parse(brut) as Feuille
-      if (o && (o.hook || o.segments?.length || o.visuels?.length || o.textes_incrustes)) return o
+      if (o && (o.hook || o.segments?.length)) return o
     } catch { /* bloc non exploitable : on essaie le précédent */ }
   }
   return null

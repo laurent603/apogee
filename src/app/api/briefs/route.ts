@@ -215,23 +215,6 @@ export async function POST(req: NextRequest) {
     .sort((a, b) => b.depense - a.depense)
     .slice(0, 4)
 
-  /**
-   * L'ADN et les plans du compte.
-   *
-   * Sans eux, le prompt de créa complète invente une palette et une structure
-   * — c'est précisément ce qui produisait des visuels génériques. Un plan
-   * extrait d'une gagnante vaut mieux qu'une composition imaginée : il a déjà
-   * été validé par les chiffres.
-   */
-  const [adnCompte, plansRefs] = await Promise.all([
-    prisma.brandDna.findUnique({ where: { adAccountId: dbAccountId }, select: { contenu: true } }),
-    prisma.creaReference.findMany({
-      where: { adAccountId: dbAccountId, plan: { not: null } },
-      select: { plan: true, adName: true, cpl: true },
-      take: 4,
-    }),
-  ])
-
   const economie = {
     cplCible: reglages?.targetCpa ?? null,
     cplMaximum: reglages?.maxCpa ?? null,
@@ -254,23 +237,6 @@ ${JSON.stringify(mesures, null, 2)}
 ${analyse?.content
   ? `Datée du ${analyse.createdAt.toLocaleDateString('fr-FR')} :\n\n${analyse.content}`
   : "Aucune analyse enregistrée pour cette créa — appuie-toi uniquement sur les chiffres ci-dessus, et dis-le."}
-
-## L'ADN visuel du compte
-${adnCompte?.contenu
-  ? `Palette, règle d'accent, typographie, règles toujours/jamais, direction
-photographique. Le prompt de créa complète doit en reprendre les codes
-hexadécimaux et la règle d'accent **mot pour mot**, sans rien inventer.
-
-${adnCompte.contenu}`
-  : 'Non établi pour ce compte. Le prompt de créa complète devra rester sur des couleurs neutres et le dire.'}
-
-## Les plans de composition disponibles
-${plansRefs.length
-  ? `Extraits de créas de ce compte, structures déjà éprouvées. Choisis celle
-qui sert l'angle et **reprends-la** plutôt que d'en inventer une.
-
-${plansRefs.map((r) => `### ${r.adName ?? 'référence'}${r.cpl ? ` — CPL ${r.cpl} €` : ''}\n${r.plan}`).join('\n\n')}`
-  : 'Aucun. Compose la structure toi-même, en la décrivant en pourcentages de hauteur.'}
 
 ## Ce qui marche déjà sur ce compte
 ${gagnantes.length

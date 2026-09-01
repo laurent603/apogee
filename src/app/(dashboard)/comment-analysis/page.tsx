@@ -23,8 +23,6 @@ interface Objection {
   verbatims?: { texte: string; pub?: string; likes?: number }[]
   ce_que_ca_revele?: string
   reponse_suggeree: string
-  format_conseille?: 'video' | 'image'
-  pourquoi_ce_format?: string
 }
 
 const FREQ_COLOR: Record<string, string> = {
@@ -75,7 +73,7 @@ export default function CommentAnalysisPage() {
    * La publicité rattachée est celle d'où vient le premier verbatim : le brief
    * hérite ainsi de vraies métriques plutôt que d'être écrit dans le vide.
    */
-  async function genererBrief(o: Objection, format: 'video' | 'image') {
+  async function genererBrief(o: Objection) {
     if (!selectedAccount) return
     const nomPub = o.verbatims?.find((v) => v.pub)?.pub
     const pub = posts.find((x) => x.adName === nomPub) || posts[0]
@@ -83,7 +81,7 @@ export default function CommentAnalysisPage() {
       setBriefErreur((e) => ({ ...e, [o.objection]: 'Aucune publicité rattachée à cette objection.' }))
       return
     }
-    setBriefEnCours(`${o.objection}:${format}`)
+    setBriefEnCours(o.objection)
     setBriefErreur((e) => ({ ...e, [o.objection]: '' }))
     try {
       const res = await fetch('/api/briefs', {
@@ -91,7 +89,6 @@ export default function CommentAnalysisPage() {
         body: JSON.stringify({
           dbAccountId: selectedAccount.id,
           adId: pub.adId, adName: pub.adName,
-          format: format === 'image' ? 'image statique (feed + story)' : 'vidéo verticale',
           angle: {
             objection: o.objection,
             occurrences: o.occurrences,
@@ -463,36 +460,14 @@ export default function CommentAnalysisPage() {
                           <p className="text-xs text-gray-600 leading-relaxed">{o.reponse_suggeree}</p>
                         </div>
 
-                        {o.pourquoi_ce_format && (
-                          <p className="text-[11px] text-gray-400 leading-relaxed">
-                            <span className="font-semibold text-gray-500">
-                              {o.format_conseille === 'image' ? 'Plutôt une image' : 'Plutôt une vidéo'}
-                            </span>{' '}— {o.pourquoi_ce_format}
-                          </p>
-                        )}
-
-                        {/* Le format reste un choix : le conseil se voit, il ne
-                            décide pas à la place de l'utilisateur. */}
                         <div className="flex flex-wrap items-center gap-2">
-                          {(['video', 'image'] as const).map((f) => (
-                            <button
-                              key={f}
-                              onClick={() => genererBrief(o, f)}
-                              disabled={!!briefEnCours}
-                              className={clsx(
-                                'text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40',
-                                o.format_conseille === f
-                                  ? 'bg-[#3434ef] text-white border-[#3434ef]'
-                                  : 'border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]',
-                              )}
-                              title={f === 'video'
-                                ? 'Brief complet, feuille de tournage PDF et Markdown'
-                                : 'Brief complet avec deux prompts image prêts à coller dans ChatGPT'}>
-                              {briefEnCours === `${o.objection}:${f}`
-                                ? 'Génération…'
-                                : f === 'video' ? '▶ Brief vidéo' : '⬜ Brief statique'}
-                            </button>
-                          ))}
+                          <button
+                            onClick={() => genererBrief(o)}
+                            disabled={!!briefEnCours}
+                            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+                            title="Brief complet, feuille de tournage PDF et Markdown">
+                            {briefEnCours === o.objection ? 'Génération…' : 'Générer un brief'}
+                          </button>
                           {briefFait[o.objection] && (
                             <Link href="/creative-strategist" className="text-[11px] text-[#3434ef] hover:underline">
                               Brief créé — l&apos;ouvrir dans Creative Strategist →

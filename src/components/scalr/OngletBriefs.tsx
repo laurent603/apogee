@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
 import { extraireFeuille, imprimerFeuille, imprimerBrief } from '@/lib/scalr/feuilleTournage'
-import { ComposeurImage } from './ComposeurImage'
-import { planValide, type Plan as PlanCompo } from '@/lib/scalr/plan'
 
 /**
  * Les briefs créa : la liste, et leur avancement.
@@ -56,86 +54,6 @@ export function OngletBriefs({ compte }: {
   // La bibliothèque PDF n'est chargée qu'au clic : le bouton doit le dire,
   // sinon le premier appui paraît sans effet le temps du téléchargement.
   const [prepare, setPrepare] = useState<string | null>(null)
-  const [copie, setCopie] = useState<string | null>(null)
-  /**
-   * La génération d'images s'annonce, elle ne s'impose pas.
-   *
-   * Sans clé OpenAI côté serveur, `disponible` est faux et aucun bouton
-   * n'apparaît : retirer la variable d'environnement suffit à faire
-   * disparaître la fonctionnalité, sans toucher au code.
-   */
-  const [imagesActives, setImagesActives] = useState(false)
-  const [imgEnCours, setImgEnCours] = useState<string | null>(null)
-  const [imgErreur, setImgErreur] = useState<Record<string, string>>({})
-  const [images, setImages] = useState<Record<string, { id: string; ratio: string; src: string }[]>>({})
-  /**
-   * L'ADN du compte, pour que l'incrustation porte ses couleurs.
-   *
-   * Sans lui, le filet d'accent sortait au bleu du produit sur la créa d'un
-   * client dont la marque est jaune — la signature de l'outil au milieu de la
-   * publicité.
-   */
-  const [adn, setAdn] = useState<Record<string, unknown> | null>(null)
-  const [plans, setPlans] = useState<{ id: string; nom: string; plan: PlanCompo }[]>([])
-  const [refsJointes, setRefsJointes] = useState<Record<string, string[]>>({})
-
-  useEffect(() => {
-    if (!compte?.id) { setAdn(null); return }
-    fetch(`/api/brand-dna?dbAccountId=${compte.id}`)
-      .then((r) => r.json())
-      .then((d) => setAdn(d?.adn?.contenu ? JSON.parse(d.adn.contenu) : null))
-      .catch(() => setAdn(null))
-    // Les plans extraits des créas de référence : c'est eux qui donnent sa
-    // structure à la composition.
-    fetch(`/api/references?dbAccountId=${compte.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const out: { id: string; nom: string; plan: PlanCompo }[] = []
-        for (const r of d?.references || []) {
-          if (!r.plan) continue
-          try {
-            const p = planValide(JSON.parse(r.plan))
-            if (p) out.push({ id: r.id, nom: p.nom || r.adName || 'plan', plan: p })
-          } catch { /* plan illisible : on l'ignore plutôt que de casser l'écran */ }
-        }
-        setPlans(out)
-      })
-      .catch(() => setPlans([]))
-  }, [compte?.id])
-
-  useEffect(() => {
-    fetch('/api/briefs/image')
-      .then((r) => r.json())
-      .then((d) => setImagesActives(Boolean(d?.disponible)))
-      .catch(() => setImagesActives(false))
-  }, [])
-
-  async function genererImage(briefId: string, ratio: string, prompt: string) {
-    const cle = `${briefId}:${ratio}`
-    setImgEnCours(cle)
-    setImgErreur((e) => ({ ...e, [cle]: '' }))
-    try {
-      const res = await fetch('/api/briefs/image', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ briefId, ratio, prompt }),
-      })
-      const d = await res.json().catch(() => null)
-      if (!res.ok || d?.error) throw new Error(d?.error || `HTTP ${res.status}`)
-      setImages((m) => ({
-        ...m,
-        [briefId]: [{ id: d.image.id, ratio, src: `data:image/png;base64,${d.donnees}` },
-                    ...(m[briefId] || [])],
-      }))
-      // Ce qui a réellement été joint : sans cet affichage, on en est réduit à
-      // deviner si l'ADN a servi.
-      setRefsJointes((r) => ({ ...r, [briefId]: d.references || [] }))
-    } catch (err) {
-      setImgErreur((e) => ({ ...e, [cle]: err instanceof Error ? err.message.slice(0, 200) : 'Échec' }))
-    } finally {
-      setImgEnCours(null)
-    }
-  }
-
   const charger = useCallback(() => {
     if (!compte?.id) { setBriefs([]); setChargement(false); return }
     setChargement(true)
@@ -285,94 +203,6 @@ export function OngletBriefs({ compte }: {
                       <>
                         <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
                           dangerouslySetInnerHTML={{ __html: markdownToHtml(sansJson(contenu[b.id])) }} />
-
-                        {/* Créas statiques : le prompt part tel quel dans un
-                            générateur d'images. Le but de l'application est de
-                            tester vite — dessiner soi-même chaque variante est
-                            exactement ce qui ralentit. */}
-                        {!!feuille?.visuels?.length && (
-                          <div className="mt-3 space-y-2">
-                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                              Prompts image — créa complète, ou fond seul pour le composeur
-                            </p>
-                            {feuille.visuels.map((v) => (
-                              <div key={v.ratio} className="border border-[#E5E7EB] rounded-lg p-3 bg-[#f8f9fc]">
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#3434ef]/10 text-[#3434ef]">
-                                    {v.ratio}
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    {/* Deux prompts, deux usages : la photo de fond
-                                        pour le composeur, la créa entière pour un
-                                        générateur qui compose lui-même. */}
-                                    {v.prompt_complet && (
-                                      <button
-                                        onClick={() => {
-                                          navigator.clipboard?.writeText(v.prompt_complet as string).then(
-                                            () => setCopie(`${b.id}:${v.ratio}:c`), () => setCopie(null))
-                                        }}
-                                        title="La publicité entière, texte compris — à coller dans un générateur avec vos cartes de marque"
-                                        className="text-[11px] px-2 py-1 rounded-lg bg-[#3434ef] text-white hover:bg-[#2a2ac4]">
-                                        {copie === `${b.id}:${v.ratio}:c` ? 'Copié' : 'Copier la créa complète'}
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => {
-                                        navigator.clipboard?.writeText(v.prompt).then(
-                                          () => setCopie(`${b.id}:${v.ratio}`), () => setCopie(null))
-                                      }}
-                                      title="La photo de fond seule, sans texte — pour le composeur d’Apogee"
-                                      className="text-[11px] px-2 py-1 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
-                                      {copie === `${b.id}:${v.ratio}` ? 'Copié' : 'Fond seul'}
-                                    </button>
-                                  </div>
-                                </div>
-                                {v.prompt_complet && (
-                                  <details className="mb-2">
-                                    <summary className="text-[10px] text-[#3434ef] cursor-pointer">
-                                      Voir le prompt de créa complète
-                                    </summary>
-                                    <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap mt-1.5">
-                                      {v.prompt_complet}
-                                    </p>
-                                  </details>
-                                )}
-                                <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">{v.prompt}</p>
-
-                                {imagesActives && (
-                                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    <button
-                                      onClick={() => genererImage(b.id, v.ratio, v.prompt)}
-                                      disabled={imgEnCours === `${b.id}:${v.ratio}`}
-                                      className="text-[11px] px-2.5 py-1 rounded-lg border border-[#3434ef] text-[#3434ef] hover:bg-[#3434ef]/5 disabled:opacity-40">
-                                      {imgEnCours === `${b.id}:${v.ratio}` ? 'Génération…' : 'Générer l’image'}
-                                    </button>
-                                    {v.ratio === '9:16' && (
-                                      <span className="text-[10px] text-gray-400">
-                                        rendu en 2:3 — recadrage exact à venir
-                                      </span>
-                                    )}
-                                    {imgErreur[`${b.id}:${v.ratio}`] && (
-                                      <span className="text-[10px] text-amber-600">{imgErreur[`${b.id}:${v.ratio}`]}</span>
-                                    )}
-                                    {refsJointes[b.id] && (
-                                      <span className="text-[10px] text-gray-400">
-                                        {refsJointes[b.id].length
-                                          ? `${refsJointes[b.id].length} référence${refsJointes[b.id].length > 1 ? 's' : ''} jointe${refsJointes[b.id].length > 1 ? 's' : ''} · ${refsJointes[b.id].join(', ')}`
-                                          : 'aucune référence — générez l’ADN de marque'}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-
-                            {images[b.id]?.map((im) => (
-                              <ComposeurImage key={im.id} src={im.src} nom={b.adName}
-                                ratioInitial={im.ratio} adn={adn} feuille={feuille} plans={plans} />
-                            ))}
-                          </div>
-                        )}
 
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           {/* Ce qu'on tend à la personne qui tourne : les

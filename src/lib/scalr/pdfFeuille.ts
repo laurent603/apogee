@@ -117,8 +117,7 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
   /* ── En-tête ── */
   ecrire(feuille.titre || nomCrea, { taille: 19, gras: true, interligne: 24 })
   const meta = [feuille.format, feuille.duree].filter(Boolean).join('  ·  ')
-  const estImage = !!(feuille.textes_incrustes || feuille.visuels?.length) && !feuille.segments?.length
-  ecrire(`${estImage ? 'Feuille de production' : 'Feuille de tournage'}${meta ? `  —  ${meta}` : ''}`,
+  ecrire(`Feuille de tournage${meta ? `  —  ${meta}` : ''}`,
     { taille: 10, couleur: GRIS, interligne: 15 })
   if (feuille.angle) ecrire(feuille.angle, { taille: 10.5, couleur: GRIS, interligne: 14 })
   y -= 8
@@ -169,24 +168,6 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
     }
 
     y = haut - hauteur - 10
-  }
-
-  /**
-   * Une créa statique n'a pas de répliques.
-   *
-   * La feuille imprimait des segments minutés ou rien. Sur un brief image,
-   * elle sortait donc vide alors que le brief contenait tout ce qu'il fallait
-   * pour la fabriquer. Ce qui se produit change de nature selon le format,
-   * mais la page reste la même : les blocs se lisent à bout de bras.
-   */
-  const t = feuille.textes_incrustes
-  if (t) {
-    if (t.accroche) bloc({ dit: t.accroche, ecran: t.positions }, 'Accroche', true)
-    if (t.sous_accroche) bloc({ dit: t.sous_accroche }, 'Sous-accroche')
-    if (t.mention) bloc({ dit: t.mention }, 'Mention')
-    for (const [i, v] of (t.variantes_accroche || []).slice(1).entries()) {
-      bloc({ dit: v }, `Variante d'accroche ${i + 2}`)
-    }
   }
 
   if (feuille.hook) bloc(feuille.hook, 'Hook — 0 a 3 s', true)
