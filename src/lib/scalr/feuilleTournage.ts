@@ -67,8 +67,11 @@ export type Feuille = {
     variante?: { texte_principal?: string; titre?: string; description?: string }
   }
 
-  /** Un prompt d'image prêt à coller, par ratio. */
-  visuels?: { ratio: string; prompt: string }[]
+  /**
+   * Deux prompts par ratio : la photo de fond seule pour le composeur, et la
+   * publicité entière pour un générateur qui compose lui-même.
+   */
+  visuels?: { ratio: string; prompt: string; prompt_complet?: string }[]
   materiel?: string
 }
 

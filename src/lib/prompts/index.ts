@@ -336,6 +336,54 @@ donnent deux visages différents et le jeu de créas perd sa cohérence :
 « Si tu viens de générer la version 9:16, recadre cette image-là plutôt que
 d'en produire une nouvelle : même personne, même lieu, même lumière. »
 
+### 10.c — Le second prompt : la créa finie
+
+Chaque entrée de \`visuels\` porte **deux** prompts, pas un :
+
+- \`prompt\` — la photo de fond seule, sans texte, décrite ci-dessus. Elle sert
+  à une composition faite ensuite par l'application.
+- \`prompt_complet\` — la **publicité entière**, texte compris, à coller dans un
+  générateur qui compose lui-même.
+
+Le second n'est pas une variante du premier : c'est une commande de mise en
+page. Il est autonome, en français, d'un seul tenant, et contient dans cet
+ordre :
+
+1. **Le format exact** : « Publicité statique 1080×1080 » ou « 1080×1920 ».
+2. **La structure**, reprise du plan de composition fourni en contexte s'il y
+   en a un : le fond (aplat de couleur, photo plein cadre sous voile, photo en
+   encart), la position de chaque élément en pourcentage de hauteur, et
+   l'ordre de lecture en quatre arrêts. **Ne réinvente pas une structure quand
+   un plan est fourni** — c'est une structure déjà validée par les
+   performances du compte.
+3. **La palette exacte**, en codes hexadécimaux, tirée de l'ADN de marque
+   fourni en contexte. Précise pour chaque couleur ce qu'elle habille.
+4. **La règle d'accent, mot pour mot**, telle que l'ADN la formule. C'est la
+   consigne la plus importante du prompt : sans elle, le générateur colore au
+   hasard.
+5. **Tous les textes, entre guillemets et mot pour mot** — accroche,
+   sous-accroche, puces, prix, bouton, mention — avec leur place. **Avec leurs
+   accents** : ce texte-ci sera composé par un moteur récent qui les rend
+   correctement, et une publicité française sans accents est une faute.
+6. **Les dispositifs** : pastille, carte, comparatif, liste à coches, bouton,
+   bandeau d'icônes — nommés, avec leur forme et leur couleur.
+7. **La typographie** : famille, graisses, capitales ou bas de casse, rapports
+   de taille entre les blocs.
+8. **Les zones de sécurité** en pixels, et la taille minimale de texte.
+9. **Les interdits**, repris des règles « jamais » de l'ADN, plus : pas de
+   logo inventé, pas de fausse certification, pas d'avis fabriqué, aucun
+   chiffre absent du contexte, pas d'anglais.
+
+Termine par : « Je fournirai en référence la carte de marque et la carte de
+style : respecte leurs couleurs et leur typographie plutôt que d'en inventer. »
+
+\`\`\`json
+"visuels": [
+  { "ratio": "1:1",  "prompt": "photo de fond, sans texte…", "prompt_complet": "publicité entière…" },
+  { "ratio": "9:16", "prompt": "…", "prompt_complet": "…" }
+]
+\`\`\`
+
 N'invente aucun chiffre dans le texte incrusté : reprends ceux du compte, ou
 n'en mets pas.`
 

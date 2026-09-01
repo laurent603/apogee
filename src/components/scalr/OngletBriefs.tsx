@@ -293,7 +293,7 @@ export function OngletBriefs({ compte }: {
                         {!!feuille?.visuels?.length && (
                           <div className="mt-3 space-y-2">
                             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                              Prompts image — à coller dans ChatGPT
+                              Prompts image — créa complète, ou fond seul pour le composeur
                             </p>
                             {feuille.visuels.map((v) => (
                               <div key={v.ratio} className="border border-[#E5E7EB] rounded-lg p-3 bg-[#f8f9fc]">
@@ -301,17 +301,42 @@ export function OngletBriefs({ compte }: {
                                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#3434ef]/10 text-[#3434ef]">
                                     {v.ratio}
                                   </span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard?.writeText(v.prompt).then(
-                                        () => setCopie(`${b.id}:${v.ratio}`),
-                                        () => setCopie(null),
-                                      )
-                                    }}
-                                    className="text-[11px] px-2 py-1 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
-                                    {copie === `${b.id}:${v.ratio}` ? 'Copié' : 'Copier'}
-                                  </button>
+                                  <div className="flex items-center gap-1.5">
+                                    {/* Deux prompts, deux usages : la photo de fond
+                                        pour le composeur, la créa entière pour un
+                                        générateur qui compose lui-même. */}
+                                    {v.prompt_complet && (
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard?.writeText(v.prompt_complet as string).then(
+                                            () => setCopie(`${b.id}:${v.ratio}:c`), () => setCopie(null))
+                                        }}
+                                        title="La publicité entière, texte compris — à coller dans un générateur avec vos cartes de marque"
+                                        className="text-[11px] px-2 py-1 rounded-lg bg-[#3434ef] text-white hover:bg-[#2a2ac4]">
+                                        {copie === `${b.id}:${v.ratio}:c` ? 'Copié' : 'Copier la créa complète'}
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard?.writeText(v.prompt).then(
+                                          () => setCopie(`${b.id}:${v.ratio}`), () => setCopie(null))
+                                      }}
+                                      title="La photo de fond seule, sans texte — pour le composeur d’Apogee"
+                                      className="text-[11px] px-2 py-1 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
+                                      {copie === `${b.id}:${v.ratio}` ? 'Copié' : 'Fond seul'}
+                                    </button>
+                                  </div>
                                 </div>
+                                {v.prompt_complet && (
+                                  <details className="mb-2">
+                                    <summary className="text-[10px] text-[#3434ef] cursor-pointer">
+                                      Voir le prompt de créa complète
+                                    </summary>
+                                    <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap mt-1.5">
+                                      {v.prompt_complet}
+                                    </p>
+                                  </details>
+                                )}
                                 <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">{v.prompt}</p>
 
                                 {imagesActives && (
