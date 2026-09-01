@@ -599,3 +599,29 @@ model BrandDna {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+/// Une créa de référence : le standard, montré plutôt que décrit.
+///
+/// On ne fait pas comprendre des attentes à un modèle en les décrivant. On lui
+/// montre une publicité déjà validée, il en extrait la structure, et cette
+/// structure sert de plan aux créas suivantes. Le standard cesse d'être le
+/// goût de qui écrit le prompt.
+///
+/// Les meilleures références sont les gagnantes du compte : elles ont
+/// l'avantage d'être jugées par les chiffres et non par l'œil.
+model CreaReference {
+  id          String   @id @default(cuid())
+  adAccountId String
+  /// L'image, en base64 sans préfixe.
+  image       String
+  /// D'où elle vient : « upload » ou « winner ».
+  source      String   @default("upload")
+  adId        String?
+  adName      String?
+  cpl         Float?
+  /// Le plan de composition extrait de cette créa, en JSON.
+  plan        String?
+  createdAt   DateTime @default(now())
+
+  @@index([adAccountId, createdAt])
+}

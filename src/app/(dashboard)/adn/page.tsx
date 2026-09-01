@@ -27,6 +27,74 @@ export default function AdnPage() {
   const [cartes, setCartes] = useState<{ marque?: string; style?: string }>({})
   const [photo, setPhoto] = useState<string | null>(null)
 
+  /**
+   * Les créas de référence : le standard, montré plutôt que décrit.
+   *
+   * Les gagnantes du compte sont proposées d'abord — elles ont l'avantage
+   * d'être jugées par les chiffres et non par l'œil.
+   */
+  type Ref = { id: string; image: string; source: string; adName?: string | null; cpl?: number | null; plan?: string | null }
+  type Gagnante = { adId: string; nom: string; cpl: number | null; prospects: number; vignette: string | null; format: string | null }
+  const [refs, setRefs] = useState<Ref[]>([])
+  const [gagnantes, setGagnantes] = useState<Gagnante[]>([])
+  const [refOccupe, setRefOccupe] = useState<string | null>(null)
+
+  const chargerRefs = useCallback(() => {
+    if (!compteId) return
+    fetch(`/api/references?dbAccountId=${compteId}`)
+      .then((r) => r.json())
+      .then((d) => { setRefs(d?.references || []); setGagnantes(d?.gagnantes || []) })
+      .catch(() => { setRefs([]); setGagnantes([]) })
+  }, [compteId])
+
+  useEffect(() => { chargerRefs() }, [chargerRefs])
+
+  async function ajouterRef(corps: Record<string, unknown>, cle: string) {
+    if (!compteId) return
+    setRefOccupe(cle); setMessage('')
+    try {
+      const res = await fetch('/api/references', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dbAccountId: compteId, ...corps }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok || d?.error) throw new Error(d?.error || `HTTP ${res.status}`)
+      chargerRefs()
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Ajout impossible.')
+    } finally { setRefOccupe(null) }
+  }
+
+  async function deconstruire(id: string) {
+    setRefOccupe(id); setMessage('')
+    try {
+      const res = await fetch('/api/references', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok || d?.error) throw new Error(d?.error || `HTTP ${res.status}`)
+      chargerRefs()
+      setMessage('Plan de composition extrait.')
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Déconstruction impossible.')
+    } finally { setRefOccupe(null) }
+  }
+
+  async function supprimerRef(id: string) {
+    await fetch(`/api/references?id=${id}`, { method: 'DELETE' }).catch(() => null)
+    chargerRefs()
+  }
+
+  async function fichierEnBase64(f: File) {
+    return new Promise<string>((ok, ko) => {
+      const fr = new FileReader()
+      fr.onload = () => ok(String(fr.result).split(',')[1])
+      fr.onerror = () => ko(new Error('lecture impossible'))
+      fr.readAsDataURL(f)
+    })
+  }
+
   const charger = useCallback(() => {
     if (!compteId) return
     setChargement(true)
@@ -201,6 +269,96 @@ export default function AdnPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="card space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Créas de référence {refs.length ? `· ${refs.length}` : ''}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed max-w-2xl">
+              Le standard se montre, il ne se décrit pas. Déposez au moins trois créas que vous
+              jugez bonnes — ou prenez les gagnantes du compte, jugées par les chiffres plutôt
+              que par l’œil. Le plan de composition en est extrait, puis appliqué aux créas suivantes.
+            </p>
+          </div>
+          <label className="text-sm px-4 py-2 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef] cursor-pointer flex-shrink-0">
+            Ajouter une créa
+            <input type="file" accept="image/*" multiple className="hidden"
+              onChange={async (e) => {
+                for (const f of Array.from(e.target.files || [])) {
+                  const b64 = await fichierEnBase64(f)
+                  await ajouterRef({ image: b64 }, f.name)
+                }
+              }} />
+          </label>
+        </div>
+
+        {refs.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {refs.map((r) => (
+              <div key={r.id} className="border border-[#E5E7EB] rounded-lg overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`data:image/png;base64,${r.image}`} alt={r.adName || 'référence'}
+                  className="w-full aspect-square object-cover" />
+                <div className="p-2 space-y-1.5">
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {r.adName || 'Ajoutée à la main'}
+                    {r.cpl != null && <span className="text-gray-400"> · CPL {r.cpl} €</span>}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => deconstruire(r.id)} disabled={refOccupe === r.id}
+                      className={`text-[10px] px-2 py-1 rounded border ${r.plan
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-[#E5E7EB] text-gray-600 hover:border-[#3434ef]'} disabled:opacity-40`}>
+                      {refOccupe === r.id ? 'Analyse…' : r.plan ? 'Plan extrait ✓' : 'Extraire le plan'}
+                    </button>
+                    <button onClick={() => supprimerRef(r.id)}
+                      className="text-[10px] px-2 py-1 rounded border border-[#E5E7EB] text-gray-400 hover:text-red-600 hover:border-red-200">
+                      Retirer
+                    </button>
+                  </div>
+                  {r.plan && (
+                    <p className="text-[10px] text-gray-400 truncate" title={r.plan}>
+                      {(() => { try { const p = JSON.parse(r.plan!); return `${p.nom} · ${p.densite}` } catch { return 'plan' } })()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {gagnantes.length > 0 && (
+          <div className="pt-1">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              Gagnantes du compte — 30 jours, meilleur CPL d’abord
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {gagnantes.map((g) => (
+                <button key={g.adId}
+                  onClick={() => ajouterRef({ adId: g.adId, adName: g.nom, cpl: g.cpl }, g.adId)}
+                  disabled={refOccupe === g.adId}
+                  className="flex items-center gap-2 border border-[#E5E7EB] rounded-lg pr-3 hover:border-[#3434ef] disabled:opacity-40 text-left">
+                  {g.vignette
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={g.vignette} alt="" className="w-10 h-10 object-cover rounded-l-lg" />
+                    : <span className="w-10 h-10 bg-[#f8f9fc] rounded-l-lg" />}
+                  <span className="py-1.5">
+                    <span className="block text-[11px] text-[#0d0d12] max-w-[190px] truncate">{g.nom}</span>
+                    <span className="block text-[10px] text-gray-400">
+                      CPL {g.cpl} € · {g.prospects} prospects{g.format ? ` · ${g.format}` : ''}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-2">
+              Une créa dynamique ou une vidéo n’expose pas d’image : l’ajout échouera et vous le dira.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

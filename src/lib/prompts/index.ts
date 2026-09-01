@@ -834,3 +834,71 @@ Réponds **uniquement** en JSON valide, sans texte autour, sans balises.
 
 Les angles doivent être choisis **dans la liste fournie en contexte**, jamais
 inventés : ils servent de classement dans un suivi créatif existant.`
+
+/**
+ * La déconstruction d'une créa de référence.
+ *
+ * On ne fait pas comprendre un standard à un modèle en le décrivant. On lui
+ * montre une publicité déjà validée et on lui demande d'en extraire la
+ * **structure**, pas le contenu. Cette structure devient un plan que le
+ * composeur exécute avec le contenu du jour.
+ *
+ * Le vocabulaire de sortie est contraint : c'est un programme de mise en page,
+ * pas une description libre. Un modèle qui écrit du SVG produit une créa
+ * cassée une fois sur trois ; un modèle qui remplit un plan produit une
+ * composition exécutable à chaque fois.
+ */
+export const DECONSTRUCTION = `${SYSTEM_BASE}
+
+Tu analyses une publicité statique et tu en extrais le **plan de composition**.
+
+Tu ne décris pas ce qu'elle raconte : son offre, ses chiffres et ses arguments
+ne t'intéressent pas. Tu extrais **comment elle est construite**, pour qu'une
+autre publicité, avec un autre contenu, puisse reprendre la même structure.
+
+## Ce qu'il faut regarder
+
+**Le fond.** Aplat de couleur, photo plein cadre, ou photo posée dans une
+zone ? C'est le premier choix, et c'est celui qui distingue une publicité
+composée d'une photo légendée.
+
+**La photo.** Plein cadre en arrière-plan, encart délimité, sujet détouré
+posé sur l'aplat, ou absente ? Où occupe-t-elle l'image ?
+
+**La grille.** Découpe l'image en zones rectangulaires, en pourcentages de
+largeur et de hauteur, origine en haut à gauche. Deux colonnes côte à côte
+sont deux zones. Une carte posée sur le fond est une zone.
+
+**Ce que chaque zone contient**, dans le vocabulaire ci-dessous et pas un
+autre. Si un élément n'y entre pas, choisis le plus proche.
+
+**La hiérarchie.** Ce que l'œil voit en premier, deuxième, troisième,
+quatrième. Quatre arrêts maximum.
+
+**La densité et l'accent.** Combien d'éléments, et où la couleur d'accent est
+posée dans cette structure.
+
+## Le format de sortie
+
+Réponds **uniquement** en JSON valide, sans texte autour.
+
+{
+  "nom": "nom court de la structure, ex. « prix roi », « comparatif », « objection + preuves »",
+  "ratio": "1:1 | 4:5 | 9:16",
+  "fond": { "type": "couleur | photo_plein | photo_encart", "couleur": "#RRGGBB ou null", "note": "" },
+  "photo": { "traitement": "plein | encart | detouree | absente", "zone": "identifiant de zone ou null" },
+  "grille": [
+    { "id": "nom parlant, ex. entete, colonne_gauche, carte_prix", "x": 0, "y": 0, "l": 100, "h": 18 }
+  ],
+  "blocs": [
+    { "zone": "identifiant de zone", "dispositif": "pastille | accroche | sous | prix | comparatif | puces | icones | bouton | mention", "align": "gauche | centre | droite", "poids": 1 }
+  ],
+  "hierarchie": ["premier arrêt", "deuxième", "troisième", "quatrième"],
+  "densite": "faible | moyenne | haute",
+  "accent": "où la couleur d'accent est posée dans cette structure, et nulle part ailleurs",
+  "remarques": ["ce qui fait la force de cette structure, en une ou deux lignes"]
+}
+
+Les zones ne se chevauchent pas, sauf une carte volontairement posée sur le
+fond — signale-le alors dans \`note\`. Les pourcentages sont des entiers.
+Chaque \`bloc\` référence une \`zone\` qui existe.`
