@@ -36,6 +36,13 @@ Règles :
 
 Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks.`
 
+/**
+ * Non déclaré, le budget retombait sur la valeur par défaut de la plateforme.
+ * Le flux masquait le problème, mais rien ne garantissait qu'il tienne sur un
+ * compte à plusieurs centaines de commentaires.
+ */
+export const maxDuration = 300
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.accessToken) {

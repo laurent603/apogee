@@ -15,7 +15,16 @@ import { BRIEF_CREA } from '@/lib/prompts'
  * analyse enregistrée — avant d'écrire quoi que ce soit.
  */
 
-export const maxDuration = 120
+/**
+ * Le budget de temps suit celui des jetons.
+ *
+ * Il était resté à 120 s alors que le brief a grandi : méthode de direction
+ * artistique, contraintes de fabrication, contexte du compte, et un bloc JSON
+ * qui porte désormais le brief entier — jusqu'à 32 000 jetons, réflexion
+ * comprise. La génération dépassait, Vercel coupait, et l'écran ne recevait
+ * qu'un 504 sans explication.
+ */
+export const maxDuration = 300
 
 const CONSCIENCE: Record<string, string> = {
   unaware: 'Unaware — ignore le problème',
