@@ -20,6 +20,53 @@ export const REPORT_REASONING = {
   output_config: { effort: 'high' as const },
 }
 
+/**
+ * Une panne passagère du modèle, par opposition à une erreur de notre fait.
+ *
+ * Un prompt trop long ou une clé invalide ne guériront pas d'un second essai ;
+ * une surcharge des serveurs, si. On ne recommence que sur la seconde famille.
+ */
+export function estTransitoire(e: unknown): boolean {
+  const err = e as { status?: number; message?: string; error?: { type?: string } }
+  const statut = err?.status
+  if (statut === 408 || statut === 409 || statut === 429 || (statut && statut >= 500)) return true
+  const texte = `${err?.error?.type || ''} ${err?.message || ''}`.toLowerCase()
+  return /overloaded|rate_limit|timeout|econnreset|socket hang up|fetch failed/.test(texte)
+}
+
+/**
+ * Relance un appel au modèle quand il échoue pour une raison passagère.
+ *
+ * Le SDK réessaie déjà les requêtes refusées d'emblée, mais pas un flux qui
+ * s'interrompt en cours de route : c'est pourtant ainsi qu'arrive une
+ * surcharge (`overloaded_error`, HTTP 529) sur les rapports longs. Sans
+ * reprise, une heure de cron partait à la poubelle et l'utilisateur recevait
+ * un e-mail d'échec pour un incident qui se serait résolu tout seul.
+ *
+ * L'échéance existe parce qu'une fonction serverless est coupée sans préavis :
+ * mieux vaut renoncer à la reprise et rendre l'erreur que se faire tuer au
+ * milieu, sans notification du tout.
+ */
+export async function avecReprise<T>(
+  travail: () => Promise<T>,
+  { essais = 3, echeance, attentes = [4000, 12000] }: { essais?: number; echeance?: number; attentes?: number[] } = {},
+): Promise<T> {
+  let derniere: unknown
+  for (let i = 0; i < essais; i++) {
+    try {
+      return await travail()
+    } catch (e) {
+      derniere = e
+      const attente = attentes[Math.min(i, attentes.length - 1)]
+      const dernierTour = i === essais - 1
+      const tempsManquant = echeance !== undefined && Date.now() + attente > echeance
+      if (dernierTour || tempsManquant || !estTransitoire(e)) throw e
+      await new Promise((r) => setTimeout(r, attente))
+    }
+  }
+  throw derniere
+}
+
 export async function analyzeWithClaude(systemPrompt: string, userMessage: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: MODEL_CHAT,

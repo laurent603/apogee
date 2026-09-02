@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING } from '@/lib/anthropic'
+import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
 import { PROMPTS, BLOC_ACTIONNABLES } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
@@ -188,7 +188,7 @@ ${JSON.stringify(previous.ads, null, 2)}`
         // A scheduled report wants depth; a chat turn wants to come back quickly.
         // Keyed off an explicit flag, not the persona — chat picks a persona too.
         let fullResult = ''
-        const claudeStream = anthropic.messages.stream({
+        const demarrerFlux = () => anthropic.messages.stream({
           model: deep ? MODEL_REPORT : MODEL_CHAT,
           max_tokens: 16000,
           system: systemPrompt,
@@ -224,10 +224,26 @@ ${JSON.stringify(previous.ads, null, 2)}`
           ...(deep ? REPORT_REASONING : {}),
         })
 
-        for await (const chunk of claudeStream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-            fullResult += chunk.delta.text
-            controller.enqueue(encoder.encode(chunk.delta.text))
+        /**
+         * Une surcharge du modèle relance la génération — tant que rien n'a
+         * été écrit à l'écran.
+         *
+         * Passé le premier caractère, recommencer produirait deux débuts de
+         * rapport collés l'un à l'autre dans la fenêtre du navigateur : à ce
+         * moment-là, mieux vaut l'erreur franche.
+         */
+        for (let essai = 0; ; essai++) {
+          try {
+            for await (const chunk of demarrerFlux()) {
+              if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+                fullResult += chunk.delta.text
+                controller.enqueue(encoder.encode(chunk.delta.text))
+              }
+            }
+            break
+          } catch (e) {
+            if (fullResult || essai >= 2 || !estTransitoire(e)) throw e
+            await new Promise((r) => setTimeout(r, essai === 0 ? 4000 : 12000))
           }
         }
 

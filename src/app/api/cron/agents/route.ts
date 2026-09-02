@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
+import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES } from '@/lib/prompts'
 
@@ -43,12 +43,28 @@ function calcNextRunAt(frequency: string): Date {
 }
 
 
+/**
+ * Déclaré explicitement : la reprise sur surcharge a besoin de connaître le
+ * temps dont elle dispose, et un rapport d'agent dure déjà plus d'une minute.
+ */
+export const maxDuration = 300
+
 export async function GET(req: NextRequest) {
   if (!cronAutorise(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const now = new Date()
+  /**
+   * L'instant après lequel il ne faut plus rien retenter.
+   *
+   * La fonction est coupée sans préavis au bout de `maxDuration` : attendre
+   * douze secondes de plus juste avant la coupure ferait perdre la
+   * notification d'échec en même temps que le rapport. Trente secondes de
+   * marge suffisent à écrire en base et à prévenir.
+   */
+  const finDeCourse = Date.now() + (maxDuration - 30) * 1000
+
   const dueAgents = await prisma.autopilotAgent.findMany({
     where: { isActive: true, OR: [{ nextRunAt: null }, { nextRunAt: { lte: now } }] },
     include: {
@@ -138,21 +154,27 @@ export async function GET(req: NextRequest) {
 
       const userMessage = `${agent.instructions}\n\nFormat de sortie : ${formatDeSortie(agent.outputFormat)}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
 
-      let content = ''
-      const stream = await anthropic.messages.stream({
-        model: MODEL_REPORT,
-        max_tokens: 16000,
-        ...REPORT_REASONING,
-        system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
-        // Le bloc final est joint au message, en dernière position : dans le
-        // prompt système, il était ignoré (voir /api/ai/analyze).
-        messages: [{ role: 'user', content: userMessage + BLOC_ACTIONNABLES }],
-      })
-      for await (const chunk of stream) {
-        if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-          content += chunk.delta.text
+      // Une surcharge des serveurs du modèle jetait tout le travail de l'agent
+      // et envoyait un e-mail d'échec pour un incident passager. Rien n'a été
+      // livré à ce stade : on peut recommencer proprement.
+      const content = await avecReprise(async () => {
+        let texte = ''
+        const stream = await anthropic.messages.stream({
+          model: MODEL_REPORT,
+          max_tokens: 16000,
+          ...REPORT_REASONING,
+          system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
+          // Le bloc final est joint au message, en dernière position : dans le
+          // prompt système, il était ignoré (voir /api/ai/analyze).
+          messages: [{ role: 'user', content: userMessage + BLOC_ACTIONNABLES }],
+        })
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            texte += chunk.delta.text
+          }
         }
-      }
+        return texte
+      }, { echeance: finDeCourse })
 
       const title = `${agent.name} — ${now.toLocaleDateString('fr-FR')}`
       await prisma.report.create({

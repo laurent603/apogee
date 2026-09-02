@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import type Anthropic from '@anthropic-ai/sdk'
-import { anthropic, MODEL_REPORT, REPORT_REASONING } from '@/lib/anthropic'
+import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { BRIEF_CREA } from '@/lib/prompts'
 
 /**
@@ -320,13 +320,18 @@ Format : ${format || 'à recommander'}`
      * expirer avant la fin de la génération. Le flux évite ce délai ; la
      * réponse complète est récupérée à la fin, la route rend toujours du JSON.
      */
-    const reponse = await anthropic.messages.stream({
-      model: MODEL_REPORT,
-      max_tokens: 32000,
-      system: BRIEF_CREA,
-      messages: [{ role: 'user', content: contexte }],
-      ...REPORT_REASONING,
-    }).finalMessage()
+    // Rien n'est rendu au navigateur avant la fin : une surcharge du modèle
+    // peut donc être reprise sans que l'écran en voie quoi que ce soit.
+    const reponse = await avecReprise(
+      () => anthropic.messages.stream({
+        model: MODEL_REPORT,
+        max_tokens: 32000,
+        system: BRIEF_CREA,
+        messages: [{ role: 'user', content: contexte }],
+        ...REPORT_REASONING,
+      }).finalMessage(),
+      { echeance: Date.now() + 240_000 },
+    )
 
     const texte = reponse.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
