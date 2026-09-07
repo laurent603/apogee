@@ -677,6 +677,40 @@ export default function AutopilotPage() {
     toast.success('Agent supprimé')
   }
 
+  /**
+   * Remettre un agent au niveau de son gabarit.
+   *
+   * Les instructions d'un agent sont copiées en base à sa création : améliorer
+   * un gabarit du code ne touche pas les agents qui en sont issus, et ils
+   * tournent indéfiniment sur la version du jour où on les a créés. Les
+   * supprimer pour les recréer ferait perdre leur historique de rapports.
+   *
+   * Seuls le texte et le format de sortie sont remplacés : la fréquence, la
+   * période et les canaux de livraison sont des réglages de l'utilisateur, pas
+   * du gabarit.
+   */
+  const [aReinitialiser, setAReinitialiser] = useState<string | null>(null)
+
+  async function reinitialiserAgent(agent: AutopilotAgent) {
+    const gabarit = PRESET_AGENTS.find((p) => p.name === agent.name)
+    if (!gabarit) return
+    if (aReinitialiser !== agent.id) {
+      setAReinitialiser(agent.id)
+      setTimeout(() => setAReinitialiser((x) => (x === agent.id ? null : x)), 4000)
+      return
+    }
+    setAReinitialiser(null)
+    const res = await fetch('/api/autopilot', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: agent.id, instructions: gabarit.instructions, outputFormat: gabarit.outputFormat }),
+    }).catch(() => null)
+    const data = await res?.json().catch(() => null)
+    if (!res?.ok || !data?.agent) { toast.error('Réinitialisation refusée'); return }
+    setAgents((prev) => prev.map((a) => (a.id === agent.id ? data.agent : a)))
+    toast.success('Agent remis au gabarit')
+  }
+
   async function runAgent(agent: AutopilotAgent) {
     if (!selectedAccount) return
     setRunning(agent.id)
@@ -1068,6 +1102,29 @@ export default function AutopilotPage() {
                         >
                           {agent.isActive ? 'Actif' : 'Inactif'}
                         </button>
+                        {/* Le bouton n'apparaît que si le gabarit a bougé
+                            depuis la création de l'agent : sinon il ne ferait
+                            rien, et il dirait le contraire. */}
+                        {(() => {
+                          const gabarit = PRESET_AGENTS.find((p) => p.name === agent.name)
+                          const enRetard = gabarit && (gabarit.instructions.trim() !== (agent.instructions || '').trim()
+                            || gabarit.outputFormat.trim() !== (agent.outputFormat || '').trim())
+                          if (!enRetard) return null
+                          return (
+                            <button
+                              onClick={() => reinitialiserAgent(agent)}
+                              title={aReinitialiser === agent.id
+                                ? 'Cliquez à nouveau pour remplacer les instructions'
+                                : 'Une nouvelle version du gabarit existe. Ses instructions remplaceront celles de cet agent — fréquence, période et livraison sont conservées.'}
+                              className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border',
+                                aReinitialiser === agent.id
+                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100')}
+                            >
+                              {aReinitialiser === agent.id ? 'Confirmer' : 'Gabarit à jour dispo'}
+                            </button>
+                          )
+                        })()}
                         <button onClick={() => startEdit(agent)} className="p-1.5 text-gray-300 hover:text-[#3434ef] transition-colors rounded-lg hover:bg-blue-50">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </button>
