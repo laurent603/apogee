@@ -206,6 +206,34 @@ export function OngletBriefs({ compte }: {
                         <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
                           dangerouslySetInnerHTML={{ __html: markdownToHtml(sansJson(contenu[b.id])) }} />
 
+                        {/* Ce qu'on revient vérifier une semaine plus tard.
+                            Sorti de la prose : le chercher dans un pavé de
+                            cinq cents mots, sept jours après, personne ne le
+                            fait. */}
+                        {!!feuille?.kpis?.length && (
+                          <div className="mt-3">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                              À vérifier à J+7
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {feuille.kpis.map((k, i) => (
+                                // Largeur bornée : une référence longue étirait
+                                // sa tuile sur toute la ligne et cassait l'alignement.
+                                <div key={i} className="border border-[#E5E7EB] rounded-lg px-3 py-1.5 bg-white max-w-[15rem]">
+                                  <p className="text-[10px] text-gray-400">{k.indicateur}</p>
+                                  <p className="text-sm font-semibold text-[#0d0d12] tabular-nums">{k.cible}</p>
+                                  {k.reference && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{k.reference}</p>}
+                                </div>
+                              ))}
+                            </div>
+                            {feuille.volume_minimum && (
+                              <p className="text-[11px] text-gray-400 mt-1.5">
+                                Pas de verdict avant : {feuille.volume_minimum}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           {/* Ce qu'on tend à la personne qui tourne : les
                               répliques, rien d'autre. */}

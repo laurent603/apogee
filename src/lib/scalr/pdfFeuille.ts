@@ -116,10 +116,12 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
 
   /* ── En-tête ── */
   ecrire(feuille.titre || nomCrea, { taille: 19, gras: true, interligne: 24 })
-  const meta = [feuille.format, feuille.duree].filter(Boolean).join('  ·  ')
+  const meta = [feuille.funnel, feuille.format, feuille.duree].filter(Boolean).join('  ·  ')
   ecrire(`Feuille de tournage${meta ? `  —  ${meta}` : ''}`,
     { taille: 10, couleur: GRIS, interligne: 15 })
   if (feuille.angle) ecrire(feuille.angle, { taille: 10.5, couleur: GRIS, interligne: 14 })
+  // Qui l'on filme pour : sans ce rappel, le tournage retombe sur un ton neutre.
+  if (feuille.persona) ecrire(`Pour : ${feuille.persona}`, { taille: 9.5, couleur: GRIS, interligne: 13 })
   y -= 8
   place(2)
   page.drawRectangle({ x: MARGE, y, width: utile, height: 1.6, color: couleur(BLEU) })
@@ -132,9 +134,11 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
    * un saut de page se lit mal quand on tient le téléphone à côté de
    * l'objectif, et c'est le seul usage de ce document.
    */
-  const bloc = (s: Segment, etiquette?: string, accent = false) => {
+  const bloc = (s: Segment, etiquette?: string, accent = false, annexesPersos?: string[]) => {
     const dit = lisible(s.dit || '')
-    const annexes = [
+    // Une question d'entretien ne porte ni texte à l'écran ni plan : ses
+    // annexes disent ce qu'on cherche à faire dire, pas ce qu'on affiche.
+    const annexes = annexesPersos ?? [
       s.ecran ? `A l'ecran : ${s.ecran}` : '',
       s.visuel ? `Image : ${s.visuel}` : '',
     ].filter(Boolean)
@@ -171,6 +175,31 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
   }
 
   if (feuille.hook) bloc(feuille.hook, 'Hook — 0 a 3 s', true)
+
+  /**
+   * Le guide d'entretien passe avant le déroulé.
+   *
+   * Sur un témoignage, c'est le document de tournage : les questions se posent
+   * en direct, le montage vient après. La consigne est en tête parce qu'elle
+   * change la façon de tenir l'entretien — la lire après les questions serait
+   * la lire trop tard.
+   */
+  const itw = feuille.interview
+  if (itw?.consigne || itw?.questions?.length) {
+    y -= 8
+    ecrire('GUIDE D\'ENTRETIEN', { taille: 8.5, gras: true, couleur: BLEU, interligne: 14 })
+    if (itw.consigne) ecrire(itw.consigne, { taille: 10, couleur: GRIS, interligne: 14 })
+    // `ecrire` laisse y sur la ligne de base du dernier texte ; un bloc dessine
+    // son fond à partir de là et recouvrait donc cette ligne. Les blocs
+    // successifs ne connaissent pas ce défaut : ils se laissent un espace.
+    y -= 10
+    for (const [i, q] of (itw.questions || []).entries()) {
+      if (!q.question) continue
+      bloc({ dit: q.question }, `Question ${i + 1}`, false,
+        q.vise ? [`On cherche a lui faire dire : ${q.vise}`] : [])
+    }
+  }
+
   for (const s of feuille.segments || []) bloc(s)
   for (const [i, v] of (feuille.variantes_hook || []).entries()) {
     bloc({ dit: v }, `Variante de hook ${i + 2}`)
@@ -191,6 +220,28 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
   }
   liste('A dire ou afficher', feuille.bullets || [])
   liste('Preuves a montrer', feuille.preuves || [])
+  liste('A faire', feuille.a_faire || [])
+  liste('A eviter', feuille.a_eviter || [])
+
+  /**
+   * Ce qui décidera si la créa a marché.
+   *
+   * En pied de feuille et non en tête : on ne le lit pas au tournage, on le
+   * relit sept jours plus tard. La référence est portée avec la cible — une
+   * cible sans son point de départ ne se juge pas.
+   */
+  if (feuille.kpis?.length) {
+    y -= 8
+    ecrire('A VERIFIER A J+7', { taille: 8.5, gras: true, couleur: BLEU, interligne: 13 })
+    for (const k of feuille.kpis) {
+      if (!k.indicateur && !k.cible) continue
+      ecrire(`•  ${[k.indicateur, k.cible].filter(Boolean).join(' : ')}`, { taille: 10.5, interligne: 14 })
+      if (k.reference) ecrire(`   ${k.reference}`, { taille: 9, couleur: GRIS, interligne: 12 })
+    }
+    if (feuille.volume_minimum) {
+      ecrire(`Pas de verdict avant : ${feuille.volume_minimum}`, { taille: 9.5, couleur: GRIS, interligne: 13 })
+    }
+  }
 
   if (feuille.materiel) {
     y -= 6

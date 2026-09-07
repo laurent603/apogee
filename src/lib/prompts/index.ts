@@ -195,10 +195,18 @@ Ce sont tes preuves : chaque choix du brief doit s'y rattacher.
 Deux ou trois lignes. Quelle faiblesse chiffrée il vise, ce qu'il conserve de
 la créa d'origine et pourquoi. Cite les chiffres.
 
-### 2. Angle et niveau de conscience
+### 2. Angle, persona et niveau de conscience
 L'angle en une phrase. Le niveau de conscience visé, et ce qui le justifie
 dans les données. Si le niveau demandé te paraît en désaccord avec les
 chiffres, dis-le avant de l'appliquer.
+
+Puis **le persona, décrit comme une personne située** : prénom, âge, situation,
+et surtout ce qu'il a déjà fait ou pas fait — « y pense depuis deux ans sans
+avoir demandé un seul devis », « a déjà reçu trois propositions et n'arrive pas
+à trancher ». Un niveau de conscience ne se joue pas ; une personne, oui. On
+écrit un dialogue pour quelqu'un, pas pour une catégorie.
+
+Nomme aussi l'étage de tunnel visé : TOFU, MOFU, BOFU ou retargeting.
 
 ### 3. Hook — 0 à 3 secondes
 Le texte **prononcé mot pour mot**, le texte à l'écran, et ce qu'on voit.
@@ -207,6 +215,16 @@ Trois variantes du hook, numérotées.
 ### 4. Déroulé
 Un tableau : | Temps | Ce qu'on voit | Ce qui est dit | Texte à l'écran |
 Des segments courts (3-8 s, 8-15 s, 15-25 s…), jusqu'au CTA.
+
+**Exception — témoignage client, interview, UGC.** Quand la créa repose sur la
+parole d'un vrai client, tu ne rends pas des répliques : personne ne fera
+réciter un texte à son client, et le résultat sonnerait faux au premier mot.
+Rends alors un **guide d'entretien** : les questions posées hors caméra, dans
+l'ordre, et pour chacune **ce qu'on cherche à lui faire dire**. Ajoute la
+consigne de ne jamais lire ces questions au client comme un script, et de
+couper toute réponse qui commence par une présentation.
+Le déroulé minuté reste attendu pour tout ce qui est écrit d'avance — le
+montage, les incrustations, le CTA final.
 
 ### 5. Preuve
 Ce qu'il faut montrer pour être cru — avis, chiffre, avant/après, geste
@@ -222,12 +240,35 @@ poser de questions.
 ### 8. Copy
 Texte principal, titre, description. Deux variantes.
 
+### 9. À faire / à éviter
+Deux colonnes, cinq à six règles chacune, **propres à ce format et à cette
+créa**. Ce sont les consignes qui empêchent quelqu'un de ruiner le brief au
+tournage ou au montage : « pas de logo en filigrane pendant le hook »,
+« garder les hésitations, elles font l'authenticité », « sous-titres
+obligatoires, 85 % regardent sans le son ».
+
+Rien de général. « Soigner le montage » ou « rester authentique » ne sont pas
+des règles : ce sont des vœux. Une règle se vérifie en regardant le rushes.
+
+### 10. KPI de validation — à J+7
+Quatre indicateurs, avec leur cible chiffrée et la référence qui la fonde.
+**Les cibles se calculent sur les chiffres du compte qui te sont fournis**, pas
+sur un barème générique : si la créa d'origine tient un hook rate de 22 %, la
+cible est au-dessus de 22 %, et tu l'écris.
+
+Calibre selon l'étage de tunnel et dis-le en une ligne : une créa de haut de
+tunnel coûte plus cher au prospect qu'une créa de bas de tunnel, c'est normal
+et attendu. Juger un TOFU au coût par prospect d'un BOFU, c'est le tuer à
+tort — nomme donc l'indicateur qui tranche vraiment pour cet étage.
+
+Précise le volume minimum avant tout jugement.
+
 ## Ton
 Écris pour quelqu'un qui va tourner demain. Pas de conseil général, pas de
 « pensez à ». Chaque phrase est soit une instruction, soit une justification
 chiffrée.
 
-## 9. Bloc final obligatoire — le brief entier, en JSON
+## 11. Bloc final obligatoire — le brief entier, en JSON
 
 Termine **impérativement** par un bloc \`\`\`json délimité. C'est lui qui
 alimente la feuille remise à la production et les exports.
@@ -250,6 +291,8 @@ brief. Un écart entre les deux est un défaut.
   "duree": "durée visée si vidéo, sinon « image fixe »",
   "angle": "l'angle en une phrase",
   "conscience": "niveau de conscience visé",
+  "funnel": "TOFU | MOFU | BOFU | retargeting",
+  "persona": "la personne visée, située en une phrase",
   "ton": "le ton retenu, en trois mots",
   "promesse": "ce que le prospect obtient s'il clique",
 
@@ -258,6 +301,11 @@ brief. Un écart entre les deux est un défaut.
   "segments": [
     { "temps": "3-8 s", "dit": "réplique exacte", "ecran": "texte affiché", "visuel": "ce qu'on filme" }
   ],
+
+  "interview": {
+    "consigne": "ce que la personne qui filme doit savoir avant de commencer",
+    "questions": [{ "question": "la question posée hors caméra", "vise": "ce qu'on cherche à lui faire dire" }]
+  },
 
   "bullets": ["puce 1", "puce 2"],
   "preuves": ["avis, chiffre, démonstration, avant/après — et à quel moment il apparaît"],
@@ -271,6 +319,12 @@ brief. Un écart entre les deux est un défaut.
     "variante": { "texte_principal": "…", "titre": "…", "description": "…" }
   },
 
+  "a_faire": ["règle de tournage ou de montage, vérifiable"],
+  "a_eviter": ["ce qui ruinerait cette créa précisément"],
+  "kpis": [
+    { "indicateur": "Hook rate", "cible": "> 30 %", "reference": "la créa d'origine tient 22 %" }
+  ],
+  "volume_minimum": "la dépense ou le nombre d'impressions avant de juger",
 
   "materiel": "ce qu'il faut prévoir, en une ligne"
 }
@@ -279,7 +333,9 @@ brief. Un écart entre les deux est un défaut.
 **Les clés sans objet sont omises, pas laissées vides.** \`bullets\` n'existe
 que si la créa comporte réellement une liste ; \`preuves\` est attendu dès
 qu'une preuve est mobilisée — avis client, chiffre, démonstration, ancienneté,
-avant/après.
+avant/après. \`interview\` n'existe que pour un témoignage filmé, et remplace
+alors les répliques des \`segments\` parlés ; \`a_faire\`, \`a_eviter\` et
+\`kpis\` sont attendus dans tous les cas.
 
 Le JSON doit être valide : pas de commentaire, pas de virgule finale.`
 

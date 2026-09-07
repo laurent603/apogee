@@ -40,12 +40,29 @@ export type Feuille = {
   duree?: string
   angle?: string
   conscience?: string
+  /** L'étage de tunnel visé : c'est lui qui calibre les cibles de validation. */
+  funnel?: string
+  /** La personne visée, située — on écrit un dialogue pour quelqu'un. */
+  persona?: string
   ton?: string
   promesse?: string
 
   hook?: Segment
   variantes_hook?: string[]
   segments?: Segment[]
+
+  /**
+   * Le guide d'entretien, quand la créa repose sur la parole d'un vrai client.
+   *
+   * Un témoignage ne se scripte pas : personne ne fera réciter un texte à son
+   * client, et le résultat s'entendrait au premier mot. Les répliques cèdent
+   * donc la place aux questions posées hors caméra, avec ce qu'on cherche à
+   * faire dire à chacune.
+   */
+  interview?: {
+    consigne?: string
+    questions?: { question?: string; vise?: string }[]
+  }
 
   bullets?: string[]
   preuves?: string[]
@@ -57,6 +74,20 @@ export type Feuille = {
     description?: string
     variante?: { texte_principal?: string; titre?: string; description?: string }
   }
+
+  /** Les règles qui empêchent de ruiner le brief au tournage ou au montage. */
+  a_faire?: string[]
+  a_eviter?: string[]
+
+  /**
+   * Ce qui décidera si la créa a marché, à J+7.
+   *
+   * Un brief disait quoi tourner, jamais comment on saurait que ça avait
+   * marché : la créa partait en ligne et personne ne la jugeait vraiment. Les
+   * cibles sont calées sur les chiffres du compte, d'où la référence à côté.
+   */
+  kpis?: { indicateur?: string; cible?: string; reference?: string }[]
+  volume_minimum?: string
 
   materiel?: string
 }
@@ -76,7 +107,9 @@ export function extraireFeuille(markdown: string): Feuille | null {
   for (const brut of blocs.reverse()) {
     try {
       const o = JSON.parse(brut) as Feuille
-      if (o && (o.hook || o.segments?.length)) return o
+      // Un témoignage filmé porte des questions là où un script porte des
+      // répliques : sans ce troisième cas, sa feuille serait jugée vide.
+      if (o && (o.hook || o.segments?.length || o.interview?.questions?.length)) return o
     } catch { /* bloc non exploitable : on essaie le précédent */ }
   }
   return null
