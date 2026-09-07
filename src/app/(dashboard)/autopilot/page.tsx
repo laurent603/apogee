@@ -61,11 +61,143 @@ const PROMPT_BANK = {
 }
 
 const PRESET_AGENTS = [
-  { name: 'Daily Kill Guard', description: 'Coupe chaque jour les ads qui ont dépensé 2× le CPA cible sans conversion.', role: 'performance_manager', frequency: 'daily', runMode: 'propose', analysisPeriod: 'last_3d', instructions: 'Analyse toutes les ads actives. Pour chaque ad, vérifie le spend vs conversions. Kill si spend > 2× CPA cible sans conversion.', outputFormat: 'Tableau compact avec KPIs + 3 actions max', icon: '🛡️' },
-  { name: 'Traffic Quality Watchdog', description: 'Vérifie chaque jour la qualité du trafic (Cost per ATC / CPL).', role: 'media_buyer', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_3d', instructions: 'Vérifie la qualité du trafic sur chaque adset actif. Focus sur le cost per ATC ou CPL.', outputFormat: 'Tableau compact avec KPIs + 3 actions max', icon: '👁️' },
-  { name: 'Creative Fatigue Scanner', description: 'Détecte tous les 3 jours les créas fatiguées et propose des remplacements.', role: 'creative_strategist', frequency: 'every_3_days', runMode: 'propose', analysisPeriod: 'last_14d', instructions: 'Lance un scan de fatigue créative. Pour chaque ad fatiguée (fréquence > 3 + CTR en baisse > 20%), propose un brief de remplacement.', outputFormat: 'Liste les ads fatiguées avec métriques puis brief de remplacement.', icon: '😴' },
-  { name: 'Weekly Performance Report', description: 'Dashboard de performance complet chaque lundi matin.', role: 'performance_manager', frequency: 'weekly', runMode: 'report', analysisPeriod: 'last_7d', instructions: 'Fais un review de performance complet. Inclus : résumé, tableau daily, top/bottom 3, alertes, et 3 actions prioritaires.', outputFormat: 'Résumé, tableau semaine contre semaine, tableau journalier, top et flop 3, puis 3 actions.', icon: '📊' },
-  { name: 'Monthly Strategic Review', description: 'Bilan stratégique mensuel complet, présentable à un client.', role: 'performance_manager', frequency: 'monthly', runMode: 'report', analysisPeriod: 'last_30d', instructions: 'Fais un bilan stratégique mensuel complet incluant executive summary, analyse créative et plan d\'action.', outputFormat: 'Bilan structuré présentable à un client : synthèse, tableaux chiffrés, analyse créative, plan d’action.', icon: '📅' },
+  {
+    name: 'Daily Kill Guard',
+    description: 'Coupe chaque jour les ads qui ont dépensé 2× le CPA cible sans conversion.',
+    role: 'performance_manager', frequency: 'daily', runMode: 'propose', analysisPeriod: 'last_3d',
+    instructions: `Décide ce qui doit être coupé aujourd'hui.
+
+## 1. Verdict
+Combien d'éléments à couper et le montant que ça libère. Une ligne.
+
+## 2. À couper
+| Élément | Niveau | Dépense | [conv] | [coût] | Pourquoi |
+Un seul critère : dépense supérieure à deux fois le [coût] cible, sans [conv].
+Ne l'assouplis pas. Si personne ne le franchit, écris « Rien à couper
+aujourd'hui » et passe directement à la section 3.
+
+## 3. À surveiller demain
+Trois éléments au plus, ceux qui approchent du seuil. Une ligne chacun, avec
+la dépense qui reste avant de le franchir.
+
+## 4. Où remettre ce budget
+Nomme les éléments performants du compte et leur [coût]. Pas de conseil
+générique.`,
+    outputFormat: 'Verdict, tableau à couper, liste de surveillance, réallocation nommée.',
+    icon: '🛡️',
+  },
+  {
+    name: 'Traffic Quality Watchdog',
+    description: 'Vérifie chaque jour la qualité du trafic acheté (Cost per ATC / CPL).',
+    role: 'media_buyer', frequency: 'daily', runMode: 'report', analysisPeriod: 'last_3d',
+    instructions: `Vérifie la qualité du trafic acheté.
+
+## 1. Verdict
+Le trafic est-il de qualité ? Le chiffre qui tranche : [coût] du compte contre
+sa cible.
+
+## 2. Tableau par adset
+| Adset | Dépense | Clics | [conv] | [coût] | Clic → [conv] | Verdict |
+Verdict ∈ { Sain, À surveiller, Dégradé }.
+
+## 3. Où ça se perd
+Pour chaque adset dégradé, désigne l'étape qui casse — impression → clic
+(la créa) ou clic → [conv] (la page, l'offre, le formulaire). Un seul coupable
+par ligne, avec le chiffre qui le désigne.
+
+## 4. Trois actions
+Chacune s'attaque à l'étape nommée en section 3. Aucune action générique.`,
+    outputFormat: 'Verdict, tableau par adset, étape fautive nommée, 3 actions ciblées.',
+    icon: '👁️',
+  },
+  {
+    name: 'Creative Fatigue Scanner',
+    description: 'Détecte tous les 3 jours les créas fatiguées et propose des remplacements.',
+    role: 'creative_strategist', frequency: 'every_3_days', runMode: 'propose', analysisPeriod: 'last_14d',
+    instructions: `Scanne la fatigue créative du compte.
+
+## 1. Verdict
+Le compte est-il en fatigue ? Oui ou non, avec le chiffre qui le prouve, et le
+nom de la publicité la plus avancée.
+
+## 2. Tableau de fatigue
+Une ligne par publicité active ayant dépensé.
+| Publicité | Dépense | Fréquence | CTR courant | CTR précédent | Δ | Verdict |
+Verdict ∈ { Fatiguée, Sous surveillance, Saine, Trop jeune }.
+Fatiguée = fréquence supérieure à 3 **et** CTR en baisse de plus de 20 %.
+N'assouplis jamais ce seuil : si aucune publicité ne le franchit, dis-le.
+
+## 3. Ce qui se dégrade vraiment
+Trois lignes. Quand la fatigue n'est pas le problème, nomme celui qui l'est —
+concentration du budget sur une seule créa, gabarit visuel dupliqué, [coût] qui
+dérive — avec ses chiffres.
+
+## 4. Remplacements
+Une fiche par publicité à remplacer, trois au maximum :
+- Ce qu'on remplace et pourquoi, en une ligne chiffrée
+- L'angle de la nouvelle créa
+- Le format
+- Le hook d'ouverture, écrit
+- Le KPI qui validera le test`,
+    outputFormat: 'Verdict, tableau de fatigue, cause réelle, 3 fiches de remplacement au plus.',
+    icon: '😴',
+  },
+  {
+    name: 'Weekly Performance Report',
+    description: 'Le point de la semaine, chaque lundi matin.',
+    role: 'performance_manager', frequency: 'weekly', runMode: 'report', analysisPeriod: 'last_7d',
+    instructions: `Fais le point de la semaine.
+
+## 1. Verdict
+Trois lignes : le résultat de la semaine, sa variation, ce qui l'explique.
+
+## 2. Semaine contre semaine
+| Indicateur | Semaine précédente | Cette semaine | Δ |
+Dépense, [conv], [coût], impressions, CTR, CPM, fréquence.
+
+## 3. Ce qui porte, ce qui pèse
+Deux tableaux courts : les trois meilleures et les trois pires par [coût], avec
+leur dépense. Rien d'autre.
+
+## 4. Alertes
+Ce qui a changé de régime cette semaine. Trois au maximum, chiffrées.
+« Aucune alerte » est une réponse valable et suffisante.
+
+## 5. Trois actions
+Une action = un élément nommé + ce qu'on lui fait + le résultat attendu.`,
+    outputFormat: 'Verdict, comparatif hebdomadaire, top et flop 3, alertes, 3 actions.',
+    icon: '📊',
+  },
+  {
+    name: 'Monthly Strategic Review',
+    description: 'Bilan stratégique mensuel, présentable à un client.',
+    role: 'performance_manager', frequency: 'monthly', runMode: 'report', analysisPeriod: 'last_30d',
+    instructions: `Fais le bilan stratégique du mois.
+
+## 1. Verdict du mois
+Cinq lignes au plus : le résultat, la tendance sur le mois, la décision
+principale à prendre maintenant.
+
+## 2. Le mois en chiffres
+| Indicateur | Mois précédent | Ce mois | Δ |
+Puis une seule ligne : ce que cette évolution coûte ou rapporte.
+
+## 3. Ce que le mois a appris
+Trois enseignements, chacun adossé à un chiffre du mois. Un enseignement sans
+preuve chiffrée ne s'écrit pas.
+
+## 4. État du portefeuille créatif
+| Créa | Dépense | [coût] | Statut |
+Statut ∈ { Winner, Performante, En observation, À couper, Trop jeune }.
+Puis une ligne sur la concentration : quelle part du budget repose sur la
+meilleure créa, et ce que ça implique si elle s'use.
+
+## 5. Le mois prochain
+Trois chantiers, dans l'ordre. Chacun : ce qu'on fait, pourquoi maintenant,
+comment on saura que ça a marché.`,
+    outputFormat: 'Verdict, comparatif mensuel, 3 enseignements chiffrés, portefeuille créatif, 3 chantiers.',
+    icon: '📅',
+  },
   {
     name: 'Audit Niveaux de Conscience',
     description: 'Classe les créas selon Eugene Schwartz et repère les niveaux sous-représentés.',
@@ -88,22 +220,29 @@ Puis :
     name: 'Banque d\'Angles',
     description: 'Bibliothèque d\'angles créatifs structurés, prêts à briefer.',
     role: 'creative_strategist', frequency: 'monthly', runMode: 'report', analysisPeriod: 'last_30d',
-    instructions: `Construis une banque d'angles créatifs pour ce compte Meta Ads.
+    instructions: `Construis la banque d'angles créatifs du compte.
 
-Pour chaque angle :
-- NOM (label interne)
-- SOURCE (citation directe)
-- IDÉE CENTRALE (une phrase)
-- PERSONA CIBLE (personne spécifique dans une situation)
-- NIVEAU DE CONSCIENCE + justification
-- DÉCLENCHEUR ÉMOTIONNEL (frustration/culpabilité/soulagement/embarras/fierté/aspiration/peur)
-- FORMATS ADAPTÉS + pourquoi
-- DIRECTION DE HOOK (exemple directionnel)
-- PRIORITÉ CRÉATIVE : HIGH/MEDIUM/LOW + justification
-- STATUT : Frais / Actif / Fatigué
+## 1. Verdict
+Combien d'angles exploitables, et le niveau de conscience le moins couvert.
 
-Termine avec SYNTHÈSE : total, distribution par niveau conscience, top 3 à briefer immédiatement.`,
-    outputFormat: 'Une fiche par angle, puis synthèse avec distribution et top 3 à briefer.',
+## 2. Tableau des angles
+Huit angles au maximum, triés par priorité décroissante.
+| Angle | Persona | Niveau de conscience | Déclencheur | Format | Statut | Priorité |
+Déclencheur ∈ { frustration, culpabilité, soulagement, embarras, fierté,
+aspiration, peur }. Statut ∈ { Frais, Actif, Fatigué } — Actif ou Fatigué
+seulement si une créa du compte le porte déjà, et alors nomme-la.
+
+## 3. Les trois à briefer
+Une fiche pour les trois angles prioritaires, pas une de plus :
+- L'idée centrale, en une phrase
+- La source : citation directe d'un commentaire, d'un avis ou d'une créa gagnante
+- Le persona, décrit comme une personne dans une situation
+- Le hook d'ouverture, écrit
+- Pourquoi celui-là maintenant
+
+## 4. Ce qui manque
+Les niveaux de conscience sans aucun angle, et ce que ce vide coûte au compte.`,
+    outputFormat: 'Verdict, tableau de 8 angles maximum, 3 fiches détaillées, angles manquants.',
     icon: '💡',
   },
   {

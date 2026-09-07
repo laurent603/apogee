@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
          * produit l'a purement ignorée. En dernière position, c'est la
          * dernière chose lue avant la rédaction.
          */
-        const blocFinal = deep ? BLOC_ACTIONNABLES : ''
+        const blocFinal = deep ? DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES : ''
 
         const systemPrompt = customPrompt
           ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}`

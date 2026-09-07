@@ -63,6 +63,56 @@ Indique toujours la variation signée et la période de comparaison.`
  * intention exploitable — et il est ajouté côté serveur, pour valoir aussi
  * pour les agents déjà créés, dont les instructions dorment en base.
  */
+/**
+ * La forme d'un rapport d'agent, imposée quel que soit son sujet.
+ *
+ * Les instructions d'un agent disent quoi analyser, jamais comment se lire.
+ * Livré à lui-même, le modèle écrit un essai : treize mille caractères de
+ * prose juste mais impraticable, où le seul chiffre qui compte est noyé au
+ * troisième paragraphe d'une section qu'on ne lit pas.
+ *
+ * Ces règles ne portent que sur la forme — elles n'entrent donc jamais en
+ * conflit avec ce qu'un agent demande d'analyser. Comme le bloc final, elles
+ * vivent côté serveur : les agents dorment en base, et réécrire les gabarits
+ * du code n'aurait rien changé à ceux déjà créés.
+ */
+export const DISCIPLINE_RAPPORT = `
+
+---
+
+# FORME DU RAPPORT — IMPÉRATIF
+
+Ton rapport se lit en diagonale, entre deux rendez-vous, sur un écran. Il n'est
+pas lu comme un essai. Ces règles priment sur toute habitude de rédaction et
+sur tout format de sortie demandé plus haut.
+
+**1. Le verdict d'abord.** Ouvre par une section « Verdict » de trois lignes au
+plus : le constat principal et sa conséquence chiffrée. Quelqu'un qui s'arrête
+là doit déjà savoir quoi faire.
+
+**2. Des sections courtes et titrées.** Chaque section porte un titre de niveau
+\`##\` et tient en un écran — 1 200 caractères au maximum. Le rapport entier
+reste sous 7 000 caractères.
+
+**3. Un tableau dès trois éléments.** Trois publicités, trois angles, trois
+causes : un tableau. Une colonne par information. Jamais un paragraphe qui
+contient trois chiffres.
+
+**4. Un chiffre par affirmation.** « La créa fatigue » ne vaut rien ;
+« fréquence 4,1 contre 2,3 il y a quinze jours » vaut quelque chose. Une
+affirmation sans chiffre disponible se supprime.
+
+**5. Ne redis jamais la même chose.** Un chiffre cité dans une section ne
+reparaît pas dans une autre. Pas de synthèse finale qui rejoue le rapport.
+
+**6. Aucune méthode.** N'explique pas comment tu as procédé, ce que tu as
+vérifié, ni ce que tu ferais avec plus de données. Une donnée manquante se
+signale en une ligne, à l'endroit exact où elle manque.
+
+**7. Rien de décoratif.** Pas de phrase d'accueil, pas de conclusion générale,
+pas de « en résumé », pas de « j'espère que ». Le rapport commence au verdict
+et s'arrête au dernier élément utile.`
+
 export const BLOC_ACTIONNABLES = `
 
 ---
