@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_GENERATIVE, disciplinePour, natureDuRapport } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -104,7 +104,29 @@ export async function POST(req: NextRequest) {
          * produit l'a purement ignorée. En dernière position, c'est la
          * dernière chose lue avant la rédaction.
          */
-        const blocFinal = deep ? DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES : ''
+        /**
+         * Diagnostic ou livrable génératif : les deux n'obéissent pas aux
+         * mêmes règles. Un scan de fatigue doit tenir en un écran ; une
+         * stratégie full-funnel doit produire cinq personas et douze angles,
+         * et la discipline des diagnostics l'en empêchait.
+         */
+        const demande = customPrompt || `${category} ${analysisType} ${outputFormat || ''}`
+        const generatif = natureDuRapport(demande) === 'generatif'
+        const blocFinal = deep ? disciplinePour(demande) + BLOC_ACTIONNABLES : ''
+
+        /**
+         * Une consigne de stratégie tapée dans la discussion mérite le modèle
+         * des rapports.
+         *
+         * La diversité des propositions vient de la réflexion étendue : la
+         * même consigne rendait cinq personas chez Opus et une liste plate
+         * chez Sonnet, quand elle n'abandonnait pas une section en route. Le
+         * seuil de longueur protège la discussion ordinaire — une question de
+         * deux lignes n'a pas besoin de ça, et la réponse arriverait deux
+         * minutes plus tard.
+         */
+        const chatProfond = !deep && generatif && String(customPrompt || '').length > 400
+        const disciplineChat = chatProfond ? DISCIPLINE_GENERATIVE : ''
 
         const systemPrompt = customPrompt
           ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}`
@@ -189,7 +211,7 @@ ${JSON.stringify(previous.ads, null, 2)}`
         // Keyed off an explicit flag, not the persona — chat picks a persona too.
         let fullResult = ''
         const demarrerFlux = () => anthropic.messages.stream({
-          model: deep ? MODEL_REPORT : MODEL_CHAT,
+          model: deep || chatProfond ? MODEL_REPORT : MODEL_CHAT,
           max_tokens: 16000,
           system: systemPrompt,
           messages: [
@@ -216,12 +238,12 @@ ${JSON.stringify(previous.ads, null, 2)}`
             {
               role: 'user' as const,
               content: [
-                { type: 'text' as const, text: userMessage + imageNote + blocFinal },
+                { type: 'text' as const, text: userMessage + imageNote + blocFinal + disciplineChat },
                 ...toImageBlocks(images),
               ],
             },
           ],
-          ...(deep ? REPORT_REASONING : {}),
+          ...(deep || chatProfond ? REPORT_REASONING : {}),
         })
 
         /**

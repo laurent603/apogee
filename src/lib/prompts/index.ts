@@ -113,6 +113,99 @@ signale en une ligne, à l'endroit exact où elle manque.
 pas de « en résumé », pas de « j'espère que ». Le rapport commence au verdict
 et s'arrête au dernier élément utile.`
 
+/**
+ * La forme d'un livrable qui **propose** au lieu de constater.
+ *
+ * La discipline ci-dessus a été écrite pour un diagnostic, et elle l'étrangle
+ * dès qu'il s'agit de produire de la matière : sept mille caractères ne
+ * contiennent pas cinq personas, douze angles et trois briefs — et sa règle
+ * « une affirmation sans chiffre se supprime » interdit littéralement de
+ * proposer, puisqu'un persona, un angle ou une direction de hook n'ont aucun
+ * chiffre à citer.
+ *
+ * Ici les plafonds deviennent des planchers : le défaut à corriger n'est plus
+ * la longueur, c'est la pauvreté — trois variations d'une même idée présentées
+ * comme trois idées.
+ */
+export const DISCIPLINE_GENERATIVE = `
+
+---
+
+# FORME DU LIVRABLE — IMPÉRATIF
+
+Ce n'est pas un diagnostic, c'est une proposition. Ta valeur tient au **nombre
+d'idées distinctes** que tu produis, jamais à leur développement. Large et
+plat, jamais étroit et profond.
+
+**1. Ouvre par une synthèse.** Un paragraphe par section, trois lignes au
+plus, chacun portant le chiffre qui tranche. Quelqu'un qui ne lit que cette
+synthèse doit pouvoir décider. Elle vient avant la première section.
+
+**2. Va large.** Quand une section appelle une liste — personas, angles,
+formats, hooks, phases — produis le nombre demandé, et jamais moins. Si aucun
+nombre n'est demandé, cinq vaut mieux que trois. Une liste courte n'est pas de
+la rigueur, c'est une pénurie d'idées.
+
+**3. Chaque proposition tient en quatre lignes.** Trois cent cinquante signes
+au maximum, en champs courts — pas en paragraphes. C'est une fiche, pas un
+essai.
+- un persona : qui il est, sa douleur, son désir, sa direction de hook ;
+- un angle : son idée, son déclencheur, son accroche écrite ;
+- un format : sa durée et son cadrage.
+Rien d'autre. Développer un élément vole la place de trois autres.
+
+**Dans une liste, une entrée = une ligne de dix mots.** « TOFU : calcul été
+vs ROI piscine » suffit ; la phrase qui l'explique est de trop. Quand une
+section compare plusieurs choses de même nature — phases, étages de tunnel —
+donne-lui des rubriques parallèles et courtes, remplies des mêmes champs pour
+chacune, plutôt qu'un développement par entrée.
+
+**4. Jamais deux fois la même mécanique.** Deux propositions qui reposent sur
+le même ressort — même émotion, même preuve, même structure d'accroche — n'en
+font qu'une. Change de levier à chaque entrée : la peur, la fierté, le calcul,
+la curiosité, la preuve sociale, l'autorité, l'appartenance ne se ressemblent
+pas. Avant de rendre, relis ta liste et supprime les doublons déguisés.
+
+**5. Une proposition se justifie en une ligne, par un raisonnement.** Un
+persona, un angle, une direction de hook n'ont pas de métrique. Dis **pourquoi
+celui-là pour ce compte** — ce qu'il exploite dans l'offre, l'audience ou le
+marché. C'est cette ligne qui sépare une idée d'une supposition, pas un
+pourcentage.
+
+**6. Sois concret.** Un persona porte un prénom, un âge, une situation et ce
+qu'il a déjà fait ou pas fait. Un angle porte sa phrase d'accroche écrite, pas
+son thème. Une idée qu'on ne peut pas tourner demain n'est pas une proposition.
+
+**7. La forme reste tenue.** Sections titrées en \`##\`, tableau dès trois
+éléments, aucune redite d'une section à l'autre, aucune explication de ta
+méthode, pas de conclusion générale.`
+
+/**
+ * Diagnostic ou livrable génératif ?
+ *
+ * Le rôle de l'agent ne suffit pas : le Creative Fatigue Scanner est un
+ * creative strategist, et c'est pourtant un diagnostic. C'est la **demande**
+ * qui tranche — d'où une lecture du texte plutôt qu'un drapeau en base, ce qui
+ * a l'avantage de valoir aussi pour les agents déjà créés et pour une consigne
+ * tapée à la volée dans une discussion.
+ *
+ * Les marqueurs de diagnostic l'emportent : « propose un brief de
+ * remplacement » à la fin d'un scan de fatigue ne transforme pas ce scan en
+ * document de stratégie.
+ */
+const DIAGNOSTIC = /fatigue|à couper|a couper|kill|gaspill|qualité du trafic|qualite du trafic|dépenses? sans|depenses? sans|cause|variation|décompos|decompos|bilan|hebdomadaire|audit/i
+const GENERATIF = /persona|angle|brief|roadmap|full.?funnel|stratégie créative|strategie creative|banque d'angles|script|niveau de conscience|architecture/i
+
+export function natureDuRapport(demande: string | null | undefined): 'diagnostic' | 'generatif' {
+  const t = String(demande || '')
+  if (DIAGNOSTIC.test(t)) return 'diagnostic'
+  return GENERATIF.test(t) ? 'generatif' : 'diagnostic'
+}
+
+/** La discipline qui correspond à la demande. */
+export const disciplinePour = (demande: string | null | undefined) =>
+  natureDuRapport(demande) === 'generatif' ? DISCIPLINE_GENERATIVE : DISCIPLINE_RAPPORT
+
 export const BLOC_ACTIONNABLES = `
 
 ---

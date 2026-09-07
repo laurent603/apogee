@@ -227,14 +227,17 @@ Puis :
 Combien d'angles exploitables, et le niveau de conscience le moins couvert.
 
 ## 2. Tableau des angles
-Huit angles au maximum, triés par priorité décroissante.
+**Au moins dix angles**, triés par priorité décroissante. Deux angles qui
+reposent sur le même déclencheur et la même preuve n'en font qu'un : couvre
+des ressorts différents.
 | Angle | Persona | Niveau de conscience | Déclencheur | Format | Statut | Priorité |
 Déclencheur ∈ { frustration, culpabilité, soulagement, embarras, fierté,
 aspiration, peur }. Statut ∈ { Frais, Actif, Fatigué } — Actif ou Fatigué
 seulement si une créa du compte le porte déjà, et alors nomme-la.
 
 ## 3. Les trois à briefer
-Une fiche pour les trois angles prioritaires, pas une de plus :
+Le tableau donne l'étendue ; cette section donne la profondeur. Une fiche pour
+les trois angles prioritaires :
 - L'idée centrale, en une phrase
 - La source : citation directe d'un commentaire, d'un avis ou d'une créa gagnante
 - Le persona, décrit comme une personne dans une situation
