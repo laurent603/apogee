@@ -32,9 +32,22 @@ export function markdownToHtml(md: string): string {
   html = html.replace(
     /\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|[ \t]*\n?)+)/g,
     (_, header, body) => {
-      const ths = header.split('|').map((s: string) => s.trim()).filter(Boolean)
+      /**
+       * Coupe une ligne sur ses barres, en respectant `\|`.
+       *
+       * Les campagnes Leadscore s'appellent `[LDS] | Bofu | Acquisition | Cbo`.
+       * Le modèle échappe correctement ces barres, mais la découpe naïve les
+       * traitait comme des séparateurs : une ligne de cinq colonnes en rendait
+       * huit, et tout le tableau se décalait.
+       */
+      const cellules = (ligne: string) => ligne
+        .split(/(?<!\\)\|/)
+        .map((s: string) => s.trim().replace(/\\\|/g, '|'))
+        .filter(Boolean)
+
+      const ths = cellules(header)
       const rows = body.trim().split('\n').filter((r: string) => r.trim().startsWith('|'))
-        .map((row: string) => row.split('|').map((s: string) => s.trim()).filter(Boolean))
+        .map(cellules)
       const thead = `<thead><tr>${ths.map((h: string) => `<th>${inlineMd(h)}</th>`).join('')}</tr></thead>`
       const tbody = `<tbody>${rows.map((r: string[]) => `<tr>${r.map((c: string) => `<td>${inlineMd(c)}</td>`).join('')}</tr>`).join('')}</tbody>`
       return `<table>${thead}${tbody}</table>\n`

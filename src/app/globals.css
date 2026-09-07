@@ -117,7 +117,10 @@
 .chat-report li { margin-bottom: 0.25rem; }
 .chat-report blockquote { border-left: 3px solid #3434ef; padding-left: 1rem; color: #374151; margin: 0.875rem 0; font-style: italic; background: #f0f0ff; border-radius: 0 6px 6px 0; padding: 0.75rem 1rem; }
 .chat-report hr { border: none; border-top: 1px solid #E5E7EB; margin: 1.25rem 0; }
-.chat-report table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 0.875rem 0; border-radius: 8px; overflow: hidden; border: 1px solid #E5E7EB; }
+/* `display: block` fait défiler le tableau dans sa propre boîte. Sans lui, sur
+   un téléphone, les dernières colonnes étaient purement coupées : la page ne
+   défile pas latéralement, donc rien ne permettait d'aller les chercher. */
+.chat-report table { display: block; width: 100%; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.82rem; margin: 0.875rem 0; border-radius: 8px; border: 1px solid #E5E7EB; }
 .chat-report thead { background: #3434ef; }
 .chat-report thead th { color: white; font-weight: 600; padding: 0.6rem 0.875rem; text-align: left; }
 .chat-report tbody tr { border-bottom: 1px solid #E5E7EB; }

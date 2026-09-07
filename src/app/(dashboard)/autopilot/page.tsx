@@ -6,6 +6,7 @@ import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import type { AutopilotAgent } from '@/types'
 import { extraireActionnables, sansBlocActionnables, type Actionnable } from '@/lib/scalr/actionnables'
+import { RapportSections, type Kpi } from '@/components/scalr/RapportSections'
 
 type Tab = 'session' | 'agent' | 'history' | 'settings'
 
@@ -576,6 +577,36 @@ export default function AutopilotPage() {
     const data = await res.json()
     setReports(data.reports || [])
   }, [selectedAccount?.id])
+
+  /**
+   * Les chiffres du bandeau viennent de la base, pas du rapport.
+   *
+   * Un modèle qui recopie ses propres chiffres peut se tromper, et surtout ils
+   * dateraient du jour de la génération. Ceux-ci sont ceux du compte
+   * aujourd'hui — la même source que le tableau de Media buying.
+   *
+   * Chargés une fois par compte, pas une fois par rapport ouvert.
+   */
+  const [kpis, setKpis] = useState<Kpi[]>([])
+  useEffect(() => {
+    if (tab !== 'history' || !selectedAccount?.id) { setKpis([]); return }
+    let vivant = true
+    fetch(`/api/scalr/overview?dbAccountId=${selectedAccount.id}&periode=30d`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vivant || !d?.courant) return
+        const c = d.courant, e = d.evolutions || {}
+        const euro = (v: number | null) => (typeof v === 'number' ? `${v.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €` : '—')
+        setKpis([
+          { libelle: 'Dépense 30 j', valeur: euro(c.spend), evolution: e.spend ?? null, sens: 'haut' },
+          { libelle: c.resultLabel || 'Résultats', valeur: c.resultValue?.toLocaleString('fr-FR') ?? '—', evolution: e.resultValue ?? null, sens: 'haut' },
+          { libelle: 'Coût / résultat', valeur: euro(c.costPerResult), evolution: e.costPerResult ?? null, sens: 'bas' },
+          { libelle: 'CTR', valeur: typeof c.ctr === 'number' ? `${c.ctr} %` : '—', evolution: e.ctr ?? null, sens: 'haut' },
+        ])
+      })
+      .catch(() => { /* le bandeau est un confort : son absence ne bloque rien */ })
+    return () => { vivant = false }
+  }, [tab, selectedAccount?.id])
 
   useEffect(() => { if (tab === 'history') loadReports() }, [tab, loadReports])
 
@@ -1421,7 +1452,7 @@ export default function AutopilotPage() {
                       return (
                       <div className="border-t border-[#E5E7EB]">
                         <div className="px-5 py-5">
-                          <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(sansBlocActionnables(report.content)) }} />
+                          <RapportSections markdown={sansBlocActionnables(report.content)} kpis={kpis} />
                         </div>
 
                         {/* Ce que le rapport réclame comme nouvelles créas.
