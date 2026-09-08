@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
@@ -118,6 +119,25 @@ export function Sidebar({ open = false, onNavigate, reduit = false, anime = fals
   const pathname = usePathname()
   const { data: session } = useSession()
 
+  /**
+   * Le thème.
+   *
+   * Il est déjà posé sur `<html>` par le script du gabarit racine, avant la
+   * première peinture ; l'état n'est lu qu'après le montage pour rester
+   * d'accord avec le rendu serveur, qui lui ne connaît pas le stockage local.
+   */
+  const [sombre, setSombre] = useState(false)
+  useEffect(() => {
+    setSombre(document.documentElement.getAttribute('data-theme') === 'dark')
+  }, [])
+
+  function basculerTheme() {
+    const suivant = !sombre
+    setSombre(suivant)
+    document.documentElement.setAttribute('data-theme', suivant ? 'dark' : 'light')
+    try { localStorage.setItem('theme', suivant ? 'dark' : 'light') } catch { /* navigation privée */ }
+  }
+
   return (
     <aside
       className={clsx(
@@ -127,7 +147,7 @@ export function Sidebar({ open = false, onNavigate, reduit = false, anime = fals
         reduit ? 'md:w-16' : 'md:w-64',
         open ? 'translate-x-0' : '-translate-x-full'
       )}
-      style={{ background: '#3434ef' }}
+      style={{ background: 'var(--sidebar-bg)' }}
     >
       {/* Logo */}
       <div className={clsx('py-5 flex items-center justify-between', reduit ? 'md:px-4 px-5' : 'px-5')}
@@ -190,6 +210,28 @@ export function Sidebar({ open = false, onNavigate, reduit = false, anime = fals
           ))}
         </div>
       </nav>
+
+      {/* Thème */}
+      <div className={clsx('pt-3', reduit ? 'md:px-2 px-3' : 'px-3')}>
+        <button
+          onClick={basculerTheme}
+          title={sombre ? 'Passer en clair' : 'Passer en sombre'}
+          aria-label={sombre ? 'Passer en clair' : 'Passer en sombre'}
+          className={clsx('w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors',
+            reduit && 'md:justify-center md:px-0')}
+        >
+          {sombre ? (
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          )}
+          <span className={clsx('text-sm', reduit && 'md:hidden')}>{sombre ? 'Thème clair' : 'Thème sombre'}</span>
+        </button>
+      </div>
 
       {/* User */}
       <div className={clsx('py-4', reduit ? 'md:px-2 px-3' : 'px-3')} style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>

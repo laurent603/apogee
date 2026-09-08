@@ -154,3 +154,144 @@
 .step-dot.done { background: #3434ef; color: white; }
 .step-dot.active { background: #3434ef; color: white; box-shadow: 0 0 0 4px rgba(52,52,239,0.15); }
 .step-dot.pending { background: white; border: 2px solid #E5E7EB; color: #9ca3af; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Thème sombre.
+
+   Écrit comme une couche de correction plutôt qu'en refaisant les vingt-sept
+   écrans : les couleurs de l'application sont posées en dur dans les classes
+   Tailwind — mille trois cent cinquante-six occurrences — mais elles ne
+   comptent qu'une vingtaine de valeurs distinctes. Redéfinir ces vingt
+   classes sous une racine `[data-theme="dark"]` change tout l'écran sans
+   toucher un seul composant, et se retire aussi facilement.
+
+   Aucun `!important` : `[data-theme="dark"] .bg-white` est plus spécifique
+   que `.bg-white`, la cascade suffit.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root[data-theme="dark"] {
+  --fond: #0b0d13;
+  --surface: #141824;
+  --surface-2: #1b2130;
+  --surface-3: #232a3a;
+  --bordure: #262d3d;
+  --texte: #e9ebf2;
+  --texte-2: #a6adbd;
+  --texte-3: #7b8394;
+  --accent: #6b6bff;
+  --accent-fond: #1d1d3d;
+}
+
+/* ── Socle ── */
+[data-theme="dark"] body { background-color: var(--fond); color: var(--texte); }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: var(--fond); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--surface-3); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #3a4356; }
+
+/* ── Fonds ── */
+[data-theme="dark"] .bg-white { background-color: var(--surface); }
+[data-theme="dark"] .bg-\[\#f8f9fc\],
+[data-theme="dark"] .bg-\[\#fafafa\] { background-color: var(--surface-2); }
+[data-theme="dark"] .bg-gray-50 { background-color: var(--surface-2); }
+[data-theme="dark"] .bg-gray-100,
+[data-theme="dark"] .bg-\[\#F3F4F6\] { background-color: var(--surface-2); }
+[data-theme="dark"] .bg-gray-200 { background-color: var(--surface-3); }
+[data-theme="dark"] .bg-gray-300 { background-color: #313a4c; }
+[data-theme="dark"] .bg-\[\#f0f0ff\] { background-color: var(--accent-fond); }
+[data-theme="dark"] .hover\:bg-gray-50:hover,
+[data-theme="dark"] .hover\:bg-gray-100:hover,
+[data-theme="dark"] .hover\:bg-\[\#f8f9fc\]:hover { background-color: var(--surface-3); }
+
+/* ── Textes ── */
+[data-theme="dark"] .text-\[\#0d0d12\] { color: var(--texte); }
+[data-theme="dark"] .text-gray-700,
+[data-theme="dark"] .text-gray-600 { color: var(--texte-2); }
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-400 { color: var(--texte-3); }
+[data-theme="dark"] .text-gray-300 { color: #5c6474; }
+[data-theme="dark"] .hover\:text-\[\#0d0d12\]:hover { color: var(--texte); }
+
+/* ── Bordures ── */
+[data-theme="dark"] .border-\[\#E5E7EB\],
+[data-theme="dark"] .border-\[\#F3F4F6\],
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300,
+[data-theme="dark"] .border-gray-400 { border-color: var(--bordure); }
+[data-theme="dark"] .hover\:border-gray-300:hover { border-color: #3a4356; }
+
+/* ── Accent ── */
+[data-theme="dark"] .text-\[\#3434ef\] { color: var(--accent); }
+[data-theme="dark"] .border-\[\#3434ef\] { border-color: var(--accent); }
+[data-theme="dark"] .bg-\[\#3434ef\] { background-color: #3434ef; }
+[data-theme="dark"] .bg-blue-50 { background-color: var(--accent-fond); }
+
+/* ── Pastilles d'état : le fond clair devient une teinte sourde, le texte
+      s'éclaircit. Sans ça, un « Actif » vert restait illisible sur sombre. ── */
+[data-theme="dark"] .bg-green-50 { background-color: #0f2a1c; }
+[data-theme="dark"] .text-green-700 { color: #4ade80; }
+[data-theme="dark"] .border-green-200 { border-color: #1d4030; }
+[data-theme="dark"] .bg-emerald-50 { background-color: #0f2a1c; }
+[data-theme="dark"] .text-emerald-700 { color: #4ade80; }
+[data-theme="dark"] .border-emerald-200 { border-color: #1d4030; }
+[data-theme="dark"] .bg-amber-50 { background-color: #2e2310; }
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-600 { color: #fbbf24; }
+[data-theme="dark"] .border-amber-200,
+[data-theme="dark"] .border-amber-300 { border-color: #453519; }
+[data-theme="dark"] .bg-amber-100 { background-color: #3a2c14; }
+[data-theme="dark"] .text-amber-800 { color: #fcd34d; }
+[data-theme="dark"] .bg-red-50 { background-color: #2e1418; }
+[data-theme="dark"] .text-red-700,
+[data-theme="dark"] .text-red-600 { color: #f87171; }
+[data-theme="dark"] .border-red-200 { border-color: #451e24; }
+[data-theme="dark"] .bg-blue-50 .text-\[\#3434ef\] { color: var(--accent); }
+[data-theme="dark"] .text-blue-700 { color: #7aa2ff; }
+[data-theme="dark"] .border-blue-200 { border-color: #24305a; }
+
+/* ── Composants ── */
+[data-theme="dark"] .card,
+[data-theme="dark"] .card-flat { background-color: var(--surface); border-color: var(--bordure); }
+[data-theme="dark"] .card { box-shadow: none; }
+[data-theme="dark"] .input,
+[data-theme="dark"] .select { background-color: var(--surface-2); border-color: var(--bordure); color: var(--texte); }
+[data-theme="dark"] .btn-secondary { background-color: var(--surface-2); border-color: var(--bordure); color: var(--texte); }
+[data-theme="dark"] .btn-secondary:hover { background-color: var(--surface-3); }
+[data-theme="dark"] .page-title { color: var(--texte); }
+[data-theme="dark"] .drop-zone { border-color: var(--bordure); }
+[data-theme="dark"] .step-dot.pending { background: var(--surface-2); border-color: var(--bordure); color: var(--texte-3); }
+
+/* ── Rapports et briefs ── */
+[data-theme="dark"] .chat-report { color: var(--texte); }
+[data-theme="dark"] .chat-report h1,
+[data-theme="dark"] .chat-report h2,
+[data-theme="dark"] .chat-report h3,
+[data-theme="dark"] .chat-report strong,
+[data-theme="dark"] .chat-report tbody td strong { color: var(--texte); }
+[data-theme="dark"] .chat-report h2 { border-bottom-color: var(--bordure); }
+[data-theme="dark"] .chat-report code { background: var(--accent-fond); color: var(--accent); }
+[data-theme="dark"] .chat-report pre { background: var(--surface-2); border-color: var(--bordure); }
+[data-theme="dark"] .chat-report pre code { color: var(--texte-2); }
+[data-theme="dark"] .chat-report blockquote { background: var(--accent-fond); border-left-color: var(--accent); color: var(--texte-2); }
+[data-theme="dark"] .chat-report hr { border-top-color: var(--bordure); }
+[data-theme="dark"] .chat-report table { border-color: var(--bordure); }
+[data-theme="dark"] .chat-report tbody tr { border-bottom-color: var(--bordure); }
+[data-theme="dark"] .chat-report tbody tr:nth-child(even) { background: var(--surface-2); }
+[data-theme="dark"] .chat-report tbody td { color: var(--texte-2); }
+[data-theme="dark"] .report-content th { background: var(--surface-2); color: var(--texte); border-color: var(--bordure); }
+[data-theme="dark"] .report-content td { border-color: var(--bordure); color: var(--texte-2); }
+[data-theme="dark"] .report-content tr:nth-child(even) td { background: var(--surface-2); }
+[data-theme="dark"] .report-content h1,
+[data-theme="dark"] .report-content h2,
+[data-theme="dark"] .report-content h3,
+[data-theme="dark"] .report-content strong { color: var(--texte); }
+[data-theme="dark"] .report-content p,
+[data-theme="dark"] .report-content li,
+[data-theme="dark"] .report-content ul { color: var(--texte-2); }
+[data-theme="dark"] .report-content code { background: var(--accent-fond); color: var(--accent); }
+[data-theme="dark"] .report-content hr { border-color: var(--bordure); }
+
+/* Le menu est peint par une variable, pas par une couleur en dur : un bandeau
+   bleu vif contre une page presque noire ferait tache. */
+:root[data-theme="dark"] { --sidebar-bg: #10131c; }
+[data-theme="dark"] aside[style] { border-right: 1px solid var(--bordure); }

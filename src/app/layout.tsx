@@ -11,6 +11,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
+      <head>
+        {/*
+          Le thème est posé avant le premier rendu.
+          Le lire depuis React le poserait après la peinture : l'écran
+          clignoterait en blanc à chaque chargement de page.
+        */}
+        <script dangerouslySetInnerHTML={{ __html:
+          `try{var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}`
+        }} />
+      </head>
       <body>
         <Providers>
           {children}
