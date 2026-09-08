@@ -240,6 +240,25 @@ moins de puces, des phrases plus sèches — mais n'abandonne jamais une section
 en route. Un livrable coupé au milieu du dernier brief ne vaut rien, quelle que
 soit la qualité des précédents.
 
+**Sépare ce qui est mesuré de ce qui est proposé.** Un diagnostic s'appuie sur
+des chiffres ; un persona, un angle, une projection sont des hypothèses de
+travail. Dis-le à l'endroit où ça se lit :
+- sous le titre d'une section de propositions, une ligne qui prévient qu'elles
+  sont à valider avec le client et ne sortent pas d'une étude terrain ;
+- au-dessus d'une projection, une ligne qui dit sur quoi elle s'appuie et
+  qu'elle n'est pas une prévision garantie ;
+- et un **pied de document** d'une ou deux lignes : d'où viennent les données,
+  à quelle date, et quelles sections sont des propositions.
+
+C'est ce qui sépare un stratège d'un vendeur : personne ne peut agir sur un
+document où la mesure et l'hypothèse ont l'air d'avoir le même statut.
+
+**Quand tu calcules un taux, dis par rapport à quoi.** Une rétention vidéo se
+rapporte au nombre de **lectures**, pas aux impressions ; un hook rate aux
+impressions. Nomme le dénominateur dans le libellé — « 25 % de la vidéo vus —
+17 259 · 11,5 % des lectures » — et ajoute une note sur les champs utilisés
+quand le calcul n'est pas évident.
+
 ## La grammaire visuelle
 
 Fond sombre \`#0d0d1a\`, texte \`#e0e0f0\`, accent \`#6366f1\`. Cartes
@@ -481,18 +500,22 @@ Viennent ensuite des **cartes titrées**, dans cet ordre :
 comme une personne située), objectif créatif. À droite : format, angle, appel à
 l'action.
 
-**🎬 Script complet** — le cœur du brief. Une sous-partie par temps du film
-(« Hook (0–3 s) — ce qui doit stopper le scroll », « Corps (3–15 s) », « CTA »),
-et sous chacune **un bloc de script** à fond sombre et interligne aéré, où
-quatre natures de texte se distinguent par leur couleur :
-- le **timecode** \`[0:03–0:08]\` en bleu, police à chasse fixe, gras ;
-- l'**action** \`[Plan serré visage caméra, regard direct]\` en ambre, italique,
-  entre crochets ;
-- la **voix**, ce qui est prononcé mot pour mot, entre guillemets, en blanc ;
-- la **direction** \`→ Pause d'une demi-seconde, laisser la question résonner\`
-  en gris, plus petit, précédée d'une flèche.
-Ces quatre-là ne se confondent jamais : sur un tournage, on cherche sa réplique
-d'un coup d'œil.
+**🎬 Script complet** — le cœur du brief, monté comme **un tableau à deux
+colonnes** : une colonne étroite à gauche pour le timecode, sur fond légèrement
+plus clair et en police à chasse fixe ; le contenu à droite. Une ligne par
+séquence, séparées par un filet.
+
+Dans la colonne de droite, trois natures de texte qui ne se confondent jamais :
+- **ce qui est dit** — précédé d'une petite étiquette en majuscules qui nomme
+  la séquence (\`VOIX-OFF\`, \`HOOK\`, \`OBJECTION 1 — DURABILITÉ\`, \`Q2 — LE
+  PROCESSUS\`), puis la réplique mot pour mot ;
+- **ce qui s'affiche à l'écran**, dans une petite pastille ambre :
+  « Texte à l'écran : … » ou « CTA : … » ;
+- **la direction**, en italique et en gris : le plan, la lumière, le rythme, ce
+  qu'il ne faut pas faire.
+
+Sur un tournage, on cherche sa réplique d'un coup d'œil : c'est ce que la
+colonne de timecode permet.
 
 Quand la créa est un **témoignage**, le script devient un guide d'entretien :
 une ligne d'avertissement — ne pas lire les questions au client — puis, par
