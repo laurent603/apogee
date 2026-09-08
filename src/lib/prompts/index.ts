@@ -181,6 +181,29 @@ son thème. Une idée qu'on ne peut pas tourner demain n'est pas une proposition
 méthode, pas de conclusion générale.`
 
 /**
+ * Le nom d'une créa, lisible d'un coup d'œil.
+ *
+ * « avis-client-2 » ne dit ni l'étage de tunnel, ni le persona, ni l'angle :
+ * impossible de trier un compte par ce qui compte, et impossible de savoir si
+ * une nouvelle créa rejoue un angle déjà usé. Le nom porte donc la stratégie,
+ * et il est attribué au brief — avant le tournage, pas après.
+ */
+export const CONVENTION_NOMMAGE = `
+Format : \`[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]\`
+
+- **FUNNEL** : TOFU · MOFU · BOFU · RETARG
+- **PERSONA** : un mot en majuscules, tiré du persona retenu (COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR…)
+- **FORMAT** : VID · STAT · CAR · UGC
+- **ANGLE** : ROI · TRANSFORM · EDUC · PREUVE · PROCESS · OBJECTION · OFFRE
+- **HOOK** : QUESTION · STAT · BEFORE_AFTER · ITW · DIRECT
+- **Vx** : V1 pour un concept neuf, V2 et suivants pour une itération d'un concept existant
+
+Exemple : \`TOFU_COUPLE_VID_ROI_QUESTION_V1\`
+
+Sans accent, sans espace, en majuscules. Choisis chaque segment dans la liste
+ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
+
+/**
  * Un livrable stratégique s'écrit en HTML, pas en Markdown.
  *
  * Le Markdown ne sait pas faire un bandeau de KPI, une pastille d'état, une
@@ -344,6 +367,43 @@ Les trois phases montent en exigence : la première installe ce qui manque, la
 deuxième valide et itère, la troisième met à l'échelle et supprime la
 dépendance à une seule créa.
 
+### Section 5 — Dispositif de suivi créatif
+
+Sous-titre : « Convention de nommage triable — lire un nom, c'est lire toute la
+stratégie d'un coup d'œil ».
+
+**Une carte pleine largeur, puis deux cartes côte à côte.**
+
+**Carte 1 — Structure de nommage.** Le gabarit seul, dans un bloc à fond très
+sombre et police à chasse fixe, en vert :
+\`[FUNNEL] _ [PERSONA] _ [FORMAT] _ [ANGLE] _ [HOOK] _ [Vx]\`
+Puis, sur deux colonnes, les jeux de valeurs, chacun sous son étiquette
+« VALEURS FUNNEL », « VALEURS PERSONA »… et rendu en **étiquettes cliquables
+visuellement** — de petites pastilles bordées, une par valeur :
+${CONVENTION_NOMMAGE}
+
+Les valeurs de PERSONA sont **celles de ta section 2**, en un mot chacune et en
+majuscules — COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR.
+
+**N'invente jamais de codes à trois lettres.** \`UNA\`, \`PRB\`, \`SOL\`, \`DAM\`,
+\`SOP\`, \`HKQ\`, \`HKV\` sont illisibles : personne ne retient un dictionnaire, et
+un nom de créa doit se comprendre sans lui. Des mots entiers, en majuscules.
+
+**Carte 2 — Exemples de noms corrects.** Quatre noms complets, chacun dans son
+bloc à chasse fixe vert, suivi immédiatement d'une ligne en gris qui le traduit
+en français : « → TOFU, couple avec enfants, vidéo, angle calcul économique,
+hook en question, première version ». Les quatre couvrent des étages
+différents.
+
+**Carte 3 — Grille de classement créatif.** Cinq lignes, le libellé et son
+emoji à gauche, le seuil à droite en couleur :
+🥇 Winner — à itérer · ✅ Performant — à maintenir · ⚠️ En observation ·
+🔴 À couper · 📊 Signal propre au haut de tunnel.
+Les seuils sont **calés sur les chiffres réels du compte**, pas sur un barème
+générique. Termine par une ligne de règle en gris : le volume minimum avant
+tout jugement, et le fait qu'une créa de haut de tunnel se juge au CTR et au
+hook rate, jamais au coût par prospect.
+
 ## Ce que le document doit contenir
 
 **Toutes** les sections demandées, jusqu'à la dernière. Un document qui s'arrête
@@ -492,29 +552,6 @@ ${TYPE_DETECTION}`
  * pourquoi**. Sans cette ligne, impossible de savoir si le script répond au
  * diagnostic ou s'il aurait pu être écrit sans lui.
  */
-/**
- * Le nom d'une créa, lisible d'un coup d'œil.
- *
- * « avis-client-2 » ne dit ni l'étage de tunnel, ni le persona, ni l'angle :
- * impossible de trier un compte par ce qui compte, et impossible de savoir si
- * une nouvelle créa rejoue un angle déjà usé. Le nom porte donc la stratégie,
- * et il est attribué au brief — avant le tournage, pas après.
- */
-export const CONVENTION_NOMMAGE = `
-Format : \`[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]\`
-
-- **FUNNEL** : TOFU · MOFU · BOFU · RETARG
-- **PERSONA** : un mot en majuscules, tiré du persona retenu (COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR…)
-- **FORMAT** : VID · STAT · CAR · UGC
-- **ANGLE** : ROI · TRANSFORM · EDUC · PREUVE · PROCESS · OBJECTION · OFFRE
-- **HOOK** : QUESTION · STAT · BEFORE_AFTER · ITW · DIRECT
-- **Vx** : V1 pour un concept neuf, V2 et suivants pour une itération d'un concept existant
-
-Exemple : \`TOFU_COUPLE_VID_ROI_QUESTION_V1\`
-
-Sans accent, sans espace, en majuscules. Choisis chaque segment dans la liste
-ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
-
 export const BRIEF_CREA = `${SYSTEM_BASE}
 
 Tu produis un **brief créa tournable**, pas de la copy. La copy est la
