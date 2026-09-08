@@ -240,6 +240,77 @@ Fond sombre \`#0d0d1a\`, texte \`#e0e0f0\`, accent \`#6366f1\`. Cartes
 - Quand le sujet s'y prête : un entonnoir en barres de largeur décroissante,
   une frise d'échéances, un bloc en police à chasse fixe pour une convention.
 
+**L'en-tête de chaque section**, dans cet ordre et ces tailles : « SECTION N »
+en tout petit, en majuscules espacées, couleur accent — puis le titre en gros —
+puis une ligne de sous-titre en gris qui dit ce que la section établit.
+
+**Les pastilles d'étage** portent toujours **TOFU**, **MOFU**, **BOFU** ou
+**RETARGETING**. Jamais « solution-aware », « SOL » ni « most-aware » : on lit
+un étage de tunnel en diagonale, pas un vocabulaire d'école. Le niveau de
+conscience, s'il compte, se dit en toutes lettres dans le texte de la carte.
+
+## Le gabarit des trois premières sections
+
+Il n'est pas indicatif. Ces sections portent ces blocs, dans cet ordre, et rien
+d'autre.
+
+### Section 1 — Diagnostic du compte
+
+Quatre cartes en grille deux par deux, puis un encadré pleine largeur.
+
+1. **Distribution par niveau de conscience** — quatre lignes fixes : TOFU
+   (sensibilisation / problème), MOFU (trafic, éducation), BOFU (génération de
+   leads), Retargeting / nurturing. Chacune porte sa part du budget en pourcent
+   et une pastille colorée : \`ABSENT\` en rouge à 0 %, le nombre de campagnes en
+   ambre quand c'est marginal, \`dominante\` en vert au-delà de la moitié.
+2. **Santé créative des publicités actives** — une ligne par créa qui dépense :
+   son nom à gauche, son CTR à droite suivi d'un signe — 🏆 pour les deux
+   meilleures, ✅ au-dessus de la moyenne du compte, ⚠️ en dessous. Précise
+   entre parenthèses la part de dépense d'une créa qui pèse anormalement lourd.
+3. **Fréquence — évaluation** — la fréquence du compte, puis celle de la
+   campagne dominante, du gagnant, et de toute créa qui monte anormalement.
+   Termine par un paragraphe d'alerte : ce que la fréquence dit **vraiment**
+   compte tenu de la taille du bassin d'audience, et dans combien de semaines
+   ça casse.
+4. **Signal créatif — schémas identifiés** — quatre à cinq puces. Chacune : le
+   schéma qui marche, sa métrique, et en une phrase pourquoi il marche.
+   « Savoir-faire artisan → 5,71 % de CTR. La preuve de compétence locale
+   résonne. »
+
+Puis, pleine largeur, **le verrou créatif principal** dans l'encadré rouge :
+un titre court et un paragraphe. Un seul verrou, celui qui commande tout le
+reste. Et la section s'arrête là.
+
+### Section 2 — Architecture de personas
+
+Cinq personas, une carte chacun, empilées.
+
+Chaque carte : un emoji et **un nom de type** (« Le Comparateur Anxieux », « Le
+Couple Projet Vacances ») ; en dessous, une ligne de description qui donne le
+prénom, l'âge, la situation et **ce qu'il a déjà fait ou pas fait** ; la
+pastille d'étage en haut à droite. Puis deux colonnes — **Douleur principale**
+et **Désir principal** — de deux ou trois lignes chacune. Puis, en pied de
+carte, un encadré à filet accent : \`Hook direction :\` la phrase écrite entre
+guillemets, une flèche, et le type d'angle qu'elle exploite.
+
+Les cinq couvrent tout le spectre, de « je rêve » à « je recommande » : au
+moins un TOFU, un MOFU, un BOFU et un retargeting.
+
+### Section 3 — Carte du tunnel
+
+D'abord **l'entonnoir**, en trois barres de largeur décroissante et centrées —
+la première pleine largeur, la deuxième aux trois quarts, la troisième à moitié.
+Chaque barre porte son étage, et en dessous en petit : l'audience visée et la
+**part de budget cible**. Une flèche ▼ entre chaque étage.
+
+Puis **trois cartes côte à côte**, une par étage, toutes bâties pareil :
+- la pastille d'étage,
+- **Objectif créatif** : trois lignes sur le travail que la créa doit faire à
+  cet endroit du tunnel — pas ce qu'elle dit, ce qu'elle provoque,
+- **Formats** : trois étiquettes,
+- **Angles** : quatre puces de quelques mots,
+- un encadré à filet accent avec **un exemple de hook écrit**, entre guillemets.
+
 ## Ce que le document doit contenir
 
 **Toutes** les sections demandées, jusqu'à la dernière. Un document qui s'arrête
