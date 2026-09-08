@@ -311,6 +311,39 @@ Puis **trois cartes côte à côte**, une par étage, toutes bâties pareil :
 - **Angles** : quatre puces de quelques mots,
 - un encadré à filet accent avec **un exemple de hook écrit**, entre guillemets.
 
+### Section 4 — Feuille de route à 90 jours
+
+Sous-titre : ce que les phases s'enchaînent à produire — chacune fabrique le
+signal qui nourrit la suivante.
+
+**Trois cartes pleine largeur, une par ligne**, empilées, à filet léger et de
+couleur différente : accent pour la première, ambre pour la deuxième, vert pour
+la troisième. Aucune grille de cartes ici.
+
+Chaque carte, en tête : le nom de la phase en gros à gauche — « Phase 1 —
+Fondation » — et juste dessous, sur une ligne en couleur accent, les semaines
+et l'objectif : « Semaines 1–4 · Objectif : couvrir les trois étages du
+tunnel ». En haut à droite, une pastille qui nomme le régime de la phase
+(« Lancement structure », « Test & Learn », « Passage à l'échelle »).
+
+Puis, dans le corps de la carte, **trois colonnes côte à côte sur une seule
+ligne** — \`display:grid;grid-template-columns:1fr 1fr 1fr\` — de largeur égale.
+Elles ne s'empilent jamais : c'est leur mise en parallèle qui permet de
+comparer les trois phases d'un coup d'œil, et une carte dont les rubriques se
+suivent verticalement est trois fois trop haute. Mêmes rubriques pour les trois
+phases :
+- **Angles prioritaires** — quatre puces, chacune préfixée de son étage :
+  « TOFU : calcul été / ROI piscine ».
+- **Volume minimum** — trois ou quatre puces qui comptent des créas, puis une
+  ligne en italique et en gris : « Total : 9 créas minimum. »
+- **Signal de succès** — quatre puces, **chiffrées**, qui disent à quoi on
+  reconnaîtra que la phase est réussie : un seuil, jamais une intention.
+  « Fréquence BOFU stable < 2,5 », « CPL global maintenu < 20 € ».
+
+Les trois phases montent en exigence : la première installe ce qui manque, la
+deuxième valide et itère, la troisième met à l'échelle et supprime la
+dépendance à une seule créa.
+
 ## Ce que le document doit contenir
 
 **Toutes** les sections demandées, jusqu'à la dernière. Un document qui s'arrête
