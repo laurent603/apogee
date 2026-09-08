@@ -181,6 +181,84 @@ son thème. Une idée qu'on ne peut pas tourner demain n'est pas une proposition
 méthode, pas de conclusion générale.`
 
 /**
+ * Un livrable stratégique s'écrit en HTML, pas en Markdown.
+ *
+ * Le Markdown ne sait pas faire un bandeau de KPI, une pastille d'état, une
+ * carte de persona ni un entonnoir à trois étages. Tant que le modèle rendait
+ * du Markdown, aucune mise en page ne pouvait rattraper ça : le fond était
+ * bon, la lecture restait un rouleau.
+ *
+ * La règle qui interdit le HTML aux agents reste valable partout ailleurs —
+ * elle existe parce qu'un rapport HTML collé dans un e-mail s'affiche en code
+ * source. Ici le document est rendu dans un cadre isolé par l'application, et
+ * l'envoi par e-mail bascule sur un lien plutôt que sur le corps.
+ */
+export const RAPPORT_HTML = `
+
+---
+
+# FORMAT DE SORTIE — DOCUMENT HTML
+
+Tu ne rends pas du Markdown. Tu rends **un document HTML complet et autonome**,
+de \`<!DOCTYPE html>\` à \`</html>\`, et **rien d'autre** — ni texte avant, ni
+explication après, ni clôture en \`\`\`.
+
+**Autonome au sens strict** : tout le style dans une balise \`<style>\`, aucune
+police externe, aucune image externe, aucune bibliothèque. Le document s'affiche
+dans un cadre isolé sans accès au réseau.
+
+## La grammaire visuelle
+
+Fond sombre \`#0d0d1a\`, texte \`#e0e0f0\`, accent \`#6366f1\`. Cartes
+\`#16162e\` bordées de \`#2a2a4a\`, coins arrondis à 12 px.
+
+- **Un bandeau d'ouverture** : titre, sous-titre d'une ligne, et quatre à six
+  chiffres clés du compte alignés — la valeur en gros et en accent, son libellé
+  en petit et en gris.
+- **Une barre d'onglets** cliquable, une entrée par section. Elle se fait
+  **sans une ligne de JavaScript**, avec des boutons radio masqués et le
+  sélecteur \`:checked\` — le document est affiché dans un cadre isolé où les
+  scripts peuvent être bloqués, et des onglets morts ne laisseraient voir que
+  la première section :
+
+\`\`\`
+<input type="radio" name="onglet" id="o1" checked><input type="radio" name="onglet" id="o2">
+<div class="nav"><label for="o1">1 · Diagnostic</label><label for="o2">2 · Personas</label></div>
+<div class="sections"><section id="s1">…</section><section id="s2">…</section></div>
+\`\`\`
+  avec, côté style : \`input[name=onglet]{display:none}\`, les sections
+  masquées par défaut, puis \`#o1:checked~.sections #s1{display:block}\` et
+  \`#o1:checked~.nav label[for=o1]{…état actif…}\` pour chaque onglet.
+- **Des cartes** plutôt que des paragraphes. Deux ou trois par ligne en grille.
+- **Des pastilles** pour les états : vert \`#34d399\`, ambre \`#fbbf24\`, rouge
+  \`#f87171\`, sur un fond de la même teinte à 20 % d'opacité. Un état se lit à
+  la couleur avant de se lire au mot.
+- **Des étiquettes** en majuscules, 10 px, très espacées, pour nommer les champs
+  à l'intérieur d'une carte.
+- **Un encadré unique** pour le verrou principal, bordé de rouge. Un seul dans
+  tout le document.
+- Quand le sujet s'y prête : un entonnoir en barres de largeur décroissante,
+  une frise d'échéances, un bloc en police à chasse fixe pour une convention.
+
+## Ce que le document doit contenir
+
+**Toutes** les sections demandées, jusqu'à la dernière. Un document qui s'arrête
+à l'avant-dernière section est un échec, quelle que soit la qualité du reste :
+répartis ta longueur pour arriver au bout. Une section tardive courte mais
+présente vaut mieux qu'une section médiane fouillée.
+
+À l'intérieur, la même règle que partout : large et plat. Chaque carte tient en
+quelques lignes de champs courts, jamais en paragraphes. Les listes sont des
+puces de dix mots. La valeur est dans le nombre d'éléments distincts.
+
+**Aucun JavaScript nulle part.** Ni pour les onglets, ni pour un graphique, ni
+pour une animation. Tout ce que le document fait, il le fait en CSS.
+
+Le cadre qui t'affiche a une hauteur fixe et fait défiler ton document : ne
+cherche pas à t'y adapter, et ne mets pas \`height:100vh\` sur une section — une
+section plus haute que l'écran doit simplement continuer vers le bas.`
+
+/**
  * Diagnostic ou livrable génératif ?
  *
  * Le rôle de l'agent ne suffit pas : le Creative Fatigue Scanner est un

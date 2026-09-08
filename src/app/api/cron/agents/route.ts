@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
-import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, disciplinePour } from '@/lib/prompts'
+import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, natureDuRapport } from '@/lib/prompts'
 
 /**
  * Le format de sortie demandé à l'agent, débarrassé de toute demande de HTML.
@@ -157,16 +157,24 @@ export async function GET(req: NextRequest) {
       // Une surcharge des serveurs du modèle jetait tout le travail de l'agent
       // et envoyait un e-mail d'échec pour un incident passager. Rien n'a été
       // livré à ce stade : on peut recommencer proprement.
+      const generatif = natureDuRapport(agent.instructions) === 'generatif'
       const content = await avecReprise(async () => {
         let texte = ''
         const stream = await anthropic.messages.stream({
           model: MODEL_REPORT,
-          max_tokens: 16000,
+          max_tokens: generatif ? 32000 : 16000,
           ...REPORT_REASONING,
-          system: `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
+          /**
+         * Un livrable génératif sort en document HTML : son socle système ne
+         * peut donc pas lui interdire le HTML, comme il le fait pour tous les
+         * autres rapports. Les garde-fous sur les données restent, eux.
+         */
+        system: generatif
+          ? `${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu es LEADSCORE, expert Meta Ads pour une agence de publicité digitale. Tu écris en français, tu es direct et factuel, et chaque recommandation s'appuie sur les données réelles fournies.`
+          : `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
           // Le bloc final est joint au message, en dernière position : dans le
           // prompt système, il était ignoré (voir /api/ai/analyze).
-          messages: [{ role: 'user', content: userMessage + disciplinePour(agent.instructions) + BLOC_ACTIONNABLES }],
+          messages: [{ role: 'user', content: userMessage + (generatif ? RAPPORT_HTML : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES) }],
         })
         for await (const chunk of stream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {

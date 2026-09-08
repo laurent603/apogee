@@ -1,4 +1,5 @@
 import { renderReportEmail } from './email'
+import { estRapportHtml } from '@/lib/scalr/rapportHtml'
 
 export type DeliveryResult = { channel: 'email' | 'notion'; ok: boolean; detail?: string }
 
@@ -18,6 +19,22 @@ export async function deliverReport(
   defaultEmail?: string | null,
 ): Promise<DeliveryResult[]> {
   const results: DeliveryResult[] = []
+
+  /**
+   * Ce qui part par courriel et vers Notion.
+   *
+   * Un livrable stratégique est un document HTML : collé dans un e-mail, il
+   * s'afficherait en code source — c'est exactement le bug qui avait fait
+   * interdire le HTML aux agents. Ces rapports-là partent donc en avis de mise
+   * à disposition, pas en corps de message. Tous les autres, en Markdown,
+   * continuent d'être envoyés entiers.
+   */
+  const corpsCourriel = estRapportHtml(content)
+    ? `Le rapport **${title}** est disponible dans Apogee.\n\n`
+      + `C'est un document mis en page — bandeau de chiffres, onglets, cartes — `
+      + `qui ne s'affiche pas correctement dans un courriel.\n\n`
+      + `Ouvrez-le dans **Autopilot → Historique**.`
+    : content
 
   let config: Record<string, unknown> = {}
   try { config = JSON.parse(deliveryChannels) } catch { config = { channels: ['in_app'] } }
@@ -45,8 +62,8 @@ export async function deliverReport(
             from: process.env.RESEND_FROM || 'Leadscore <onboarding@resend.dev>',
             to: [to],
             subject: title,
-            html: renderReportEmail({ title, accountName, content }),
-            text: content,
+            html: renderReportEmail({ title, accountName, content: corpsCourriel }),
+            text: corpsCourriel,
           }),
         })
         if (res.ok) {
@@ -80,7 +97,7 @@ export async function deliverReport(
             properties: { title: { title: [{ text: { content: title } }] } },
             // Notion caps a rich_text item at 2000 characters, so a long report
             // has to arrive as several blocks rather than one truncated one
-            children: chunk(content, 1900).map((part) => ({
+            children: chunk(corpsCourriel, 1900).map((part) => ({
               object: 'block',
               type: 'paragraph',
               paragraph: { rich_text: [{ text: { content: part } }] },

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
+import { estRapportHtml, extraireRapportHtml } from '@/lib/scalr/rapportHtml'
 
 /**
  * Un rapport d'agent, en onglets plutôt qu'en rouleau.
@@ -46,9 +47,42 @@ const abrege = (t: string) => {
   return sansNumero.length > 28 ? sansNumero.slice(0, 27).trimEnd() + '…' : sansNumero
 }
 
+/**
+ * Un rapport écrit en HTML, dans un cadre isolé.
+ *
+ * Le document vient d'un modèle, pas de nous : `sandbox` sans la moindre
+ * permission le prive de scripts, de stockage, de cookies, de formulaires et
+ * de toute lecture du DOM de l'application. Il ne peut qu'être regardé.
+ *
+ * D'où l'exigence, côté prompt, que ses onglets fonctionnent **en CSS seul**.
+ * Un premier essai s'appuyait sur un script pour les onglets et pour annoncer
+ * sa hauteur : dans un cadre sandboxé le script ne s'exécute pas, les onglets
+ * étaient morts et seule la première section restait visible.
+ *
+ * La hauteur est donc fixe et le document défile à l'intérieur — comme un
+ * document consulté en plein écran, ce qu'il est.
+ */
+function CadreHtml({ html }: { html: string }) {
+  return (
+    <iframe
+      srcDoc={html}
+      sandbox=""
+      title="Rapport"
+      className="w-full rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"
+      style={{ height: 'min(82vh, 1100px)' }}
+    />
+  )
+}
+
 export function RapportSections({ markdown, kpis }: { markdown: string; kpis?: Kpi[] }) {
   const { entree, sections } = decouper(markdown)
   const [actif, setActif] = useState(0)
+
+  // Un document HTML se rend tel quel : il porte déjà ses onglets, ses cartes
+  // et ses chiffres. Le bandeau de KPI ferait doublon avec le sien.
+  if (estRapportHtml(markdown)) {
+    return <CadreHtml html={extraireRapportHtml(markdown)} />
+  }
 
   const bandeau = !!kpis?.length && (
     <div className="flex flex-wrap gap-2 mb-4">

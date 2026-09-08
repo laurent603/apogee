@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_GENERATIVE, disciplinePour, natureDuRapport } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, natureDuRapport } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -112,7 +112,13 @@ export async function POST(req: NextRequest) {
          */
         const demande = customPrompt || `${category} ${analysisType} ${outputFormat || ''}`
         const generatif = natureDuRapport(demande) === 'generatif'
-        const blocFinal = deep ? disciplinePour(demande) + BLOC_ACTIONNABLES : ''
+        // Un livrable génératif sort en document HTML : le Markdown ne sait
+        // pas faire un bandeau de chiffres, une pastille d'état ni une carte.
+        // Il ne porte alors pas de bloc d'actionnables — celui-ci se lit dans
+        // un rapport Markdown, pas dans un document mis en page.
+        const blocFinal = deep
+          ? (generatif ? RAPPORT_HTML : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES)
+          : ''
 
         /**
          * Une consigne de stratégie tapée dans la discussion mérite le modèle
@@ -126,10 +132,10 @@ export async function POST(req: NextRequest) {
          * minutes plus tard.
          */
         const chatProfond = !deep && generatif && String(customPrompt || '').length > 400
-        const disciplineChat = chatProfond ? DISCIPLINE_GENERATIVE : ''
+        const disciplineChat = chatProfond ? RAPPORT_HTML : ''
 
         const systemPrompt = customPrompt
-          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.${outputInstruction}`
+          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. ${generatif ? '' : ` Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.`}${generatif ? '' : outputInstruction}`
           : getPrompt(category as PromptCategory, analysisType)
 
         const leadSourceNote = {
@@ -212,7 +218,12 @@ ${JSON.stringify(previous.ads, null, 2)}`
         let fullResult = ''
         const demarrerFlux = () => anthropic.messages.stream({
           model: deep || chatProfond ? MODEL_REPORT : MODEL_CHAT,
-          max_tokens: 16000,
+          /**
+           * Un document HTML coûte deux à trois fois son équivalent Markdown
+           * en balises et en style. À seize mille, la dernière section sautait
+           * — c'est exactement ce qu'on cherche à corriger.
+           */
+          max_tokens: generatif && (deep || chatProfond) ? 32000 : 16000,
           system: systemPrompt,
           messages: [
             /**
