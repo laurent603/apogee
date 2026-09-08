@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import type { AutopilotAgent } from '@/types'
 import { extraireActionnables, sansBlocActionnables, type Actionnable } from '@/lib/scalr/actionnables'
 import { RapportSections, type Kpi } from '@/components/scalr/RapportSections'
+import { estRapportHtml } from '@/lib/scalr/rapportHtml'
 
 type Tab = 'session' | 'agent' | 'history' | 'settings'
 
@@ -938,12 +939,23 @@ export default function AutopilotPage() {
                       )}
                     </div>
                     <div className="px-5 py-5">
-                      <div
-                        className="chat-report"
-                        dangerouslySetInnerHTML={{
-                          __html: m.content ? markdownToHtml(m.content) : '<p class="text-gray-400 text-sm">Analyse en cours…</p>',
-                        }}
-                      />
+                      {/* Une réponse peut être un document mis en page. Sans ce
+                          passage par le même composant que l'historique, la
+                          discussion en afficherait le code source. Pendant la
+                          génération, le document est encore incomplet : on
+                          attend la balise de fin pour le rendre. */}
+                      {m.content && estRapportHtml(m.content) ? (
+                        /<\/html>/i.test(m.content)
+                          ? <RapportSections markdown={m.content} />
+                          : <p className="text-gray-400 text-sm">Mise en page du rapport en cours…</p>
+                      ) : (
+                        <div
+                          className="chat-report"
+                          dangerouslySetInnerHTML={{
+                            __html: m.content ? markdownToHtml(m.content) : '<p class="text-gray-400 text-sm">Analyse en cours…</p>',
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 )}

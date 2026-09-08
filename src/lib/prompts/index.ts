@@ -272,10 +272,24 @@ section plus haute que l'écran doit simplement continuer vers le bas.`
  * document de stratégie.
  */
 const DIAGNOSTIC = /fatigue|à couper|a couper|kill|gaspill|qualité du trafic|qualite du trafic|dépenses? sans|depenses? sans|cause|variation|décompos|decompos|bilan|hebdomadaire|audit/i
-const GENERATIF = /persona|angle|brief|roadmap|full.?funnel|stratégie créative|strategie creative|banque d'angles|script|niveau de conscience|architecture/i
+const GENERATIF = /angle|script|niveau de conscience|architecture/i
+
+/**
+ * Ce qui ne peut être qu'un livrable, et l'emporte donc sur le veto.
+ *
+ * « Fais un audit du compte **et** construis une stratégie créative avec
+ * personas » partait en diagnostic : le mot « audit » suffisait à gagner. Or
+ * personne ne demande cinq personas ou une feuille de route au détour d'un
+ * scan de performance — ces mots-là décrivent une production, pas un constat.
+ *
+ * « Brief » n'y figure pas : un diagnostic de fatigue propose légitimement des
+ * briefs de remplacement, et le mot seul ne dit donc rien de la nature.
+ */
+const GENERATIF_FORT = /persona|roadmap|full.?funnel|stratégie créative|strategie creative|banque d'angles/i
 
 export function natureDuRapport(demande: string | null | undefined): 'diagnostic' | 'generatif' {
   const t = String(demande || '')
+  if (GENERATIF_FORT.test(t)) return 'generatif'
   if (DIAGNOSTIC.test(t)) return 'diagnostic'
   return GENERATIF.test(t) ? 'generatif' : 'diagnostic'
 }

@@ -10,6 +10,18 @@ import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
 import { renderGhlForPrompt } from '@/lib/ghl'
 import { notifyIncident } from '@/lib/notify'
 
+/**
+ * Le budget de temps, qui manquait.
+ *
+ * Cette route porte tous les rapports d'agent et toutes les discussions, et
+ * elle tournait sur le défaut de la plateforme. En portant le plafond de
+ * jetons à 32 000 pour les documents HTML sans toucher au temps, j'ai reproduit
+ * exactement la panne des briefs : la fonction est coupée en pleine
+ * génération, le navigateur garde ce qu'il a reçu, et le rapport s'arrête au
+ * milieu d'un mot.
+ */
+export const maxDuration = 300
+
 type PromptCategory = keyof typeof PROMPTS
 
 function getPrompt(category: PromptCategory, key: string): string {
@@ -131,7 +143,17 @@ export async function POST(req: NextRequest) {
          * deux lignes n'a pas besoin de ça, et la réponse arriverait deux
          * minutes plus tard.
          */
-        const chatProfond = !deep && generatif && String(customPrompt || '').length > 400
+        /**
+         * Une demande générative passe en profondeur, quelle que soit sa
+         * longueur.
+         *
+         * Un seuil de quatre cents signes renvoyait « construis-moi une
+         * stratégie full-funnel avec personas et les 3 premiers briefs » —
+         * cent neuf signes, parfaitement explicite — sur le modèle rapide et
+         * le Markdown. Le vocabulaire suffit à trancher : personne ne demande
+         * des personas ou des briefs par mégarde.
+         */
+        const chatProfond = !deep && generatif
         const disciplineChat = chatProfond ? RAPPORT_HTML : ''
 
         const systemPrompt = customPrompt
