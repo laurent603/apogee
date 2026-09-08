@@ -415,23 +415,44 @@ présente vaut mieux qu'une section médiane fouillée.
 quelques lignes de champs courts, jamais en paragraphes. Les listes sont des
 puces de dix mots. La valeur est dans le nombre d'éléments distincts.
 
-## Si le document contient une section de briefs
+### Section 6 — Les trois premiers briefs
 
-C'est le livrable, pas une liste : elle a droit à plus de place que les autres,
-et la règle des quatre lignes ne s'y applique pas. Une carte par brief, avec
-**exactement** ces rubriques :
+Sous-titre : « Priorisés par impact sur le compte. Chaque brief est un concept
+neuf, pas une micro-variation. »
 
-- **Nom** : le nom technique de la créa, suivi du titre du concept entre
-  guillemets — \`TOFU_COUPLE_VID_ROI_QUESTION_V1 — « L'Été à la Maison »\`
+C'est le livrable : la règle des quatre lignes ne s'y applique pas. **Une carte
+pleine largeur par brief**, empilées, à filet de la couleur de son étage, avec
+le **numéro du brief en très gros chiffre fantôme** dans le coin haut droit —
+opacité 6 %, purement décoratif.
+
+En tête de carte : la pastille d'étage, puis une seconde pastille grise qui
+qualifie le brief (« Priorité critique », « Itération du gagnant », « Nouveau
+concept »). En dessous, le titre : le nom technique de la créa, un tiret, et le
+titre du concept entre guillemets —
+\`TOFU_COUPLE_VID_ROI_QUESTION_V1 — « L'Été à la Maison »\`
+
+Puis le corps **sur deux colonnes côte à côte**
+(\`grid-template-columns:1fr 1fr\`) :
+
+**Colonne de gauche**
 - **Angle marketing** : pas une étiquette (« proximité locale », « preuve
-  sociale ») mais **la phrase que le prospect va entendre**, écrite :
+  sociale ») mais **la phrase que le prospect va entendre**, écrite —
   « J'ai dépensé 12 000 € en locations ces cinq ans. J'aurais pu avoir ma piscine. »
-- **Persona et niveau de conscience**
-- **Format** : durée, ratio, façon de tourner
-- **Direction de hook**, en trois lignes séparées — **Texte** (ce qui s'affiche,
-  six mots), **Visuel** (ce qu'on voit), **Audio** (le ton, la voix)
-- **Structure**, minutée : 0–3 s, 3–15 s, 15–25 s, 25–30 s, une ligne chacune
-- **Pourquoi celui-là en premier** : trois lignes, adossées à un chiffre du compte
+- **Persona & niveau** : le persona, l'étage, le ciblage, séparés par des points médians
+- **Format** : durée, ratio, façon de tourner, séparés par des points médians
+
+**Colonne de droite**
+- **Direction hook (T-A-V)** : trois lignes, chacune ouverte par son libellé en
+  gras — **Texte :** ce qui s'affiche, six mots ; **Visuel :** ce qu'on filme ;
+  **Audio :** le ton et la voix
+- puis, selon la nature de la créa, **une seule** de ces rubriques :
+  **Structure vidéo** minutée (0–3 s, 3–15 s, 15–25 s, 25–30 s) pour une créa
+  écrite ; **Questions guides pour le client** pour un témoignage ; **Les trois
+  objections à traiter** pour un format « vrai ou faux ».
+
+Enfin, **pleine largeur sous les deux colonnes**, un encadré à filet léger et
+fond très légèrement teinté : « ⚡ POURQUOI EN PREMIER » en petite étiquette,
+puis trois lignes adossées à un chiffre du compte.
 
 **Chaque brief est un concept neuf, jamais une micro-variation.** Avant
 d'écrire, relis ce que le compte diffuse déjà : un angle que ses publicités
