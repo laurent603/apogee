@@ -116,6 +116,11 @@ export async function pdfFeuille(feuille: Feuille, nomCrea: string): Promise<Blo
 
   /* ── En-tête ── */
   ecrire(feuille.titre || nomCrea, { taille: 19, gras: true, interligne: 24 })
+  // Le nom que la publicité portera dans Meta : c'est lui qu'on recopie au
+  // moment de la mettre en ligne, il doit donc être sur la feuille.
+  if (feuille.nom_technique) {
+    ecrire(feuille.nom_technique, { taille: 10, gras: true, couleur: BLEU, interligne: 14 })
+  }
   const meta = [feuille.funnel, feuille.format, feuille.duree].filter(Boolean).join('  ·  ')
   ecrire(`Feuille de tournage${meta ? `  —  ${meta}` : ''}`,
     { taille: 10, couleur: GRIS, interligne: 15 })

@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
-import { markdownToHtml } from '@/lib/markdown'
+import { RapportSections } from './RapportSections'
 import { extraireFeuille, imprimerFeuille, imprimerBrief } from '@/lib/scalr/feuilleTournage'
 
 /**
@@ -203,8 +203,32 @@ export function OngletBriefs({ compte }: {
                   <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
                     {contenu[b.id] ? (
                       <>
-                        <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
-                          dangerouslySetInnerHTML={{ __html: markdownToHtml(sansJson(contenu[b.id])) }} />
+                        {/* Ce que le brief est, avant de le lire : l'étage de
+                            tunnel, pour qui, dans quel format. Trois pastilles
+                            évitent de chercher ces trois lignes dans la fiche. */}
+                        {(feuille?.funnel || feuille?.persona || feuille?.format) && (
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {feuille.funnel && (
+                              <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-[#3434ef] text-white">
+                                {feuille.funnel}
+                              </span>
+                            )}
+                            {feuille.persona && (
+                              <span className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 max-w-[22rem] truncate">
+                                {feuille.persona}
+                              </span>
+                            )}
+                            {[feuille.format, feuille.duree].filter(Boolean).length > 0 && (
+                              <span className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                                {[feuille.format, feuille.duree].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="bg-[#f8f9fc] rounded-lg p-4">
+                          <RapportSections markdown={sansJson(contenu[b.id])} />
+                        </div>
 
                         {/* Ce qu'on revient vérifier une semaine plus tard.
                             Sorti de la prose : le chercher dans un pavé de

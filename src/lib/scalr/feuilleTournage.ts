@@ -35,6 +35,14 @@ export type Segment = { temps?: string; dit?: string; ecran?: string; visuel?: s
  */
 export type Feuille = {
   titre?: string
+  /**
+   * Le nom que portera la publicité dans Meta.
+   *
+   * `[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]` : lire le nom, c'est
+   * lire la stratégie. Il est attribué au brief, donc avant le tournage —
+   * après, personne ne renomme jamais rien.
+   */
+  nom_technique?: string
   format?: string
   ratios?: string[]
   duree?: string

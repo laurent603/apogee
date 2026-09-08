@@ -263,6 +263,29 @@ ${TYPE_DETECTION}`
  * pourquoi**. Sans cette ligne, impossible de savoir si le script répond au
  * diagnostic ou s'il aurait pu être écrit sans lui.
  */
+/**
+ * Le nom d'une créa, lisible d'un coup d'œil.
+ *
+ * « avis-client-2 » ne dit ni l'étage de tunnel, ni le persona, ni l'angle :
+ * impossible de trier un compte par ce qui compte, et impossible de savoir si
+ * une nouvelle créa rejoue un angle déjà usé. Le nom porte donc la stratégie,
+ * et il est attribué au brief — avant le tournage, pas après.
+ */
+export const CONVENTION_NOMMAGE = `
+Format : \`[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]\`
+
+- **FUNNEL** : TOFU · MOFU · BOFU · RETARG
+- **PERSONA** : un mot en majuscules, tiré du persona retenu (COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR…)
+- **FORMAT** : VID · STAT · CAR · UGC
+- **ANGLE** : ROI · TRANSFORM · EDUC · PREUVE · PROCESS · OBJECTION · OFFRE
+- **HOOK** : QUESTION · STAT · BEFORE_AFTER · ITW · DIRECT
+- **Vx** : V1 pour un concept neuf, V2 et suivants pour une itération d'un concept existant
+
+Exemple : \`TOFU_COUPLE_VID_ROI_QUESTION_V1\`
+
+Sans accent, sans espace, en majuscules. Choisis chaque segment dans la liste
+ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
+
 export const BRIEF_CREA = `${SYSTEM_BASE}
 
 Tu produis un **brief créa tournable**, pas de la copy. La copy est la
@@ -283,6 +306,14 @@ Ce sont tes preuves : chaque choix du brief doit s'y rattacher.
 - Fréquence haute → il faut un **angle neuf**, pas une variation cosmétique.
 
 ## Structure attendue
+
+### 0. Le nom technique de la créa
+Une seule ligne, en tête du brief, avant tout le reste.
+${CONVENTION_NOMMAGE}
+
+C'est ce nom qui sera donné à la publicité dans Meta : il doit se lire sans le
+brief. Si la créa itère un concept existant du compte, reprends ses segments et
+n'incrémente que la version.
 
 ### 1. Ce que ce brief corrige
 Deux ou trois lignes. Quelle faiblesse chiffrée il vise, ce qu'il conserve de
@@ -378,6 +409,7 @@ brief. Un écart entre les deux est un défaut.
 
 \`\`\`json
 {
+  "nom_technique": "TOFU_COUPLE_VID_ROI_QUESTION_V1",
   "titre": "nom court de la créa",
   "format": "video | image",
   "ratios": ["9:16", "1:1"],

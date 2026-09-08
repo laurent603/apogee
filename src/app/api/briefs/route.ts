@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import type Anthropic from '@anthropic-ai/sdk'
 import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { BRIEF_CREA } from '@/lib/prompts'
+import { extraireFeuille } from '@/lib/scalr/feuilleTournage'
 
 /**
  * Les briefs créa.
@@ -352,11 +353,19 @@ Format : ${format || 'à recommander'}`
     const brief = await prisma.brief.create({
       data: {
         adAccountId: dbAccountId, adId, adName: nom,
-        title: angle
-          ? angle.origine === 'agent'
-            ? `Brief — ${angle.agent || 'agent'} : ${String(angle.objection).slice(0, 70)}`
-            : `Brief — objection : ${String(angle.objection).slice(0, 70)}`
-          : `Brief — ${nom}`,
+        /**
+         * Le nom technique fait le titre quand le brief en a produit un.
+         *
+         * « Brief — avis-client-2 » ne dit rien de l'étage de tunnel ni de
+         * l'angle ; `TOFU_COUPLE_VID_ROI_QUESTION_V1` dit tout, et c'est le
+         * nom que la publicité portera dans Meta.
+         */
+        title: extraireFeuille(texte)?.nom_technique?.trim()
+          || (angle
+            ? angle.origine === 'agent'
+              ? `Brief — ${angle.agent || 'agent'} : ${String(angle.objection).slice(0, 70)}`
+              : `Brief — objection : ${String(angle.objection).slice(0, 70)}`
+            : `Brief — ${nom}`),
         content: texte,
         reportId: analyse?.id ?? null,
         ton: ton || null, conscience: conscience || null, format: format || null,

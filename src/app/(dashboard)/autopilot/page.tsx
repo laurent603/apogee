@@ -121,6 +121,10 @@ Chacune s'attaque à l'étape nommée en section 3. Aucune action générique.`,
 Le compte est-il en fatigue ? Oui ou non, avec le chiffre qui le prouve, et le
 nom de la publicité la plus avancée.
 
+Termine par **la fenêtre d'action** : sous combien de jours il faut avoir lancé
+quelque chose. « Pas de fatigue aujourd'hui » n'est pas une conclusion — dis
+quand ça casse.
+
 ## 2. Tableau de fatigue
 Une ligne par publicité active ayant dépensé.
 | Publicité | Dépense | Fréquence | CTR courant | CTR précédent | Δ | Verdict |
@@ -128,19 +132,40 @@ Verdict ∈ { Fatiguée, Sous surveillance, Saine, Trop jeune }.
 Fatiguée = fréquence supérieure à 3 **et** CTR en baisse de plus de 20 %.
 N'assouplis jamais ce seuil : si aucune publicité ne le franchit, dis-le.
 
-## 3. Ce qui se dégrade vraiment
+## 3. Rétention vidéo de la créa dominante
+La fréquence dit quand l'audience sature ; elle ne dit rien de ce que la créa
+perd en route. Pour la publicité qui porte le plus de dépense :
+| Indicateur | Valeur | Seuil fort | Verdict |
+Hook rate (3 s / impressions, fort > 25 %), hold rate (fort > 70 %),
+completion (fort > 25 %), durée moyenne vue.
+Puis une ligne : **à quelle seconde ça lâche**, et ce que ça implique — un hook
+fort suivi d'un hold effondré veut dire que le corps ne tient pas la promesse
+du hook, et c'est là qu'il faut retourner.
+Si le compte n'a pas de vidéo dominante, écris-le et passe à la suite.
+
+## 4. Ce qui se dégrade vraiment
 Trois lignes. Quand la fatigue n'est pas le problème, nomme celui qui l'est —
 concentration du budget sur une seule créa, gabarit visuel dupliqué, [coût] qui
 dérive — avec ses chiffres.
 
-## 4. Remplacements
+## 5. Projection
+Trois échéances, à partir du rythme observé entre les deux périodes — la
+progression de la fréquence, celle du reach, celle du [coût].
+| Échéance | Fréquence estimée | Ce qui se passe | Décision |
+J+15, J+30, J+45. Chaque ligne dit ce qui bascule et ce qu'il faut avoir fait
+avant.
+Cette projection est une extrapolation, pas une mesure : dis-le en une ligne, et
+donne l'hypothèse retenue. Si la période de comparaison manque, ne projette
+rien et écris pourquoi.
+
+## 6. Remplacements
 Une fiche par publicité à remplacer, trois au maximum :
 - Ce qu'on remplace et pourquoi, en une ligne chiffrée
 - L'angle de la nouvelle créa
 - Le format
 - Le hook d'ouverture, écrit
 - Le KPI qui validera le test`,
-    outputFormat: 'Verdict, tableau de fatigue, cause réelle, 3 fiches de remplacement au plus.',
+    outputFormat: 'Verdict avec fenêtre d\'action, tableau de fatigue, rétention vidéo, cause réelle, projection J+15/30/45, 3 fiches de remplacement au plus.',
     icon: '😴',
   },
   {
