@@ -251,8 +251,41 @@ présente vaut mieux qu'une section médiane fouillée.
 quelques lignes de champs courts, jamais en paragraphes. Les listes sont des
 puces de dix mots. La valeur est dans le nombre d'éléments distincts.
 
+## Si le document contient une section de briefs
+
+C'est le livrable, pas une liste : elle a droit à plus de place que les autres,
+et la règle des quatre lignes ne s'y applique pas. Une carte par brief, avec
+**exactement** ces rubriques :
+
+- **Nom** : le nom technique de la créa, suivi du titre du concept entre
+  guillemets — \`TOFU_COUPLE_VID_ROI_QUESTION_V1 — « L'Été à la Maison »\`
+- **Angle marketing** : pas une étiquette (« proximité locale », « preuve
+  sociale ») mais **la phrase que le prospect va entendre**, écrite :
+  « J'ai dépensé 12 000 € en locations ces cinq ans. J'aurais pu avoir ma piscine. »
+- **Persona et niveau de conscience**
+- **Format** : durée, ratio, façon de tourner
+- **Direction de hook**, en trois lignes séparées — **Texte** (ce qui s'affiche,
+  six mots), **Visuel** (ce qu'on voit), **Audio** (le ton, la voix)
+- **Structure**, minutée : 0–3 s, 3–15 s, 15–25 s, 25–30 s, une ligne chacune
+- **Pourquoi celui-là en premier** : trois lignes, adossées à un chiffre du compte
+
+**Chaque brief est un concept neuf, jamais une micro-variation.** Avant
+d'écrire, relis ce que le compte diffuse déjà : un angle que ses publicités
+portent aujourd'hui, ou que sa proposition de valeur déclare, est **disqualifié**.
+Redire « nous sommes une entreprise locale » quand c'est déjà la promesse
+affichée n'est pas une idée, c'est un résumé.
+
+Cherche le déplacement : comparer le coût à une dépense que le prospect fait
+déjà ailleurs, nommer une objection que personne n'ose dire, retourner un
+reproche en preuve, faire parler quelqu'un qui n'a pas d'intérêt à vendre. Les
+trois briefs attaquent trois leviers différents — jamais trois formulations du
+même.
+
 **Aucun JavaScript nulle part.** Ni pour les onglets, ni pour un graphique, ni
 pour une animation. Tout ce que le document fait, il le fait en CSS.
+
+**Ne mets aucune clôture \`\`\` autour du document.** Le premier caractère est
+\`<\`, le dernier est \`>\`.
 
 Le cadre qui t'affiche a une hauteur fixe et fait défiler ton document : ne
 cherche pas à t'y adapter, et ne mets pas \`height:100vh\` sur une section — une

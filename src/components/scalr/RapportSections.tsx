@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
 import { estRapportHtml, extraireRapportHtml } from '@/lib/scalr/rapportHtml'
@@ -63,9 +63,24 @@ const abrege = (t: string) => {
  * document consulté en plein écran, ce qu'il est.
  */
 function CadreHtml({ html }: { html: string }) {
+  /**
+   * Le document est servi par une adresse blob, pas par l'attribut `srcdoc`.
+   *
+   * Un document de quarante mille signes passé en attribut arrivait vide :
+   * le cadre s'affichait, l'attribut portait bien le texte, et rien ne se
+   * peignait. Le même document ouvert seul se rendait parfaitement. Une
+   * adresse blob évite l'attribut, et le bac à sable garde son origine opaque.
+   */
+  const [adresse, setAdresse] = useState<string | null>(null)
+  useEffect(() => {
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
+    setAdresse(url)
+    return () => URL.revokeObjectURL(url)
+  }, [html])
+
   return (
     <iframe
-      srcDoc={html}
+      src={adresse ?? undefined}
       sandbox=""
       title="Rapport"
       className="w-full rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"

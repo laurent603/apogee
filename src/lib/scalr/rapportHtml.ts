@@ -20,7 +20,11 @@
  * le prendre pour un document l'enverrait dans un cadre où il s'afficherait nu.
  */
 export function estRapportHtml(contenu: string | null | undefined): boolean {
-  const t = (contenu || '').trimStart().slice(0, 400).toLowerCase()
+  // La clôture ``` est retirée avant l'examen : le modèle l'ajoute encore
+  // malgré la consigne, et le détecteur, plus strict que l'extracteur, laissait
+  // alors le document partir dans le rendu Markdown — où ses styles fuyaient
+  // dans la page et repeignaient l'application entière.
+  const t = (contenu || '').trimStart().replace(/^```(?:html)?\s*/i, '').slice(0, 400).toLowerCase()
   return t.startsWith('<!doctype html') || t.startsWith('<html')
 }
 
@@ -33,6 +37,8 @@ export function estRapportHtml(contenu: string | null | undefined): boolean {
  */
 export function extraireRapportHtml(contenu: string): string {
   const brut = (contenu || '').trim()
+  // Une clôture peut aussi rester ouverte quand la génération a été coupée :
+  // le bloc fermé est cherché d'abord, la balise ensuite.
   const enBloc = /```(?:html)?\s*(<!doctype html[\s\S]*?<\/html>)\s*```/i.exec(brut)
   if (enBloc) return enBloc[1]
   const debut = brut.search(/<!doctype html|<html[\s>]/i)
