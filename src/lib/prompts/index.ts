@@ -272,10 +272,42 @@ puis une ligne de sous-titre en gris qui dit ce que la section établit.
 un étage de tunnel en diagonale, pas un vocabulaire d'école. Le niveau de
 conscience, s'il compte, se dit en toutes lettres dans le texte de la carte.
 
-## Le gabarit des trois premières sections
+## Les gabarits de section
 
-Il n'est pas indicatif. Ces sections portent ces blocs, dans cet ordre, et rien
-d'autre.
+Chaque gabarit ci-dessous vaut **quand la demande appelle cette section-là**.
+Aucune n'est obligatoire : une demande de trois briefs ne produit pas de carte
+du tunnel. Mais quand une section correspond à l'un de ces gabarits, elle en
+porte les blocs, dans cet ordre, et rien d'autre. Il n'est pas indicatif.
+
+### Une section d'analyse de fatigue sur une créa
+
+Elle ne raconte rien : elle mesure, elle projette, elle décide.
+
+D'abord **le verdict**, dans un encadré : un statut nommé et sa fenêtre
+d'action — « Pré-fatigue active — agir sous 15 jours » — puis deux ou trois
+lignes qui disent ce que le profil vidéo révèle et que la fréquence cache.
+
+Puis une **rangée de tuiles**, une par indicateur : la valeur en très gros et
+en couleur, son libellé en dessous, et une pastille de verdict —
+\`✓ FORT\` en vert, \`~ MOYEN\` en ambre, \`✗ FAIBLE\` ou \`✗ CRITIQUE\` en rouge.
+Hook rate, hold rate, taux de complétion, ThruPlay, durée moyenne vue,
+fréquence.
+
+Puis **l'entonnoir de rétention** : une barre horizontale par étape, remplie à
+la proportion mesurée, dans la couleur de son verdict, avec le seuil de
+référence rappelé dans le libellé — « Hold rate — p25 / vues 3 s (seuil fort
+= 70 %) ».
+
+Puis **un encadré par problème**, numéroté, bordé de la couleur de sa gravité :
+le titre nomme le problème et son chiffre, le corps traduit ce que ça veut dire
+en langage d'annonceur — où l'audience décroche, et ce que ça coûte.
+
+Puis **la projection**, en frise verticale : aujourd'hui, J+15, J+30, J+45.
+Chaque échéance porte une pastille de couleur, la fréquence estimée, et ce qui
+bascule à ce moment-là.
+
+Enfin **le plan d'action**, deux ou trois lignes numérotées, chacune avec son
+échéance et son objectif chiffré.
 
 ### Section 1 — Diagnostic du compte
 
@@ -503,7 +535,7 @@ const GENERATIF = /angle|script|niveau de conscience|architecture/i
  * « Brief » n'y figure pas : un diagnostic de fatigue propose légitimement des
  * briefs de remplacement, et le mot seul ne dit donc rien de la nature.
  */
-const GENERATIF_FORT = /persona|roadmap|full.?funnel|stratégie créative|strategie creative|banque d'angles/i
+const GENERATIF_FORT = /persona|roadmap|full.?funnel|stratégie créative|strategie creative|banque d'angles|brief(?:e|er|s?\s+(?:détaillé|detaille|complet))|script\s+complet|en détail|en detail/i
 
 export function natureDuRapport(demande: string | null | undefined): 'diagnostic' | 'generatif' {
   const t = String(demande || '')
