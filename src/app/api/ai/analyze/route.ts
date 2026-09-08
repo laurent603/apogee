@@ -245,7 +245,7 @@ ${JSON.stringify(previous.ads, null, 2)}`
            * en balises et en style. À seize mille, la dernière section sautait
            * — c'est exactement ce qu'on cherche à corriger.
            */
-          max_tokens: generatif && (deep || chatProfond) ? 32000 : 16000,
+          max_tokens: generatif && (deep || chatProfond) ? 40000 : 16000,
           system: systemPrompt,
           messages: [
             /**

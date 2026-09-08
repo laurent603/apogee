@@ -230,6 +230,16 @@ explication après, ni clôture en \`\`\`.
 police externe, aucune image externe, aucune bibliothèque. Le document s'affiche
 dans un cadre isolé sans accès au réseau.
 
+**Écris une feuille de style compacte.** Des noms de classe courts, aucune
+règle inutilisée, aucun commentaire, pas de saut de ligne décoratif, les
+propriétés d'une règle sur une seule ligne. Chaque ligne de CSS est prise sur le
+contenu : ce que tu dépenses en style, tu ne l'écris pas en brief.
+
+**Le document doit se terminer.** Si tu sens que la place manque, raccourcis —
+moins de puces, des phrases plus sèches — mais n'abandonne jamais une section
+en route. Un livrable coupé au milieu du dernier brief ne vaut rien, quelle que
+soit la qualité des précédents.
+
 ## La grammaire visuelle
 
 Fond sombre \`#0d0d1a\`, texte \`#e0e0f0\`, accent \`#6366f1\`. Cartes
@@ -447,44 +457,60 @@ présente vaut mieux qu'une section médiane fouillée.
 quelques lignes de champs courts, jamais en paragraphes. Les listes sont des
 puces de dix mots. La valeur est dans le nombre d'éléments distincts.
 
-### Section 6 — Les trois premiers briefs
+### Une section de brief créa
 
-Sous-titre : « Priorisés par impact sur le compte. Chaque brief est un concept
-neuf, pas une micro-variation. »
+**Un brief = un onglet.** Trois briefs font trois onglets, nommés « Brief #1 —
+TOFU », « Brief #2 — BOFU UGC », « Brief #3 — MOFU ». Jamais les trois entassés
+dans une seule section : un brief part en production seul, il se lit seul.
 
-C'est le livrable : la règle des quatre lignes ne s'y applique pas. **Une carte
-pleine largeur par brief**, empilées, à filet de la couleur de son étage, avec
-le **numéro du brief en très gros chiffre fantôme** dans le coin haut droit —
-opacité 6 %, purement décoratif.
+L'onglet s'ouvre par un **en-tête** : un carré coloré portant le numéro du
+brief en gros, puis à sa droite le nom technique de la créa en titre et, sous
+lui, une ligne qui dit son rôle — « Priorité absolue · Comble le vide TOFU · À
+produire en premier ».
 
-En tête de carte : la pastille d'étage, puis une seconde pastille grise qui
-qualifie le brief (« Priorité critique », « Itération du gagnant », « Nouveau
-concept »). En dessous, le titre : le nom technique de la créa, un tiret, et le
-titre du concept entre guillemets —
-\`TOFU_COUPLE_VID_ROI_QUESTION_V1 — « L'Été à la Maison »\`
+Puis **une rangée d'étiquettes** : l'étage, le persona, le format avec sa
+durée, et le levier — 🔵 TOFU · 👥 Couple 35–50 ans · 🎬 Vidéo 9:16 / 15–30 s ·
+⚡ Nouveau bassin d'audience.
 
-Puis le corps **sur deux colonnes côte à côte**
-(\`grid-template-columns:1fr 1fr\`) :
+Puis **un encadré** « Pourquoi ce brief en premier ? » : trois lignes adossées
+à un chiffre du compte.
 
-**Colonne de gauche**
-- **Angle marketing** : pas une étiquette (« proximité locale », « preuve
-  sociale ») mais **la phrase que le prospect va entendre**, écrite —
-  « J'ai dépensé 12 000 € en locations ces cinq ans. J'aurais pu avoir ma piscine. »
-- **Persona & niveau** : le persona, l'étage, le ciblage, séparés par des points médians
-- **Format** : durée, ratio, façon de tourner, séparés par des points médians
+Viennent ensuite des **cartes titrées**, dans cet ordre :
 
-**Colonne de droite**
-- **Direction hook (T-A-V)** : trois lignes, chacune ouverte par son libellé en
-  gras — **Texte :** ce qui s'affiche, six mots ; **Visuel :** ce qu'on filme ;
-  **Audio :** le ton et la voix
-- puis, selon la nature de la créa, **une seule** de ces rubriques :
-  **Structure vidéo** minutée (0–3 s, 3–15 s, 15–25 s, 25–30 s) pour une créa
-  écrite ; **Questions guides pour le client** pour un témoignage ; **Les trois
-  objections à traiter** pour un format « vrai ou faux ».
+**📋 Fiche brief** — deux colonnes. À gauche : étage de tunnel, persona (décrit
+comme une personne située), objectif créatif. À droite : format, angle, appel à
+l'action.
 
-Enfin, **pleine largeur sous les deux colonnes**, un encadré à filet léger et
-fond très légèrement teinté : « ⚡ POURQUOI EN PREMIER » en petite étiquette,
-puis trois lignes adossées à un chiffre du compte.
+**🎬 Script complet** — le cœur du brief. Une sous-partie par temps du film
+(« Hook (0–3 s) — ce qui doit stopper le scroll », « Corps (3–15 s) », « CTA »),
+et sous chacune **un bloc de script** à fond sombre et interligne aéré, où
+quatre natures de texte se distinguent par leur couleur :
+- le **timecode** \`[0:03–0:08]\` en bleu, police à chasse fixe, gras ;
+- l'**action** \`[Plan serré visage caméra, regard direct]\` en ambre, italique,
+  entre crochets ;
+- la **voix**, ce qui est prononcé mot pour mot, entre guillemets, en blanc ;
+- la **direction** \`→ Pause d'une demi-seconde, laisser la question résonner\`
+  en gris, plus petit, précédée d'une flèche.
+Ces quatre-là ne se confondent jamais : sur un tournage, on cherche sa réplique
+d'un coup d'œil.
+
+Quand la créa est un **témoignage**, le script devient un guide d'entretien :
+une ligne d'avertissement — ne pas lire les questions au client — puis, par
+séquence, la question posée hors caméra en direction, et ce qu'on cherche à
+faire dire en voix. Ajoute alors une carte **🎬 Instructions tournage** :
+matériel minimal, lumière, son, cadrage.
+
+**Options de hook** — deux ou trois variantes à tester en V2 et V3, chacune
+dans son encadré à filet accent, précédée de son libellé.
+
+**📝 Copy texte (post)** — le texte de la publicité, écrit, prêt à coller. Pas
+une consigne sur le texte : le texte.
+
+**✅ À faire / ❌ À éviter** — deux colonnes côte à côte, fond vert très sombre
+à gauche, rouge très sombre à droite, six puces chacune, propres à cette créa.
+
+**📊 KPI de succès à J+7** — quatre tuiles chiffrées, puis une ligne de note en
+gris qui explique quel indicateur tranche vraiment pour cet étage de tunnel.
 
 **Chaque brief est un concept neuf, jamais une micro-variation.** Avant
 d'écrire, relis ce que le compte diffuse déjà : un angle que ses publicités
