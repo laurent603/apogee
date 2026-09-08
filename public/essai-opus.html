@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SB Piscine — Stratégie créative full-funnel Meta</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0d0d1a;color:#e0e0f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5}
+.wrap{max-width:1140px;margin:0 auto;padding:20px}
+.hero{background:linear-gradient(160deg,#16162e,#0d0d1a);border:1px solid #2a2a4a;border-radius:12px;padding:22px}
+.hero h1{margin:0 0 4px;font-size:26px}.hero .s{color:#9a9ab8;font-size:13px;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.kpi{background:#16162e;border:1px solid #2a2a4a;border-radius:12px;padding:10px}
+.kpi b{display:block;color:#6366f1;font-size:20px}.kpi span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8a8aa8}
+input[name=onglet]{display:none}
+.nav{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0}
+.nav label{background:#16162e;border:1px solid #2a2a4a;border-radius:12px;padding:8px 12px;font-size:12px;cursor:pointer;color:#b6b6d0}
+.sections>section{display:none}
+#o1:checked~.sections #s1,#o2:checked~.sections #s2,#o3:checked~.sections #s3,#o4:checked~.sections #s4,#o5:checked~.sections #s5,#o6:checked~.sections #s6,#o7:checked~.sections #s7,#o8:checked~.sections #s8{display:block}
+#o1:checked~.nav label[for=o1],#o2:checked~.nav label[for=o2],#o3:checked~.nav label[for=o3],#o4:checked~.nav label[for=o4],#o5:checked~.nav label[for=o5],#o6:checked~.nav label[for=o6],#o7:checked~.nav label[for=o7],#o8:checked~.nav label[for=o8]{background:#6366f1;border-color:#6366f1;color:#fff;font-weight:600}
+.sh{margin-bottom:16px}.sh .n{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#6366f1}
+.sh h2{margin:4px 0 4px;font-size:24px}.sh .sub{color:#9a9ab8;font-size:13px}
+.card{background:#16162e;border:1px solid #2a2a4a;border-radius:12px;padding:16px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.ct{font-size:15px;font-weight:700;margin:0 0 10px}
+.lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8a8aa8;margin:10px 0 4px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #222240;font-size:13px}.row:last-child{border:0}
+.p{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.g{background:rgba(52,211,153,.2);color:#34d399}.a{background:rgba(251,191,36,.2);color:#fbbf24}.r{background:rgba(248,113,113,.2);color:#f87171}.i{background:rgba(99,102,241,.2);color:#8f92ff}
+.box{border-left:3px solid #6366f1;background:#12122a;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px}
+.lock{border:1px solid #f87171;background:rgba(248,113,113,.07);border-radius:12px;padding:16px;margin-bottom:14px}
+.lock h3{margin:0 0 6px;color:#f87171;font-size:17px}
+ul{margin:6px 0;padding-left:18px}li{margin-bottom:5px}
+.note{color:#8a8aa8;font-size:12px;font-style:italic;margin-top:8px}
+.warn{color:#fbbf24;font-size:12px;margin:0 0 12px}
+.bar{height:34px;border-radius:8px;background:#22224a;margin:2px 0;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:8px;opacity:.35}
+.bar b{position:relative;display:block;padding:8px 10px;font-size:12px}
+.fun{text-align:center}.fb{margin:0 auto;border-radius:12px;padding:12px;font-weight:700}
+.fs{color:#9a9ab8;font-size:11px;margin:4px 0 2px}.arr{color:#6366f1;font-size:18px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#08080f;border:1px solid #22224a;border-radius:8px;padding:10px;color:#34d399;font-size:13px;overflow-x:auto}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.tag{border:1px solid #3a3a62;border-radius:99px;padding:3px 9px;font-size:11px;color:#c8c8e4}
+.ph{border-radius:12px;padding:16px;margin-bottom:14px;background:#16162e;border:1px solid #2a2a4a}
+.ph.p1{border-left:4px solid #6366f1}.ph.p2{border-left:4px solid #fbbf24}.ph.p3{border-left:4px solid #34d399}
+.phh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.phh h3{margin:0;font-size:19px}.phh .w{color:#6366f1;font-size:12px;margin-top:2px}
+.bh{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.bn{width:58px;height:58px;flex:0 0 58px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff}
+.bh h2{margin:0;font-size:20px;font-family:ui-monospace,Menlo,monospace}
+.tbl{width:100%;border-collapse:collapse}
+.tbl td{border-bottom:1px solid #22224a;padding:9px 8px;vertical-align:top;font-size:13px}
+.tbl td.tc{width:88px;background:#12122a;font-family:ui-monospace,Menlo,monospace;color:#8f92ff;font-size:12px;white-space:nowrap}
+.sq{display:inline-block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#6366f1;font-weight:700;margin-bottom:2px}
+.scr{display:inline-block;background:rgba(251,191,36,.14);color:#fbbf24;border-radius:6px;padding:3px 8px;font-size:12px;margin-top:6px}
+.dir{color:#8a8aa8;font-style:italic;font-size:12px;margin-top:6px}
+.do{background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.3);border-radius:12px;padding:14px}
+.dont{background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.3);border-radius:12px;padding:14px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{background:#12122a;border:1px solid #2a2a4a;border-radius:12px;padding:12px;text-align:center}
+.tile b{display:block;font-size:20px;color:#6366f1}.tile span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a8aa8}
+.foot{color:#7a7a98;font-size:11px;border-top:1px solid #22224a;margin-top:20px;padding-top:12px}
+@media(max-width:820px){.kpis{grid-template-columns:repeat(3,1fr)}.grid2,.grid3,.tiles{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+
+<div class="hero"><h1>SB Piscine — Stratégie créative full-funnel Meta</h1><div class="s">Piscines coque polyester · Gard &amp; Hérault · 30 derniers jours · 8 publicités, 6 campagnes (2 actives)</div>
+<div class="kpis">
+<div class="kpi"><b>1 064,63 €</b><span>Dépense 30 j</span></div>
+<div class="kpi"><b>232 133</b><span>Impressions</span></div>
+<div class="kpi"><b>1,78 %</b><span>CTR lien (clics lien / impr.)</span></div>
+<div class="kpi"><b>95</b><span>Leads formulaire</span></div>
+<div class="kpi"><b>11,21 €</b><span>CPL formulaire</span></div>
+<div class="kpi"><b>69,8 %</b><span>Dépense sur 1 seule créa</span></div>
+</div></div>
+
+<input type="radio" name="onglet" id="o1" checked><input type="radio" name="onglet" id="o2"><input type="radio" name="onglet" id="o3"><input type="radio" name="onglet" id="o4"><input type="radio" name="onglet" id="o5"><input type="radio" name="onglet" id="o6"><input type="radio" name="onglet" id="o7"><input type="radio" name="onglet" id="o8">
+
+<div class="nav">
+<label for="o1">1 · Diagnostic</label><label for="o2">2 · Personas</label><label for="o3">3 · Tunnel</label><label for="o4">4 · Roadmap 90 j</label><label for="o5">5 · Tracker</label><label for="o6">6 · Brief #1 — TOFU</label><label for="o7">7 · Brief #2 — BOFU UGC</label><label for="o8">8 · Brief #3 — MOFU</label>
+</div>
+
+<div class="sections">
+
+<!-- ================= S1 ================= -->
+<section id="s1">
+<div class="sh"><div class="n">Section 1</div><h2>Diagnostic du compte</h2><div class="sub">Ce que les 30 derniers jours mesurent : où va le budget, quelles créas portent le compte, et ce qui va casser en premier.</div></div>
+
+<div class="grid2">
+<div class="card"><div class="ct">Distribution par niveau de conscience</div>
+<div class="row"><span>TOFU — sensibilisation / problème</span><span><span class="p r">Absent</span> 0 %</span></div>
+<div class="row"><span>MOFU — trafic, éducation</span><span><span class="p a">2 campagnes</span> 9,5 %</span></div>
+<div class="row"><span>BOFU — génération de leads</span><span><span class="p g">Dominante</span> 90,5 %</span></div>
+<div class="row"><span>Retargeting / nurturing</span><span><span class="p r">Absent</span> 0 %</span></div>
+<div class="note">Répartition reconstituée en affectant chaque publicité à son objectif de campagne (leads = BOFU ; LINK_CLICKS / trafic = MOFU). La campagne notoriété du 19/06 est en pause : 0 € dépensé sur 30 j.</div>
+</div>
+
+<div class="card"><div class="ct">Santé créative des publicités actives</div>
+<div class="row"><span>Vidéo — Savoir-Faire</span><span>5,71 % 🏆</span></div>
+<div class="row"><span>Statique — avis client curnier</span><span>5,65 % 🏆</span></div>
+<div class="row"><span>Vidéo — Comment ça se passe</span><span>4,69 % ✅</span></div>
+<div class="row"><span>piscine_combas_ambre</span><span>3,00 % ✅</span></div>
+<div class="row"><span>Statique — avis client carrière</span><span>2,91 % ✅</span></div>
+<div class="row"><span>Vidéo — lunel C1B <em>(69,8 % de la dépense)</em></span><span>2,64 % ⚠️</span></div>
+<div class="row"><span>explication_bassin_ambre <em>(17,6 % de la dépense)</em></span><span>2,43 % ⚠️</span></div>
+<div class="row"><span>Vidéo — lunel C2A_V2</span><span>1,56 % ⚠️</span></div>
+<div class="note">CTR = clics totaux / impressions. Moyenne du compte : 2,76 %. Les deux 🏆 pèsent ensemble 1,2 % du budget.</div>
+</div>
+
+<div class="card"><div class="ct">Fréquence — évaluation</div>
+<div class="row"><span>Compte (impressions / reach agrégé)</span><span>1,11 <span class="p g">Sain</span></span></div>
+<div class="row"><span>Créa dominante — lunel C1B</span><span>1,12 <span class="p g">Sain</span></span></div>
+<div class="row"><span>explication_bassin_ambre</span><span>1,17 <span class="p g">Sain</span></span></div>
+<div class="row"><span>Statique — avis client carrière</span><span>1,05 <span class="p g">Sain</span></span></div>
+<p style="font-size:13px;margin-top:10px"><strong>Alerte :</strong> la fréquence ne dit rien du danger réel ici — elle est basse parce que Meta va chercher de la <em>nouvelle</em> couverture chaque jour. En 30 jours, une seule créa a touché <strong>144 427 personnes</strong> sur un bassin local (propriétaires de maison, 35 ans et +, Gard et Hérault) que nous estimons entre 250 000 et 400 000 personnes. À ce rythme de couverture, le bassin est balayé en <strong>8 à 10 semaines</strong> : la fréquence passera alors mécaniquement au-dessus de 2,5 et le CPL grimpera, sans qu'aucun signal ne l'ait annoncé avant.</p>
+<div class="note">Taille du bassin = estimation de travail, pas une donnée du compte. À recaler sur l'audience définie dans l'ad set.</div>
+</div>
+
+<div class="card"><div class="ct">Signal créatif — schémas identifiés</div>
+<ul>
+<li><strong>Savoir-faire artisan → 5,71 % de CTR.</strong> La preuve de compétence locale résonne, mais n'a reçu que 8,52 €.</li>
+<li><strong>Avis client nommé → 5,65 % de CTR</strong> (statique curnier, 3,85 €). Un client qui parle bat le discours de marque.</li>
+<li><strong>Pédagogie chantier → 4,69 % de CTR</strong> (« Comment ça se passe »). Répond directement à la peur de l'engagement.</li>
+<li><strong>La vidéo explicative convertit le mieux : CPL formulaire 8,51 €</strong> (explication_bassin, 22 leads) contre 10,62 € pour la créa dominante. La durée d'explication crée l'intention.</li>
+<li><strong>Le clic MOFU pas cher est un piège :</strong> statique « avis carrière » = 762 clics lien à 0,08 €, <strong>0 lead</strong>. Volume de trafic ≠ intention.</li>
+<li><strong>Hook rate homogène à 33–36 %</strong> (vues 3 s / impressions) sur toutes les vidéos : le problème n'est pas l'accroche, c'est le manque de concepts distincts.</li>
+</ul>
+</div>
+</div>
+
+<div class="lock"><h3>🔒 Le verrou créatif principal — dépendance mono-créa sur un bassin fini</h3>
+<p style="margin:0">743,30 € sur 1 064,63 € (69,8 %) passent dans <strong>une seule vidéo</strong>, « Vidéo — lunel C1B », qui affiche un CTR sous la moyenne du compte (2,64 % contre 2,76 %) et un CPL formulaire de 10,62 € — moins bon que la créa qui reçoit 4 fois moins de budget. Cette créa a déjà touché 144 427 personnes d'un marché limité à deux départements, sans aucun TOFU pour élargir le bassin ni aucun retargeting pour rentabiliser les 4 142 clics lien et les 66 000+ vues 3 s déjà payés. Tant que ce verrou tient, la seule variable qui peut bouger le CPL est la fréquence — et elle ne peut que monter. Tout le reste du plan sert à le faire sauter : ouvrir du TOFU pour renouveler l'audience, ouvrir du retargeting pour recycler l'attention déjà achetée, et ramener la dépendance de la meilleure créa sous 40 % du budget.</p></div>
+</section>
+
+<!-- ================= S2 ================= -->
+<section id="s2">
+<div class="sh"><div class="n">Section 2</div><h2>Architecture de personas</h2><div class="sub">Cinq profils couvrant le spectre « je rêve » → « je recommande », chacun avec sa direction d'accroche.</div></div>
+<p class="warn">⚠ Propositions de travail à valider avec le client. Ces personas sont déduits du secteur, des objections déclarées (prix, confiance, engagement) et du comportement créatif observé — ils ne sortent d'aucune étude terrain ni d'aucun entretien client.</p>
+
+<div class="card"><div style="display:flex;justify-content:space-between"><div><div class="ct" style="margin:0">🌴 Le Rêveur du Devis Reporté</div><div style="color:#9a9ab8;font-size:13px">Thierry, 47 ans, maison avec 600 m² de terrain à Vauvert. Parle de « la piscine » depuis quatre ans, n'a jamais demandé un seul devis. Ne sait pas ce que ça coûte vraiment.</div></div><span class="p i">TOFU</span></div>
+<div class="grid2" style="margin-top:12px"><div><div class="lbl">Douleur principale</div>Il pense que c'est hors de portée sans l'avoir jamais chiffré. Chaque été qui passe est un été perdu, mais rien ne déclenche l'action.</div><div><div class="lbl">Désir principal</div>Que ses enfants profitent du jardin maintenant, pas dans cinq ans. Et arrêter d'entendre « on verra l'année prochaine ».</div></div>
+<div class="box"><strong>Hook direction :</strong> « 2 800 € la semaine de location avec piscine — vous l'avez payée trois fois cet été. » → Comparaison à une dépense déjà consentie ailleurs (coût d'opportunité).</div></div>
+
+<div class="card"><div style="display:flex;justify-content:space-between"><div><div class="ct" style="margin:0">👨‍👩‍👧 Le Couple Projet Été</div><div style="color:#9a9ab8;font-size:13px">Sandrine &amp; Karim, 38 et 41 ans, Lunel. Ont regardé des vidéos de pose, enregistré des photos, mais elle veut du beau et lui veut du sûr. Personne n'a encore appelé.</div></div><span class="p i">TOFU</span></div>
+<div class="grid2" style="margin-top:12px"><div><div class="lbl">Douleur principale</div>Le désaccord interne bloque le projet : esthétique contre budget et contraintes. Chacun attend que l'autre tranche.</div><div><div class="lbl">Désir principal</div>Une projection concrète de leur jardin transformé, avec un chiffre qui met tout le monde d'accord.</div></div>
+<div class="box"><strong>Hook direction :</strong> « Ce jardin-là et le vôtre se ressemblent beaucoup plus que vous ne le croyez. » → Transformation avant/après avec ancrage local reconnaissable.</div></div>
+
+<div class="card"><div style="display:flex;justify-content:space-between"><div><div class="ct" style="margin:0">🔍 Le Comparateur Anxieux</div><div style="color:#9a9ab8;font-size:13px">Philippe, 54 ans, Nîmes. A trois devis sur la table — un béton, deux coques — dont un 6 000 € moins cher. Passe ses soirées sur les forums à chercher le piège.</div></div><span class="p a">MOFU</span></div>
+<div class="grid2" style="margin-top:12px"><div><div class="lbl">Douleur principale</div>Il ne sait pas comparer : les devis ne chiffrent pas les mêmes lignes. Il a peur de payer trop, et encore plus de payer peu et de le regretter.</div><div><div class="lbl">Désir principal</div>Une grille de lecture pour arbitrer seul, sans dépendre du commercial qui veut lui vendre.</div></div>
+<div class="box"><strong>Hook direction :</strong> « Le devis à 18 000 € qui finit à 26 000 € : les 4 lignes qu'on oublie de vous chiffrer. » → Éducation qui retourne l'objection prix en critère de choix.</div></div>
+
+<div class="card"><div style="display:flex;justify-content:space-between"><div><div class="ct" style="margin:0">💰 Le Prudent Prêt à Signer</div><div style="color:#9a9ab8;font-size:13px">Corinne, 51 ans, Lansargues. A rempli un formulaire il y a trois semaines, a eu un rendez-vous, et n'a pas rappelé. Ce n'est pas le prix qui bloque : c'est le fait de lâcher un acompte à un inconnu.</div></div><span class="p g">BOFU</span></div>
+<div class="grid2" style="margin-top:12px"><div><div class="lbl">Douleur principale</div>Peur de l'engagement : chantier abandonné, malfaçon, entreprise disparue. Elle cherche un motif de dire non.</div><div><div class="lbl">Désir principal</div>Entendre un client raconter ce qui s'est <em>mal</em> passé et comment ça a été réglé. La perfection déclarée ne la rassure pas.</div></div>
+<div class="box"><strong>Hook direction :</strong> « Je vais vous dire ce qui m'a énervé pendant le chantier. » → Objection retournée en preuve par l'aveu volontaire.</div></div>
+
+<div class="card"><div style="display:flex;justify-content:space-between"><div><div class="ct" style="margin:0">🏆 L'Ambassadeur Baigné</div><div style="color:#9a9ab8;font-size:13px">Éric, 58 ans, piscine posée l'été dernier à Combas. Trois voisins lui ont demandé le nom de l'entreprise. Il n'a jamais laissé d'avis en ligne.</div></div><span class="p i">RETARGETING</span></div>
+<div class="grid2" style="margin-top:12px"><div><div class="lbl">Douleur principale</div>Personne ne lui a demandé de témoigner. Son expérience — le meilleur actif du compte — ne produit aucun média.</div><div><div class="lbl">Désir principal</div>Montrer son bassin et être reconnu comme celui qui a fait le bon choix.</div></div>
+<div class="box"><strong>Hook direction :</strong> « Vous avez regardé cette vidéo jusqu'au bout en août. Le chantier de votre voisin commence en mars. » → Relance temporelle sur audience chaude (vues vidéo, clics, ouvreurs de formulaire).</div></div>
+</section>
+
+<!-- ================= S3 ================= -->
+<section id="s3">
+<div class="sh"><div class="n">Section 3</div><h2>Carte du tunnel</h2><div class="sub">La cible de répartition budgétaire et le travail que la créa doit faire à chaque étage.</div></div>
+<p class="warn">⚠ Les parts de budget cible et les angles sont des recommandations, pas des mesures. Seule la répartition actuelle (0 / 9,5 / 90,5 / 0) est constatée.</p>
+
+<div class="fun card">
+<div class="fb" style="width:100%;background:rgba(99,102,241,.22);border:1px solid #6366f1">TOFU — sensibilisation</div>
+<div class="fs">Propriétaires 35 ans et +, maison individuelle, Gard &amp; Hérault, non touchés · <strong>cible 35 % du budget</strong> (aujourd'hui 0 %)</div>
+<div class="arr">▼</div>
+<div class="fb" style="width:75%;background:rgba(251,191,36,.18);border:1px solid #fbbf24">MOFU — éducation &amp; comparaison</div>
+<div class="fs">Vues vidéo 25 %+, visiteurs LP, comparateurs coque / béton · <strong>cible 25 % du budget</strong> (aujourd'hui 9,5 %)</div>
+<div class="arr">▼</div>
+<div class="fb" style="width:50%;background:rgba(52,211,153,.18);border:1px solid #34d399">BOFU + RETARGETING — leads</div>
+<div class="fs">Engageurs, ouvreurs de formulaire non finalisés, listes clients · <strong>cible 40 % du budget</strong> (aujourd'hui 90,5 %, sans retargeting)</div>
+</div>
+
+<div class="grid3">
+<div class="card"><span class="p i">TOFU</span>
+<div class="lbl">Objectif créatif</div>
+<ul><li>Faire exister un chiffre là où il n'y en a aucun : casser le « c'est sûrement trop cher ».</li><li>Provoquer un arrêt de scroll sur un jardin reconnaissable, pas sur une piscine de catalogue.</li><li>Générer du signal vidéo (vues 25 %+) pour alimenter les audiences MOFU.</li></ul>
+<div class="lbl">Formats</div><div class="tags"><span class="tag">Vidéo 9:16 · 20–30 s</span><span class="tag">Statique chiffre</span><span class="tag">Carrousel avant/après</span></div>
+<div class="lbl">Angles</div><ul><li>Coût comparé aux vacances louées</li><li>Été perdu / compte à rebours</li><li>Valeur ajoutée à la revente</li><li>Transformation de jardin local</li></ul>
+<div class="box">« Trois semaines de location avec piscine, trois étés de suite. Vous avez déjà payé le bassin — celui de quelqu'un d'autre. »</div></div>
+
+<div class="card"><span class="p a">MOFU</span>
+<div class="lbl">Objectif créatif</div>
+<ul><li>Donner une grille de comparaison pour que le prospect arbitre lui-même.</li><li>Neutraliser le devis low-cost avant qu'il ne serve de référence prix.</li><li>Faire passer du clic curieux (0,08 € et 0 lead) au clic instruit.</li></ul>
+<div class="lbl">Formats</div><div class="tags"><span class="tag">Vidéo 45–60 s</span><span class="tag">Carrousel décryptage</span><span class="tag">Statique tableau</span></div>
+<div class="lbl">Angles</div><ul><li>Les lignes cachées d'un devis</li><li>Coque contre béton, chiffres réels</li><li>Déroulé du chantier semaine par semaine</li><li>Tiers non vendeur (agent immobilier)</li></ul>
+<div class="box">« Deux devis, 6 000 € d'écart, et une seule des deux entreprises a chiffré l'évacuation des terres. »</div></div>
+
+<div class="card"><span class="p g">BOFU / RETARGETING</span>
+<div class="lbl">Objectif créatif</div>
+<ul><li>Déclencher le formulaire chez quelqu'un qui a déjà tout compris.</li><li>Lever la peur de l'engagement par un client qui avoue un problème.</li><li>Relancer les 4 142 clics et 66 000 vues 3 s déjà payés ce mois.</li></ul>
+<div class="lbl">Formats</div><div class="tags"><span class="tag">UGC témoignage 60–90 s</span><span class="tag">Statique avis nommé</span><span class="tag">Vidéo offre / créneaux</span></div>
+<div class="lbl">Angles</div><ul><li>Ce qui m'a fait douter</li><li>Preuve chantier daté et localisé</li><li>Garantie, acompte, calendrier</li><li>Créneaux de pose limités</li></ul>
+<div class="box">« Je vous dis franchement ce qui m'a énervé pendant les travaux — et pourquoi je les rappellerais quand même. »</div></div>
+</div>
+</section>
+
+<!-- ================= S4 ================= -->
+<section id="s4">
+<div class="sh"><div class="n">Section 4</div><h2>Feuille de route à 90 jours</h2><div class="sub">Chaque phase fabrique le signal qui nourrit la suivante : la phase 1 crée l'audience, la phase 2 la qualifie, la phase 3 la scale sans la brûler.</div></div>
+<p class="warn">⚠ Volumes, angles et seuils sont des objectifs de pilotage proposés, calés sur les moyennes réelles du compte (CTR lien 1,78 % · CPL formulaire 11,21 € · hook rate 33 %). Ce ne sont pas des prévisions garanties.</p>
+
+<div class="ph p1"><div class="phh"><div><h3>Phase 1 — Fondation</h3><div class="w">Semaines 1–4 · Objectif : couvrir les trois étages du tunnel et sortir de la mono-créa</div></div><span class="p i">Lancement structure</span></div>
+<div class="grid3">
+<div><div class="lbl">Angles prioritaires</div><ul><li>TOFU : coût comparé aux vacances louées</li><li>TOFU : transformation jardin local</li><li>MOFU : les 4 lignes cachées du devis</li><li>BOFU : témoignage « ce qui m'a fait douter »</li></ul></div>
+<div><div class="lbl">Volume minimum</div><ul><li>3 vidéos TOFU (concepts distincts)</li><li>2 créas MOFU dont 1 carrousel</li><li>2 UGC BOFU chez clients réels</li><li>2 statiques retargeting avis nommé</li></ul><div class="note">Total : 9 créas minimum.</div></div>
+<div><div class="lbl">Signal de succès</div><ul><li>Part TOFU du budget ≥ 30 %</li><li>Dépendance de la créa dominante &lt; 50 %</li><li>Hook rate TOFU ≥ 33 % (vues 3 s / impr.)</li><li>CPL formulaire global maintenu &lt; 13 €</li></ul></div>
+</div></div>
+
+<div class="ph p2"><div class="phh"><div><h3>Phase 2 — Test &amp; Learn</h3><div class="w">Semaines 5–8 · Objectif : identifier 2 gagnants par étage et itérer les hooks</div></div><span class="p a">Test &amp; Learn</span></div>
+<div class="grid3">
+<div><div class="lbl">Angles prioritaires</div><ul><li>TOFU : valeur à la revente (tiers non vendeur)</li><li>MOFU : coque contre béton, chiffres à l'écran</li><li>BOFU : garantie, acompte, calendrier de pose</li><li>RETARGETING : relance ouvreurs de formulaire</li></ul></div>
+<div><div class="lbl">Volume minimum</div><ul><li>2 itérations de hook sur chaque gagnant (V2/V3)</li><li>3 nouveaux concepts TOFU</li><li>2 UGC BOFU supplémentaires</li><li>1 séquence retargeting à 2 créas</li></ul><div class="note">Total : 12 créas minimum, dont 6 itérations.</div></div>
+<div><div class="lbl">Signal de succès</div><ul><li>≥ 2 créas au-dessus de 2,5 % de CTR lien</li><li>CPL formulaire du meilleur BOFU &lt; 8,50 €</li><li>Retargeting : CPL &lt; 7 € et ≥ 15 % des leads</li><li>Fréquence BOFU stable &lt; 2,0</li></ul></div>
+</div></div>
+
+<div class="ph p3"><div class="phh"><div><h3>Phase 3 — Passage à l'échelle</h3><div class="w">Semaines 9–12 · Objectif : doubler la dépense sans dégrader le CPL, sans dépendre d'une créa</div></div><span class="p g">Passage à l'échelle</span></div>
+<div class="grid3">
+<div><div class="lbl">Angles prioritaires</div><ul><li>TOFU : déclinaisons géographiques des gagnants</li><li>MOFU : série chantier semaine par semaine</li><li>BOFU : mur de témoignages, 4 clients</li><li>RETARGETING : créneaux de pose limités</li></ul></div>
+<div><div class="lbl">Volume minimum</div><ul><li>4 déclinaisons du meilleur TOFU</li><li>3 nouveaux concepts pour renouveler le vivier</li><li>4 témoignages clients tournés</li><li>2 créas offre / urgence</li></ul><div class="note">Total : 13 créas minimum, 3 concepts neufs.</div></div>
+<div><div class="lbl">Signal de succès</div><ul><li>Aucune créa au-delà de 35 % de la dépense</li><li>Dépense mensuelle × 2 à CPL formulaire ≤ 12 €</li><li>≥ 4 créas actives au-dessus de la moyenne compte</li><li>Fréquence compte &lt; 2,5 malgré la montée en budget</li></ul></div>
+</div></div>
+</section>
+
+<!-- ================= S5 ================= -->
+<section id="s5">
+<div class="sh"><div class="n">Section 5</div><h2>Dispositif de suivi créatif</h2><div class="sub">Convention de nommage triable — lire un nom, c'est lire toute la stratégie d'un coup d'œil.</div></div>
+
+<div class="card"><div class="ct">Structure de nommage</div>
+<div class="mono">[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]</div>
+<div class="grid2" style="margin-top:12px">
+<div>
+<div class="lbl">Valeurs funnel</div><div class="tags"><span class="tag">TOFU</span><span class="tag">MOFU</span><span class="tag">BOFU</span><span class="tag">RETARG</span></div>
+<div class="lbl">Valeurs persona</div><div class="tags"><span class="tag">REVEUR</span><span class="tag">COUPLE</span><span class="tag">COMPARATEUR</span><span class="tag">PRIX</span><span class="tag">AMBASSADEUR</span></div>
+<div class="lbl">Valeurs format</div><div class="tags"><span class="tag">VID</span><span class="tag">STAT</span><span class="tag">CAR</span><span class="tag">UGC</span></div>
+</div>
+<div>
+<div class="lbl">Valeurs angle</div><div class="tags"><span class="tag">ROI</span><span class="tag">TRANSFORM</span><span class="tag">EDUC</span><span class="tag">PREUVE</span><span class="tag">PROCESS</span><span class="tag">OBJECTION</span><span class="tag">OFFRE</span></div>
+<div class="lbl">Valeurs hook</div><div class="tags"><span class="tag">QUESTION</span><span class="tag">STAT</span><span class="tag">BEFORE_AFTER</span><span class="tag">ITW</span><span class="tag">DIRECT</span></div>
+<div class="lbl">Version</div><div class="tags"><span class="tag">V1 = concept neuf</span><span class="tag">V2, V3… = itération</span></div>
+</div></div>
+<div class="note">Sans accent, sans espace, en majuscules. Une seule valeur par segment, choisie dans les listes ci-dessus.</div></div>
+
+<div class="grid2">
+<div class="card"><div class="ct">Exemples de noms corrects</div>
+<div class="mono">TOFU_COUPLE_VID_ROI_STAT_V1</div><div style="color:#8a8aa8;font-size:12px;margin:4px 0 10px">→ TOFU, couple avec projet, vidéo, angle coût comparé, hook chiffré, première version</div>
+<div class="mono">MOFU_COMPARATEUR_CAR_EDUC_DIRECT_V2</div><div style="color:#8a8aa8;font-size:12px;margin:4px 0 10px">→ MOFU, comparateur de devis, carrousel, angle éducation, hook direct, deuxième itération</div>
+<div class="mono">BOFU_PRIX_UGC_OBJECTION_ITW_V1</div><div style="color:#8a8aa8;font-size:12px;margin:4px 0 10px">→ BOFU, prospect bloqué par l'engagement, témoignage client, angle objection, hook interview, concept neuf</div>
+<div class="mono">RETARG_AMBASSADEUR_STAT_PREUVE_BEFORE_AFTER_V1</div><div style="color:#8a8aa8;font-size:12px;margin:4px 0 0">→ Retargeting, client ambassadeur, statique, angle preuve, hook avant/après, première version</div></div>
+
+<div class="card"><div class="ct">Grille de classement créatif</div>
+<div class="row"><span>🥇 Winner — à itérer en V2/V3</span><span style="color:#34d399">CPL form. &lt; 8,50 € <em>ou</em> CTR lien &gt; 2,7 %</span></div>
+<div class="row"><span>✅ Performant — à maintenir</span><span style="color:#34d399">CPL form. 8,50–13 € · CTR lien 1,8–2,7 %</span></div>
+<div class="row"><span>⚠️ En observation</span><span style="color:#fbbf24">CPL form. 13–18 € · CTR lien 1,3–1,8 %</span></div>
+<div class="row"><span>🔴 À couper</span><span style="color:#f87171">CPL form. &gt; 20 € ou CTR lien &lt; 1,1 %</span></div>
+<div class="row"><span>📊 Signal propre au haut de tunnel</span><span style="color:#8f92ff">Hook rate &gt; 35 % · CTR lien &gt; 2,0 % · CPM &lt; 6 €</span></div>
+<div class="note">Seuils calés sur le compte : CPL formulaire moyen 11,21 €, meilleur CPL 8,51 €, CTR lien moyen 1,78 %, CPM 4,59 €, hook rate moyen 33–36 % (vues 3 s / impressions). Volume minimum avant tout jugement : 5 000 impressions <em>et</em> 35 € dépensés. Une créa de haut de tunnel se juge au CTR et au hook rate, jamais au coût par prospect — la statique « avis carrière » a produit 762 clics à 0,08 € et zéro lead : c'est un signal MOFU à requalifier, pas un échec BOFU.</div></div>
+</div>
+</section>
+
+<!-- ================= S6 : BRIEF 1 ================= -->
+<section id="s6">
+<div class="sh"><div class="n">Section 6 · Brief 1 sur 3</div><h2>Brief #1 — TOFU</h2><div class="sub">Le concept qui comble le vide de haut de tunnel et renouvelle le bassin d'audience.</div></div>
+
+<div class="bh"><div class="bn" style="background:#6366f1">1</div><div><h2>TOFU_COUPLE_VID_ROI_STAT_V1</h2><div style="color:#9a9ab8;font-size:13px">Priorité absolue · Comble le vide TOFU (0 % du budget) · À produire en premier</div></div></div>
+<div class="tags"><span class="tag">🔵 TOFU</span><span class="tag">👥 Couple 35–50 ans, maison avec terrain</span><span class="tag">🎬 Vidéo 9:16 · 25–30 s</span><span class="tag">⚡ Coût comparé — dépense déjà consentie ailleurs</span></div>
+
+<div class="card" style="border-left:3px solid #6366f1"><div class="ct">Pourquoi ce brief en premier ?</div>
+<ul><li>0 € des 1 064,63 € dépensés sur 30 j vont au TOFU : le compte n'a aucune source de nouvelle audience et 90,5 % du budget tape sur du bas de tunnel.</li><li>Une seule créa a déjà couvert 144 427 personnes d'un bassin local limité à deux départements : sans nouvel angle d'entrée, la fréquence casse sous 10 semaines.</li><li>L'objection déclarée n°1 est le prix, et aucune créa du compte ne donne un ordre de grandeur. Ce brief ne défend pas le prix : il le compare à une dépense que le prospect fait déjà chaque été.</li></ul></div>
+
+<div class="card"><div class="ct">📋 Fiche brief</div><div class="grid2">
+<div><div class="lbl">Étage de tunnel</div>TOFU — audience froide, exclusion des engageurs 90 j<div class="lbl">Persona</div>Sandrine &amp; Karim, 38 et 41 ans, Lunel. Deux enfants, 500 m² de terrain. Parlent piscine chaque été, louent une semaine avec bassin en juillet.<div class="lbl">Objectif créatif</div>Faire naître un chiffre comparatif dans une tête où il n'y en a aucun, et générer des vues 25 %+ exploitables en MOFU.</div>
+<div><div class="lbl">Format</div>Vidéo verticale 9:16, 25–30 s, voix-off + plans réels de chantier<div class="lbl">Angle</div>Coût d'opportunité : le budget vacances déjà dépensé<div class="lbl">Appel à l'action</div>« En savoir plus » vers la landing page d'estimation (pas de formulaire natif à cet étage)</div></div></div>
+
+<div class="card"><div class="ct">🎬 Script complet</div><table class="tbl">
+<tr><td class="tc">0:00–0:04</td><td><span class="sq">Hook — voix-off</span>« Deux mille huit cents euros la semaine, pour une maison avec piscine. Vous l'avez payée trois étés de suite. »<div class="scr">Texte à l'écran : 2 800 € × 3 étés = 8 400 €</div><div class="dir">Plan serré vertical sur une annonce de location affichée sur téléphone, pouce qui scrolle. Lumière du jour, pas de filtre. Son sec, pas de musique sur les 4 premières secondes.</div></td></tr>
+<tr><td class="tc">0:04–0:09</td><td><span class="sq">Constat</span>« Et pendant ce temps, votre jardin, lui, est resté vide. »<div class="scr">Texte à l'écran : Et votre jardin, lui ?</div><div class="dir">Cut sec sur un jardin réel de la région, herbe jaunie, trampoline. Plan fixe large, midi. Ne pas dramatiser : pas de ralenti, pas de musique triste.</div></td></tr>
+<tr><td class="tc">0:09–0:16</td><td><span class="sq">Bascule — le calcul</span>« Une piscine coque posée chez vous, c'est l'équivalent de trois à quatre étés de location. Sauf qu'au bout du quatrième, elle est encore là. »<div class="scr">Texte à l'écran : 3–4 étés de location = 1 piscine, à vie</div><div class="dir">Timelapse de la pose d'une coque à la grue, images de chantier réelles du fabricant. Rythme qui accélère, montée de musique ici seulement.</div></td></tr>
+<tr><td class="tc">0:16–0:23</td><td><span class="sq">Preuve</span>« Coque polyester d'un fabricant qui produit à Perpignan depuis plus de quarante ans. Posée en une semaine, dans le Gard et l'Hérault. »<div class="scr">Texte à l'écran : Fabriquée à Perpignan · Posée en 1 semaine</div><div class="dir">Trois plans réels : atelier, camion, bassin fini avec la famille dedans. Interdiction absolue d'images de banque : le prospect doit reconnaître sa région.</div></td></tr>
+<tr><td class="tc">0:23–0:30</td><td><span class="sq">CTA</span>« Faites chiffrer votre jardin. C'est gratuit, et ça prend deux minutes. »<div class="scr">CTA à l'écran : Estimer mon projet →</div><div class="dir">Plan fixe sur le bassin fini au coucher du soleil, texte du CTA en surimpression 4 s pleines. Voix calme, pas de ton promotionnel.</div></td></tr>
+</table></div>
+
+<div class="card"><div class="ct">Options de hook — à tester en V2 et V3</div>
+<div class="box"><strong>V2 — hook QUESTION :</strong> « Combien vous a coûté votre dernier été, en vrai ? Additionnez la location, l'essence et les entrées de piscine municipale. »</div>
+<div class="box"><strong>V3 — hook DIRECT :</strong> « Arrêtez de louer la piscine des autres. Trois étés, et vous auriez la vôtre. »</div></div>
+
+<div class="card"><div class="ct">📝 Copy texte (post)</div>
+<p>Cet été encore, une semaine de location avec piscine dans le Sud : entre 2 200 € et 2 900 €.<br>Trois étés comme celui-là, et vous avez dépensé le prix d'un bassin. Chez quelqu'un d'autre.</p>
+<p>Nous posons des piscines coque polyester dans le Gard et l'Hérault, fabriquées à Perpignan par un fabricant installé depuis plus de 40 ans. Terrassement, pose, mise en eau : une semaine de chantier.</p>
+<p>Vous voulez savoir ce que ça donnerait chez vous, et combien ça coûte vraiment ? Faites chiffrer votre jardin — c'est gratuit et sans engagement. 👉</p></div>
+
+<div class="grid2">
+<div class="do"><div class="ct">✅ À faire</div><ul><li>Annoncer un chiffre réel de location dans les 4 premières secondes</li><li>N'utiliser que des images de chantiers du Gard / Hérault</li><li>Sous-titres brûlés, gros, lisibles sans le son</li><li>Montrer la grue et la pose : c'est ce qui arrête le scroll</li><li>Garder le calcul à une seule opération mentale</li><li>Finir sur un bassin habité, avec des gens dedans</li></ul></div>
+<div class="dont"><div class="ct">❌ À éviter</div><ul><li>Annoncer un prix de piscine précis (déclenche le comparateur trop tôt)</li><li>Rejouer « entreprise locale de confiance » : c'est déjà la promesse du compte</li><li>Images de banque, villas de magazine, eau turquoise irréelle</li><li>Musique triomphante dès la première seconde</li><li>Voix-off commerciale ou ton de radio locale</li><li>Formulaire natif : cet étage doit générer de la vue et du clic, pas du lead</li></ul></div></div>
+
+<div class="card"><div class="ct">📊 KPI de succès à J+7</div><div class="tiles">
+<div class="tile"><b>&gt; 35 %</b><span>Hook rate (vues 3 s / impressions)</span></div>
+<div class="tile"><b>&gt; 2,0 %</b><span>CTR lien (clics lien / impressions)</span></div>
+<div class="tile"><b>&lt; 6 €</b><span>CPM</span></div>
+<div class="tile"><b>&gt; 8 000</b><span>Vues 25 %+ pour l'audience MOFU</span></div>
+</div><div class="note">L'indicateur qui tranche ici est le hook rate rapporté aux impressions, référence compte 33–36 %. Le CPL ne juge pas cette créa : son travail est de fabriquer un vivier de vues 25 %+ que les phases MOFU et retargeting exploiteront. Minimum 5 000 impressions et 35 € dépensés avant toute décision.</div></div>
+</section>
+
+<!-- ================= S7 : BRIEF 2 ================= -->
+<section id="s7">
+<div class="sh"><div class="n">Section 6 · Brief 2 sur 3</div><h2>Brief #2 — BOFU UGC</h2><div class="sub">Le témoignage qui retourne l'objection « peur de l'engagement » en preuve, par l'aveu volontaire.</div></div>
+
+<div class="bh"><div class="bn" style="background:#34d399;color:#08210f">2</div><div><h2>BOFU_PRIX_UGC_OBJECTION_ITW_V1</h2><div style="color:#9a9ab8;font-size:13px">Deuxième priorité · Attaque la peur de l'engagement, pas le prix · Tournage chez un client livré</div></div></div>
+<div class="tags"><span class="tag">🟢 BOFU</span><span class="tag">💰 Prudent prêt à signer, 45–60 ans</span><span class="tag">🎬 UGC 9:16 · 60–90 s</span><span class="tag">⚡ Reproche retourné en preuve</span></div>
+
+<div class="card" style="border-left:3px solid #34d399"><div class="ct">Pourquoi ce brief en premier ?</div>
+<ul><li>Les deux meilleurs CTR du compte sont un savoir-faire (5,71 %) et un avis client (5,65 %) — et ils ont reçu 12,37 € à eux deux. La preuve par le client est le signal le plus fort et le moins financé.</li><li>La créa dominante convertit à 10,62 € de CPL formulaire alors qu'une vidéo explicative descend à 8,51 € : c'est le contenu, pas le budget, qui fait le CPL.</li><li>Aucune créa du compte n'ose nommer un défaut. Un témoignage qui commence par un reproche est le seul format que le prospect ne classe pas en publicité.</li></ul></div>
+
+<div class="card"><div class="ct">📋 Fiche brief</div><div class="grid2">
+<div><div class="lbl">Étage de tunnel</div>BOFU — engageurs 30 j, visiteurs LP, ouvreurs de formulaire non finalisés<div class="lbl">Persona</div>Corinne, 51 ans, Lansargues. A eu un rendez-vous il y a trois semaines et n'a pas rappelé. Ce n'est pas le prix : c'est l'acompte à un inconnu.<div class="lbl">Objectif créatif</div>Faire dire par un client ce qu'un vendeur ne peut pas dire, pour supprimer le motif de dire non.</div>
+<div><div class="lbl">Format</div>Interview client 9:16, 60–90 s, téléphone sur pied, bord de bassin<div class="lbl">Angle</div>Objection nommée à voix haute puis résolue<div class="lbl">Appel à l'action</div>Formulaire natif Meta — « Recevoir mon étude » (le format qui produit déjà 95 leads sur 30 j)</div></div></div>
+
+<div class="card"><div class="ct">🎬 Guide d'entretien</div>
+<p class="warn">⚠ Ne jamais lire ces questions au client et ne jamais lui faire répéter une phrase écrite. On pose la question hors caméra, on laisse le silence, on garde la deuxième réponse — c'est toujours la bonne. Prévoir 25 minutes de tournage pour 80 secondes utiles.</p>
+<table class="tbl">
+<tr><td class="tc">0:00–0:06</td><td><span class="sq">Hook — ce qu'on cherche à faire dire</span>Une phrase qui commence par un reproche : « Je vais vous dire ce qui m'a énervé pendant le chantier. »<div class="dir">Question hors caméra : « Qu'est-ce qui vous a le plus agacé pendant les travaux ? » — Cadrage buste, client debout au bord de son bassin, pas assis. Commencer à filmer avant de poser la question.</div></td></tr>
+<tr><td class="tc">0:06–0:20</td><td><span class="sq">Objection 1 — la peur de signer</span>Ce qu'on cherche : qu'il raconte le moment précis où il a hésité, et pourquoi il a peur du chantier plus que du prix.<div class="dir">Question : « Avant de signer, qu'est-ce qui vous faisait le plus peur — franchement ? » Laisser 3 secondes de silence après sa réponse : la nuance arrive là.</div></td></tr>
+<tr><td class="tc">0:20–0:38</td><td><span class="sq">Objection 2 — le problème réel</span>Ce qu'on cherche : un incident concret (poussière, retard, terre à évacuer) <em>et</em> la façon dont ça a été réglé, dans la même phrase.<div class="dir">Question : « Il y a eu un truc qui ne s'est pas passé comme prévu ? Qu'est-ce qu'ils ont fait ? » Ne pas couper la partie négative au montage — c'est elle qui rend la suite crédible.</div></td></tr>
+<tr><td class="tc">0:38–0:55</td><td><span class="sq">Preuve — le chiffre et la date</span>Ce qu'on cherche : la durée réelle du chantier, le mois de pose, le nombre de jours sans eau.<div class="dir">Question : « Ça a duré combien de temps, du premier coup de pelle à la première baignade ? » Insérer ici les plans B : terrassement, grue, bassin fini.</div></td></tr>
+<tr><td class="tc">0:55–1:10</td><td><span class="sq">Bascule — le conseil au voisin</span>Ce qu'on cherche : « Si c'était à refaire… » et « ce que je dirais à quelqu'un qui hésite ».<div class="dir">Question : « Qu'est-ce que vous dites à vos voisins qui vous demandent le nom ? » C'est la phrase de clôture. Plan un peu plus large, famille dans l'eau derrière.</div></td></tr>
+<tr><td class="tc">1:10–1:20</td><td><span class="sq">CTA — carton final</span>Pas de voix du client ici.<div class="scr">CTA à l'écran : Votre étude gratuite en 24 h — Gard &amp; Hérault</div><div class="dir">Carton sobre 4 s, fond du bassin flouté, aucun logo animé.</div></td></tr>
+</table></div>
+
+<div class="card"><div class="ct">🎬 Instructions tournage</div><div class="grid3">
+<div><div class="lbl">Matériel</div><ul><li>Téléphone récent, 4K, sur mini-trépied</li><li>Micro-cravate filaire (obligatoire, pas de micro interne)</li><li>Carte mémoire vide, batterie pleine</li></ul></div>
+<div><div class="lbl">Lumière &amp; son</div><ul><li>Tourner entre 9 h–11 h ou 17 h–19 h, jamais à midi</li><li>Client dos au bassin, soleil de côté, pas de contre-jour</li><li>Couper la filtration pendant les prises</li></ul></div>
+<div><div class="lbl">Cadrage</div><ul><li>Vertical 9:16, buste, œil au tiers haut</li><li>Client debout, mains libres, pas de fiche</li><li>10 s de plans de coupe par question (eau, margelles, enfants)</li></ul></div>
+</div></div>
+
+<div class="card"><div class="ct">Options de hook — à tester en V2 et V3</div>
+<div class="box"><strong>V2 — hook DIRECT :</strong> « Franchement, j'ai failli signer ailleurs. Le devis était moins cher de 6 000 €. »</div>
+<div class="box"><strong>V3 — hook QUESTION :</strong> « Vous voulez savoir ce que personne ne vous dit avant de creuser un trou dans son jardin ? »</div></div>
+
+<div class="card"><div class="ct">📝 Copy texte (post)</div>
+<p>« Ce qui m'a énervé ? La terre. Il y en avait partout pendant trois jours. »</p>
+<p>On préfère que vous l'entendiez d'un client plutôt que de nous. Un chantier de piscine, ça remue un jardin — et ce qui compte, c'est ce qu'on en fait après.</p>
+<p>Piscines coque polyester dans le Gard et l'Hérault, fabriquées à Perpignan. Une semaine de chantier, une date de mise en eau donnée à l'avance, et un interlocuteur unique du premier appel à la première baignade.</p>
+<p>Demandez votre étude gratuite : on vous dit ce que ça coûte, ce que ça implique, et ce que ça salit. 👇</p></div>
+
+<div class="grid2">
+<div class="do"><div class="ct">✅ À faire</div><ul><li>Garder l'aveu négatif au montage, intégralement</li><li>Faire dire une durée et un mois précis</li><li>Prénom et commune affichés en surimpression</li><li>Sous-titres brûlés, accent local assumé</li><li>Filmer au bord du bassin livré, pas en salon</li><li>Terminer sur la phrase spontanée du client</li></ul></div>
+<div class="dont"><div class="ct">❌ À éviter</div><ul><li>Faire réciter un texte : ça s'entend en 2 secondes</li><li>Client assis dans un canapé avec la piscine hors champ</li><li>Musique sous la parole</li><li>Couper la partie « ce qui m'a énervé » (c'est le hook)</li><li>Superposer un discours de marque sur le témoignage</li><li>Habillage graphique lourd, logos animés, transitions</li></ul></div></div>
+
+<div class="card"><div class="ct">📊 KPI de succès à J+7</div><div class="tiles">
+<div class="tile"><b>&lt; 8,50 €</b><span>CPL formulaire (meilleur actuel : 8,51 €)</span></div>
+<div class="tile"><b>&gt; 2,7 %</b><span>CTR lien</span></div>
+<div class="tile"><b>&gt; 20 %</b><span>Vues 25 %+ / lectures vidéo</span></div>
+<div class="tile"><b>&gt; 12</b><span>Leads formulaire sur 7 j</span></div>
+</div><div class="note">Ici l'indicateur qui tranche est le CPL formulaire : à cet étage l'audience est déjà informée, la créa doit convertir. Référence compte : 11,21 € en moyenne, 8,51 € pour la meilleure. Ne pas juger avant 35 € dépensés et 10 leads cumulés.</div></div>
+</section>
+
+<!-- ================= S8 : BRIEF 3 ================= -->
+<section id="s8">
+<div class="sh"><div class="n">Section 6 · Brief 3 sur 3</div><h2>Brief #3 — MOFU</h2><div class="sub">Le décryptage qui neutralise le devis concurrent le moins cher avant qu'il ne serve de référence prix.</div></div>
+
+<div class="bh"><div class="bn" style="background:#fbbf24;color:#2a1d00">3</div><div><h2>MOFU_COMPARATEUR_VID_EDUC_STAT_V1</h2><div style="color:#9a9ab8;font-size:13px">Troisième priorité · Requalifie un trafic MOFU qui clique mais ne convertit pas · Produit en semaine 3</div></div></div>
+<div class="tags"><span class="tag">🟡 MOFU</span><span class="tag">🔍 Comparateur anxieux, 45–60 ans</span><span class="tag">🎬 Vidéo 9:16 · 50–60 s</span><span class="tag">⚡ Grille de lecture donnée au prospect</span></div>
+
+<div class="card" style="border-left:3px solid #fbbf24"><div class="ct">Pourquoi ce brief en premier ?</div>
+<ul><li>Le MOFU actuel produit du clic vide : la statique « avis carrière » a généré 762 clics lien à 0,08 € et <strong>0 lead</strong> sur 63,27 €. Le trafic existe, l'intention manque.</li><li>Les deux meilleures créas du compte sont pédagogiques ou preuve (5,71 % et 4,69 % de CTR) : l'audience réagit à l'explication, pas à l'incitation.</li><li>L'objection prix est déclarée comme n°1 et aucune créa ne l'attaque. Ce brief ne défend pas le tarif de SB Piscine : il apprend au prospect à lire un devis, ce qui déplace le combat du montant vers le périmètre.</li></ul></div>
+
+<div class="card"><div class="ct">📋 Fiche brief</div><div class="grid2">
+<div><div class="lbl">Étage de tunnel</div>MOFU — vues 25 %+ du TOFU, visiteurs LP 30 j, intérêts piscine / rénovation<div class="lbl">Persona</div>Philippe, 54 ans, Nîmes. Trois devis sur la table, 6 000 € d'écart, personne pour lui expliquer pourquoi.<div class="lbl">Objectif créatif</div>Lui donner quatre critères de comparaison qu'il utilisera ensuite contre les autres devis.</div>
+<div><div class="lbl">Format</div>Vidéo 9:16, 50–60 s, main + devis papier annoté à l'écran, voix-off calme<div class="lbl">Angle</div>Éducation : les lignes non chiffrées d'un devis low-cost<div class="lbl">Appel à l'action</div>« En savoir plus » vers la landing page — puis retargeting BOFU sur les vues 50 %+</div></div></div>
+
+<div class="card"><div class="ct">🎬 Script complet</div><table class="tbl">
+<tr><td class="tc">0:00–0:05</td><td><span class="sq">Hook — voix-off</span>« Le devis à 18 000 € et celui à 24 000 € ne parlent pas de la même piscine. Voilà les quatre lignes qui font la différence. »<div class="scr">Texte à l'écran : 18 000 € vs 24 000 € — 4 lignes d'écart</div><div class="dir">Deux devis posés côte à côte sur une table en bois, vue du dessus, main qui les rapproche. Lumière naturelle rasante. Aucune marque visible, devis anonymisés.</div></td></tr>
+<tr><td class="tc">0:05–0:17</td><td><span class="sq">Ligne 1 — l'évacuation des terres</span>« Un bassin, c'est 40 à 60 tonnes de terre à sortir. Si votre devis ne dit pas où elles partent, elles resteront chez vous — ou vous les paierez à la fin. »<div class="scr">Texte à l'écran : 40–60 t de terre — évacuation chiffrée ? OUI / NON</div><div class="dir">Surligneur jaune qui barre une ligne absente. Plan de coupe : camion, benne, pelle. 3 s maximum par plan.</div></td></tr>
+<tr><td class="tc">0:17–0:29</td><td><span class="sq">Ligne 2 — le local technique</span>« Filtration, coffret, raccordement électrique aux normes. Souvent chiffré 'en option'. C'est pourtant sans ça que la piscine ne tourne pas. »<div class="scr">Texte à l'écran : Local technique + raccordement = pas une option</div><div class="dir">Gros plan sur un local technique réel, propre, câblé. Montrer du matériel installé, jamais un schéma.</div></td></tr>
+<tr><td class="tc">0:29–0:40</td><td><span class="sq">Ligne 3 — les margelles et la remise en état</span>« Le tour du bassin et la remise en état du terrain. Deux lignes qui se retrouvent en avenant chez beaucoup de monde. »<div class="scr">Texte à l'écran : Margelles + remise en état du jardin</div><div class="dir">Avant / après du même jardin en split-screen vertical. Pas de fondu, cut sec.</div></td></tr>
+<tr><td class="tc">0:40–0:50</td><td><span class="sq">Ligne 4 — la garantie du fabricant</span>« Et la dernière : qui fabrique la coque, et depuis quand. Une garantie ne vaut que si le fabricant est encore là dans quinze ans. »<div class="scr">Texte à l'écran : Fabricant identifié · 40 ans d'activité · Perpignan</div><div class="dir">Plans d'atelier de fabrication. C'est le seul moment où la marque apparaît, et par le fabricant, pas par l'installateur.</div></td></tr>
+<tr><td class="tc">0:50–1:00</td><td><span class="sq">CTA</span>« Prenez vos devis, vérifiez ces quatre lignes. Et si vous voulez un devis où tout est chiffré, il est gratuit. »<div class="scr">CTA à l'écran : Comparer avec un devis complet →</div><div class="dir">Retour sur la table, les deux devis, main qui coche. Voix posée, aucune urgence commerciale.</div></td></tr>
+</table></div>
+
+<div class="card"><div class="ct">Options de hook — à tester en V2 et V3</div>
+<div class="box"><strong>V2 — hook QUESTION :</strong> « Vous avez trois devis piscine sous les yeux. Lequel a chiffré l'évacuation des terres ? »</div>
+<div class="box"><strong>V3 — hook STAT :</strong> « 40 tonnes. C'est ce qui sort de votre jardin quand on creuse — et ce que 1 devis sur 2 ne facture pas. »</div></div>
+
+<div class="card"><div class="ct">📝 Copy texte (post)</div>
+<p>Vous avez plusieurs devis piscine et 6 000 € d'écart entre eux ? Ce n'est presque jamais la même piscine.</p>
+<p>Les 4 lignes à vérifier avant de signer :<br>1️⃣ L'évacuation des terres — 40 à 60 tonnes sortent de votre jardin.<br>2️⃣ Le local technique et le raccordement électrique aux normes.<br>3️⃣ Les margelles et la remise en état du terrain.<br>4️⃣ Le nom du fabricant de la coque et son ancienneté.</p>
+<p>Si une de ces lignes n'apparaît pas, elle reviendra en avenant. Nous posons des coques polyester dans le Gard et l'Hérault, fabriquées à Perpignan. Notre devis chiffre les quatre.</p>
+<p>Comparez par vous-même — étude gratuite, sans engagement. 👇</p></div>
+
+<div class="grid2">
+<div class="do"><div class="ct">✅ À faire</div><ul><li>Montrer du papier et un surligneur : le support fait la crédibilité</li><li>Anonymiser totalement les devis concurrents</li><li>Un chiffre vérifiable par ligne (tonnage, années, normes)</li><li>Garder un ton de conseil, pas de dénonciation</li><li>Sous-titres brûlés : la vidéo se regarde sans le son</li><li>Créer une audience « vues 50 %+ » et l'envoyer en BOFU</li></ul></div>
+<div class="dont"><div class="ct">❌ À éviter</div><ul><li>Nommer ou laisser identifier un concurrent</li><li>Dire que le devis pas cher est une arnaque : on donne des critères</li><li>Rejouer « 40 ans de savoir-faire » en argument central — déjà diffusé</li><li>Habillage infographique animé qui masque le devis réel</li><li>Formulaire natif : cet étage doit qualifier, pas convertir</li><li>Dépasser 60 s : au-delà, le comparateur décroche</li></ul></div></div>
+
+<div class="card"><div class="ct">📊 KPI de succès à J+7</div><div class="tiles">
+<div class="tile"><b>&gt; 2,5 %</b><span>CTR lien (moy. compte 1,78 %)</span></div>
+<div class="tile"><b>&gt; 25 %</b><span>Vues 50 %+ / lectures vidéo</span></div>
+<div class="tile"><b>&lt; 0,30 €</b><span>CPC lien avec intention</span></div>
+<div class="tile"><b>&gt; 3 000</b><span>Audience retargeting créée (vues 50 %+)</span></div>
+</div><div class="note">L'indicateur qui tranche à cet étage est la <strong>rétention à 50 % rapportée aux lectures vidéo</strong>, pas le CTR : un clic MOFU pas cher sans rétention reproduit exactement l'échec de la statique « avis carrière » (762 clics à 0,08 €, 0 lead). On juge la qualité de l'audience produite, puis le CPL du BOFU nourri par elle, à J+21.</div></div>
+</section>
+
+</div>
+
+<div class="foot">Données : compte Meta Ads « SB Piscine », fenêtre glissante de 30 jours — 8 publicités, 6 campagnes, 1 064,63 € de dépense. Tous les chiffres du diagnostic (section 1) et des grilles de seuils (section 5) sont calculés sur ces données ; les taux vidéo sont rapportés aux impressions pour le hook rate et aux lectures pour la rétention, le libellé le précise à chaque fois.<br>Sections 2, 3, 4 et 6 (personas, tunnel, roadmap, briefs) sont des <strong>propositions de travail</strong> à valider avec le client : elles s'appuient sur les signaux du compte et sur les objections déclarées, pas sur une étude terrain. Les seuils de la roadmap sont des objectifs de pilotage, pas des prévisions garanties.</div>
+
+</div></body></html>

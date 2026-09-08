@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, natureDuRapport } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, gabaritsPour, natureDuRapport } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         // Il ne porte alors pas de bloc d'actionnables — celui-ci se lit dans
         // un rapport Markdown, pas dans un document mis en page.
         const blocFinal = deep
-          ? (generatif ? RAPPORT_HTML : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES)
+          ? (generatif ? RAPPORT_HTML + gabaritsPour(demande) : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES)
           : ''
 
         /**
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
          * des personas ou des briefs par mégarde.
          */
         const chatProfond = !deep && generatif
-        const disciplineChat = chatProfond ? RAPPORT_HTML : ''
+        const disciplineChat = chatProfond ? RAPPORT_HTML + gabaritsPour(demande) : ''
 
         const systemPrompt = customPrompt
           ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. ${generatif ? '' : ` Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.`}${generatif ? '' : outputInstruction}`

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
-import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, natureDuRapport } from '@/lib/prompts'
+import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, gabaritsPour, natureDuRapport } from '@/lib/prompts'
 
 /**
  * Le format de sortie demandé à l'agent, débarrassé de toute demande de HTML.
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
           : `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
           // Le bloc final est joint au message, en dernière position : dans le
           // prompt système, il était ignoré (voir /api/ai/analyze).
-          messages: [{ role: 'user', content: userMessage + (generatif ? RAPPORT_HTML : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES) }],
+          messages: [{ role: 'user', content: userMessage + (generatif ? RAPPORT_HTML + gabaritsPour(agent.instructions) : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES) }],
         })
         for await (const chunk of stream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {

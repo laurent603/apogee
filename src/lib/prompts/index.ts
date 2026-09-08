@@ -203,6 +203,43 @@ Exemple : \`TOFU_COUPLE_VID_ROI_QUESTION_V1\`
 Sans accent, sans espace, en majuscules. Choisis chaque segment dans la liste
 ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
 
+
+/**
+ * Les gabarits de section, servis à la demande.
+ *
+ * Injectés tous ensemble, ils pèsent dix-neuf mille signes et poussent le
+ * modèle à fabriquer des sections que personne n'a demandées — huit onglets
+ * pour une commande de six, et une génération qui déborde le budget de temps.
+ * On n'envoie donc que ceux que la demande appelle.
+ */
+const GABARITS: Record<string, string> = {
+  fatigue: "### Une section d'analyse de fatigue sur une créa\n\nElle ne raconte rien : elle mesure, elle projette, elle décide.\n\nD'abord **le verdict**, dans un encadré : un statut nommé et sa fenêtre\nd'action — « Pré-fatigue active — agir sous 15 jours » — puis deux ou trois\nlignes qui disent ce que le profil vidéo révèle et que la fréquence cache.\n\nPuis une **rangée de tuiles**, une par indicateur : la valeur en très gros et\nen couleur, son libellé en dessous, et une pastille de verdict —\n\\`✓ FORT\\` en vert, \\`~ MOYEN\\` en ambre, \\`✗ FAIBLE\\` ou \\`✗ CRITIQUE\\` en rouge.\nHook rate, hold rate, taux de complétion, ThruPlay, durée moyenne vue,\nfréquence.\n\nPuis **l'entonnoir de rétention** : une barre horizontale par étape, remplie à\nla proportion mesurée, dans la couleur de son verdict, avec le seuil de\nréférence rappelé dans le libellé — « Hold rate — p25 / vues 3 s (seuil fort\n= 70 %) ».\n\nPuis **un encadré par problème**, numéroté, bordé de la couleur de sa gravité :\nle titre nomme le problème et son chiffre, le corps traduit ce que ça veut dire\nen langage d'annonceur — où l'audience décroche, et ce que ça coûte.\n\nPuis **la projection**, en frise verticale : aujourd'hui, J+15, J+30, J+45.\nChaque échéance porte une pastille de couleur, la fréquence estimée, et ce qui\nbascule à ce moment-là.\n\nEnfin **le plan d'action**, deux ou trois lignes numérotées, chacune avec son\néchéance et son objectif chiffré.",
+  diagnostic: "### Section 1 — Diagnostic du compte\n\nQuatre cartes en grille deux par deux, puis un encadré pleine largeur.\n\n1. **Distribution par niveau de conscience** — quatre lignes fixes : TOFU\n   (sensibilisation / problème), MOFU (trafic, éducation), BOFU (génération de\n   leads), Retargeting / nurturing. Chacune porte sa part du budget en pourcent\n   et une pastille colorée : \\`ABSENT\\` en rouge à 0 %, le nombre de campagnes en\n   ambre quand c'est marginal, \\`dominante\\` en vert au-delà de la moitié.\n2. **Santé créative des publicités actives** — une ligne par créa qui dépense :\n   son nom à gauche, son CTR à droite suivi d'un signe — 🏆 pour les deux\n   meilleures, ✅ au-dessus de la moyenne du compte, ⚠️ en dessous. Précise\n   entre parenthèses la part de dépense d'une créa qui pèse anormalement lourd.\n3. **Fréquence — évaluation** — la fréquence du compte, puis celle de la\n   campagne dominante, du gagnant, et de toute créa qui monte anormalement.\n   Termine par un paragraphe d'alerte : ce que la fréquence dit **vraiment**\n   compte tenu de la taille du bassin d'audience, et dans combien de semaines\n   ça casse.\n4. **Signal créatif — schémas identifiés** — quatre à cinq puces. Chacune : le\n   schéma qui marche, sa métrique, et en une phrase pourquoi il marche.\n   « Savoir-faire artisan → 5,71 % de CTR. La preuve de compétence locale\n   résonne. »\n\nPuis, pleine largeur, **le verrou créatif principal** dans l'encadré rouge :\nun titre court et un paragraphe. Un seul verrou, celui qui commande tout le\nreste. Et la section s'arrête là.",
+  personas: "### Section 2 — Architecture de personas\n\nCinq personas, une carte chacun, empilées.\n\nChaque carte : un emoji et **un nom de type** (« Le Comparateur Anxieux », « Le\nCouple Projet Vacances ») ; en dessous, une ligne de description qui donne le\nprénom, l'âge, la situation et **ce qu'il a déjà fait ou pas fait** ; la\npastille d'étage en haut à droite. Puis deux colonnes — **Douleur principale**\net **Désir principal** — de deux ou trois lignes chacune. Puis, en pied de\ncarte, un encadré à filet accent : \\`Hook direction :\\` la phrase écrite entre\nguillemets, une flèche, et le type d'angle qu'elle exploite.\n\nLes cinq couvrent tout le spectre, de « je rêve » à « je recommande » : au\nmoins un TOFU, un MOFU, un BOFU et un retargeting.",
+  tunnel: "### Section 3 — Carte du tunnel\n\nD'abord **l'entonnoir**, en trois barres de largeur décroissante et centrées —\nla première pleine largeur, la deuxième aux trois quarts, la troisième à moitié.\nChaque barre porte son étage, et en dessous en petit : l'audience visée et la\n**part de budget cible**. Une flèche ▼ entre chaque étage.\n\nPuis **trois cartes côte à côte**, une par étage, toutes bâties pareil :\n- la pastille d'étage,\n- **Objectif créatif** : trois lignes sur le travail que la créa doit faire à\n  cet endroit du tunnel — pas ce qu'elle dit, ce qu'elle provoque,\n- **Formats** : trois étiquettes,\n- **Angles** : quatre puces de quelques mots,\n- un encadré à filet accent avec **un exemple de hook écrit**, entre guillemets.",
+  roadmap: "### Section 4 — Feuille de route à 90 jours\n\nSous-titre : ce que les phases s'enchaînent à produire — chacune fabrique le\nsignal qui nourrit la suivante.\n\n**Trois cartes pleine largeur, une par ligne**, empilées, à filet léger et de\ncouleur différente : accent pour la première, ambre pour la deuxième, vert pour\nla troisième. Aucune grille de cartes ici.\n\nChaque carte, en tête : le nom de la phase en gros à gauche — « Phase 1 —\nFondation » — et juste dessous, sur une ligne en couleur accent, les semaines\net l'objectif : « Semaines 1–4 · Objectif : couvrir les trois étages du\ntunnel ». En haut à droite, une pastille qui nomme le régime de la phase\n(« Lancement structure », « Test & Learn », « Passage à l'échelle »).\n\nPuis, dans le corps de la carte, **trois colonnes côte à côte sur une seule\nligne** — \\`display:grid;grid-template-columns:1fr 1fr 1fr\\` — de largeur égale.\nElles ne s'empilent jamais : c'est leur mise en parallèle qui permet de\ncomparer les trois phases d'un coup d'œil, et une carte dont les rubriques se\nsuivent verticalement est trois fois trop haute. Mêmes rubriques pour les trois\nphases :\n- **Angles prioritaires** — quatre puces, chacune préfixée de son étage :\n  « TOFU : calcul été / ROI piscine ».\n- **Volume minimum** — trois ou quatre puces qui comptent des créas, puis une\n  ligne en italique et en gris : « Total : 9 créas minimum. »\n- **Signal de succès** — quatre puces, **chiffrées**, qui disent à quoi on\n  reconnaîtra que la phase est réussie : un seuil, jamais une intention.\n  « Fréquence BOFU stable < 2,5 », « CPL global maintenu < 20 € ».\n\nLes trois phases montent en exigence : la première installe ce qui manque, la\ndeuxième valide et itère, la troisième met à l'échelle et supprime la\ndépendance à une seule créa.",
+  tracker: "### Section 5 — Dispositif de suivi créatif\n\nSous-titre : « Convention de nommage triable — lire un nom, c'est lire toute la\nstratégie d'un coup d'œil ».\n\n**Une carte pleine largeur, puis deux cartes côte à côte.**\n\n**Carte 1 — Structure de nommage.** Le gabarit seul, dans un bloc à fond très\nsombre et police à chasse fixe, en vert :\n\\`[FUNNEL] _ [PERSONA] _ [FORMAT] _ [ANGLE] _ [HOOK] _ [Vx]\\`\nPuis, sur deux colonnes, les jeux de valeurs, chacun sous son étiquette\n« VALEURS FUNNEL », « VALEURS PERSONA »… et rendu en **étiquettes cliquables\nvisuellement** — de petites pastilles bordées, une par valeur :\n${CONVENTION_NOMMAGE}\n\nLes valeurs de PERSONA sont **celles de ta section 2**, en un mot chacune et en\nmajuscules — COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR.\n\n**N'invente jamais de codes à trois lettres.** \\`UNA\\`, \\`PRB\\`, \\`SOL\\`, \\`DAM\\`,\n\\`SOP\\`, \\`HKQ\\`, \\`HKV\\` sont illisibles : personne ne retient un dictionnaire, et\nun nom de créa doit se comprendre sans lui. Des mots entiers, en majuscules.\n\n**Carte 2 — Exemples de noms corrects.** Quatre noms complets, chacun dans son\nbloc à chasse fixe vert, suivi immédiatement d'une ligne en gris qui le traduit\nen français : « → TOFU, couple avec enfants, vidéo, angle calcul économique,\nhook en question, première version ». Les quatre couvrent des étages\ndifférents.\n\n**Carte 3 — Grille de classement créatif.** Cinq lignes, le libellé et son\nemoji à gauche, le seuil à droite en couleur :\n🥇 Winner — à itérer · ✅ Performant — à maintenir · ⚠️ En observation ·\n🔴 À couper · 📊 Signal propre au haut de tunnel.\nLes seuils sont **calés sur les chiffres réels du compte**, pas sur un barème\ngénérique. Termine par une ligne de règle en gris : le volume minimum avant\ntout jugement, et le fait qu'une créa de haut de tunnel se juge au CTR et au\nhook rate, jamais au coût par prospect.",
+  briefs: "### Une section de brief créa\n\n**Un brief = un onglet.** Trois briefs font trois onglets, nommés « Brief #1 —\nTOFU », « Brief #2 — BOFU UGC », « Brief #3 — MOFU ». Jamais les trois entassés\ndans une seule section : un brief part en production seul, il se lit seul.\n\nL'onglet s'ouvre par un **en-tête** : un carré coloré portant le numéro du\nbrief en gros, puis à sa droite le nom technique de la créa en titre et, sous\nlui, une ligne qui dit son rôle — « Priorité absolue · Comble le vide TOFU · À\nproduire en premier ».\n\nPuis **une rangée d'étiquettes** : l'étage, le persona, le format avec sa\ndurée, et le levier — 🔵 TOFU · 👥 Couple 35–50 ans · 🎬 Vidéo 9:16 / 15–30 s ·\n⚡ Nouveau bassin d'audience.\n\nPuis **un encadré** « Pourquoi ce brief en premier ? » : trois lignes adossées\nà un chiffre du compte.\n\nViennent ensuite des **cartes titrées**, dans cet ordre :\n\n**📋 Fiche brief** — deux colonnes. À gauche : étage de tunnel, persona (décrit\ncomme une personne située), objectif créatif. À droite : format, angle, appel à\nl'action.\n\n**🎬 Script complet** — le cœur du brief, monté comme **un tableau à deux\ncolonnes** : une colonne étroite à gauche pour le timecode, sur fond légèrement\nplus clair et en police à chasse fixe ; le contenu à droite. Une ligne par\nséquence, séparées par un filet.\n\nDans la colonne de droite, trois natures de texte qui ne se confondent jamais :\n- **ce qui est dit** — précédé d'une petite étiquette en majuscules qui nomme\n  la séquence (\\`VOIX-OFF\\`, \\`HOOK\\`, \\`OBJECTION 1 — DURABILITÉ\\`, \\`Q2 — LE\n  PROCESSUS\\`), puis la réplique mot pour mot ;\n- **ce qui s'affiche à l'écran**, dans une petite pastille ambre :\n  « Texte à l'écran : … » ou « CTA : … » ;\n- **la direction**, en italique et en gris : le plan, la lumière, le rythme, ce\n  qu'il ne faut pas faire.\n\nSur un tournage, on cherche sa réplique d'un coup d'œil : c'est ce que la\ncolonne de timecode permet.\n\nQuand la créa est un **témoignage**, le script devient un guide d'entretien :\nune ligne d'avertissement — ne pas lire les questions au client — puis, par\nséquence, la question posée hors caméra en direction, et ce qu'on cherche à\nfaire dire en voix. Ajoute alors une carte **🎬 Instructions tournage** :\nmatériel minimal, lumière, son, cadrage.\n\n**Options de hook** — deux ou trois variantes à tester en V2 et V3, chacune\ndans son encadré à filet accent, précédée de son libellé.\n\n**📝 Copy texte (post)** — le texte de la publicité, écrit, prêt à coller. Pas\nune consigne sur le texte : le texte.\n\n**✅ À faire / ❌ À éviter** — deux colonnes côte à côte, fond vert très sombre\nà gauche, rouge très sombre à droite, six puces chacune, propres à cette créa.\n\n**📊 KPI de succès à J+7** — quatre tuiles chiffrées, puis une ligne de note en\ngris qui explique quel indicateur tranche vraiment pour cet étage de tunnel.",
+}
+
+const DECLENCHEURS: [string, RegExp][] = [
+  ['fatigue', /fatigue|usure|décl(in|ine)|saturation/i],
+  ['diagnostic', /diagnos|account state|état du compte|etat du compte|awareness distribution|répartition/i],
+  ['personas', /persona/i],
+  ['tunnel', /funnel map|carte du (tunnel|funnel)|full.?funnel map|architecture créative|par étage/i],
+  ['roadmap', /roadmap|feuille de route|90.?(day|jour)|phase [123]/i],
+  ['tracker', /tracker|nommage|naming|convention|ranking/i],
+  ['briefs', /brief/i],
+]
+
+/** Les gabarits que la demande appelle, dans l'ordre du document. */
+export function gabaritsPour(demande: string | null | undefined): string {
+  const t = String(demande || '')
+  const retenus = DECLENCHEURS.filter(([, re]) => re.test(t)).map(([nom]) => GABARITS[nom])
+  if (!retenus.length) return ''
+  return `\n\n## Les gabarits de section\n\nChaque gabarit ci-dessous vaut pour la section correspondante. Il n'est pas\nindicatif : cette section porte ces blocs, dans cet ordre, et rien d'autre.\nNe produis **aucune** section que la demande n'appelle pas.\n\n${retenus.join('\n\n')}`
+}
+
 /**
  * Un livrable stratégique s'écrit en HTML, pas en Markdown.
  *
@@ -301,170 +338,6 @@ puis une ligne de sous-titre en gris qui dit ce que la section établit.
 un étage de tunnel en diagonale, pas un vocabulaire d'école. Le niveau de
 conscience, s'il compte, se dit en toutes lettres dans le texte de la carte.
 
-## Les gabarits de section
-
-Chaque gabarit ci-dessous vaut **quand la demande appelle cette section-là**.
-Aucune n'est obligatoire : une demande de trois briefs ne produit pas de carte
-du tunnel. Mais quand une section correspond à l'un de ces gabarits, elle en
-porte les blocs, dans cet ordre, et rien d'autre. Il n'est pas indicatif.
-
-### Une section d'analyse de fatigue sur une créa
-
-Elle ne raconte rien : elle mesure, elle projette, elle décide.
-
-D'abord **le verdict**, dans un encadré : un statut nommé et sa fenêtre
-d'action — « Pré-fatigue active — agir sous 15 jours » — puis deux ou trois
-lignes qui disent ce que le profil vidéo révèle et que la fréquence cache.
-
-Puis une **rangée de tuiles**, une par indicateur : la valeur en très gros et
-en couleur, son libellé en dessous, et une pastille de verdict —
-\`✓ FORT\` en vert, \`~ MOYEN\` en ambre, \`✗ FAIBLE\` ou \`✗ CRITIQUE\` en rouge.
-Hook rate, hold rate, taux de complétion, ThruPlay, durée moyenne vue,
-fréquence.
-
-Puis **l'entonnoir de rétention** : une barre horizontale par étape, remplie à
-la proportion mesurée, dans la couleur de son verdict, avec le seuil de
-référence rappelé dans le libellé — « Hold rate — p25 / vues 3 s (seuil fort
-= 70 %) ».
-
-Puis **un encadré par problème**, numéroté, bordé de la couleur de sa gravité :
-le titre nomme le problème et son chiffre, le corps traduit ce que ça veut dire
-en langage d'annonceur — où l'audience décroche, et ce que ça coûte.
-
-Puis **la projection**, en frise verticale : aujourd'hui, J+15, J+30, J+45.
-Chaque échéance porte une pastille de couleur, la fréquence estimée, et ce qui
-bascule à ce moment-là.
-
-Enfin **le plan d'action**, deux ou trois lignes numérotées, chacune avec son
-échéance et son objectif chiffré.
-
-### Section 1 — Diagnostic du compte
-
-Quatre cartes en grille deux par deux, puis un encadré pleine largeur.
-
-1. **Distribution par niveau de conscience** — quatre lignes fixes : TOFU
-   (sensibilisation / problème), MOFU (trafic, éducation), BOFU (génération de
-   leads), Retargeting / nurturing. Chacune porte sa part du budget en pourcent
-   et une pastille colorée : \`ABSENT\` en rouge à 0 %, le nombre de campagnes en
-   ambre quand c'est marginal, \`dominante\` en vert au-delà de la moitié.
-2. **Santé créative des publicités actives** — une ligne par créa qui dépense :
-   son nom à gauche, son CTR à droite suivi d'un signe — 🏆 pour les deux
-   meilleures, ✅ au-dessus de la moyenne du compte, ⚠️ en dessous. Précise
-   entre parenthèses la part de dépense d'une créa qui pèse anormalement lourd.
-3. **Fréquence — évaluation** — la fréquence du compte, puis celle de la
-   campagne dominante, du gagnant, et de toute créa qui monte anormalement.
-   Termine par un paragraphe d'alerte : ce que la fréquence dit **vraiment**
-   compte tenu de la taille du bassin d'audience, et dans combien de semaines
-   ça casse.
-4. **Signal créatif — schémas identifiés** — quatre à cinq puces. Chacune : le
-   schéma qui marche, sa métrique, et en une phrase pourquoi il marche.
-   « Savoir-faire artisan → 5,71 % de CTR. La preuve de compétence locale
-   résonne. »
-
-Puis, pleine largeur, **le verrou créatif principal** dans l'encadré rouge :
-un titre court et un paragraphe. Un seul verrou, celui qui commande tout le
-reste. Et la section s'arrête là.
-
-### Section 2 — Architecture de personas
-
-Cinq personas, une carte chacun, empilées.
-
-Chaque carte : un emoji et **un nom de type** (« Le Comparateur Anxieux », « Le
-Couple Projet Vacances ») ; en dessous, une ligne de description qui donne le
-prénom, l'âge, la situation et **ce qu'il a déjà fait ou pas fait** ; la
-pastille d'étage en haut à droite. Puis deux colonnes — **Douleur principale**
-et **Désir principal** — de deux ou trois lignes chacune. Puis, en pied de
-carte, un encadré à filet accent : \`Hook direction :\` la phrase écrite entre
-guillemets, une flèche, et le type d'angle qu'elle exploite.
-
-Les cinq couvrent tout le spectre, de « je rêve » à « je recommande » : au
-moins un TOFU, un MOFU, un BOFU et un retargeting.
-
-### Section 3 — Carte du tunnel
-
-D'abord **l'entonnoir**, en trois barres de largeur décroissante et centrées —
-la première pleine largeur, la deuxième aux trois quarts, la troisième à moitié.
-Chaque barre porte son étage, et en dessous en petit : l'audience visée et la
-**part de budget cible**. Une flèche ▼ entre chaque étage.
-
-Puis **trois cartes côte à côte**, une par étage, toutes bâties pareil :
-- la pastille d'étage,
-- **Objectif créatif** : trois lignes sur le travail que la créa doit faire à
-  cet endroit du tunnel — pas ce qu'elle dit, ce qu'elle provoque,
-- **Formats** : trois étiquettes,
-- **Angles** : quatre puces de quelques mots,
-- un encadré à filet accent avec **un exemple de hook écrit**, entre guillemets.
-
-### Section 4 — Feuille de route à 90 jours
-
-Sous-titre : ce que les phases s'enchaînent à produire — chacune fabrique le
-signal qui nourrit la suivante.
-
-**Trois cartes pleine largeur, une par ligne**, empilées, à filet léger et de
-couleur différente : accent pour la première, ambre pour la deuxième, vert pour
-la troisième. Aucune grille de cartes ici.
-
-Chaque carte, en tête : le nom de la phase en gros à gauche — « Phase 1 —
-Fondation » — et juste dessous, sur une ligne en couleur accent, les semaines
-et l'objectif : « Semaines 1–4 · Objectif : couvrir les trois étages du
-tunnel ». En haut à droite, une pastille qui nomme le régime de la phase
-(« Lancement structure », « Test & Learn », « Passage à l'échelle »).
-
-Puis, dans le corps de la carte, **trois colonnes côte à côte sur une seule
-ligne** — \`display:grid;grid-template-columns:1fr 1fr 1fr\` — de largeur égale.
-Elles ne s'empilent jamais : c'est leur mise en parallèle qui permet de
-comparer les trois phases d'un coup d'œil, et une carte dont les rubriques se
-suivent verticalement est trois fois trop haute. Mêmes rubriques pour les trois
-phases :
-- **Angles prioritaires** — quatre puces, chacune préfixée de son étage :
-  « TOFU : calcul été / ROI piscine ».
-- **Volume minimum** — trois ou quatre puces qui comptent des créas, puis une
-  ligne en italique et en gris : « Total : 9 créas minimum. »
-- **Signal de succès** — quatre puces, **chiffrées**, qui disent à quoi on
-  reconnaîtra que la phase est réussie : un seuil, jamais une intention.
-  « Fréquence BOFU stable < 2,5 », « CPL global maintenu < 20 € ».
-
-Les trois phases montent en exigence : la première installe ce qui manque, la
-deuxième valide et itère, la troisième met à l'échelle et supprime la
-dépendance à une seule créa.
-
-### Section 5 — Dispositif de suivi créatif
-
-Sous-titre : « Convention de nommage triable — lire un nom, c'est lire toute la
-stratégie d'un coup d'œil ».
-
-**Une carte pleine largeur, puis deux cartes côte à côte.**
-
-**Carte 1 — Structure de nommage.** Le gabarit seul, dans un bloc à fond très
-sombre et police à chasse fixe, en vert :
-\`[FUNNEL] _ [PERSONA] _ [FORMAT] _ [ANGLE] _ [HOOK] _ [Vx]\`
-Puis, sur deux colonnes, les jeux de valeurs, chacun sous son étiquette
-« VALEURS FUNNEL », « VALEURS PERSONA »… et rendu en **étiquettes cliquables
-visuellement** — de petites pastilles bordées, une par valeur :
-${CONVENTION_NOMMAGE}
-
-Les valeurs de PERSONA sont **celles de ta section 2**, en un mot chacune et en
-majuscules — COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR.
-
-**N'invente jamais de codes à trois lettres.** \`UNA\`, \`PRB\`, \`SOL\`, \`DAM\`,
-\`SOP\`, \`HKQ\`, \`HKV\` sont illisibles : personne ne retient un dictionnaire, et
-un nom de créa doit se comprendre sans lui. Des mots entiers, en majuscules.
-
-**Carte 2 — Exemples de noms corrects.** Quatre noms complets, chacun dans son
-bloc à chasse fixe vert, suivi immédiatement d'une ligne en gris qui le traduit
-en français : « → TOFU, couple avec enfants, vidéo, angle calcul économique,
-hook en question, première version ». Les quatre couvrent des étages
-différents.
-
-**Carte 3 — Grille de classement créatif.** Cinq lignes, le libellé et son
-emoji à gauche, le seuil à droite en couleur :
-🥇 Winner — à itérer · ✅ Performant — à maintenir · ⚠️ En observation ·
-🔴 À couper · 📊 Signal propre au haut de tunnel.
-Les seuils sont **calés sur les chiffres réels du compte**, pas sur un barème
-générique. Termine par une ligne de règle en gris : le volume minimum avant
-tout jugement, et le fait qu'une créa de haut de tunnel se juge au CTR et au
-hook rate, jamais au coût par prospect.
-
 ## Ce que le document doit contenir
 
 **Toutes** les sections demandées, jusqu'à la dernière. Un document qui s'arrête
@@ -475,65 +348,6 @@ présente vaut mieux qu'une section médiane fouillée.
 À l'intérieur, la même règle que partout : large et plat. Chaque carte tient en
 quelques lignes de champs courts, jamais en paragraphes. Les listes sont des
 puces de dix mots. La valeur est dans le nombre d'éléments distincts.
-
-### Une section de brief créa
-
-**Un brief = un onglet.** Trois briefs font trois onglets, nommés « Brief #1 —
-TOFU », « Brief #2 — BOFU UGC », « Brief #3 — MOFU ». Jamais les trois entassés
-dans une seule section : un brief part en production seul, il se lit seul.
-
-L'onglet s'ouvre par un **en-tête** : un carré coloré portant le numéro du
-brief en gros, puis à sa droite le nom technique de la créa en titre et, sous
-lui, une ligne qui dit son rôle — « Priorité absolue · Comble le vide TOFU · À
-produire en premier ».
-
-Puis **une rangée d'étiquettes** : l'étage, le persona, le format avec sa
-durée, et le levier — 🔵 TOFU · 👥 Couple 35–50 ans · 🎬 Vidéo 9:16 / 15–30 s ·
-⚡ Nouveau bassin d'audience.
-
-Puis **un encadré** « Pourquoi ce brief en premier ? » : trois lignes adossées
-à un chiffre du compte.
-
-Viennent ensuite des **cartes titrées**, dans cet ordre :
-
-**📋 Fiche brief** — deux colonnes. À gauche : étage de tunnel, persona (décrit
-comme une personne située), objectif créatif. À droite : format, angle, appel à
-l'action.
-
-**🎬 Script complet** — le cœur du brief, monté comme **un tableau à deux
-colonnes** : une colonne étroite à gauche pour le timecode, sur fond légèrement
-plus clair et en police à chasse fixe ; le contenu à droite. Une ligne par
-séquence, séparées par un filet.
-
-Dans la colonne de droite, trois natures de texte qui ne se confondent jamais :
-- **ce qui est dit** — précédé d'une petite étiquette en majuscules qui nomme
-  la séquence (\`VOIX-OFF\`, \`HOOK\`, \`OBJECTION 1 — DURABILITÉ\`, \`Q2 — LE
-  PROCESSUS\`), puis la réplique mot pour mot ;
-- **ce qui s'affiche à l'écran**, dans une petite pastille ambre :
-  « Texte à l'écran : … » ou « CTA : … » ;
-- **la direction**, en italique et en gris : le plan, la lumière, le rythme, ce
-  qu'il ne faut pas faire.
-
-Sur un tournage, on cherche sa réplique d'un coup d'œil : c'est ce que la
-colonne de timecode permet.
-
-Quand la créa est un **témoignage**, le script devient un guide d'entretien :
-une ligne d'avertissement — ne pas lire les questions au client — puis, par
-séquence, la question posée hors caméra en direction, et ce qu'on cherche à
-faire dire en voix. Ajoute alors une carte **🎬 Instructions tournage** :
-matériel minimal, lumière, son, cadrage.
-
-**Options de hook** — deux ou trois variantes à tester en V2 et V3, chacune
-dans son encadré à filet accent, précédée de son libellé.
-
-**📝 Copy texte (post)** — le texte de la publicité, écrit, prêt à coller. Pas
-une consigne sur le texte : le texte.
-
-**✅ À faire / ❌ À éviter** — deux colonnes côte à côte, fond vert très sombre
-à gauche, rouge très sombre à droite, six puces chacune, propres à cette créa.
-
-**📊 KPI de succès à J+7** — quatre tuiles chiffrées, puis une ligne de note en
-gris qui explique quel indicateur tranche vraiment pour cet étage de tunnel.
 
 **Chaque brief est un concept neuf, jamais une micro-variation.** Avant
 d'écrire, relis ce que le compte diffuse déjà : un angle que ses publicités
