@@ -23,7 +23,7 @@ const SUM_FIELDS = {
   outboundClicks: true, landingPageViews: true, addToCart: true, initiateCheckout: true,
   purchases: true, revenue: true, formLeads: true, pixelLeads: true, totalLeads: true,
   directions: true, postEngagement: true, videoStarts: true, video3s: true,
-  video15s: true, thruplays: true, video25: true, video50: true, video75: true, video95: true,
+  video15s: true, thruplays: true, video25: true, video50: true, video75: true, video95: true, video100: true,
 } as const
 
 type SumResult = Partial<Record<keyof typeof SUM_FIELDS, number | null>>

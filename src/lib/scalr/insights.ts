@@ -41,6 +41,8 @@ export type InsightRow = {
   video_p50_watched_actions?: MetaAction[]
   video_p75_watched_actions?: MetaAction[]
   video_p95_watched_actions?: MetaAction[]
+  video_p100_watched_actions?: MetaAction[]
+  video_avg_time_watched_actions?: MetaAction[]
   [k: string]: unknown
 }
 
@@ -71,6 +73,8 @@ export const INSIGHT_FIELDS = [
   'video_thruplay_watched_actions',
   'video_p25_watched_actions', 'video_p50_watched_actions',
   'video_p75_watched_actions', 'video_p95_watched_actions',
+  'video_p100_watched_actions',
+  'video_avg_time_watched_actions',
 ].join(',')
 
 /**
@@ -312,6 +316,8 @@ export function formatInsightRow(
   const video50 = extractActionValue(ins, ['video_p50_watched_actions'], 'video_p50_watched_actions')
   const video75 = extractActionValue(ins, ['video_p75_watched_actions'], 'video_p75_watched_actions')
   const video95 = extractActionValue(ins, ['video_p95_watched_actions'], 'video_p95_watched_actions')
+  const video100 = extractActionValue(ins, ['video_p100_watched_actions'], 'video_p100_watched_actions')
+  const videoAvgWatch = extractActionValue(ins, ['video_avg_time_watched_actions'], 'video_avg_time_watched_actions')
 
   const result = resolvePrimaryResult(ins, base, leads)
 
@@ -355,6 +361,9 @@ export function formatInsightRow(
     video50,
     video75,
     video95,
+    video100,
+    /** Durée moyenne de visionnage, en secondes. */
+    videoAvgWatch: videoAvgWatch || null,
     /** Distingue une vraie vidéo d'un visuel fixe. Meta remonte deux ou trois
      *  démarrages fantômes sur des statiques : seules les vues 3 s font foi. */
     hasVideo: video3s > 0,
@@ -367,6 +376,16 @@ export function formatInsightRow(
      *  impressions) ni celle d'Apogee (25 % ÷ 3 s), qui donnaient des chiffres
      *  différents pour un même nom. */
     holdRate: pct(video15s, video3s),
-    completionRate: video3s > 0 ? pct(video95, impressions) : null,
+    /** Va jusqu'au bout, rapporté aux vues de 3 s — pas aux impressions :
+     *  un palier de rétention se lit sur ceux qui ont vraiment accroché, pas sur tout démarrage. */
+    completionRate: video3s > 0 ? pct(video100 || video95, video3s || videoStarts) : null,
+    /** La courbe, pour la tracer sans la recalculer. */
+    retention: video3s > 0 ? {
+      p25: pct(video25, video3s || videoStarts),
+      p50: pct(video50, video3s || videoStarts),
+      p75: pct(video75, video3s || videoStarts),
+      p95: pct(video95, video3s || videoStarts),
+      p100: pct(video100, video3s || videoStarts),
+    } : null,
   }
 }

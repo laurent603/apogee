@@ -28,12 +28,34 @@ export async function getAdAccounts(token: string) {
   return data.data || []
 }
 
+/**
+ * La courbe de rétention vidéo.
+ *
+ * Ces champs ne sont pas dans `actions` : ce sont des champs d'insight à part
+ * entière, et il faut les demander nommément. `computeVideoMetrics` les lisait
+ * sans que personne ne les ait jamais réclamés — d'où des hold rates et des
+ * taux de complétion nuls dans tous les rapports, sur tous les comptes.
+ */
+const CHAMPS_VIDEO = [
+  'video_play_actions',
+  'video_15_sec_watched_actions',
+  'video_thruplay_watched_actions',
+  'video_p25_watched_actions', 'video_p50_watched_actions',
+  'video_p75_watched_actions', 'video_p95_watched_actions',
+  'video_p100_watched_actions',
+  'video_avg_time_watched_actions',
+]
+// `video_3_sec_watched_actions` n'existe plus sur cette version de l'API — vérifié
+// contre le compte : elle refuse le champ entier. Les vues de 3 s se lisent dans
+// `actions`, sous `video_view`.
+
 const INSIGHT_FIELDS = [
   'spend', 'impressions', 'reach', 'frequency',
   'clicks', 'unique_clicks', 'ctr', 'unique_ctr', 'cpc', 'cpm',
   'outbound_clicks', 'outbound_clicks_ctr', 'cost_per_outbound_click',
   'actions', 'action_values', 'cost_per_action_type',
   'website_purchase_roas',
+  ...CHAMPS_VIDEO,
 ].join(',')
 
 /**
@@ -51,6 +73,7 @@ const INSIGHT_FIELDS_NESTED = [
   'outbound_clicks', 'outbound_clicks_ctr',
   'actions', 'action_values', 'cost_per_action_type',
   'website_purchase_roas',
+  ...CHAMPS_VIDEO,
 ].join(',')
 
 function extractAction(actions: { action_type: string; value: string }[] | undefined, type: string): number {
@@ -194,6 +217,9 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
   return (data.data || []).map((a: Record<string, unknown>) => ({
     ...a,
     _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
+    // La rétention n'était jointe que par `getAdsWithCopy` : un scan de fatigue,
+    // qui passe par ici, jugeait une vidéo sans voir où elle perdait son monde.
+    _video: a.insights ? computeVideoMetrics(a) : null,
   }))
 }
 
@@ -466,19 +492,69 @@ export async function createAd(accountId: string, token: string, ad: Record<stri
   return res.json()
 }
 
+/**
+ * La rétention vidéo d'une publicité, en valeurs brutes puis en taux.
+ *
+ * Les taux sont ambigus sans leur dénominateur : un hold rate rapporté aux
+ * impressions et un hold rate rapporté aux lectures ne disent pas la même
+ * chose, et le modèle n'a aucun moyen de deviner lequel on lui donne. Chaque
+ * taux part donc avec le compte qui le fonde, et les paliers bruts restent
+ * disponibles pour que la courbe puisse être tracée telle quelle.
+ *
+ * `null` plutôt que zéro quand la mesure n'existe pas : une créa statique n'a
+ * pas un taux de complétion de 0 %, elle n'en a pas.
+ */
 export function computeVideoMetrics(ad: Record<string, unknown>) {
   const insightsData = (ad.insights as Record<string, unknown[]> | undefined)?.data
   const insights = (insightsData?.[0]) as Record<string, unknown> | undefined
   if (!insights) return null
 
+  const val = (champ: string) =>
+    Number((insights[champ] as { value: string }[] | undefined)?.[0]?.value || 0)
+
   const impressions = Number(insights.impressions || 0)
-  const video3s = (insights.video_3_sec_watched_actions as { value: string }[])?.[0]?.value
-  const videoP25 = (insights.video_p25_watched_actions as { value: string }[])?.[0]?.value
-  const videoP100 = (insights.video_p100_watched_actions as { value: string }[])?.[0]?.value
+  const lectures = val('video_play_actions')
+  const vues3s = extractAction(insights.actions as { action_type: string; value: string }[] | undefined, 'video_view')
+  const vues15s = val('video_15_sec_watched_actions')
+  const thruplays = val('video_thruplay_watched_actions')
+  const p25 = val('video_p25_watched_actions')
+  const p50 = val('video_p50_watched_actions')
+  const p75 = val('video_p75_watched_actions')
+  const p95 = val('video_p95_watched_actions')
+  const p100 = val('video_p100_watched_actions')
+  const dureeMoyenne = val('video_avg_time_watched_actions')
 
-  const hookRate = impressions > 0 ? (Number(video3s || 0) / impressions) * 100 : null
-  const holdRate = video3s ? (Number(videoP25 || 0) / Number(video3s)) * 100 : null
-  const completionRate = impressions > 0 ? (Number(videoP100 || 0) / impressions) * 100 : null
+  // Aucun signal vidéo : la publicité est un statique, ou Meta n'a rien remonté.
+  if (!lectures && !vues3s && !p25 && !p100) return null
 
-  return { hookRate, holdRate, completionRate }
+  const taux = (part: number, tout: number) => (tout > 0 ? Math.round((part / tout) * 1000) / 10 : null)
+  /**
+   * Les paliers se rapportent aux **vues de 3 s**, pas aux lectures.
+   *
+   * `video_play_actions` compte tout démarrage, y compris ceux d'un scroll qui
+   * ne s'arrête pas : sur ce compte, 385 847 lectures pour 65 412 vues de 3 s.
+   * Rapporter le premier quart aux lectures donnait 5,3 % là où la convention
+   * du métier — celle des seuils « fort = 70 % » — en lit 31,4 %.
+   */
+  const base = vues3s || lectures
+
+  return {
+    // Les paliers, tels que Meta les compte
+    lectures, vues3s, vues15s, thruplays, p25, p50, p75, p95, p100,
+    dureeMoyenneVue: dureeMoyenne || null,
+
+    // Les taux, chacun avec le dénominateur qui le définit
+    hookRate: taux(vues3s, impressions),
+    hookRateDenominateur: `${vues3s} vues de 3 s sur ${impressions} impressions`,
+    holdRate: taux(p25, base),
+    holdRateDenominateur: `${p25} au premier quart sur ${base} vues de 3 s`,
+    completionRate: taux(p100, base),
+    completionRateDenominateur: `${p100} jusqu'au bout sur ${base} vues de 3 s`,
+
+    // La courbe, prête à être lue d'un bloc
+    retention: {
+      '25%': taux(p25, base), '50%': taux(p50, base),
+      '75%': taux(p75, base), '95%': taux(p95, base), '100%': taux(p100, base),
+    },
+  }
 }

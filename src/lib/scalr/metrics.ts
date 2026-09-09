@@ -61,6 +61,8 @@ export const METRICS: MetricDef[] = [
   { key: 'video50', group: 'VIDEO', label: 'Vidéo 50%', format: 'int', good: 'high' },
   { key: 'video75', group: 'VIDEO', label: 'Vidéo 75%', format: 'int', good: 'high' },
   { key: 'video95', group: 'VIDEO', label: 'Vidéo 95%', format: 'int', good: 'high' },
+  { key: 'video100', group: 'VIDEO', label: 'Vidéo 100%', format: 'int', good: 'high' },
+  { key: 'completionRate', group: 'VIDEO', label: 'Taux de complétion', format: 'pct', good: 'high', dec: 2 },
 ]
 
 export const METRIC_BY_KEY = new Map(METRICS.map((m) => [m.key, m]))

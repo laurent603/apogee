@@ -157,6 +157,8 @@ function toDailyRow(r: InsightRow, ctx: { adAccountId: string; metaAccountId: st
     video50: extractActionValue(r, ['video_p50_watched_actions'], 'video_p50_watched_actions'),
     video75: extractActionValue(r, ['video_p75_watched_actions'], 'video_p75_watched_actions'),
     video95: extractActionValue(r, ['video_p95_watched_actions'], 'video_p95_watched_actions'),
+    video100: extractActionValue(r, ['video_p100_watched_actions'], 'video_p100_watched_actions'),
+    videoAvgWatch: extractActionValue(r, ['video_avg_time_watched_actions'], 'video_avg_time_watched_actions'),
     syncedAt: new Date(),
   }
 }

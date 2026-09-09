@@ -31,7 +31,7 @@ const SUM = {
   outboundClicks: true, landingPageViews: true, addToCart: true, initiateCheckout: true,
   purchases: true, revenue: true, formLeads: true, pixelLeads: true, totalLeads: true,
   directions: true, postEngagement: true, videoStarts: true, video3s: true,
-  video15s: true, thruplays: true, video25: true, video50: true, video75: true, video95: true,
+  video15s: true, thruplays: true, video25: true, video50: true, video75: true, video95: true, video100: true,
 } as const
 
 type Sum = Partial<Record<keyof typeof SUM, number | null>>
@@ -344,7 +344,7 @@ export async function GET(req: NextRequest) {
       landingPageViews: evo('landingPageViews'), reachSum: evo('reachSum'),
       hookRate: evo('hookRate'), holdRate: evo('holdRate'), video3s: evo('video3s'),
       videoStarts: evo('videoStarts'), video25: evo('video25'), video50: evo('video50'),
-      video75: evo('video75'), video95: evo('video95'), thruplays: evo('thruplays'),
+      video75: evo('video75'), video95: evo('video95'), video100: evo('video100'), thruplays: evo('thruplays'),
       costPerThruplay: evo('costPerThruplay'),
     },
     sante: sante(totaux, sumPrev._sum.spend ? totauxPrec : null, avecDecision, goals),
@@ -369,7 +369,7 @@ export async function GET(req: NextRequest) {
     detail: {
       leadgen: ['spend', 'leads', 'cpl', 'convRate', 'reachSum', 'frequency'],
       media: ['impressions', 'clicks', 'ctr', 'linkClicks', 'linkCtr', 'cpc', 'cpm', 'cpcLink', 'outboundClicks', 'cpcOutbound', 'postEngagement', 'landingPageViews'],
-      creatif: ['hookRate', 'holdRate', 'video3s', 'videoStarts', 'video25', 'video50', 'video75', 'video95', 'thruplays', 'costPerThruplay'],
+      creatif: ['hookRate', 'holdRate', 'video3s', 'videoStarts', 'video25', 'video50', 'video75', 'video95', 'video100', 'completionRate', 'thruplays', 'costPerThruplay'],
     },
     nbPubs: avecDecision.length,
     prevPubs: parIdPrec.size,

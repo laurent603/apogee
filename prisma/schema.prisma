@@ -393,6 +393,11 @@ model MetaDailyAd {
   video50     Int @default(0)
   video75     Int @default(0)
   video95     Int @default(0)
+  // Le palier 100 % et la durée moyenne de vue, en secondes. Sans le premier,
+  // le taux de complétion se lisait sur le palier 95 %, qui n'est pas la même
+  // chose : une vidéo peut être coupée dans ses dernières secondes.
+  video100      Int   @default(0)
+  videoAvgWatch Float @default(0)
 
   syncedAt DateTime @default(now())
 

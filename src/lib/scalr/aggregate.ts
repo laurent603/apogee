@@ -38,6 +38,7 @@ export type Totals = {
   video50: number
   video75: number
   video95: number
+  video100: number
   /** Nombre de journées distinctes agrégées : au-delà d'une, la portée
    *  sommée cesse d'être une portée. */
   days: number
@@ -48,7 +49,7 @@ export const TOTAL_KEYS: (keyof Totals)[] = [
   'landingPageViews', 'addToCart', 'initiateCheckout', 'purchases', 'revenue',
   'formLeads', 'pixelLeads', 'totalLeads', 'directions', 'postEngagement',
   'videoStarts', 'video3s', 'video15s', 'thruplays',
-  'video25', 'video50', 'video75', 'video95', 'days',
+  'video25', 'video50', 'video75', 'video95', 'video100', 'days',
 ]
 
 export function emptyTotals(): Totals {
@@ -174,9 +175,19 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     video50: t.video50,
     video75: t.video75,
     video95: t.video95,
+    video100: t.video100,
     hookRate: t.video3s > 0 ? pct(t.video3s, t.impressions) : null,
     holdRate: pct(t.video15s, t.video3s),
-    completionRate: t.video3s > 0 ? pct(t.video95, t.impressions) : null,
+    /** Rapporté aux lectures, comme le hook rate : un taux de complétion sur les
+     *  impressions mélange ceux qui n'ont jamais regardé la vidéo. */
+    completionRate: t.video3s > 0 ? pct(t.video100 || t.video95, t.video3s || t.videoStarts) : null,
+    retention: t.video3s > 0 ? {
+      p25: pct(t.video25, t.video3s || t.videoStarts),
+      p50: pct(t.video50, t.video3s || t.videoStarts),
+      p75: pct(t.video75, t.video3s || t.videoStarts),
+      p95: pct(t.video95, t.video3s || t.videoStarts),
+      p100: pct(t.video100, t.video3s || t.videoStarts),
+    } : null,
 
     days: t.days,
   }
@@ -250,6 +261,7 @@ export function totauxDepuisLigne(row: Record<string, unknown>): Totals {
   t.video50 = n(row.video50)
   t.video75 = n(row.video75)
   t.video95 = n(row.video95)
+  t.video100 = n(row.video100)
   t.days = n(row.days)
   return t
 }
