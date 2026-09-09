@@ -51,6 +51,17 @@ export function separerRapport(contenu: string | null | undefined): {
   // Un document ancien porte sa propre feuille de style et n'a pas de synthèse.
   if (/^(<!doctype html|<html[\s>])/i.test(brut)) return { synthese: '', document: brut }
 
+  /**
+   * Le filet, quand la marque manque.
+   *
+   * Sans elle, un document part au rendu Markdown : le lecteur reçoit son
+   * balisage en texte brut, ce qui donne exactement « aucune mise en page, que
+   * du texte ». Le vocabulaire de classes est le nôtre et ne se rencontre pas
+   * dans un rapport Markdown : il suffit à reconnaître le début du document.
+   */
+  const repli = /<input[^>]+class="onglet"|<div[^>]+class="wrap"/i.exec(brut)
+  if (repli) return { synthese: brut.slice(0, repli.index).trim(), document: brut.slice(repli.index) }
+
   return { synthese: brut, document: null }
 }
 
