@@ -212,13 +212,239 @@ ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
  * réinventer sa feuille de style à chaque génération — cinq mille jetons de
  * sortie dépensés en CSS.
  *
- * Un exemplaire fait le travail : la feuille de style est fournie telle quelle,
- * et quelques motifs de balisage suffisent à montrer ce qu'on attend. Il n'y a
- * plus rien à décrire.
+ * Un exemplaire fait le travail : la feuille de style et le script vivent dans
+ * l'application (voir `scalr/rapportHtml`), et quelques motifs de balisage
+ * suffisent à montrer ce qu'on attend. Il n'y a plus rien à décrire.
  */
-const FEUILLE_STYLE = ":root{--bg:#0A0C16;--panel:#12152A;--panel-2:#161A33;--border:#262b4a;--ink:#E7E9F6;--dim:#9297B8;--dimmer:#666c94;--violet:#7C7FF0;--violet-soft:#3B3D74;--good:#3ED598;--good-bg:#0F2A22;--warn:#F2B84B;--warn-bg:#2E260F;--bad:#F0637A;--bad-bg:#2E1620;--mono:\"JetBrains Mono\",monospace}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;font-size:15px;line-height:1.6}.wrap{max-width:1120px;margin:0 auto;padding:0 28px 80px}a{color:inherit}h1,h2,h3{margin:0;font-weight:700}.tag{font-family:var(--mono);font-size:11px;letter-spacing:.02em;padding:3px 9px;border-radius:5px;display:inline-block}.tag-tofu{background:var(--violet-soft);color:#C7C9FA}.tag-mofu{background:#3a2e0f;color:#F2C56B}.tag-bofu{background:#123024;color:#5FE0A8}.tag-retarg{background:#301622;color:#F58AA6}header{padding:44px 0 0}.badge{font-family:var(--mono);font-size:12px;color:var(--violet);background:var(--violet-soft);display:inline-block;padding:5px 12px;border-radius:20px;margin-bottom:16px}header h1{font-size:32px;letter-spacing:-.01em}header .sub{color:var(--dim);margin-top:8px;font-size:14.5px}.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:28px 0 0}.kpi{background:var(--panel);padding:18px 16px}.kpi .v{font-size:24px;font-weight:700;color:var(--violet)}.kpi .l{font-size:12px;color:var(--dim);margin-top:4px}@media (max-width:800px){.kpi-row{grid-template-columns:repeat(2,1fr)}}.tabs{display:flex;gap:4px;margin:28px 0 0;border-bottom:1px solid var(--border);overflow-x:auto}.tab-btn{font-family:\"Inter\";font-size:14px;color:var(--dim);background:none;border:none;padding:12px 16px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}.tab-btn .num{font-family:var(--mono);color:var(--dimmer);margin-right:6px}.panel{display:none;padding-top:36px}.eyebrow{font-family:var(--mono);font-size:12px;color:var(--violet);letter-spacing:.03em}h2{font-size:24px;margin-top:6px}.lede{color:var(--dim);font-size:14.5px;margin-top:8px;max-width:70ch}.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px}@media (max-width:800px){.grid-2{grid-template-columns:1fr}}.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px}.card h3{font-size:15px;margin-bottom:14px}.kv{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px;gap:12px}.kv:last-child{border-bottom:none}.kv .status{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;white-space:nowrap}.status-bad{background:var(--bad-bg);color:var(--bad)}.status-warn{background:var(--warn-bg);color:var(--warn)}.status-good{background:var(--good-bg);color:var(--good)}.callout{border-radius:12px;padding:18px 20px;margin-top:18px;font-size:13.5px;border:1px solid}.callout.bad{background:var(--bad-bg);border-color:#4a2130;color:#f5c3cd}.callout.warn{background:var(--warn-bg);border-color:#4a3a15;color:#f4dba6}.callout.good{background:var(--good-bg);border-color:#15412f;color:#a9ecce}.callout strong{color:inherit}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}th{text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border)}td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--ink)}tr:last-child td{border-bottom:none}.num-cell{font-family:var(--mono)}.note{font-size:12px;color:var(--dimmer);font-style:italic;margin-top:8px}.persona{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-top:16px}.persona-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.persona-head h3{font-size:17px}.persona .role{color:var(--dim);font-size:13px;margin-top:2px}.persona-body{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px}@media (max-width:700px){.persona-body{grid-template-columns:1fr}}.persona-body .k{font-family:var(--mono);font-size:10.5px;color:var(--dimmer)}.persona-body .v{font-size:13.5px;margin-top:4px}.persona .hook{margin-top:16px;padding:12px 14px;background:var(--panel-2);border-radius:8px;font-size:13.5px;font-style:italic;color:#C7C9FA;border-left:2px solid var(--violet)}.funnel-flow{display:flex;flex-direction:column;gap:0;margin-top:24px}.funnel-stage{border-radius:10px;padding:16px 20px;margin-bottom:8px}.funnel-stage.t{background:var(--violet-soft)}.funnel-stage.m{background:#332a10}.funnel-stage.b{background:#123024}.funnel-stage .stitle{font-weight:700;font-size:14.5px}.funnel-stage .sdesc{font-size:12.5px;color:var(--dim);margin-top:3px}.arrow-down{text-align:center;color:var(--dimmer);font-size:14px;margin:2px 0}.funnel-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:22px}@media (max-width:800px){.funnel-cols{grid-template-columns:1fr}}.fcol{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px}.fcol .k{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);margin-top:14px}.fcol .v{font-size:13px;margin-top:4px}.fcol ul{margin:4px 0 0;padding-left:16px;font-size:13px}.fcol li{margin-bottom:3px}.fcol .hook-box{margin-top:14px;padding:10px 12px;background:var(--panel-2);border-radius:8px;font-size:12.5px;font-style:italic;color:#C7C9FA}.phase{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-top:16px}.phase-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}.phase-head h3{font-size:17px}.phase-head .when{color:var(--violet);font-family:var(--mono);font-size:12.5px}.phase-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:16px}@media (max-width:800px){.phase-cols{grid-template-columns:1fr}}.phase-cols .k{font-family:var(--mono);font-size:10.5px;color:var(--dimmer)}.phase-cols ul{margin:6px 0 0;padding-left:16px;font-size:13px}.phase-cols li{margin-bottom:3px}.naming-box{font-family:var(--mono);font-size:14.5px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-top:18px;overflow-x:auto;color:#C7C9FA}.tag-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:20px}.tag-group .k{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);margin-bottom:6px}.chip{display:inline-block;font-family:var(--mono);font-size:11.5px;background:var(--panel-2);border:1px solid var(--border);padding:3px 8px;border-radius:6px;margin:0 4px 4px 0}.example-name{font-family:var(--mono);font-size:13px;background:var(--panel-2);border:1px solid var(--border);padding:8px 12px;border-radius:6px;display:inline-block;margin:4px 8px 2px 0;color:var(--good)}.brief-tabs{display:flex;gap:8px;margin-top:24px;flex-wrap:wrap}.brief-btn{font-family:var(--mono);font-size:12.5px;background:var(--panel);border:1px solid var(--border);color:var(--dim);padding:8px 14px;border-radius:8px;cursor:pointer}.brief-panel{display:none;margin-top:20px}.brief-title{font-size:19px;font-weight:700;font-family:var(--mono);color:var(--ink)}.brief-tagrow{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}.why-box{margin-top:18px;background:var(--warn-bg);border:1px solid #4a3a15;border-radius:10px;padding:16px 18px;font-size:13.5px;color:#f4dba6}.fiche{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px}@media (max-width:700px){.fiche{grid-template-columns:1fr}}.fiche .k{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);margin-top:14px}.fiche .k:first-child{margin-top:0}.fiche .v{font-size:13.5px;margin-top:4px}.script-block{margin-top:20px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px}.script-block h4{font-size:14px;margin-bottom:12px;color:var(--violet)}.timecode{font-family:var(--mono);color:var(--violet);font-size:12.5px}.script-line{margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed var(--border)}.script-line:last-child{border-bottom:none}.script-line .dir{color:var(--dim);font-size:12.5px;font-style:italic;margin-top:3px}.script-line .txt{font-size:14px;margin-top:4px}footer{margin-top:56px;padding-top:24px;border-top:1px solid var(--border);font-size:12.5px;color:var(--dimmer)}.retention-row{margin-top:14px}.retention-row .rlabel{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}.retention-row .rlabel .pct{font-family:var(--mono)}.rbar-track{height:10px;background:var(--panel-2);border-radius:5px;overflow:hidden}.rbar-fill{height:100%;border-radius:5px}.rbar-fill.good{background:var(--good)}.rbar-fill.warn{background:var(--warn)}.rbar-fill.bad{background:var(--bad)}.timeline{margin-top:18px}.tl-item{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--border)}.tl-item:last-child{border-bottom:none}.tl-dot{width:26px;height:26px;border-radius:50%;flex:0 0 26px;display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:2px}.tl-dot.good{background:var(--good-bg);color:var(--good);border:1px solid #15412f}.tl-dot.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #4a3a15}.tl-dot.bad{background:var(--bad-bg);color:var(--bad);border:1px solid #4a2130}.tl-item h4{font-size:14px;margin:0 0 4px}.tl-item p{font-size:13px;color:var(--dim);margin:0;max-width:65ch}.voscript{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;margin-top:20px;overflow:hidden}.voscript .row{display:grid;grid-template-columns:90px 1fr;gap:0;border-bottom:1px solid var(--border)}.voscript .row:last-child{border-bottom:none}.voscript .tc{padding:16px 14px;font-family:var(--mono);color:var(--violet);font-size:12px;background:var(--panel-2)}.voscript .content{padding:16px 18px}.voscript .vo{font-size:14.5px;color:var(--ink)}.voscript .vo .label{font-family:var(--mono);font-size:10px;color:var(--dimmer);display:block;margin-bottom:4px}.voscript .onscreen{margin-top:8px;font-size:12.5px;color:#F2C56B;background:#2a2410;display:inline-block;padding:3px 9px;border-radius:5px}.voscript .dir2{margin-top:8px;font-size:12.5px;color:var(--dim);font-style:italic}input.onglet{display:none}.tab-btn{display:inline-block}#o1:checked~.wrap #t1,#o2:checked~.wrap #t2,#o3:checked~.wrap #t3,#o4:checked~.wrap #t4,#o5:checked~.wrap #t5,#o6:checked~.wrap #t6,#o7:checked~.wrap #t7{display:block}#o1:checked~.wrap label[for=o1],#o2:checked~.wrap label[for=o2],#o3:checked~.wrap label[for=o3],#o4:checked~.wrap label[for=o4],#o5:checked~.wrap label[for=o5],#o6:checked~.wrap label[for=o6],#o7:checked~.wrap label[for=o7]{color:var(--ink);border-bottom-color:var(--violet)}#b1:checked~.brief-panels #p1,#b2:checked~.brief-panels #p2,#b3:checked~.brief-panels #p3{display:block}#b1:checked~.brief-tabs label[for=b1],#b2:checked~.brief-tabs label[for=b2],#b3:checked~.brief-tabs label[for=b3]{color:var(--ink);border-color:var(--violet);background:var(--violet-soft)}"
+const MOTIFS = `
+**Les onglets** — un bouton par volet, un seul volet porte \`active\`. La bascule
+est déjà câblée par l'application : tu écris juste l'appel.
+<div class="nav">
+  <button class="nav-btn active" onclick="showSection('s1')">① Diagnostic</button>
+  <button class="nav-btn" onclick="showSection('s2')">② Personas</button>
+</div>
+<div class="content">
+  <div id="s1" class="section active">…</div>
+  <div id="s2" class="section">…</div>
+</div>
 
-const MOTIFS = "**Les onglets, en CSS seul** — les boutons radio précèdent `.wrap`, les libellés\nsont des `<label>`, chaque `.panel` porte l'identifiant correspondant :\n```\n<input class=\"onglet\" type=\"radio\" name=\"t\" id=\"o1\" checked><input class=\"onglet\" type=\"radio\" name=\"t\" id=\"o2\">\n<div class=\"wrap\">\n  <div class=\"tabs\"><label class=\"tab-btn\" for=\"o1\"><span class=\"num\">01</span>Diagnostic</label>\n                    <label class=\"tab-btn\" for=\"o2\"><span class=\"num\">02</span>Personas</label></div>\n  <div class=\"panel\" id=\"t1\">…</div><div class=\"panel\" id=\"t2\">…</div>\n</div>\n```\nMême mécanique pour les sous-onglets de briefs : radios `b1..b3` avant\n`.brief-tabs`, panneaux `#p1..#p3` dans `.brief-panels`.\n\n**Bandeau d'ouverture**\n<header>\n    <span class=\"badge\">SB PISCINE — CREATIVE STRATEGY REPORT</span>\n    <h1>Full-Funnel Creative Strategy</h1>\n    <div class=\"sub\">Lead gen · Piscines coque polyester · Aubais / Gard · act_1294520489271911 · Données réelles, 30 derniers jours</div>\n    <div class=\"kpi-row\">\n      <div class=\"kpi\"><div class=\"v\">1 062 €</div><div class=\"l\">Dépense 30j</div></div>\n      <div class=\"kpi\"><div class=\"v\">1,74</div><div class=\"l\">Fréquence moy.</div></div>\n      <div class=\"kpi\"><div class=\"v\">2,75 %</div><div class=\"l\">CTR compte</div></div>\n      <div class=\"kpi\"><div class=\"v\">5,95 %</div><div class=\"l\">Top CTR (avis curnier)</div></div>\n      <div class=\"kpi\"><div class=\"v\">0 / 1</div><div class=\"l\">Campagnes TOFU actives / créées</div></div>\n    </div>\n    <div class=\"tabs\">\n      <label class=\"tab-btn\" for=\"o1\"><span class=\"num\">01</span>Diagnostic</label>\n      <label class=\"tab-btn\" for=\"o2\"><span class=\"num\">02</span>Personas</label>\n    </div>\n\n**Carte à lignes clé/valeur et pastilles d'état**\n<div class=\"panel\" id=\"t1\">\n    <div class=\"eyebrow\">SECTION 1</div>\n    <h2>Diagnostic du compte</h2>\n    <p class=\"lede\">8 annonces avec dépense réelle sur 30 jours, réparties sur 2 campagnes actives + 1 campagne TOFU créée mais totalement dormante.</p>\n    <div class=\"grid-2\">\n      <div class=\"card\">\n        <h3>Distribution par niveau de funnel</h3>\n        <div class=\"kv\"><span>TOFU — Notoriété</span><span class=\"status status-bad\">0 % actif (1 camp. dormante)</span></div>\n        <div class=\"kv\"><span>MOFU — Trafic LP / éducation</span><span class=\"status status-warn\">8,5 % du budget</span></div>\n        <div class=\"kv\"><span>BOFU — Génération de leads</span><span class=\"status status-good\">90,1 % — dominant</span></div>\n        <div class=\"kv\"><span>Retargeting / Nurturing</span><span class=\"status status-bad\">0 % — absent</span></div>\n        <p class=\"note\">La campagne \"[LDS] - Coque polyester - TOFU - Notoriété - 19/06/2026\" existe avec 2 ad sets (dont un ciblage par empilement d'intérêts) mais n'a délivré aucune impression sur la période — 0 € dépensé.</p>\n      </div>\n      <div class=\"card\">\n        <h3>Santé créative — annonces actives</h3>\n        <div class=\"kv\"><span>Statique — avis client curnier</span><span class=\"status status-good\">5,95 % CTR</span></div>\n        <div class=\"kv\"><span>Vidéo — Savoir-Faire</span><span class=\"status status-good\">5,87 % CTR</span></div>\n        <div class=\"kv\"><span>Vidéo — Comment ça se passe</span><span class=\"status status-good\">4,79 % CTR</span></div>\n        <div class=\"kv\"><span>Statique — avis client carrière</span><span class=\"status status-warn\">2,91 % CTR</span></div>\n        <div class=\"kv\"><span>Vidéo — lunel — C1B (69% spend)</span><span class=\"status status-warn\">2,62 % CTR</span></div>\n\n**Carte de persona**\n<div class=\"persona\">\n      <div class=\"persona-head\">\n        <div><h3>Sophie, 42 ans</h3><div class=\"role\">Nîmes — la rêveuse organisée</div></div>\n        <span class=\"tag tag-tofu\">TOFU</span>\n      </div>\n      <div class=\"persona-body\">\n        <div><div class=\"k\">DOULEUR</div><div class=\"v\">Dépense chaque été en locations avec piscine. \"Si j'avais ma piscine\" tourne en tête depuis 3 ans.</div></div>\n        <div><div class=\"k\">DÉSIR</div><div class=\"v\">Le jardin comme espace de vie, les étés à la maison, la famille qui en profite ensemble.</div></div>\n      </div>\n      <div class=\"hook\">« Vous avez dépensé combien en locations piscine ces 5 dernières années ? » — angle ROI émotionnel</div>\n    </div>\n\n**Entonnoir et colonnes par étage**\n<div class=\"funnel-flow\">\n      <div class=\"funnel-stage t\">\n        <div class=\"stitle\">TOP OF FUNNEL — Capter & élargir</div>\n        <div class=\"sdesc\">Audience froide · intérêts jardin / maison / région · cible 20-30 % du budget</div>\n      </div>\n      <div class=\"arrow-down\">▼</div>\n      <div class=\"funnel-stage m\">\n        <div class=\"stitle\">MIDDLE OF FUNNEL — Éduquer & différencier</div>\n        <div class=\"sdesc\">Visiteurs LP · audiences élargies · cible 40-50 % du budget (déjà le pattern gagnant du compte)</div>\n      </div>\n      <div class=\"arrow-down\">▼</div>\n      <div class=\"funnel-stage b\">\n        <div class=\"stitle\">BOTTOM OF FUNNEL — Convertir en lead</div>\n        <div class=\"sdesc\">Retargeting visiteurs LP + engageurs vidéo · cible 25-35 % du budget</div>\n      </div>\n    </div>\n    <div class=\"funnel-cols\">\n      <div class=\"fcol\">\n        <span class=\"tag tag-tofu\">TOFU</span>\n        <div class=\"k\">OBJECTIF CRÉATIF</div>\n        <div class=\"v\">Stopper le scroll, semer le désir. Ne pas vendre — montrer une vie possible autour de l'eau.</div>\n        <div class=\"k\">FORMATS</div>\n        <ul><li>Vidéo 15-30s, Reel vertical</li><li>UGC avant/après jardin</li><li>Contenu éducatif court</li></ul>\n        <div class=\"k\">ANGLES</div>\n\n**Phase de feuille de route**\n<div class=\"phase\">\n      <div class=\"phase-head\"><h3>Phase 1 — Fondations</h3><span class=\"when\">Semaines 1–4</span></div>\n      <div class=\"phase-cols\">\n        <div><div class=\"k\">ANGLES PRIORITAIRES</div><ul>\n          <li>TOFU : calcul été / ROI piscine</li>\n          <li>TOFU : transformation jardin</li>\n          <li>BOFU : ITW client réel (réplique le pattern preuve sociale)</li>\n        </ul></div>\n        <div><div class=\"k\">VOLUME MINIMUM</div><ul>\n          <li>2 concepts TOFU (vidéo + statique)</li>\n          <li>3 variantes sur \"avis client\" (winner)</li>\n          <li>1 ad set retargeting visiteurs LP 14j</li>\n        </ul></div>\n        <div><div class=\"k\">SIGNAL DE SUCCÈS</div><ul>\n          <li>Au moins 1 créa TOFU avec CTR &gt; 2 %</li>\n          <li>Fréquence C1B stabilisée sous 2,5</li>\n          <li>Premier pool de reciblage constitué</li>\n        </ul></div>\n\n**Convention de nommage**\n<div class=\"panel\" id=\"t5\">\n    <div class=\"eyebrow\">SECTION 5</div>\n    <h2>Creative Tracker Setup</h2>\n    <p class=\"lede\">Convention de nommage sortable — lire un nom = lire toute la stratégie d'un coup d'œil.</p>\n    <div class=\"card\">\n      <h3>Structure de nommage</h3>\n      <div class=\"naming-box\">[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK_TYPE]_[Vx]</div>\n      <div class=\"tag-groups\">\n        <div class=\"tag-group\"><div class=\"k\">VALEURS FUNNEL</div>\n          <span class=\"chip\">TOFU</span><span class=\"chip\">MOFU</span><span class=\"chip\">BOFU</span><span class=\"chip\">RETARG</span></div>\n        <div class=\"tag-group\"><div class=\"k\">VALEURS PERSONA</div>\n          <span class=\"chip\">SOPHIE</span><span class=\"chip\">MARC</span><span class=\"chip\">ISABELLE</span><span class=\"chip\">JULIEN</span><span class=\"chip\">AMBASSADEUR</span></div>\n        <div class=\"tag-group\"><div class=\"k\">VALEURS FORMAT</div>\n          <span class=\"chip\">VID</span><span class=\"chip\">STAT</span><span class=\"chip\">CAR</span><span class=\"chip\">UGC</span></div>\n        <div class=\"tag-group\"><div class=\"k\">VALEURS ANGLE</div>\n          <span class=\"chip\">ROI</span><span class=\"chip\">PREUVE</span><span class=\"chip\">EDUC</span><span class=\"chip\">PROCESS</span><span class=\"chip\">OBJECTION</span><span class=\"chip\">OFFRE</span></div>\n        <div class=\"tag-group\"><div class=\"k\">VALEURS HOOK_TYPE</div>\n          <span class=\"chip\">QUESTION</span><span class=\"chip\">STAT</span><span class=\"chip\">ITW</span><span class=\"chip\">DIRECT</span></div>\n\n**Brief concept — celui de la section « Les 3 premiers briefs » : deux colonnes, puis le pourquoi**\n<input class=\"onglet\" type=\"radio\" name=\"b\" id=\"b1\" checked><input class=\"onglet\" type=\"radio\" name=\"b\" id=\"b2\"><input class=\"onglet\" type=\"radio\" name=\"b\" id=\"b3\">\n    <div class=\"brief-tabs\">\n      <label class=\"brief-btn\" for=\"b1\">Brief #1 — TOFU</label>\n      <label class=\"brief-btn\" for=\"b2\">Brief #2 — BOFU UGC</label>\n      <label class=\"brief-btn\" for=\"b3\">Brief #3 — MOFU</label>\n    </div>\n    <div class=\"brief-panels\">\n    <div class=\"brief-panel\" id=\"p1\">\n      <div class=\"brief-title\">TOFU_SOPHIE_VID_ROI_QUESTION_V1 — \"L'été à la maison\"</div>\n      <div class=\"brief-tagrow\">\n        <span class=\"tag tag-tofu\">TOFU</span><span class=\"tag\" style=\"background:var(--panel-2);color:var(--dim);\">Priorité critique</span>\n      </div>\n      <div class=\"fiche\">\n        <div>\n          <div class=\"k\">ANGLE MARKETING</div><div class=\"v\">ROI émotionnel — le calcul que personne ne fait : \"j'ai dépensé 12 000 € en locations ces 5 ans, j'aurais pu avoir ma piscine\".</div>\n          <div class=\"k\">PERSONA &amp; NIVEAU</div><div class=\"v\">Sophie, 42 ans — TOFU, audience froide · intérêts jardin, famille, maison · Hérault / Gard.</div>\n          <div class=\"k\">FORMAT</div><div class=\"v\">Vidéo 20-30 s · Reel vertical · voix-off + images à domicile · pas de logo à l'ouverture.</div>\n        </div>\n        <div>\n          <div class=\"k\">DIRECTION HOOK (T-A-V)</div>\n          <div class=\"v\"><strong>Texte</strong> : \"Combien avez-vous dépensé en location piscine ces 5 ans ?\" — 8 mots à l'écran.</div>\n          <div class=\"v\"><strong>Visuel</strong> : famille dans son jardin, plan large — contraste voulu avec l'imagerie de vacances.</div>\n          <div class=\"v\"><strong>Audio</strong> : voix naturelle, calme, pas de musique intrusive.</div>\n          <div class=\"k\">STRUCTURE VIDÉO</div>\n          <div class=\"v\">0-3 s : hook question + calcul choc<br>3-15 s : bénéfice émotionnel (famille, liberté)<br>15-25 s : SB Piscine, la solution locale<br>25-30 s : CTA \"Étude gratuite\"</div>\n        </div>\n      </div>\n      <div class=\"why-box\"><strong>⚡ Pourquoi en premier :</strong> le compte n'a aucune créa TOFU active. Ce brief crée le carburant de tout le reste du tunnel : sans lui, le BOFU continue de s'épuiser sur une audience locale finie. Tournage simple, aucun acteur professionnel.</div>\n    </div>\n    </div>\n\n**Brief détaillé — le livrable séparé, quand la demande porte sur le script complet**\nLe même en-tête et la même fiche, puis le script minuté et ce qui permet de tourner :\n<div class=\"script-block\">\n      <h4>Script complet</h4>\n      <div class=\"voscript\">\n        <div class=\"row\">\n          <div class=\"tc\">0:00–0:03</div>\n          <div class=\"content\">\n            <div class=\"vo\"><span class=\"label\">VOIX-OFF</span>\"Vous dépensez combien en vacances, chaque année ?\"</div>\n            <div class=\"onscreen\">Texte à l'écran : \"Vos vacances vous coûtent combien ?\"</div>\n            <div class=\"dir2\">Plan serré visage caméra, regard direct. Pause d'une demi-seconde après la question — laisser résonner.</div>\n          </div>\n        </div>\n        <div class=\"row\">\n          <div class=\"tc\">0:03–0:12</div>\n          <div class=\"content\">\n            <div class=\"vo\"><span class=\"label\">VOIX-OFF</span>\"2 000 € ? 3 000 € ? Sur dix ans, vous avez déjà payé votre piscine.\"</div>\n            <div class=\"dir2\">Cut sur images de location (valise, clés, transat), puis piscine coque dans un jardin ordinaire — jamais une villa.</div>\n          </div>\n        </div>\n      </div>\n    </div>\n    <div class=\"grid-2\">\n      <div class=\"card\">\n        <h3>Options de hook — à tester en V2 / V3</h3>\n        <div class=\"kv\"><span>\"Vous avez calculé ce que vous coûte de ne pas avoir de piscine ?\"</span><span class=\"status status-warn\">question inversée</span></div>\n        <div class=\"kv\"><span>\"Nos voisins paient moins qu'un abonnement vacances\"</span><span class=\"status status-good\">preuve sociale</span></div>\n      </div>\n      <div class=\"card\">\n        <h3>Copy du post</h3>\n        <p>Vous comptez repartir en vacances cet été ? Ou vous rêvez de ne plus avoir besoin de partir ?</p>\n        <p>👉 Demandez votre étude gratuite — on vous dit si c'est réalisable chez vous, sans engagement.</p>\n      </div>\n    </div>\n    <div class=\"grid-2\">\n      <div class=\"card\">\n        <h3>✅ À faire</h3>\n        <ul><li>Lumière naturelle, tournage en extérieur</li><li>Un visage dans le hook, pas la piscine</li><li>Sous-titres — 85 % regardent sans le son</li></ul>\n      </div>\n      <div class=\"card\">\n        <h3>❌ À éviter</h3>\n        <ul><li>Logo en filigrane dès le hook</li><li>Commencer par \"Bonjour, je suis…\"</li><li>Un prix précis en TOFU</li></ul>\n      </div>\n    </div>\n    <div class=\"kpi-row\" style=\"grid-template-columns:repeat(4,1fr);margin-top:22px;\">\n      <div class=\"kpi\"><div class=\"v\">&gt; 25 %</div><div class=\"l\">Hook rate visé — J+7</div></div>\n      <div class=\"kpi\"><div class=\"v\">&gt; 1,5 %</div><div class=\"l\">CTR visé</div></div>\n      <div class=\"kpi\"><div class=\"v\">&gt; 50 %</div><div class=\"l\">Hold rate visé</div></div>\n      <div class=\"kpi\"><div class=\"v\">30–60 €</div><div class=\"l\">CPL TOFU acceptable</div></div>\n    </div>\n    <p class=\"note\">Repères tirés des standards du format, pas des chiffres mesurés sur ce compte.</p>\n\n**Analyse de fatigue : tuiles, barres de rétention, frise**\n<div class=\"kpi-row\" style=\"grid-template-columns:repeat(4,1fr);\">\n      <div class=\"kpi\"><div class=\"v\" style=\"color:var(--good);\">1,76</div><div class=\"l\">Fréquence — saine</div></div>\n      <div class=\"kpi\"><div class=\"v\" style=\"color:var(--good);\">95,3 %</div><div class=\"l\">Taux de lecture / impressions</div></div>\n      <div class=\"kpi\"><div class=\"v\" style=\"color:var(--bad);\">0,71 %</div><div class=\"l\">Taux de complétion</div></div>\n      <div class=\"kpi\"><div class=\"v\" style=\"color:var(--warn);\">6 s</div><div class=\"l\">Durée moyenne de vue</div></div>\n    </div>\n    <div class=\"callout warn\" style=\"margin-top:24px;\">\n      <strong>Statut : pré-fatigue active — agir sous 15 jours.</strong> C1B n'est pas encore en fatigue déclarée : fréquence saine (1,76), pas de chute de CTR mesurable (2,62 %, cohérent avec la moyenne compte). Mais le profil de rétention vidéo révèle un problème de fond qui va accélérer l'épuisement de l'audience utile : le hook fonctionne, le reste ne tient pas.\n    </div>\n    <div class=\"card\" style=\"margin-top:20px;\">\n      <h3>Funnel de rétention vidéo</h3>\n      <div class=\"retention-row\">\n        <div class=\"rlabel\"><span>Lecture (2s+) — 150 372 / 157 865 impressions</span><span class=\"pct\" style=\"color:var(--good);\">95,3 %</span></div>\n        <div class=\"rbar-track\"><div class=\"rbar-fill good\" style=\"width:95.3%;\"></div></div>\n      </div>\n      <div class=\"retention-row\">\n<div class=\"timeline\">\n        <div class=\"tl-item\">\n          <div class=\"tl-dot good\">✓</div>\n          <div><h4>Aujourd'hui — fréquence 1,76</h4><p>CTR stable à 2,62 %, CPM bas à 4,65 €. Aucun signal de fatigue visible dans les métriques de diffusion. La créa tourne depuis plusieurs semaines sur la même audience 34/30/13.</p></div>\n        </div>\n        <div class=\"tl-item\">\n          <div class=\"tl-dot warn\">!</div>\n          <div><h4>Estimation J+15 — fréquence ≈ 2,2-2,5</h4><p>L'algorithme recommence à recibler les mêmes profils dans une zone géographique restreinte. Premiers signes possibles de dérive du coût par lead. Moment recommandé pour avoir les nouvelles créas prêtes à tester.</p></div>\n        </div>\n        <div class=\"tl-item\">\n\n**Pied de page**\n<footer>\n    Stratégie construite à partir des données réelles du compte Meta Ads SB Piscine (30 derniers jours, extraites le 8 septembre 2026) et du contexte client en mémoire. Les personas et briefs des sections 02 à 06 sont des propositions stratégiques à valider avec le client, pas des faits vérifiés.</footer>"
+**Bandeau d'ouverture**
+<div class="hero">
+  <div class="hero-badge">🏊 SB Piscine — Creative Strategy Report</div>
+  <h1>Full-Funnel Creative Strategy</h1>
+  <p>Lead gen · Piscines coque polyester · Zones 34/30/13 · Septembre 2026</p>
+  <div class="hero-meta">
+    <div class="hero-stat"><div class="val">€1 063</div><div class="lbl">Spend 30j</div></div>
+    <div class="hero-stat"><div class="val">2.07</div><div class="lbl">Fréquence moy.</div></div>
+    <div class="hero-stat"><div class="val">0</div><div class="lbl">Campagnes TOFU</div></div>
+  </div>
+</div>
+
+**Volet, cartes à lignes de mesure, pastilles**
+<div id="s1" class="section active">
+  <div class="section-label">Section 1</div>
+  <h2>Diagnostic du Compte</h2>
+  <p style="margin-bottom:20px; color:#7777aa;">Analyse des 30 derniers jours — 2 campagnes actives, 8 ads avec dépense réelle</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Distribution par Awareness Level</h3>
+      <div class="metric-row">
+        <span class="metric-label">TOFU — Sensibilisation / Problème</span>
+        <span class="metric-value" style="color:#f87171;">0% <span class="badge badge-alert">ABSENT</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">BOFU — Génération de leads</span>
+        <span class="metric-value" style="color:#34d399;">91% <span class="badge badge-bofu">dominante</span></span>
+      </div>
+    </div>
+    <div class="card warn">
+      <h3>⚠️ Fréquence — Évaluation</h3>
+      <div class="metric-row"><span class="metric-label">Fréquence globale compte</span><span class="metric-value" style="color:#fbbf24;">2.07 ✅ Saine</span></div>
+      <p style="margin-top:10px; font-size:11px; color:#7777aa;">Audience locale 34/30 = bassin limité. Sans TOFU pour l'alimenter, le BOFU s'asphyxiera dans 4–6 semaines.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <h3>Signal Créatif — Patterns Identifiés</h3>
+    <div class="signal-row"><div class="signal-dot"></div><p><strong style="color:#c4c4e8;">Savoir-faire artisan</strong> → 5.71% CTR. La preuve de compétence locale résonne.</p></div>
+    <div class="signal-row"><div class="signal-dot"></div><p><strong style="color:#c4c4e8;">Avis clients réels</strong> → 5.61% CTR. La voix du client bat les images produit.</p></div>
+  </div>
+  <div class="bottleneck">
+    <div class="bottleneck-title">🔴 Bottleneck Créatif Principal</div>
+    <p style="color:#ffaaaa; font-size:13px;"><strong>Le compte n'a aucune créa TOFU.</strong> 100% du budget cible des personnes déjà en recherche active. Résultat : dépendance totale à 1 seul winner (C1B, 72% du spend).</p>
+  </div>
+</div>
+
+**Carte de persona**
+<div class="persona-card">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+      <div class="persona-name">👨‍👩‍👧 Le Couple Projet Vacances</div>
+      <div class="persona-desc">Clément &amp; Léa, 38–45 ans, maison avec jardin dans l'Hérault, 2 enfants. Rêvent d'une piscine depuis 3 ans mais "pas encore passé le cap".</div>
+    </div>
+    <span class="badge badge-tofu">TOFU</span>
+  </div>
+  <div class="grid-2" style="margin-top:12px;">
+    <div><div class="phase-item-label">Douleur principale</div><p>Dépenser chaque été en locations avec piscine.</p></div>
+    <div><div class="phase-item-label">Désir principal</div><p>Le jardin comme espace de vie, les étés à la maison.</p></div>
+  </div>
+  <div class="persona-hook">Hook direction : <em>"Vous avez dépensé combien en locations piscine ces 5 dernières années ?"</em> → angle ROI émotionnel</div>
+</div>
+
+**Entonnoir — les barres se resserrent d'un étage à l'autre**
+<div style="max-width:600px; margin:0 auto 32px;">
+  <div class="funnel-stage">
+    <div class="funnel-bar funnel-tofu">
+      <div>
+        <div class="funnel-label">🔵 TOP OF FUNNEL — Capter &amp; Qualifier</div>
+        <div class="funnel-sub">Audience froide · Intérêts jardin / maison / région · 20–30% du budget cible</div>
+      </div>
+    </div>
+  </div>
+  <div class="funnel-stage" style="text-align:center; margin:-4px 0;"><div style="font-size:20px; color:#3a3a6a;">▼</div></div>
+  <div class="funnel-stage"><div class="funnel-bar funnel-mofu">…</div></div>
+  <div class="funnel-stage" style="text-align:center; margin:-4px 0;"><div style="font-size:20px; color:#3a3a6a;">▼</div></div>
+  <div class="funnel-stage"><div class="funnel-bar funnel-bofu">…</div></div>
+</div>
+Puis une colonne par étage, en \`grid-3\` :
+<div class="card">
+  <div style="margin-bottom:10px;"><span class="badge badge-tofu">TOFU</span></div>
+  <h3>Objectif Créatif</h3>
+  <p>Stopper le scroll. Semer le désir. Ne pas vendre — raconter un monde possible.</p>
+  <div style="margin-top:14px;"><div class="phase-item-label">Formats</div>
+  <div><span class="tag">Vidéo 15–30s</span><span class="tag">Reel natif</span><span class="tag">Avant/Après</span></div></div>
+  <div style="margin-top:10px;"><div class="phase-item-label">Angles</div>
+  <ul style="margin-top:4px;"><li>Calcul vacances vs piscine</li><li>Le jardin transformé</li></ul></div>
+  <div class="persona-hook" style="margin-top:10px; font-size:11px;"><em>"Chaque été, je partais en location. Cette année, c'est ma piscine."</em></div>
+</div>
+
+**Phase de feuille de route**
+<div class="phase-card" style="border-color:rgba(99,102,241,0.4);">
+  <div class="phase-header">
+    <div>
+      <div class="phase-title">Phase 1 — Foundation</div>
+      <div class="phase-weeks">Semaines 1–4 · Objectif : Couvrir les 3 niveaux du funnel</div>
+    </div>
+    <span class="badge badge-tofu" style="padding:6px 12px;">Lancement structure</span>
+  </div>
+  <div class="phase-items">
+    <div>
+      <div class="phase-item-label">Angles prioritaires</div>
+      <div class="phase-item-content">• TOFU : Calcul été / ROI piscine<br>• BOFU : Avis clients locaux (itérer winner)</div>
+    </div>
+    <div>
+      <div class="phase-item-label">Volume minimum</div>
+      <div class="phase-item-content">• 2 nouveaux concepts TOFU<br>• 3 variantes sur "Avis client"<br><em style="color:#6666aa;">Total : 9 créas min.</em></div>
+    </div>
+    <div>
+      <div class="phase-item-label">Signal de succès</div>
+      <div class="phase-item-content">• Au moins 1 créa TOFU avec CTR &gt; 2%<br>• Fréquence BOFU stable &lt; 2.5</div>
+    </div>
+  </div>
+</div>
+
+**Convention de nommage et grille de classement**
+<div class="card highlight">
+  <h3>Structure de Nommage</h3>
+  <div class="tracker-example">[FUNNEL] _ [PERSONA] _ [FORMAT] _ [ANGLE] _ [HOOK_TYPE] _ [Vx]</div>
+  <div class="grid-2" style="margin-top:16px;">
+    <div>
+      <div class="phase-item-label">Valeurs FUNNEL</div>
+      <div><span class="tag">TOFU</span><span class="tag">MOFU</span><span class="tag">BOFU</span><span class="tag">RETARG</span></div>
+      <div class="phase-item-label" style="margin-top:10px;">Valeurs FORMAT</div>
+      <div><span class="tag">VID</span><span class="tag">STAT</span><span class="tag">CAR</span><span class="tag">UGC</span></div>
+    </div>
+    <div>
+      <div class="phase-item-label">Valeurs ANGLE</div>
+      <div><span class="tag">ROI</span><span class="tag">PREUVE</span><span class="tag">EDUC</span><span class="tag">OBJECTION</span></div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <h3>Grille de Ranking Créatif</h3>
+  <div class="metric-row"><span class="metric-label">🥇 Winner — à itérer</span><span class="metric-value" style="color:#34d399;">CTR &gt; 3.5% + CPL &lt; 15€</span></div>
+  <div class="metric-row"><span class="metric-label">🔴 À couper</span><span class="metric-value" style="color:#f87171;">CTR &lt; 1.5% ou CPL &gt; 30€</span></div>
+  <p style="margin-top:10px; font-size:11px; color:#6666aa;">Règle : minimum 500 impressions avant jugement.</p>
+</div>
+
+**Brief concept — celui de la section « Les 3 premiers briefs »**
+<div class="brief-card" style="border-color:rgba(99,102,241,0.5);">
+  <div class="brief-num">1</div>
+  <div style="margin-bottom:12px;">
+    <span class="badge badge-tofu">TOFU</span>
+    <span class="badge" style="background:rgba(255,255,255,0.05); color:#888; margin-left:4px;">Priorité CRITIQUE</span>
+  </div>
+  <div class="brief-title">TOFU_COUPLE_VID_ROI_QUESTION_V1 — "L'Été à la Maison"</div>
+  <div class="grid-2" style="margin-top:16px;">
+    <div>
+      <div class="phase-item-label">Angle marketing</div>
+      <div class="phase-item-content">ROI émotionnel — le calcul que personne ne fait : "J'ai dépensé 12 000€ en locations ces 5 ans. J'aurais pu avoir ma piscine."</div>
+      <div class="phase-item-label" style="margin-top:10px;">Persona &amp; Niveau</div>
+      <div class="phase-item-content">Couple 35–50 ans propriétaire · TOFU — audience froide · Intérêts jardin, famille, maison Hérault</div>
+      <div class="phase-item-label" style="margin-top:10px;">Format</div>
+      <div class="phase-item-content">Vidéo 20–30s · Reel format vertical · Voix-off + images à domicile · Pas de logo en opening</div>
+    </div>
+    <div>
+      <div class="phase-item-label">Direction Hook (T-A-V)</div>
+      <div class="phase-item-content"><strong>Texte :</strong> "Combien avez-vous dépensé en location piscine ces 5 ans ?" (6 mots à l'écran)<br><br><strong>Visuel :</strong> Famille qui profite de sa piscine, plan large jardin<br><br><strong>Audio :</strong> Voix naturelle, calme, pas de musique intrusive</div>
+      <div class="phase-item-label" style="margin-top:10px;">Structure vidéo</div>
+      <div class="phase-item-content">0–3s : Hook question + calcul choc<br>3–15s : Bénéfice émotionnel (famille, liberté été)<br>15–25s : SB Piscine = la solution locale<br>25–30s : CTA "Étude gratuite"</div>
+    </div>
+  </div>
+  <div class="brief-why">
+    <div class="brief-why-label">⚡ Pourquoi en premier</div>
+    <div class="brief-why-text">Le compte n'a AUCUNE créa TOFU. Ce brief crée le carburant pour tout le reste du funnel. Sans TOFU, le BOFU s'asphyxie sur une audience locale finie.</div>
+  </div>
+</div>
+
+**Brief détaillé — le livrable séparé, quand la demande porte sur le script complet**
+Le même en-tête et la même fiche, puis le script minuté et de quoi tourner :
+<div class="card">
+  <h3>Script complet</h3>
+  <table>
+    <tr><th>Temps</th><th>Voix-off / à l'écran</th><th>Réalisation</th></tr>
+    <tr><td style="color:#a5b4fc; white-space:nowrap;">0:00–0:03</td><td>"Vous dépensez combien en vacances, chaque année ?"<br><span class="tag">À l'écran : Vos vacances vous coûtent combien ?</span></td><td>Plan serré visage caméra. Pause d'une demi-seconde après la question.</td></tr>
+    <tr><td style="color:#a5b4fc; white-space:nowrap;">0:03–0:12</td><td>"2 000 € ? 3 000 € ? Sur dix ans, vous avez déjà payé votre piscine."</td><td>Cut sur images de location, puis piscine dans un jardin ordinaire — jamais une villa.</td></tr>
+  </table>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h3>Options de hook — à tester en V2 / V3</h3>
+    <div class="metric-row"><span class="metric-label">"Vous avez calculé ce que vous coûte de ne pas avoir de piscine ?"</span><span class="metric-value"><span class="badge badge-mofu">question inversée</span></span></div>
+    <div class="metric-row"><span class="metric-label">"Nos voisins paient moins qu'un abonnement vacances"</span><span class="metric-value"><span class="badge badge-bofu">preuve sociale</span></span></div>
+  </div>
+  <div class="card">
+    <h3>Copy du post</h3>
+    <p>Vous comptez repartir en vacances cet été ? Ou vous rêvez de ne plus avoir besoin de partir ?</p>
+    <p>👉 Demandez votre étude gratuite — sans engagement.</p>
+  </div>
+</div>
+<div class="grid-2">
+  <div class="card success"><h3>✅ À faire</h3><ul><li>Lumière naturelle, tournage en extérieur</li><li>Un visage dans le hook, pas la piscine</li><li>Sous-titres — 85 % regardent sans le son</li></ul></div>
+  <div class="card danger"><h3>❌ À éviter</h3><ul><li>Logo en filigrane dès le hook</li><li>Commencer par "Bonjour, je suis…"</li><li>Un prix précis en TOFU</li></ul></div>
+</div>
+<div class="card highlight" style="margin-top:16px;">
+  <h3>KPI de succès — J+7</h3>
+  <div class="metric-row"><span class="metric-label">Hook rate</span><span class="metric-value" style="color:#34d399;">&gt; 25%</span></div>
+  <div class="metric-row"><span class="metric-label">CPL TOFU acceptable</span><span class="metric-value" style="color:#a5b4fc;">30–60€</span></div>
+  <p style="margin-top:10px; font-size:11px; color:#6666aa;">Repères tirés des standards du format, pas de chiffres mesurés sur ce compte.</p>
+</div>
+
+**Analyse de fatigue — tuiles de tête, puis constats**
+<div class="hero-meta" style="margin-top:0;">
+  <div class="hero-stat"><div class="val" style="color:#34d399;">33.05%</div><div class="lbl">Hook rate (3s) — fort</div></div>
+  <div class="hero-stat"><div class="val" style="color:#f87171;">33.18%</div><div class="lbl">Hold rate (p25) — faible</div></div>
+  <div class="hero-stat"><div class="val" style="color:#f87171;">0.67%</div><div class="lbl">Taux de complétion — critique</div></div>
+  <div class="hero-stat"><div class="val" style="color:#fbbf24;">6.0s</div><div class="lbl">Durée moyenne de vue</div></div>
+</div>
+<div class="card danger" style="margin-top:16px;">
+  <h3>🚨 Effondrement au quart de vidéo</h3>
+  <p>Le hook accroche 1 personne sur 3. Mais 33 % seulement de ces personnes restent jusqu'au premier quart : le corps de la vidéo ne tient pas la promesse du hook.</p>
+</div>
+
+**Pied de page**
+<div class="section-label" style="margin-top:32px;">Provenance</div>
+<p style="font-size:11px; color:#6666aa;">Stratégie construite sur les données réelles du compte (30 derniers jours, extraites le 8 septembre 2026). Les personas et briefs des sections 2 à 6 sont des propositions à valider avec le client, pas des faits vérifiés.</p>
+`
 
 export const RAPPORT_HTML = `
 
@@ -255,9 +481,10 @@ Cinq cents mots au maximum pour l'ensemble.
 Tu rends **le corps seulement** : le balisage, rien d'autre.
 
 Pas de \`<!DOCTYPE>\`, pas de \`<html>\`, pas de \`<head>\`, **pas de
-\`<style>\`** — la feuille de style est ajoutée par l'application, tu n'as ni à
-l'écrire ni à la recopier. Écrire du CSS, c'est du temps pris sur le contenu, et
-c'est le seul endroit où tu peux en gagner.
+\`<style>\`, pas de \`<script>\`** — la feuille de style et le script sont
+ajoutés par l'application, tu n'as ni à les écrire ni à les recopier. Écrire du
+CSS, c'est du temps pris sur le contenu, et c'est le seul endroit où tu peux en
+gagner.
 
 La marque \`<!--rapport-->\` sur sa propre ligne, puis immédiatement le
 balisage. Rien après, aucune clôture en \`\`\`.
@@ -269,13 +496,16 @@ documents, jamais un onglet que personne n'a demandé.
 
 ## Contraintes
 
-**Aucun JavaScript.** Le document s'affiche dans un cadre isolé où les scripts
-ne s'exécutent pas : les onglets se font en boutons radio et \`:checked\`.
-Aucune police, image ni ressource externe : le cadre n'a pas de réseau.
+**Les onglets sont déjà câblés.** \`showSection('sN')\` existe : tu écris les
+boutons \`.nav-btn\` qui l'appellent et les volets \`.section\` correspondants,
+le premier de chaque portant \`active\`. N'écris aucune autre fonction.
+
+**Aucune ressource externe** — ni police, ni image, ni feuille distante : le
+cadre n'a pas de réseau. Les emoji, eux, passent.
 
 **N'emploie que les classes du vocabulaire ci-dessous.** Elles existent déjà.
-Un \`style="…"\` en ligne reste possible pour un cas isolé — une couleur de
-valeur, une largeur de colonne — jamais pour refaire une mise en page.
+Un \`style="…"\` en ligne reste possible pour colorer une valeur ou nuancer une
+bordure — comme dans les motifs — jamais pour refaire une mise en page.
 
 **Ne produis que les sections demandées**, et **va jusqu'au bout**. Un document
 qui s'arrête à l'avant-dernière section ne vaut rien : si la place manque,

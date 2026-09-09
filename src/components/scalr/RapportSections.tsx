@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
 import { separerRapport, extraireRapportHtml } from '@/lib/scalr/rapportHtml'
@@ -50,17 +50,14 @@ const abrege = (t: string) => {
 /**
  * Un rapport écrit en HTML, dans un cadre isolé.
  *
- * Le document vient d'un modèle, pas de nous : `sandbox` sans la moindre
- * permission le prive de scripts, de stockage, de cookies, de formulaires et
- * de toute lecture du DOM de l'application. Il ne peut qu'être regardé.
+ * Le document vient d'un modèle, pas de nous : `allow-scripts` **sans**
+ * `allow-same-origin` lui laisse exécuter son script tout en le maintenant sur
+ * une origine opaque — il ne voit ni le DOM de l'application, ni ses cookies,
+ * ni son stockage. Il peut s'animer, pas nous atteindre.
  *
- * D'où l'exigence, côté prompt, que ses onglets fonctionnent **en CSS seul**.
- * Un premier essai s'appuyait sur un script pour les onglets et pour annoncer
- * sa hauteur : dans un cadre sandboxé le script ne s'exécute pas, les onglets
- * étaient morts et seule la première section restait visible.
- *
- * La hauteur est donc fixe et le document défile à l'intérieur — comme un
- * document consulté en plein écran, ce qu'il est.
+ * Ce script sert à deux choses : la bascule d'onglet, et l'annonce de sa propre
+ * hauteur. Sans elle, le rapport défilait dans une fenêtre de hauteur fixe ;
+ * avec elle, il coule dans la page comme le reste de la conversation.
  */
 function CadreHtml({ html }: { html: string }) {
   /**
@@ -72,19 +69,43 @@ function CadreHtml({ html }: { html: string }) {
    * adresse blob évite l'attribut, et le bac à sable garde son origine opaque.
    */
   const [adresse, setAdresse] = useState<string | null>(null)
+  const [hauteur, setHauteur] = useState(720)
+  const cadre = useRef<HTMLIFrameElement>(null)
+
   useEffect(() => {
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
     setAdresse(url)
     return () => URL.revokeObjectURL(url)
   }, [html])
 
+  /**
+   * La hauteur vient du document lui-même.
+   *
+   * On n'écoute que les messages de **ce** cadre : n'importe quelle page peut
+   * en poster à la fenêtre, et l'origine est opaque donc invérifiable. La
+   * provenance se contrôle sur la fenêtre émettrice, et la valeur est bornée.
+   */
+  useEffect(() => {
+    const surMessage = (e: MessageEvent) => {
+      if (e.source !== cadre.current?.contentWindow) return
+      const h = (e.data as { type?: string; hauteur?: unknown })?.hauteur
+      if ((e.data as { type?: string })?.type !== 'rapport-hauteur') return
+      if (typeof h !== 'number' || !Number.isFinite(h)) return
+      setHauteur(Math.min(Math.max(Math.ceil(h), 320), 24000))
+    }
+    window.addEventListener('message', surMessage)
+    return () => window.removeEventListener('message', surMessage)
+  }, [])
+
   return (
     <iframe
+      ref={cadre}
       src={adresse ?? undefined}
-      sandbox=""
+      sandbox="allow-scripts"
       title="Rapport"
-      className="w-full rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"
-      style={{ height: 'min(82vh, 1100px)' }}
+      scrolling="no"
+      className="w-full block rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"
+      style={{ height: hauteur }}
     />
   )
 }
