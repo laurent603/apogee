@@ -70,6 +70,7 @@ function CadreHtml({ html }: { html: string }) {
    */
   const [adresse, setAdresse] = useState<string | null>(null)
   const [hauteur, setHauteur] = useState(720)
+  const [agrandi, setAgrandi] = useState(false)
   const cadre = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
@@ -97,16 +98,75 @@ function CadreHtml({ html }: { html: string }) {
     return () => window.removeEventListener('message', surMessage)
   }, [])
 
+  /** Échap referme, comme partout ailleurs. */
+  useEffect(() => {
+    if (!agrandi) return
+    const surTouche = (e: KeyboardEvent) => { if (e.key === 'Escape') setAgrandi(false) }
+    window.addEventListener('keydown', surTouche)
+    // La page derrière ne doit pas défiler pendant qu'on lit le rapport.
+    const avant = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', surTouche)
+      document.body.style.overflow = avant
+    }
+  }, [agrandi])
+
   return (
-    <iframe
-      ref={cadre}
-      src={adresse ?? undefined}
-      sandbox="allow-scripts"
-      title="Rapport"
-      scrolling="no"
-      className="w-full block rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"
-      style={{ height: hauteur }}
-    />
+    <>
+      <div className="relative group">
+        <iframe
+          ref={cadre}
+          src={adresse ?? undefined}
+          sandbox="allow-scripts"
+          title="Rapport"
+          scrolling="no"
+          className="w-full block rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"
+          style={{ height: hauteur }}
+        />
+        <button
+          onClick={() => setAgrandi(true)}
+          title="Agrandir le rapport"
+          aria-label="Agrandir le rapport"
+          className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/40 text-[#8888aa] backdrop-blur-sm border border-white/10 opacity-60 hover:opacity-100 hover:text-white hover:bg-black/70 transition-opacity"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Le même document, en grand. Il défile à l'intérieur du panneau :
+          la hauteur annoncée sert au cadre en ligne, pas à celui-ci. */}
+      {agrandi && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setAgrandi(false)}
+        >
+          <div
+            className="relative w-full max-w-[1400px] h-[94vh] rounded-xl overflow-hidden bg-[#0d0d1a] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={adresse ?? undefined}
+              sandbox="allow-scripts"
+              title="Rapport agrandi"
+              className="w-full h-full block border-0"
+            />
+            <button
+              onClick={() => setAgrandi(false)}
+              title="Fermer"
+              aria-label="Fermer"
+              className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/50 text-[#8888aa] border border-white/10 hover:text-white hover:bg-black/80 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
