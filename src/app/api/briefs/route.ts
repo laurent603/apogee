@@ -25,7 +25,7 @@ import { extraireFeuille } from '@/lib/scalr/feuilleTournage'
  * comprise. La génération dépassait, Vercel coupait, et l'écran ne recevait
  * qu'un 504 sans explication.
  */
-export const maxDuration = 300
+export const maxDuration = 800
 
 const CONSCIENCE: Record<string, string> = {
   unaware: 'Unaware — ignore le problème',

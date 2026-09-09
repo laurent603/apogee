@@ -46,8 +46,10 @@ function calcNextRunAt(frequency: string): Date {
 /**
  * Déclaré explicitement : la reprise sur surcharge a besoin de connaître le
  * temps dont elle dispose, et un rapport d'agent dure déjà plus d'une minute.
+ * Un livrable génératif en demande six à sept : au plafond précédent de 300 s,
+ * un rapport programmé était coupé comme l'était sa version interactive.
  */
-export const maxDuration = 300
+export const maxDuration = 800
 
 export async function GET(req: NextRequest) {
   if (!cronAutorise(req)) {

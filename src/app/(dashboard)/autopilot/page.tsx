@@ -941,13 +941,19 @@ export default function AutopilotPage() {
                     <div className="px-5 py-5">
                       {/* Une réponse peut être un document mis en page. Sans ce
                           passage par le même composant que l'historique, la
-                          discussion en afficherait le code source. Pendant la
-                          génération, le document est encore incomplet : on
-                          attend la balise de fin pour le rendre. */}
+                          discussion en afficherait le code source.
+
+                          La synthèse précède le document dans le flux : elle
+                          s'affiche donc en Markdown dès les premières secondes,
+                          puis le composant prend le relais quand la marque
+                          arrive. Tant que la génération dure, le document est
+                          incomplet et n'est pas rendu — seule sa synthèse l'est. */}
                       {m.content && estRapportHtml(m.content) ? (
-                        /<\/html>/i.test(m.content)
-                          ? <RapportSections markdown={m.content} />
-                          : <p className="text-gray-400 text-sm">Mise en page du rapport en cours…</p>
+                        <RapportSections
+                          markdown={m.content}
+                          enCours={streaming && i === messages.length - 1}
+                          onAction={sendMessage}
+                        />
                       ) : (
                         <div
                           className="chat-report"

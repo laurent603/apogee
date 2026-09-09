@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import { markdownToHtml } from '@/lib/markdown'
-import { estRapportHtml, extraireRapportHtml } from '@/lib/scalr/rapportHtml'
+import { separerRapport, extraireRapportHtml } from '@/lib/scalr/rapportHtml'
 
 /**
  * Un rapport d'agent, en onglets plutôt qu'en rouleau.
@@ -89,14 +89,81 @@ function CadreHtml({ html }: { html: string }) {
   )
 }
 
-export function RapportSections({ markdown, kpis }: { markdown: string; kpis?: Kpi[] }) {
+/**
+ * La synthèse qui précède le document, et les suites qu'elle propose.
+ *
+ * Les dernières lignes d'une synthèse énumèrent ce qu'on peut enchaîner —
+ * « analyser la fatigue de C1B », « briefer les 3 créas en détail ». Les
+ * laisser en texte oblige à les retaper ; on les rend cliquables, et un clic
+ * relance la demande telle qu'elle est écrite.
+ */
+const RE_SUITES = /^[ \t]*(?:#{1,4}\s*)?(?:\*\*)?\s*(?:👉\s*)?prochaine[s]?\s+étape[^\n]*$/im
+
+/** Une puce ou un numéro en tête de ligne, débarrassé de son balisage. */
+const RE_PUCE = /^\s*(?:\d+[.)]|[-*])\s+(.+?)\s*$/
+
+function Synthese({ texte, onAction }: { texte: string; onAction?: (demande: string) => void }) {
+  const coupe = onAction ? RE_SUITES.exec(texte) : null
+  const queue = coupe ? texte.slice(coupe.index + coupe[0].length) : ''
+  const trouvees = queue.split('\n')
+    .map((l) => RE_PUCE.exec(l)?.[1])
+    .filter((t): t is string => !!t)
+    .map((t) => t.replace(/\*\*/g, '').replace(/^`|`$/g, '').trim())
+
+  // Deux suites au minimum, et rien d'autre que des puces après le titre :
+  // sinon on découperait une phrase au milieu et on perdrait la fin du texte.
+  const enPuces = trouvees.length >= 2
+    && queue.split('\n').every((l) => !l.trim() || RE_PUCE.test(l))
+  const avant = coupe && enPuces ? texte.slice(0, coupe.index).trimEnd() : texte
+  const suites = enPuces ? trouvees : []
+
+  return (
+    <>
+      <div className="chat-report" dangerouslySetInnerHTML={{ __html: markdownToHtml(avant) }} />
+      {suites.length > 0 && (
+        <div className="mt-4">
+          <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Prochaines étapes</p>
+          <div className="flex flex-col gap-1.5">
+            {suites.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => onAction?.(s)}
+                className="group text-left text-xs text-[#0d0d12] border border-[#E5E7EB] rounded-lg px-3 py-2 hover:border-[#3434ef] hover:bg-[#f5f5ff] transition-colors flex gap-2 items-start"
+              >
+                <span className="text-gray-300 tabular-nums group-hover:text-[#3434ef]">{i + 1}</span>
+                <span>{s}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+export function RapportSections({ markdown, kpis, enCours, onAction }: {
+  markdown: string
+  kpis?: Kpi[]
+  /** La génération n'est pas terminée : le document est encore incomplet. */
+  enCours?: boolean
+  onAction?: (demande: string) => void
+}) {
   const { entree, sections } = decouper(markdown)
   const [actif, setActif] = useState(0)
 
   // Un document HTML se rend tel quel : il porte déjà ses onglets, ses cartes
-  // et ses chiffres. Le bandeau de KPI ferait doublon avec le sien.
-  if (estRapportHtml(markdown)) {
-    return <CadreHtml html={extraireRapportHtml(markdown)} />
+  // et ses chiffres. Le bandeau de KPI ferait doublon avec le sien. La synthèse
+  // qui le précède, elle, se lit dans le fil.
+  const { synthese, document: doc } = separerRapport(markdown)
+  if (doc !== null) {
+    return (
+      <>
+        {synthese && <Synthese texte={synthese} onAction={enCours ? undefined : onAction} />}
+        {enCours
+          ? <p className="text-gray-400 text-sm mt-4">Mise en page du rapport en cours…</p>
+          : <div className={synthese ? 'mt-5' : ''}><CadreHtml html={extraireRapportHtml(doc)} /></div>}
+      </>
+    )
   }
 
   const bandeau = !!kpis?.length && (

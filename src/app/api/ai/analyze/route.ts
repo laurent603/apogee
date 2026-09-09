@@ -19,8 +19,14 @@ import { notifyIncident } from '@/lib/notify'
  * exactement la panne des briefs : la fonction est coupée en pleine
  * génération, le navigateur garde ce qu'il a reçu, et le rapport s'arrête au
  * milieu d'un mot.
+ *
+ * Trois cents secondes ne suffisaient pas : une stratégie full-funnel mesure
+ * trente mille jetons de sortie, soit six à sept minutes de rédaction — 362 s,
+ * 372 s, 409 s selon les variantes essayées. La coupure était systématique.
+ * C'est le plafond du compte, pas le nôtre : Hobby s'arrête à 300, Pro monte à
+ * 800.
  */
-export const maxDuration = 300
+export const maxDuration = 800
 
 type PromptCategory = keyof typeof PROMPTS
 

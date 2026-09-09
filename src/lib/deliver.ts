@@ -1,5 +1,5 @@
 import { renderReportEmail } from './email'
-import { estRapportHtml } from '@/lib/scalr/rapportHtml'
+import { separerRapport } from '@/lib/scalr/rapportHtml'
 
 export type DeliveryResult = { channel: 'email' | 'notion'; ok: boolean; detail?: string }
 
@@ -25,14 +25,16 @@ export async function deliverReport(
    *
    * Un livrable stratégique est un document HTML : collé dans un e-mail, il
    * s'afficherait en code source — c'est exactement le bug qui avait fait
-   * interdire le HTML aux agents. Ces rapports-là partent donc en avis de mise
-   * à disposition, pas en corps de message. Tous les autres, en Markdown,
-   * continuent d'être envoyés entiers.
+   * interdire le HTML aux agents. Ce qui part, c'est donc la synthèse qui le
+   * précède — les verdicts et les chiffres, en Markdown — suivie d'un renvoi
+   * vers le document. Tous les autres rapports continuent d'être envoyés
+   * entiers.
    */
-  const corpsCourriel = estRapportHtml(content)
-    ? `Le rapport **${title}** est disponible dans Apogee.\n\n`
-      + `C'est un document mis en page — bandeau de chiffres, onglets, cartes — `
-      + `qui ne s'affiche pas correctement dans un courriel.\n\n`
+  const { synthese, document: doc } = separerRapport(content)
+  const corpsCourriel = doc !== null
+    ? (synthese ? `${synthese}\n\n---\n\n` : '')
+      + `Le rapport complet **${title}** est un document mis en page — bandeau de `
+      + `chiffres, onglets, cartes — qui ne s'affiche pas dans un courriel.\n\n`
       + `Ouvrez-le dans **Autopilot → Historique**.`
     : content
 
