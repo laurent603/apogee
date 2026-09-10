@@ -114,6 +114,29 @@ pas de « en résumé », pas de « j'espère que ». Le rapport commence au ver
 et s'arrête au dernier élément utile.`
 
 /**
+ * Le nom d'une créa, lisible d'un coup d'œil.
+ *
+ * « avis-client-2 » ne dit ni l'étage de tunnel, ni le persona, ni l'angle :
+ * impossible de trier un compte par ce qui compte, et impossible de savoir si
+ * une nouvelle créa rejoue un angle déjà usé. Le nom porte donc la stratégie,
+ * et il est attribué au brief — avant le tournage, pas après.
+ */
+export const CONVENTION_NOMMAGE = `
+Format : \`[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]\`
+
+- **FUNNEL** : TOFU · MOFU · BOFU · RETARG
+- **PERSONA** : un mot en majuscules, tiré du persona retenu (COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR…)
+- **FORMAT** : VID · STAT · CAR · UGC
+- **ANGLE** : ROI · TRANSFORM · EDUC · PREUVE · PROCESS · OBJECTION · OFFRE
+- **HOOK** : QUESTION · STAT · BEFORE_AFTER · ITW · DIRECT
+- **Vx** : V1 pour un concept neuf, V2 et suivants pour une itération d'un concept existant
+
+Exemple : \`TOFU_COUPLE_VID_ROI_QUESTION_V1\`
+
+Sans accent, sans espace, en majuscules. Choisis chaque segment dans la liste
+ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
+
+/**
  * La forme d'un livrable qui **propose** au lieu de constater.
  *
  * La discipline ci-dessus a été écrite pour un diagnostic, et elle l'étrangle
@@ -181,279 +204,32 @@ son thème. Une idée qu'on ne peut pas tourner demain n'est pas une proposition
 méthode, pas de conclusion générale.`
 
 /**
- * Le nom d'une créa, lisible d'un coup d'œil.
+ * Comment un livrable se présente.
  *
- * « avis-client-2 » ne dit ni l'étage de tunnel, ni le persona, ni l'angle :
- * impossible de trier un compte par ce qui compte, et impossible de savoir si
- * une nouvelle créa rejoue un angle déjà usé. Le nom porte donc la stratégie,
- * et il est attribué au brief — avant le tournage, pas après.
+ * Rien ici ne décrit une mise en page, et c'est délibéré.
+ *
+ * L'application a tenu tour à tour sept gabarits en prose, puis un vocabulaire
+ * de classes, puis une feuille de style unique. Chaque fois le résultat était le
+ * même : le livrable ressemblait au gabarit, pas à ce qu'il avait à montrer. Une
+ * banque d'angles entrait dans une peau de rapport d'entonnoir.
+ *
+ * La comparaison qui a tranché : la même consigne, donnée sans un mot sur la
+ * forme, produit ailleurs un document dessiné pour son sujet — cartes qui se
+ * déplient et pastilles d'émotion pour une banque d'angles, bandeau et onglets
+ * pour une stratégie full-funnel. Le jugement de mise en page est déjà là ; le
+ * vocabulaire imposé l'empêchait de s'exercer.
+ *
+ * Ne restent donc que les contraintes du cadre — celles qu'on ne peut pas
+ * deviner de l'intérieur — et les exigences de fond.
  */
-export const CONVENTION_NOMMAGE = `
-Format : \`[FUNNEL]_[PERSONA]_[FORMAT]_[ANGLE]_[HOOK]_[Vx]\`
-
-- **FUNNEL** : TOFU · MOFU · BOFU · RETARG
-- **PERSONA** : un mot en majuscules, tiré du persona retenu (COUPLE, COMPARATEUR, PROPRIO, PRIX, AMBASSADEUR…)
-- **FORMAT** : VID · STAT · CAR · UGC
-- **ANGLE** : ROI · TRANSFORM · EDUC · PREUVE · PROCESS · OBJECTION · OFFRE
-- **HOOK** : QUESTION · STAT · BEFORE_AFTER · ITW · DIRECT
-- **Vx** : V1 pour un concept neuf, V2 et suivants pour une itération d'un concept existant
-
-Exemple : \`TOFU_COUPLE_VID_ROI_QUESTION_V1\`
-
-Sans accent, sans espace, en majuscules. Choisis chaque segment dans la liste
-ci-dessus ; n'invente une valeur que si aucune ne convient vraiment.`
-
-
-/**
- * La forme d'un livrable, montrée plutôt que décrite.
- *
- * Sept gabarits en prose pesaient dix-neuf mille signes, poussaient le modèle à
- * fabriquer des sections que personne n'avait demandées, et le laissaient
- * réinventer sa feuille de style à chaque génération — cinq mille jetons de
- * sortie dépensés en CSS.
- *
- * Un exemplaire fait le travail : la feuille de style et le script vivent dans
- * l'application (voir `scalr/rapportHtml`), et quelques motifs de balisage
- * suffisent à montrer ce qu'on attend. Il n'y a plus rien à décrire.
- */
-const MOTIFS = `
-**Les onglets** — un bouton par volet, un seul volet porte \`active\`. La bascule
-est déjà câblée par l'application : tu écris juste l'appel.
-<div class="nav">
-  <button class="nav-btn active" onclick="showSection('s1')">① Diagnostic</button>
-  <button class="nav-btn" onclick="showSection('s2')">② Personas</button>
-</div>
-<div class="content">
-  <div id="s1" class="section active">…</div>
-  <div id="s2" class="section">…</div>
-</div>
-
-**Bandeau d'ouverture**
-<div class="hero">
-  <div class="hero-badge">🏊 SB Piscine — Creative Strategy Report</div>
-  <h1>Full-Funnel Creative Strategy</h1>
-  <p>Lead gen · Piscines coque polyester · Zones 34/30/13 · Septembre 2026</p>
-  <div class="hero-meta">
-    <div class="hero-stat"><div class="val">€1 063</div><div class="lbl">Spend 30j</div></div>
-    <div class="hero-stat"><div class="val">2.07</div><div class="lbl">Fréquence moy.</div></div>
-    <div class="hero-stat"><div class="val">0</div><div class="lbl">Campagnes TOFU</div></div>
-  </div>
-</div>
-
-**Volet, cartes à lignes de mesure, pastilles**
-<div id="s1" class="section active">
-  <div class="section-label">Section 1</div>
-  <h2>Diagnostic du Compte</h2>
-  <p style="margin-bottom:20px; color:#7777aa;">Analyse des 30 derniers jours — 2 campagnes actives, 8 ads avec dépense réelle</p>
-  <div class="grid-2">
-    <div class="card">
-      <h3>Distribution par Awareness Level</h3>
-      <div class="metric-row">
-        <span class="metric-label">TOFU — Sensibilisation / Problème</span>
-        <span class="metric-value" style="color:#f87171;">0% <span class="badge badge-alert">ABSENT</span></span>
-      </div>
-      <div class="metric-row">
-        <span class="metric-label">BOFU — Génération de leads</span>
-        <span class="metric-value" style="color:#34d399;">91% <span class="badge badge-bofu">dominante</span></span>
-      </div>
-    </div>
-    <div class="card warn">
-      <h3>⚠️ Fréquence — Évaluation</h3>
-      <div class="metric-row"><span class="metric-label">Fréquence globale compte</span><span class="metric-value" style="color:#fbbf24;">2.07 ✅ Saine</span></div>
-      <p style="margin-top:10px; font-size:11px; color:#7777aa;">Audience locale 34/30 = bassin limité. Sans TOFU pour l'alimenter, le BOFU s'asphyxiera dans 4–6 semaines.</p>
-    </div>
-  </div>
-  <div class="card" style="margin-top:16px;">
-    <h3>Signal Créatif — Patterns Identifiés</h3>
-    <div class="signal-row"><div class="signal-dot"></div><p><strong style="color:#c4c4e8;">Savoir-faire artisan</strong> → 5.71% CTR. La preuve de compétence locale résonne.</p></div>
-    <div class="signal-row"><div class="signal-dot"></div><p><strong style="color:#c4c4e8;">Avis clients réels</strong> → 5.61% CTR. La voix du client bat les images produit.</p></div>
-  </div>
-  <div class="bottleneck">
-    <div class="bottleneck-title">🔴 Bottleneck Créatif Principal</div>
-    <p style="color:#ffaaaa; font-size:13px;"><strong>Le compte n'a aucune créa TOFU.</strong> 100% du budget cible des personnes déjà en recherche active. Résultat : dépendance totale à 1 seul winner (C1B, 72% du spend).</p>
-  </div>
-</div>
-
-**Carte de persona**
-<div class="persona-card">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-    <div>
-      <div class="persona-name">👨‍👩‍👧 Le Couple Projet Vacances</div>
-      <div class="persona-desc">Clément &amp; Léa, 38–45 ans, maison avec jardin dans l'Hérault, 2 enfants. Rêvent d'une piscine depuis 3 ans mais "pas encore passé le cap".</div>
-    </div>
-    <span class="badge badge-tofu">TOFU</span>
-  </div>
-  <div class="grid-2" style="margin-top:12px;">
-    <div><div class="phase-item-label">Douleur principale</div><p>Dépenser chaque été en locations avec piscine.</p></div>
-    <div><div class="phase-item-label">Désir principal</div><p>Le jardin comme espace de vie, les étés à la maison.</p></div>
-  </div>
-  <div class="persona-hook">Hook direction : <em>"Vous avez dépensé combien en locations piscine ces 5 dernières années ?"</em> → angle ROI émotionnel</div>
-</div>
-
-**Entonnoir — les barres se resserrent d'un étage à l'autre**
-<div style="max-width:600px; margin:0 auto 32px;">
-  <div class="funnel-stage">
-    <div class="funnel-bar funnel-tofu">
-      <div>
-        <div class="funnel-label">🔵 TOP OF FUNNEL — Capter &amp; Qualifier</div>
-        <div class="funnel-sub">Audience froide · Intérêts jardin / maison / région · 20–30% du budget cible</div>
-      </div>
-    </div>
-  </div>
-  <div class="funnel-stage" style="text-align:center; margin:-4px 0;"><div style="font-size:20px; color:#3a3a6a;">▼</div></div>
-  <div class="funnel-stage"><div class="funnel-bar funnel-mofu">…</div></div>
-  <div class="funnel-stage" style="text-align:center; margin:-4px 0;"><div style="font-size:20px; color:#3a3a6a;">▼</div></div>
-  <div class="funnel-stage"><div class="funnel-bar funnel-bofu">…</div></div>
-</div>
-Puis une colonne par étage, en \`grid-3\` :
-<div class="card">
-  <div style="margin-bottom:10px;"><span class="badge badge-tofu">TOFU</span></div>
-  <h3>Objectif Créatif</h3>
-  <p>Stopper le scroll. Semer le désir. Ne pas vendre — raconter un monde possible.</p>
-  <div style="margin-top:14px;"><div class="phase-item-label">Formats</div>
-  <div><span class="tag">Vidéo 15–30s</span><span class="tag">Reel natif</span><span class="tag">Avant/Après</span></div></div>
-  <div style="margin-top:10px;"><div class="phase-item-label">Angles</div>
-  <ul style="margin-top:4px;"><li>Calcul vacances vs piscine</li><li>Le jardin transformé</li></ul></div>
-  <div class="persona-hook" style="margin-top:10px; font-size:11px;"><em>"Chaque été, je partais en location. Cette année, c'est ma piscine."</em></div>
-</div>
-
-**Phase de feuille de route**
-<div class="phase-card" style="border-color:rgba(99,102,241,0.4);">
-  <div class="phase-header">
-    <div>
-      <div class="phase-title">Phase 1 — Foundation</div>
-      <div class="phase-weeks">Semaines 1–4 · Objectif : Couvrir les 3 niveaux du funnel</div>
-    </div>
-    <span class="badge badge-tofu" style="padding:6px 12px;">Lancement structure</span>
-  </div>
-  <div class="phase-items">
-    <div>
-      <div class="phase-item-label">Angles prioritaires</div>
-      <div class="phase-item-content">• TOFU : Calcul été / ROI piscine<br>• BOFU : Avis clients locaux (itérer winner)</div>
-    </div>
-    <div>
-      <div class="phase-item-label">Volume minimum</div>
-      <div class="phase-item-content">• 2 nouveaux concepts TOFU<br>• 3 variantes sur "Avis client"<br><em style="color:#6666aa;">Total : 9 créas min.</em></div>
-    </div>
-    <div>
-      <div class="phase-item-label">Signal de succès</div>
-      <div class="phase-item-content">• Au moins 1 créa TOFU avec CTR &gt; 2%<br>• Fréquence BOFU stable &lt; 2.5</div>
-    </div>
-  </div>
-</div>
-
-**Convention de nommage et grille de classement**
-<div class="card highlight">
-  <h3>Structure de Nommage</h3>
-  <div class="tracker-example">[FUNNEL] _ [PERSONA] _ [FORMAT] _ [ANGLE] _ [HOOK_TYPE] _ [Vx]</div>
-  <div class="grid-2" style="margin-top:16px;">
-    <div>
-      <div class="phase-item-label">Valeurs FUNNEL</div>
-      <div><span class="tag">TOFU</span><span class="tag">MOFU</span><span class="tag">BOFU</span><span class="tag">RETARG</span></div>
-      <div class="phase-item-label" style="margin-top:10px;">Valeurs FORMAT</div>
-      <div><span class="tag">VID</span><span class="tag">STAT</span><span class="tag">CAR</span><span class="tag">UGC</span></div>
-    </div>
-    <div>
-      <div class="phase-item-label">Valeurs ANGLE</div>
-      <div><span class="tag">ROI</span><span class="tag">PREUVE</span><span class="tag">EDUC</span><span class="tag">OBJECTION</span></div>
-    </div>
-  </div>
-</div>
-<div class="card">
-  <h3>Grille de Ranking Créatif</h3>
-  <div class="metric-row"><span class="metric-label">🥇 Winner — à itérer</span><span class="metric-value" style="color:#34d399;">CTR &gt; 3.5% + CPL &lt; 15€</span></div>
-  <div class="metric-row"><span class="metric-label">🔴 À couper</span><span class="metric-value" style="color:#f87171;">CTR &lt; 1.5% ou CPL &gt; 30€</span></div>
-  <p style="margin-top:10px; font-size:11px; color:#6666aa;">Règle : minimum 500 impressions avant jugement.</p>
-</div>
-
-**Brief concept — celui de la section « Les 3 premiers briefs »**
-<div class="brief-card" style="border-color:rgba(99,102,241,0.5);">
-  <div class="brief-num">1</div>
-  <div style="margin-bottom:12px;">
-    <span class="badge badge-tofu">TOFU</span>
-    <span class="badge" style="background:rgba(255,255,255,0.05); color:#888; margin-left:4px;">Priorité CRITIQUE</span>
-  </div>
-  <div class="brief-title">TOFU_COUPLE_VID_ROI_QUESTION_V1 — "L'Été à la Maison"</div>
-  <div class="grid-2" style="margin-top:16px;">
-    <div>
-      <div class="phase-item-label">Angle marketing</div>
-      <div class="phase-item-content">ROI émotionnel — le calcul que personne ne fait : "J'ai dépensé 12 000€ en locations ces 5 ans. J'aurais pu avoir ma piscine."</div>
-      <div class="phase-item-label" style="margin-top:10px;">Persona &amp; Niveau</div>
-      <div class="phase-item-content">Couple 35–50 ans propriétaire · TOFU — audience froide · Intérêts jardin, famille, maison Hérault</div>
-      <div class="phase-item-label" style="margin-top:10px;">Format</div>
-      <div class="phase-item-content">Vidéo 20–30s · Reel format vertical · Voix-off + images à domicile · Pas de logo en opening</div>
-    </div>
-    <div>
-      <div class="phase-item-label">Direction Hook (T-A-V)</div>
-      <div class="phase-item-content"><strong>Texte :</strong> "Combien avez-vous dépensé en location piscine ces 5 ans ?" (6 mots à l'écran)<br><br><strong>Visuel :</strong> Famille qui profite de sa piscine, plan large jardin<br><br><strong>Audio :</strong> Voix naturelle, calme, pas de musique intrusive</div>
-      <div class="phase-item-label" style="margin-top:10px;">Structure vidéo</div>
-      <div class="phase-item-content">0–3s : Hook question + calcul choc<br>3–15s : Bénéfice émotionnel (famille, liberté été)<br>15–25s : SB Piscine = la solution locale<br>25–30s : CTA "Étude gratuite"</div>
-    </div>
-  </div>
-  <div class="brief-why">
-    <div class="brief-why-label">⚡ Pourquoi en premier</div>
-    <div class="brief-why-text">Le compte n'a AUCUNE créa TOFU. Ce brief crée le carburant pour tout le reste du funnel. Sans TOFU, le BOFU s'asphyxie sur une audience locale finie.</div>
-  </div>
-</div>
-
-**Brief détaillé — le livrable séparé, quand la demande porte sur le script complet**
-Le même en-tête et la même fiche, puis le script minuté et de quoi tourner :
-<div class="card">
-  <h3>Script complet</h3>
-  <table>
-    <tr><th>Temps</th><th>Voix-off / à l'écran</th><th>Réalisation</th></tr>
-    <tr><td style="color:#a5b4fc; white-space:nowrap;">0:00–0:03</td><td>"Vous dépensez combien en vacances, chaque année ?"<br><span class="tag">À l'écran : Vos vacances vous coûtent combien ?</span></td><td>Plan serré visage caméra. Pause d'une demi-seconde après la question.</td></tr>
-    <tr><td style="color:#a5b4fc; white-space:nowrap;">0:03–0:12</td><td>"2 000 € ? 3 000 € ? Sur dix ans, vous avez déjà payé votre piscine."</td><td>Cut sur images de location, puis piscine dans un jardin ordinaire — jamais une villa.</td></tr>
-  </table>
-</div>
-<div class="grid-2">
-  <div class="card">
-    <h3>Options de hook — à tester en V2 / V3</h3>
-    <div class="metric-row"><span class="metric-label">"Vous avez calculé ce que vous coûte de ne pas avoir de piscine ?"</span><span class="metric-value"><span class="badge badge-mofu">question inversée</span></span></div>
-    <div class="metric-row"><span class="metric-label">"Nos voisins paient moins qu'un abonnement vacances"</span><span class="metric-value"><span class="badge badge-bofu">preuve sociale</span></span></div>
-  </div>
-  <div class="card">
-    <h3>Copy du post</h3>
-    <p>Vous comptez repartir en vacances cet été ? Ou vous rêvez de ne plus avoir besoin de partir ?</p>
-    <p>👉 Demandez votre étude gratuite — sans engagement.</p>
-  </div>
-</div>
-<div class="grid-2">
-  <div class="card success"><h3>✅ À faire</h3><ul><li>Lumière naturelle, tournage en extérieur</li><li>Un visage dans le hook, pas la piscine</li><li>Sous-titres — 85 % regardent sans le son</li></ul></div>
-  <div class="card danger"><h3>❌ À éviter</h3><ul><li>Logo en filigrane dès le hook</li><li>Commencer par "Bonjour, je suis…"</li><li>Un prix précis en TOFU</li></ul></div>
-</div>
-<div class="card highlight" style="margin-top:16px;">
-  <h3>KPI de succès — J+7</h3>
-  <div class="metric-row"><span class="metric-label">Hook rate</span><span class="metric-value" style="color:#34d399;">&gt; 25%</span></div>
-  <div class="metric-row"><span class="metric-label">CPL TOFU acceptable</span><span class="metric-value" style="color:#a5b4fc;">30–60€</span></div>
-  <p style="margin-top:10px; font-size:11px; color:#6666aa;">Repères tirés des standards du format, pas de chiffres mesurés sur ce compte.</p>
-</div>
-
-**Analyse de fatigue — tuiles de tête, puis constats**
-<div class="hero-meta" style="margin-top:0;">
-  <div class="hero-stat"><div class="val" style="color:#34d399;">33.05%</div><div class="lbl">Hook rate (3s) — fort</div></div>
-  <div class="hero-stat"><div class="val" style="color:#f87171;">33.18%</div><div class="lbl">Hold rate (p25) — faible</div></div>
-  <div class="hero-stat"><div class="val" style="color:#f87171;">0.67%</div><div class="lbl">Taux de complétion — critique</div></div>
-  <div class="hero-stat"><div class="val" style="color:#fbbf24;">6.0s</div><div class="lbl">Durée moyenne de vue</div></div>
-</div>
-<div class="card danger" style="margin-top:16px;">
-  <h3>🚨 Effondrement au quart de vidéo</h3>
-  <p>Le hook accroche 1 personne sur 3. Mais 33 % seulement de ces personnes restent jusqu'au premier quart : le corps de la vidéo ne tient pas la promesse du hook.</p>
-</div>
-
-**Pied de page**
-<div class="section-label" style="margin-top:32px;">Provenance</div>
-<p style="font-size:11px; color:#6666aa;">Stratégie construite sur les données réelles du compte (30 derniers jours, extraites le 8 septembre 2026). Les personas et briefs des sections 2 à 6 sont des propositions à valider avec le client, pas des faits vérifiés.</p>
-`
-
 export const RAPPORT_HTML = `
 
 ---
 
 # FORMAT DE SORTIE
 
-Tu rends **deux choses, dans cet ordre** : une synthèse en Markdown, puis le
-document mis en page. La ligne \`<!--rapport-->\` sépare les deux.
+Tu rends **deux choses, dans cet ordre** : une synthèse en Markdown, puis un
+document HTML. La ligne \`<!--rapport-->\` sépare les deux.
 
 ## 1. La synthèse — ce qui se lit dans le fil
 
@@ -461,12 +237,11 @@ Elle sort en premier, elle s'affiche en premier : c'est ce que ton lecteur a
 sous les yeux pendant que le document s'écrit encore. Elle ne renvoie pas au
 document, elle en donne le verdict.
 
-Une phrase d'ouverture, puis **un bloc court par section** — trois à six lignes,
+Une phrase d'ouverture, puis **un bloc court par partie** — trois à six lignes,
 titrées \`### Section 1 — Diagnostic\`. Chaque bloc ouvre sur le chiffre qui
-tranche et dit ce qu'il implique, pas ce que la section contient. « 0 % de
-budget TOFU. La campagne BOFU absorbe 91 % de la dépense » vaut mieux que « la
-section 1 analyse la répartition du budget ». Un petit tableau Markdown quand il
-sert — un récapitulatif de priorités, une comparaison à un repère.
+tranche et dit ce qu'il implique, pas ce que la partie contient. « 0 % de budget
+TOFU. La campagne BOFU absorbe 91 % de la dépense » vaut mieux que « la section 1
+analyse la répartition du budget ». Un petit tableau Markdown quand il sert.
 
 Termine par la ligne \`Prochaines étapes :\` suivie de **trois puces, et rien
 après**. Chacune est une demande que tu peux exécuter au tour suivant, écrite
@@ -478,56 +253,55 @@ Cinq cents mots au maximum pour l'ensemble.
 
 ## 2. Le document — après la marque
 
-Tu rends **le corps seulement** : le balisage, rien d'autre.
+La marque \`<!--rapport-->\` sur sa propre ligne, puis un **document HTML
+complet et autonome** : \`<!DOCTYPE html>\`, \`<head>\`, ta feuille de style,
+ton balisage, tes scripts. Rien après lui, aucune clôture en \\\`\\\`\\\`.
 
-Pas de \`<!DOCTYPE>\`, pas de \`<html>\`, pas de \`<head>\`, **pas de
-\`<style>\`, pas de \`<script>\`** — la feuille de style et le script sont
-ajoutés par l'application, tu n'as ni à les écrire ni à les recopier. Écrire du
-CSS, c'est du temps pris sur le contenu, et c'est le seul endroit où tu peux en
-gagner.
+**La mise en page est ton travail, pas une consigne à suivre.** Dessine pour ce
+que tu as à montrer : une banque d'angles n'a pas la forme d'une stratégie
+full-funnel, qui n'a pas la forme d'une analyse de fatigue. Choisis la structure,
+la palette, la typographie et l'interaction qui servent ce livrable-là. Ce qui
+compte : que la hiérarchie se lise d'un coup d'œil, que les états (priorité,
+statut, alerte) se distinguent par la forme autant que par le mot, et qu'on
+retrouve une information sans tout relire.
 
-La marque \`<!--rapport-->\` sur sa propre ligne, puis immédiatement le
-balisage. Rien après, aucune clôture en \`\`\`.
+### Ce que le cadre impose
 
-**Un onglet par livrable demandé.** Une demande qui en appelle plusieurs —
-« analyse la fatigue de C1B **et** brief les 3 créas » — donne un seul document
-dont les onglets sont : Fatigue C1B, Brief 1, Brief 2, Brief 3. Jamais deux
-documents, jamais un onglet que personne n'a demandé.
+Le document s'affiche dans un cadre isolé, sans réseau et sur une origine
+opaque. Trois conséquences, et elles ne se devinent pas de l'intérieur :
 
-## Contraintes
+**Aucune ressource externe.** Ni police distante, ni image, ni feuille de style,
+ni bibliothèque : rien ne se charge. Tout est en ligne dans le document. Les
+emoji et les caractères Unicode passent.
 
-**Les onglets sont déjà câblés.** \`showSection('sN')\` existe : tu écris les
-boutons \`.nav-btn\` qui l'appellent et les volets \`.section\` correspondants,
-le premier de chaque portant \`active\`. N'écris aucune autre fonction.
+**Le JavaScript s'exécute** — onglets, dépliage, filtres, tout est permis.
 
-**Aucune ressource externe** — ni police, ni image, ni feuille distante : le
-cadre n'a pas de réseau. Les emoji, eux, passent.
+**N'écris pas de script de redimensionnement.** Le cadre mesure ta hauteur
+lui-même ; un script qui la lui annonce entrerait en conflit avec le sien.
 
-**N'emploie que les classes du vocabulaire ci-dessous.** Elles existent déjà.
-Un \`style="…"\` en ligne reste possible pour colorer une valeur ou nuancer une
-bordure — comme dans les motifs — jamais pour refaire une mise en page.
+**Un seul document par réponse.** Une demande qui appelle plusieurs livrables —
+« analyse la fatigue de C1B **et** brief les 3 créas » — donne un document unique
+qui les contient tous, chacun dans sa vue. Jamais deux documents.
 
-**Ne produis que les sections demandées**, et **va jusqu'au bout**. Un document
-qui s'arrête à l'avant-dernière section ne vaut rien : si la place manque,
-raccourcis les phrases, jamais le nombre de sections.
+## Le fond
 
-**Sépare ce qui est mesuré de ce qui est proposé.** Sous une section de
+**Ne produis que ce qui est demandé**, et **va jusqu'au bout**. Un document qui
+s'arrête à l'avant-dernière partie ne vaut rien : si la place manque, raccourcis
+les phrases, jamais le nombre de parties.
+
+**Sépare ce qui est mesuré de ce qui est proposé.** Sous une partie de
 propositions, une ligne qui prévient qu'elles sont à valider avec le client ;
 au-dessus d'une projection, ce sur quoi elle s'appuie et qu'elle n'est pas une
 prévision ; en pied de document, d'où viennent les données, à quelle date, et
-quelles sections sont des hypothèses.
+quelles parties sont des hypothèses.
 
-**Nomme le dénominateur d'un taux.** Une rétention vidéo se rapporte aux
-lectures, un hook rate aux impressions : « 25 % vus — 17 259 · 11,5 % des
-lectures ».
+**Nomme le dénominateur d'un taux.** Une rétention vidéo se rapporte aux vues de
+3 secondes, un hook rate aux impressions : « 25 % vus — 7 759 · 39,4 % des vues
+de 3 s ».
 
 **Le fond passe avant la forme.** Chaque affirmation porte son chiffre, chaque
 proposition son « pourquoi celle-là pour ce compte ». Un angle que les
 publicités du compte portent déjà est disqualifié — cherche le déplacement.
-
-## Le vocabulaire de classes et ses motifs
-
-${MOTIFS}
 `
 
 

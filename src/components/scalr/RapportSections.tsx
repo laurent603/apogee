@@ -89,8 +89,16 @@ function CadreHtml({ html }: { html: string }) {
   useEffect(() => {
     const surMessage = (e: MessageEvent) => {
       if (e.source !== cadre.current?.contentWindow) return
-      const h = (e.data as { type?: string; hauteur?: unknown })?.hauteur
-      if ((e.data as { type?: string })?.type !== 'rapport-hauteur') return
+      const d = e.data as { type?: string; hauteur?: unknown } | null
+      /**
+       * Seul le script ajouté par l'application fait foi.
+       *
+       * Le modèle en écrit un de son côté, qui annonce `artifact-resize` en
+       * mesurant la fenêtre : dans un cadre dont on règle la hauteur sur cette
+       * mesure, c'est une boucle. On l'ignore.
+       */
+      if (d?.type !== 'rapport-hauteur') return
+      const h = d.hauteur
       if (typeof h !== 'number' || !Number.isFinite(h)) return
       setHauteur(Math.min(Math.max(Math.ceil(h), 320), 24000))
     }
