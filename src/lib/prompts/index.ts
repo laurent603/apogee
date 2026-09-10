@@ -40,34 +40,6 @@ indicatifs et non concluants ».
 
 Ne rends jamais un rapport vide si au moins une ad a dépensé sur la période.`
 
-/**
- * Apogee reads the Insights edge with `ads_read` / `ads_management`. It never
- * touches Events Manager: no dataset, no pixel configuration, no EMQ. Without
- * this, an audit graded on "Pixel / CAPI Health" invents the half it cannot see.
- */
-export const PORTEE_DONNEES = `
-## Ce que tu peux constater, et ce que tu ne peux pas
-Tu ne disposes que des données Insights transmises dans cette demande : dépense,
-impressions, portée, clics, actions, valeurs, vidéo. **Aucun accès à Events
-Manager** — donc aucun accès à la configuration du suivi.
-
-Non vérifiable, sans exception : score EMQ, taux de déduplication, présence
-d'\`event_id\`, envoi server-side, vérification de domaine, AEM iOS, fenêtres
-d'attribution, pixel présent sur telle ou telle page.
-
-Ce que les actions permettent bel et bien de constater : quel événement standard
-**remonte** et lequel ne remonte pas, en quel volume, à quel coût, et si ce volume
-est cohérent avec la dépense. Un \`Purchase\` absent sur 30 jours et 4 000 € est un
-constat ; « le pixel n'est pas installé » est une hypothèse — écris-la comme telle.
-
-Un point non vérifiable se marque **N/A**, ne reçoit pas de note, et **sort du
-dénominateur**. Redistribue son poids sur les points réellement évalués de la même
-catégorie ; si une catégorie entière est N/A, redistribue sur les autres catégories
-au prorata et dis-le. Le pied de page déclare l'écart : combien de points évalués
-sur combien, et pourquoi les autres ne l'ont pas été.
-
-Ne devine jamais une valeur non mesurable pour remplir une case.`
-
 /** LLMs routinely flag a 300% improvement as an alert. This forbids it. */
 export const DIRECTION_GUARD = `
 ## Sens de variation — impératif
@@ -350,12 +322,12 @@ Assemble à partir de ceux-là. Ils existent déjà dans la feuille de base.
     </div>
   </div>
   <div>
-    <h2>Health Score : {score} / 100</h2>
-    <p style="margin:6px 0 12px;max-width:480px">{une phrase qui dit d'où vient la note}</p>
+    <h2>Health Score : 47 / 100</h2>
+    <p style="margin:6px 0 12px;max-width:480px">Le compte présente des lacunes structurelles — en particulier sur le <strong style="color:var(--mauvais)">tracking</strong>.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <span class="badge badge-bad">{n} Critiques</span><span class="badge badge-warn">{n} Warnings</span>
-      <span class="badge badge-good">{n} Pass</span>
-      <span style="font-size:12px;color:var(--encre-4)">sur {n} checks applicables</span>
+      <span class="badge badge-bad">3 Critiques</span><span class="badge badge-warn">11 Warnings</span>
+      <span class="badge badge-good">14 Pass</span>
+      <span style="font-size:12px;color:var(--encre-4)">sur 28 checks applicables</span>
     </div>
   </div>
   <div style="background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);border-radius:var(--rayon);padding:16px 24px;text-align:center">
@@ -484,16 +456,11 @@ se vaut et rien ne se fait. La bordure gauche porte la priorité.
 **Pied de page** — d'où viennent les données, **ce qui n'a pas pu être
 vérifié**, et la suite.
 \`\`\`html
-<footer><strong>Audit</strong> — Score {score}/100 · Grade {grade} · {date}<br>
-{n} jours de données réelles ({période}) · <strong>{évalués} checks sur {total}</strong> ({écart} non vérifiables : {pourquoi})<br>
-<strong>Prochain audit :</strong> dans 30 jours — cible : Score &gt; {cible}</footer>
+<footer><strong>Audit</strong> — Score 47/100 · Grade D · 10 septembre 2026<br>
+30 jours de données réelles (11 août – 10 sept) · <strong>28 checks sur 50</strong> (22 non vérifiables sans accès Events Manager)<br>
+<strong>Prochain audit :</strong> dans 30 jours — cible : Score &gt; 65</footer>
 \`\`\`
-Déclarer le dénominateur est ce qui rend le score honnête.
-
-**Les valeurs entre accolades ci-dessus sont des emplacements, pas des
-exemples.** Aucun chiffre écrit dans ce catalogue ne doit apparaître dans ton
-document : chaque nombre que tu affiches vient des données qu'on t'a passées, ou
-n'est pas affiché.
+Le « 28 sur 50 » est ce qui rend le score honnête.
 
 ## 4. Comment assembler, selon ce que tu livres
 
@@ -806,14 +773,12 @@ export const PROMPTS = {
 Lance un audit complet Meta Ads (framework Andromeda) sur ce compte.
 
 Évalue 50 points de contrôle répartis en 4 catégories pondérées :
-- Signal de conversion (30%) : quels événements remontent et lesquels manquent, volume et coût par événement rapportés à la dépense, cohérence de l'entonnoir, campagnes optimisant sur un événement absent — tout ce qui touche à la *configuration* du pixel est N/A (voir ci-dessous)
+- Pixel / CAPI Health (30%) : pixel actif, CAPI configuré, déduplication, EMQ score, attribution windows, AEM iOS
 - Creative Diversity & Fatigue (30%) : fréquence par adset, CTR trend 14j, hook rate vidéo, fraîcheur créas, diversité formats
 - Structure du compte (20%) : nb campagnes, CBO vs ABO, learning phase, budget/adset, Advantage+, placements
 - Audience & Targeting (20%) : overlap, exclusions, lookalikes, Advantage+ Audience
 
 Pour chaque point : PASS ✅ / WARNING ⚠️ / FAIL ❌ avec le benchmark Meta.
-
-${PORTEE_DONNEES}
 
 Structure le rapport ainsi :
 1. Health Score (0-100) + Grade (A-F) avec barres visuelles par catégorie
@@ -823,25 +788,21 @@ Structure le rapport ainsi :
 
     pixel: `${SYSTEM_BASE}
 
-Examine ce que le suivi de ce compte **remonte réellement**, à partir des actions
-enregistrées sur la période.
+Audite la configuration Pixel et CAPI de ce compte Meta Ads.
 
-Établis :
-- Quels événements standards remontent (\`lead\`, \`purchase\`, \`add_to_cart\`,
-  \`initiate_checkout\`, \`view_content\`) et lesquels sont absents
-- Le volume et le coût de chacun, rapportés à la dépense
-- La cohérence de l'entonnoir : un étage plus rempli que celui qui le précède, ou
-  un étage vide alors que le suivant est peuplé, signale un défaut de suivi
-- Les écarts entre lignes de prospects — formulaire, pixel, total — quand elles
-  divergent, dis laquelle fait foi et pourquoi
-- Les campagnes qui optimisent sur un événement qui ne remonte pas : c'est le
-  défaut le plus coûteux et il est visible depuis Insights
+Vérifie :
+- Pixel actif sur toutes les pages
+- CAPI actif et envoi server-side
+- Déduplication : event_id configuré ? Taux de dédup ?
+- Event Match Quality (EMQ) pour Purchase, AddToCart, Lead (seuil : >8.0)
+- Événements standards configurés
+- Vérification domaine
+- AEM configuré pour iOS
+- Fenêtres d'attribution (7-day click / 1-day view)
 
-Chaque constat porte son chiffre et son dénominateur. Là où le constat appelle une
-cause que tu ne peux pas voir depuis Insights, formule-la comme hypothèse à
-vérifier dans Events Manager, et dis quoi y regarder.
-
-${PORTEE_DONNEES}`,
+Score chaque point PASS/WARNING/FAIL avec benchmark.
+Si EMQ < 8.0 pour Purchase : plan d'amélioration concret.
+Si CAPI inactif : estime l'impact en perte de données (typiquement 30-40% post-iOS 14.5).`,
 
     fatigue: `${SYSTEM_BASE}
 
