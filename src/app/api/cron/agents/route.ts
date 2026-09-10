@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
-import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, natureDuRapport } from '@/lib/prompts'
+import { DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
 
 /**
  * Le format de sortie demandé à l'agent, débarrassé de toute demande de HTML.
@@ -19,9 +19,10 @@ import { SYSTEM_BASE, DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLIN
  */
 function formatDeSortie(brut: string | null | undefined): string {
   const v = (brut || '').trim()
-  if (!v) return 'Markdown structuré : titres, tableaux, listes.'
-  if (!/html|<[a-z]/i.test(v)) return v
-  return 'Markdown structuré : titres, tableaux, listes. Aucun HTML.'
+  // Le format de sortie ne décide plus de la forme : c'est le contrat de sortie,
+  // joint en fin de message, qui la fixe. Un champ vide ou réclamant du HTML
+  // n'a donc plus rien à imposer.
+  return !v || /html|<[a-z]/i.test(v) ? '' : v
 }
 import { deliverReport } from '@/lib/deliver'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -154,7 +155,8 @@ export async function GET(req: NextRequest) {
         ? `\n## Période précédente (${previous.periode})\nCalcule toute variation entre cette période et la période courante — ne l'affirme jamais sans ce calcul.\n### Vue d'ensemble\n${JSON.stringify(previous.overview, null, 2)}\n### Ads\n${JSON.stringify(previous.ads.slice(0, 20), null, 2)}`
         : `\n## Période précédente\nIndisponible — n'affirme aucune tendance ni fatigue, et dis-le explicitement.`
 
-      const userMessage = `${agent.instructions}\n\nFormat de sortie : ${formatDeSortie(agent.outputFormat)}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
+      const format = formatDeSortie(agent.outputFormat)
+      const userMessage = `${agent.instructions}${format ? `\n\nFormat de sortie : ${format}` : ''}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
 
       // Une surcharge des serveurs du modèle jetait tout le travail de l'agent
       // et envoyait un e-mail d'échec pour un incident passager. Rien n'a été
@@ -164,19 +166,23 @@ export async function GET(req: NextRequest) {
         let texte = ''
         const stream = await anthropic.messages.stream({
           model: MODEL_REPORT,
-          max_tokens: generatif ? 32000 : 16000,
+          max_tokens: 40000,
           ...REPORT_REASONING,
           /**
-         * Un livrable génératif sort en document HTML : son socle système ne
-         * peut donc pas lui interdire le HTML, comme il le fait pour tous les
-         * autres rapports. Les garde-fous sur les données restent, eux.
-         */
-        system: generatif
-          ? `${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu es LEADSCORE, expert Meta Ads pour une agence de publicité digitale. Tu écris en français, tu es direct et factuel, et chaque recommandation s'appuie sur les données réelles fournies.`
-          : `${SYSTEM_BASE}\n${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu génères des rapports précis et actionnables en Markdown.`,
+           * Tout rapport d'agent sort en document HTML — la revue hebdomadaire
+           * et l'audit sont précisément les exemplaires fournis par Laurent. Le
+           * socle système ne peut donc plus interdire le HTML à quiconque. Les
+           * garde-fous sur les données restent, eux.
+           */
+          system: `${DATA_FLOORS}\n${DIRECTION_GUARD}\n\nTu es LEADSCORE, expert Meta Ads pour une agence de publicité digitale. Tu écris en français, tu es direct et factuel, et chaque recommandation s'appuie sur les données réelles fournies.`,
           // Le bloc final est joint au message, en dernière position : dans le
           // prompt système, il était ignoré (voir /api/ai/analyze).
-          messages: [{ role: 'user', content: userMessage + (generatif ? RAPPORT_HTML : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES) }],
+          messages: [{
+            role: 'user',
+            content: userMessage + (generatif
+              ? RAPPORT_HTML
+              : DISCIPLINE_RAPPORT + RAPPORT_HTML + BLOC_ACTIONNABLES + ORDRE_SORTIE),
+          }],
         })
         for await (const chunk of stream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {

@@ -224,6 +224,19 @@ export const RAPPORT_HTML = `
 Tu rends **deux choses** : un rapport en Markdown, puis un document HTML. La
 ligne \`<!--rapport-->\` sépare les deux.
 
+## Quand le document n'a pas lieu d'être
+
+Une seule exception, et elle est étroite : la réponse tient en quelques phrases
+et ne contient **ni tableau, ni classement, ni note, ni comparaison de périodes,
+ni liste d'actions**. Une définition, une précision sur un chiffre déjà rendu,
+un oui suivi de sa raison. Dans ce cas, réponds en texte et ne produis pas de
+document.
+
+Partout ailleurs — dès qu'il y a un tableau, un top/flop, un score, un avant/
+après, un plan, un scan, un bilan, un audit — **le document est obligatoire**,
+quel que soit le vocabulaire de la demande. Un classement de publicités rendu en
+Markdown seul est une réponse incomplète.
+
 ## 1. Le rapport dans le fil
 
 Ce n'est pas un résumé. C'est le **même rapport**, rendu en texte : ce qui se
@@ -530,6 +543,24 @@ export function natureDuRapport(demande: string | null | undefined): 'diagnostic
 /** La discipline qui correspond à la demande. */
 export const disciplinePour = (demande: string | null | undefined) =>
   natureDuRapport(demande) === 'generatif' ? DISCIPLINE_GENERATIVE : DISCIPLINE_RAPPORT
+
+/**
+ * L'ordre, quand le rapport porte à la fois le document et le bloc JSON.
+ *
+ * Sans cette clause, les deux consignes se contredisent : le bloc d'actionnables
+ * exige « rien après lui », le format de sortie place le document en dernier.
+ * Le modèle tranchait en abandonnant le document.
+ */
+export const ORDRE_SORTIE = `
+
+## Ordre des trois parties
+
+1. Le rapport en Markdown
+2. Le bloc JSON des actionnables
+3. La ligne \`<!--rapport-->\`, puis le document HTML
+
+Le « rien après lui » du bloc JSON vaut **pour la partie Markdown** : le
+document vient après le séparateur, toujours, et termine ta réponse.`
 
 export const BLOC_ACTIONNABLES = `
 

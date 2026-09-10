@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, natureDuRapport } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -135,7 +135,9 @@ export async function POST(req: NextRequest) {
         // Il ne porte alors pas de bloc d'actionnables — celui-ci se lit dans
         // un rapport Markdown, pas dans un document mis en page.
         const blocFinal = deep
-          ? (generatif ? RAPPORT_HTML : DISCIPLINE_RAPPORT + BLOC_ACTIONNABLES)
+          ? (generatif
+              ? RAPPORT_HTML
+              : DISCIPLINE_RAPPORT + RAPPORT_HTML + BLOC_ACTIONNABLES + ORDRE_SORTIE)
           : ''
 
         /**
@@ -160,10 +162,23 @@ export async function POST(req: NextRequest) {
          * des personas ou des briefs par mégarde.
          */
         const chatProfond = !deep && generatif
-        const disciplineChat = chatProfond ? RAPPORT_HTML : ''
+        /**
+         * Le document n'est plus réservé aux livrables génératifs.
+         *
+         * Un scan de fatigue, une revue hebdomadaire, un classement top/flop
+         * sont exactement les livrables dont Laurent a fourni les exemplaires —
+         * et le mot « fatigue » les envoyait sur la branche qui interdit le
+         * HTML. La forme ne se décide plus au vocabulaire de la demande : elle
+         * se décide à ce que la réponse contient, et c'est au modèle de le
+         * voir, pas à une expression régulière.
+         *
+         * `chatProfond` ne commande donc plus que la **profondeur** — modèle de
+         * rapport et réflexion étendue — pas la forme.
+         */
+        const disciplineChat = deep ? '' : RAPPORT_HTML
 
         const systemPrompt = customPrompt
-          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes. ${generatif ? '' : ` Tu réponds en Markdown et n'émets jamais de HTML ni de bloc de code contenant du HTML.`}${generatif ? '' : outputInstruction}`
+          ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes.${outputInstruction}`
           : getPrompt(category as PromptCategory, analysisType)
 
         const leadSourceNote = {
@@ -251,7 +266,7 @@ ${JSON.stringify(previous.ads, null, 2)}`
            * en balises et en style. À seize mille, la dernière section sautait
            * — c'est exactement ce qu'on cherche à corriger.
            */
-          max_tokens: generatif && (deep || chatProfond) ? 40000 : 16000,
+          max_tokens: deep || chatProfond ? 40000 : 24000,
           system: systemPrompt,
           messages: [
             /**
@@ -293,6 +308,15 @@ ${JSON.stringify(previous.ads, null, 2)}`
          * rapport collés l'un à l'autre dans la fenêtre du navigateur : à ce
          * moment-là, mieux vaut l'erreur franche.
          */
+        /**
+         * Pourquoi la réponse s'est arrêtée.
+         *
+         * Une discussion s'est enregistrée coupée au milieu d'un mot, sans que
+         * rien ne le signale : le flux se terminait proprement sur un
+         * `stop_reason` de troncature que personne ne lisait. Une réponse
+         * incomplète doit se voir à l'écran, et non passer pour une réponse.
+         */
+        let arret: string | null = null
         for (let essai = 0; ; essai++) {
           try {
             for await (const chunk of demarrerFlux()) {
@@ -300,6 +324,14 @@ ${JSON.stringify(previous.ads, null, 2)}`
                 fullResult += chunk.delta.text
                 controller.enqueue(encoder.encode(chunk.delta.text))
               }
+              if (chunk.type === 'message_delta' && chunk.delta.stop_reason) {
+                arret = chunk.delta.stop_reason
+              }
+            }
+            if (arret && arret !== 'end_turn' && arret !== 'stop_sequence') {
+              const avis = `\n\n> ⚠️ **Réponse incomplète** — la génération s'est arrêtée avant la fin (\`${arret}\`). Relance la demande, ou restreins-la à une période plus courte.`
+              fullResult += avis
+              controller.enqueue(encoder.encode(avis))
             }
             break
           } catch (e) {
