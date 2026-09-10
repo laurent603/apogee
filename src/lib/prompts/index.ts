@@ -206,21 +206,14 @@ méthode, pas de conclusion générale.`
 /**
  * Comment un livrable se présente.
  *
- * Rien ici ne décrit une mise en page, et c'est délibéré.
+ * Quatre documents de référence, produits sans aucune consigne de forme, ont
+ * tranché : ils ne diffèrent pas. Même police, même fond, mêmes bordures d'un
+ * pixel, même échelle typographique, mêmes trois couleurs sémantiques. Ce qui
+ * change, c'est **quels blocs on assemble et dans quel ordre**.
  *
- * L'application a tenu tour à tour sept gabarits en prose, puis un vocabulaire
- * de classes, puis une feuille de style unique. Chaque fois le résultat était le
- * même : le livrable ressemblait au gabarit, pas à ce qu'il avait à montrer. Une
- * banque d'angles entrait dans une peau de rapport d'entonnoir.
- *
- * La comparaison qui a tranché : la même consigne, donnée sans un mot sur la
- * forme, produit ailleurs un document dessiné pour son sujet — cartes qui se
- * déplient et pastilles d'émotion pour une banque d'angles, bandeau et onglets
- * pour une stratégie full-funnel. Le jugement de mise en page est déjà là ; le
- * vocabulaire imposé l'empêchait de s'exercer.
- *
- * Ne restent donc que les contraintes du cadre — celles qu'on ne peut pas
- * deviner de l'intérieur — et les exigences de fond.
+ * Le style est donc figé côté application (`scalr/systemeDesign`). Ce qui reste
+ * ici : le catalogue des blocs, les règles d'assemblage selon la nature du
+ * livrable, et ce que le cadre autorise — vérifié, pas supposé.
  */
 export const RAPPORT_HTML = `
 
@@ -228,80 +221,282 @@ export const RAPPORT_HTML = `
 
 # FORMAT DE SORTIE
 
-Tu rends **deux choses, dans cet ordre** : une synthèse en Markdown, puis un
-document HTML. La ligne \`<!--rapport-->\` sépare les deux.
+Tu rends **deux choses** : un rapport en Markdown, puis un document HTML. La
+ligne \`<!--rapport-->\` sépare les deux.
 
-## 1. La synthèse — ce qui se lit dans le fil
+## 1. Le rapport dans le fil
 
-Elle sort en premier, elle s'affiche en premier : c'est ce que ton lecteur a
-sous les yeux pendant que le document s'écrit encore. Elle ne renvoie pas au
-document, elle en donne le verdict.
+Ce n'est pas un résumé. C'est le **même rapport**, rendu en texte : ce qui se
+lit comme du texte y va, ce qui a besoin d'une mise en page reste dans le
+document. Un tableau de sept lignes sur huit colonnes n'a rien à faire ici ; un
+verdict, une alerte, une action, si.
 
-Une phrase d'ouverture, puis **un bloc court par partie** — trois à six lignes,
-titrées \`### Section 1 — Diagnostic\`. Chaque bloc ouvre sur le chiffre qui
-tranche et dit ce qu'il implique, pas ce que la partie contient. « 0 % de budget
-TOFU. La campagne BOFU absorbe 91 % de la dépense » vaut mieux que « la section 1
-analyse la répartition du budget ». Un petit tableau Markdown quand il sert.
+Sa forme :
 
-Termine par la ligne \`Prochaines étapes :\` suivie de **trois puces, et rien
-après**. Chacune est une demande que tu peux exécuter au tour suivant, écrite
-telle qu'on te la formulerait : « Analyser la fatigue créative de C1B (161 K
-impressions) pour anticiper son déclin ». Elles prolongent le travail — elles ne
-le résument pas.
+- Un \`---\` entre chaque section, un titre \`## \` avec son emoji de rubrique.
+- Ouvre sur le **verdict chiffré**, pas sur ce que contient le rapport.
+- Des tableaux Markdown pour ce qui se compare — trois colonnes, pas huit.
+- Les listes de classement en une ligne de tubes puis le jugement :
+  \`**#1 — Vidéo lunel C1B** | CTR 2,90% | CPM 6,92€ | Spend 163,67€\`
+  puis \`→ Le cheval de bataille du compte. **À maintenir à 100%.**\`
+- **Une section « ✅ Ce qui fonctionne bien »**, avec chiffres et repères. Un
+  rapport qui n'énumère que les problèmes est lu comme un procès et n'est pas
+  appliqué.
+- **Une seule** citation en bloc \`> \` dans tout le rapport, réservée à ce qui
+  est grave. C'est ce qui lui donne son poids.
+- Chaque action qualifiée en deux mots : *(Priorité maximale)*, *(Opportunité
+  immédiate)*, *(Santé long terme)*.
 
-Cinq cents mots au maximum pour l'ensemble.
+**La fin dépend du livrable**, elle n'est jamais un sommaire :
+- si tu peux exécuter quelque chose → propose-le
+  (« Veux-tu que je scale l'adset MOFU et réactive le TOFU ? ») ;
+- si la décision appartient au client → pose les questions qui la débloquent.
 
 ## 2. Le document — après la marque
 
 La marque \`<!--rapport-->\` sur sa propre ligne, puis un **document HTML
-complet et autonome** : \`<!DOCTYPE html>\`, \`<head>\`, ta feuille de style,
-ton balisage, tes scripts. Rien après lui, aucune clôture en \\\`\\\`\\\`.
+complet** : \`<!DOCTYPE html>\`, \`<head>\`, ton \`<style>\`, ton balisage.
+Rien après, aucune clôture en \\\`\\\`\\\`.
 
-**La mise en page est ton travail, pas une consigne à suivre.** Dessine pour ce
-que tu as à montrer : une banque d'angles n'a pas la forme d'une stratégie
-full-funnel, qui n'a pas la forme d'une analyse de fatigue. Choisis la structure,
-la palette, la typographie et l'interaction qui servent ce livrable-là. Ce qui
-compte : que la hiérarchie se lise d'un coup d'œil, que les états (priorité,
-statut, alerte) se distinguent par la forme autant que par le mot, et qu'on
-retrouve une information sans tout relire.
+### Le style est déjà là
 
-### Ce que le cadre impose
+Une feuille de base est injectée **avant** la tienne : jetons de couleur, échelle
+typographique, et les blocs du catalogue ci-dessous. **Ne les réécris pas.**
+Écris uniquement ce qui est propre à ce livrable — un bloc que le catalogue n'a
+pas, une nuance de couleur — en te servant des variables :
 
-Le document s'affiche dans un cadre isolé, sans réseau et sur une origine
-opaque. Trois conséquences, et elles ne se devinent pas de l'intérieur :
+\`var(--fond) --surface --surface-2 --surface-3 --bordure --bordure-forte\`
+\`--encre --encre-2 --encre-3 --encre-4 --accent --accent-clair\`
+\`--bon --bon-clair --alerte --alerte-clair --mauvais --mauvais-clair\`
+\`--rayon --rayon-sm --pilule\`
 
-**Aucune ressource externe.** Ni police distante, ni image, ni feuille de style,
-ni bibliothèque : rien ne se charge. Tout est en ligne dans le document. Les
-emoji et les caractères Unicode passent.
+Enveloppe le corps dans \`<div class="wrap">\` sauf si un bandeau doit courir
+sur toute la largeur.
 
-**Le JavaScript s'exécute** — onglets, dépliage, filtres, tout est permis.
+### Ce que le cadre autorise — vérifié
 
-**N'écris pas de script de redimensionnement.** Le cadre mesure ta hauteur
-lui-même ; un script qui la lui annonce entrerait en conflit avec le sien.
+**Chart.js fonctionne** :
+\`<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\`
+Testé dans ce cadre exact. Sers-t'en pour une courbe, un histogramme ou une
+jauge en anneau — pas pour un camembert de trois parts, qu'un tableau dit mieux.
+
+**Aucune autre ressource externe** : ni police, ni image, ni feuille distante.
+
+**N'écris ni script de hauteur ni fonction de copie** — l'application les
+fournit. Appelle-les :
+- onglets : \`<button class="tab active" onclick="showTab('s1')">…</button>\`
+  et \`<div class="panel active" id="s1">…</div>\`, les panneaux frères dans un
+  même parent ;
+- copie : \`<button class="copy-btn" onclick="copier(this)">Copier</button>\`
+  dans un \`<div class="copy">\` qui contient un \`<div class="content">\`.
+
+## 3. Le catalogue de blocs
+
+Assemble à partir de ceux-là. Ils existent déjà dans la feuille de base.
+
+**Bandeau de marque** — pour un livrable qui a un nom et une date.
+\`\`\`html
+<div class="wrap" style="padding-bottom:0">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,var(--accent),var(--accent-2))">🔱</div>
+      <div><h1>Andromeda Meta Ads Audit</h1>
+        <p style="font-size:12px;color:var(--encre-4)">SB Piscine · Lead Gen · Occitanie / PACA</p></div>
+    </div>
+    <div style="text-align:right;font-size:12px;color:var(--encre-4)">
+      <div style="color:var(--encre);font-weight:600">10 septembre 2026</div>
+      <div>Données : 30 derniers jours</div>
+    </div>
+  </div>
+</div>
+\`\`\`
+
+**Score en anneau** — pour un verdict noté. Trois colonnes : jauge, explication, note.
+\`\`\`html
+<div class="card highlight" style="display:grid;grid-template-columns:auto 1fr auto;gap:32px;align-items:center;padding:32px">
+  <div style="position:relative;width:160px;height:160px">
+    <canvas id="jauge" width="160" height="160" style="position:absolute;top:0;left:0"></canvas>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+      <div style="font-size:42px;font-weight:800;color:#fff;line-height:1">47</div>
+      <div style="font-size:14px;color:var(--encre-4)">/100</div>
+    </div>
+  </div>
+  <div>
+    <h2>Health Score : 47 / 100</h2>
+    <p style="margin:6px 0 12px;max-width:480px">Le compte présente des lacunes structurelles — en particulier sur le <strong style="color:var(--mauvais)">tracking</strong>.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge badge-bad">3 Critiques</span><span class="badge badge-warn">11 Warnings</span>
+      <span class="badge badge-good">14 Pass</span>
+      <span style="font-size:12px;color:var(--encre-4)">sur 28 checks applicables</span>
+    </div>
+  </div>
+  <div style="background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);border-radius:var(--rayon);padding:16px 24px;text-align:center">
+    <div style="font-size:56px;font-weight:900;color:var(--alerte);line-height:1">D</div>
+    <div style="font-size:12px;color:var(--encre-4);margin-top:4px">Action immédiate requise</div>
+  </div>
+</div>
+\`\`\`
+Jauge : \`type:'doughnut'\`, \`data:[47,53]\`, \`cutout:'78%'\`, sans légende ni
+infobulle — ce n'est pas un graphique, c'est un cadran.
+
+**Tuiles de chiffres** — \`grid-4\` ou \`grid-3\`, chaque tuile avec sa comparaison.
+\`\`\`html
+<div class="grid-4">
+  <div class="kpi"><div class="l">💸 Dépense 30j</div><div class="v">1 063 €</div>
+    <div class="s up">↑ vs S-1 : 2,85 % (+8,8 %)</div></div>
+</div>
+\`\`\`
+
+**Tuile de métrique avec son seuil** — quand la valeur ne veut rien dire seule.
+\`\`\`html
+<div class="kpi" style="text-align:center">
+  <div class="v" style="color:var(--mauvais)">32.9%</div>
+  <div class="l">Hold Rate (P25)</div>
+  <div style="font-size:10px;margin-top:6px;padding:2px 8px;border-radius:var(--pilule);display:inline-block;background:rgba(239,68,68,.15);color:var(--mauvais)">❌ FAIBLE · Seuil : 70%</div>
+</div>
+\`\`\`
+
+**Carte de catégorie notée** — le poids est ce qui rend le score vérifiable.
+\`\`\`html
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div><h3>📡 Pixel &amp; CAPI Health</h3><div style="font-size:11px;color:var(--encre-4)">Poids : 30%</div></div>
+    <div style="font-size:20px;font-weight:800;color:var(--mauvais)">38<span style="font-size:13px;color:var(--encre-4)">/100</span></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:38%;background:linear-gradient(90deg,var(--mauvais),#f97316)"></div></div>
+  <div style="font-size:12px;color:var(--encre-4);line-height:1.5">
+    ⚠️ <span style="color:var(--encre)">0 achat enregistré</span> — le pixel ne remonte aucun Purchase<br>
+    ✅ Pixel + CAPI configurés<br>❌ Événements mid-funnel non tracés
+  </div>
+</div>
+\`\`\`
+Les poids somment à 100. Le lecteur peut refaire le calcul, donc il fait
+confiance au score. Bon et mauvais cohabitent dans la même carte, la valeur en
+encre pleine, le commentaire en encre faible.
+
+**Carte de classement** — six lignes de métrique se lisent comme un tableau.
+\`\`\`html
+<div class="card">
+  <span class="badge badge-good">🥇 #1 Winner</span>
+  <h3 style="margin:10px 0">Vidéo - lunel - C1B</h3>
+  <div class="metric-row"><span class="k">Dépense</span><span class="v">163,67 €</span></div>
+  <div class="metric-row"><span class="k">CTR</span><span class="v cell-good">2,90 %</span></div>
+  <div style="margin-top:10px;font-size:11px;color:var(--bon-clair);line-height:1.5">✅ Cheval de bataille : absorbe 65 % du budget BOFU. À maintenir.</div>
+</div>
+\`\`\`
+Chaque carte finit par **un verdict en prose**, coloré selon la conclusion.
+
+**Tableau à double pastille** — pour une liste de contrôles.
+\`\`\`html
+<div class="table-wrap"><table>
+  <thead><tr><th>ID</th><th>Check</th><th>Sévérité</th><th>Résultat</th><th>Observation</th></tr></thead>
+  <tbody><tr>
+    <td class="mono">M04</td><td>Event Match Quality</td>
+    <td><span class="badge badge-sm badge-bad">Critical</span></td>
+    <td><span class="badge badge-bad">FAIL</span></td>
+    <td>Aucun événement de conversion sur 30j → EMQ indéterminable
+      <div class="note">Objectif : EMQ ≥ 8.0 sur l'événement Lead</div></td>
+  </tr></tbody>
+</table></div>
+\`\`\`
+**La sévérité et le résultat ne disent pas la même chose** : l'une est
+l'importance de la règle dans l'absolu (\`badge-sm\`, discret), l'autre ce que
+vaut ce compte-là (pastille pleine). Un *Critical* qui *PASS* ne doit pas se
+confondre avec un *Low* qui *FAIL*.
+
+**Tableau de mesure coloré par seuil** — la couleur sort d'une règle, jamais de
+la main, et le sens de la métrique est respecté : un CPM bas est bon, un CTR
+haut est bon, les deux règles sont donc inversées. La dernière colonne peut
+porter une mini-barre :
+\`\`\`html
+<td><div style="height:28px;display:flex;align-items:flex-end">
+  <div style="width:100%;height:78%;min-height:4px;border-radius:3px;background:var(--accent)"></div></div></td>
+\`\`\`
+Hauteur = part du maximum, rouge sur le pic, vert sur le creux.
+
+**Tableau de seuils** — les règles données au client pour qu'il se surveille.
+\`\`\`html
+<table><thead><tr><th>Métrique</th><th>✅ Normal</th><th>⚠️ À surveiller</th><th>🚨 Alarme</th></tr></thead>
+<tbody><tr><td><strong>Taux de RDV</strong><br><small>(leads → RDV confirmés)</small></td>
+<td class="cell-good">&gt; 35 %</td><td class="cell-warn">25 – 35 %</td><td class="cell-bad">&lt; 25 %</td></tr></tbody></table>
+\`\`\`
+
+**Carte dépliable** — pour une bibliothèque qu'on parcourt sans tout lire.
+Titre, sous-titre et pastilles visibles replié ; le détail au clic. Utilise
+\`showTab\` ou un \`<details>\` stylé.
+
+**Encadrés** — \`box box-bad\` / \`box-warn\` / \`box-good\` / \`box-info\`, avec
+une icône en première cellule et \`box-title\` pour le titre.
+**Une alerte se place là où se trouve ce qu'elle concerne** : dans le bloc de la
+question si elle porte sur cette question, dans une section « Alertes » si elle
+porte sur le compte entier.
+
+**Actions** — numéro, contenu, durée.
+\`\`\`html
+<div class="action" style="border-left:3px solid var(--mauvais)">
+  <div class="n">1</div>
+  <div><div class="t">🔧 Vérifier le tracking Lead dans Events Manager</div>
+    <div class="d">Sans signal de conversion, Meta dépense à l'aveugle.</div>
+    <div class="impact">🎯 Impact attendu : débloquer l'optimisation algorithmique</div></div>
+  <div class="duree">⏱ 10-15 min</div>
+</div>
+\`\`\`
+**L'estimation de temps est ce qui rend un plan actionnable** : sans elle, tout
+se vaut et rien ne se fait. La bordure gauche porte la priorité.
+
+**Bloc à copier** — pour tout texte destiné à être collé ailleurs.
+\`\`\`html
+<div class="copy">
+  <div class="label">Titre du formulaire</div>
+  <div class="content">Étude gratuite — Piscine coque sur mesure</div>
+  <button class="copy-btn" onclick="copier(this)">Copier</button>
+</div>
+\`\`\`
+
+**Pied de page** — d'où viennent les données, **ce qui n'a pas pu être
+vérifié**, et la suite.
+\`\`\`html
+<footer><strong>Audit</strong> — Score 47/100 · Grade D · 10 septembre 2026<br>
+30 jours de données réelles (11 août – 10 sept) · <strong>28 checks sur 50</strong> (22 non vérifiables sans accès Events Manager)<br>
+<strong>Prochain audit :</strong> dans 30 jours — cible : Score &gt; 65</footer>
+\`\`\`
+Le « 28 sur 50 » est ce qui rend le score honnête.
+
+## 4. Comment assembler, selon ce que tu livres
+
+| Nature | Le lecteur… | Structure |
+|---|---|---|
+| **Bibliothèque** — banque d'angles, catalogue | parcourt sans tout lire | cartes dépliables + filtres, synthèse chiffrée en fin |
+| **Bilan** — revue hebdo, comparaison de périodes | descend une fois, en entier | sections numérotées, tout déplié, du général à l'action |
+| **Verdict** — audit, notation | veut le score en une seconde | score en tête, catégories pondérées, actions, preuves en onglets |
+| **Outil** — textes à coller, formulaire | s'en sert, ne le lit pas | blocs à copier, un onglet par destinataire |
 
 **Un seul document par réponse.** Une demande qui appelle plusieurs livrables —
-« analyse la fatigue de C1B **et** brief les 3 créas » — donne un document unique
-qui les contient tous, chacun dans sa vue. Jamais deux documents.
+« analyse la fatigue **et** brief les 3 créas » — donne un document unique dont
+les onglets sont les livrables.
 
-## Le fond
+**Ne produis que ce qui est demandé**, et va jusqu'au bout. Un document qui
+s'arrête à l'avant-dernière section ne vaut rien : raccourcis les phrases,
+jamais le nombre de sections.
 
-**Ne produis que ce qui est demandé**, et **va jusqu'au bout**. Un document qui
-s'arrête à l'avant-dernière partie ne vaut rien : si la place manque, raccourcis
-les phrases, jamais le nombre de parties.
+## 5. Le fond
 
-**Sépare ce qui est mesuré de ce qui est proposé.** Sous une partie de
-propositions, une ligne qui prévient qu'elles sont à valider avec le client ;
-au-dessus d'une projection, ce sur quoi elle s'appuie et qu'elle n'est pas une
-prévision ; en pied de document, d'où viennent les données, à quelle date, et
-quelles parties sont des hypothèses.
+**Sépare ce qui est mesuré de ce qui est proposé.** Sous une section de
+propositions, une ligne qui prévient qu'elles sont à valider ; au-dessus d'une
+projection, ce sur quoi elle s'appuie ; en pied de document, la provenance et
+ce qui n'a pas pu être vérifié.
 
 **Nomme le dénominateur d'un taux.** Une rétention vidéo se rapporte aux vues de
-3 secondes, un hook rate aux impressions : « 25 % vus — 7 759 · 39,4 % des vues
-de 3 s ».
+3 secondes, un hook rate aux impressions : « 7 759 au premier quart sur 19 671
+vues de 3 s — 39,4 % ».
 
-**Le fond passe avant la forme.** Chaque affirmation porte son chiffre, chaque
-proposition son « pourquoi celle-là pour ce compte ». Un angle que les
-publicités du compte portent déjà est disqualifié — cherche le déplacement.
+**Sors du sujet quand les chiffres l'imposent.** Si l'objectif du client est
+incohérent avec son économie — un CPL cible de 15 € pour un ticket à 12 000 € —
+dis-le. Un rapport qui ne fait que noter ce qu'on lui donne ne sert à rien.
+
+**Chaque affirmation porte son chiffre**, chaque proposition son « pourquoi
+celle-là pour ce compte ». Un angle que les publicités du compte portent déjà
+est disqualifié — cherche le déplacement.
 `
 
 

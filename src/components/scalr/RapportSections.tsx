@@ -59,6 +59,14 @@ const abrege = (t: string) => {
  * hauteur. Sans elle, le rapport défilait dans une fenêtre de hauteur fixe ;
  * avec elle, il coule dans la page comme le reste de la conversation.
  */
+/** Le nom du document, tel qu'il se donne lui-même. */
+function titreDu(html: string): string {
+  const t = /<title[^>]*>([^<]{1,120})<\/title>/i.exec(html)?.[1]?.trim()
+  if (t) return t
+  const h = /<h1[^>]*>([\s\S]{1,120}?)<\/h1>/i.exec(html)?.[1]
+  return h ? h.replace(/<[^>]+>/g, '').trim() : 'Rapport'
+}
+
 function CadreHtml({ html }: { html: string }) {
   /**
    * Le document est servi par une adresse blob, pas par l'attribut `srcdoc`.
@@ -120,28 +128,36 @@ function CadreHtml({ html }: { html: string }) {
     }
   }, [agrandi])
 
+  const titre = titreDu(html)
+
   return (
     <>
-      <div className="relative group">
+      {/* Une barre de titre au-dessus du cadre : le document se nomme, et le
+          bouton d'agrandissement n'a plus à flotter par-dessus son contenu. */}
+      <div className="rounded-xl overflow-hidden border border-[#E5E7EB]">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#12141f] border-b border-[#21262d]">
+          <span className="text-xs font-medium text-[#c9d1d9] truncate">{titre}</span>
+          <button
+            onClick={() => setAgrandi(true)}
+            title="Agrandir le rapport"
+            aria-label="Agrandir le rapport"
+            className="ml-auto p-1 rounded-md text-[#8b949e] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+              <line x1="21" x2="14" y1="3" y2="10" /><line x1="3" x2="10" y1="21" y2="14" />
+            </svg>
+          </button>
+        </div>
         <iframe
           ref={cadre}
           src={adresse ?? undefined}
           sandbox="allow-scripts"
-          title="Rapport"
+          title={titre}
           scrolling="no"
-          className="w-full block rounded-xl border border-[#E5E7EB] bg-[#0d0d1a]"
+          className="w-full block bg-[#0d1117]"
           style={{ height: hauteur }}
         />
-        <button
-          onClick={() => setAgrandi(true)}
-          title="Agrandir le rapport"
-          aria-label="Agrandir le rapport"
-          className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/40 text-[#8888aa] backdrop-blur-sm border border-white/10 opacity-60 hover:opacity-100 hover:text-white hover:bg-black/70 transition-opacity"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
-          </svg>
-        </button>
       </div>
 
       {/* Le même document, en grand. Il défile à l'intérieur du panneau :
@@ -152,7 +168,7 @@ function CadreHtml({ html }: { html: string }) {
           onClick={() => setAgrandi(false)}
         >
           <div
-            className="relative w-full max-w-[1400px] h-[94vh] rounded-xl overflow-hidden bg-[#0d0d1a] shadow-2xl"
+            className="relative w-full max-w-[1400px] h-[94vh] rounded-xl overflow-hidden bg-[#0d1117] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <iframe

@@ -21,48 +21,10 @@
  * la feuille d'avant, pour les rapports déjà en base.
  */
 
+import { BASE_DESIGN, SCRIPT_CADRE } from './systemeDesign'
+
 /** La marque qu'un rapport pose en tête, et qui le distingue d'un Markdown. */
 const MARQUE = '<!--rapport-->'
-
-/**
- * Le script de hauteur, que l'application ajoute toujours.
- *
- * Il mesure **le bas du dernier enfant de `body`**, jamais `documentElement` ni
- * `body` eux-mêmes. Ces deux-là s'étirent à la taille du cadre — et comme le
- * cadre prend la hauteur qu'on lui annonce, mesurer l'un des deux crée une
- * boucle : le cadre grandit, la mesure grandit, le cadre grandit encore.
- * Constaté en vrai : 24 000 pixels, le plafond, sur un document de 7 000.
- *
- * Un `body { min-height: 100vh }` — que le modèle écrit spontanément — suffit à
- * déclencher la boucle. Le bas du contenu, lui, ne dépend que du contenu.
- *
- * Il est ajouté même quand le document en porte déjà un : le sien annonce
- * \`artifact-resize\`, que le parent ignore, et n'a donc aucun effet.
- */
-const SCRIPT_HAUTEUR = `
-(function(){
-  function basDuContenu(){
-    var bas = 0;
-    for (var i = 0; i < document.body.children.length; i++) {
-      var el = document.body.children[i];
-      if (el.tagName === 'SCRIPT') continue;
-      var r = el.getBoundingClientRect();
-      if (r.bottom > bas) bas = r.bottom;
-    }
-    return Math.ceil(bas + window.scrollY);
-  }
-  var dernier = 0;
-  function annoncer(){
-    var h = basDuContenu();
-    if (!h || Math.abs(h - dernier) < 2) return;
-    dernier = h;
-    parent.postMessage({ type: 'rapport-hauteur', hauteur: h }, '*');
-  }
-  new ResizeObserver(annoncer).observe(document.body);
-  addEventListener('load', annoncer);
-  setTimeout(annoncer, 60);
-  annoncer();
-})();`
 
 /**
  * La feuille de style d'avant, pour les rapports déjà en base.
@@ -119,19 +81,34 @@ export function estRapportHtml(contenu: string | null | undefined): boolean {
  */
 export function extraireRapportHtml(contenu: string): string {
   const brut = separerRapport(contenu).document || ''
+  const socle = `<style>${BASE_DESIGN}</style>`
+  const aides = `<script>${SCRIPT_CADRE}</script>`
 
   const debut = brut.search(/<!doctype html|<html[\s>]/i)
   if (debut >= 0) {
     const fin = brut.toLowerCase().lastIndexOf('</html>')
     const doc = fin > debut ? brut.slice(debut, fin + 7) : brut.slice(debut)
-    return /<\/body>/i.test(doc)
-      ? doc.replace(/<\/body>/i, `<script>${SCRIPT_HAUTEUR}</script></body>`)
-      : doc.replace(/<\/html>/i, `<script>${SCRIPT_HAUTEUR}</script></html>`)
+
+    /**
+     * Un document ancien porte sa propre feuille et se suffit ; un document
+     * neuf attend la nôtre **avant** la sienne, pour pouvoir la nuancer.
+     * `.wrap` et `--fond` n'appartiennent qu'à l'ancien vocabulaire.
+     */
+    const ancien = /class="wrap"/.test(doc) && !/var\(--accent\)/.test(doc)
+    const avecSocle = ancien
+      ? doc
+      : (/<head[\s>]/i.test(doc)
+          ? doc.replace(/<head([^>]*)>/i, `<head$1>${socle}`)
+          : doc.replace(/<html([^>]*)>/i, `<html$1><head><meta charset="utf-8">${socle}</head>`))
+
+    return /<\/body>/i.test(avecSocle)
+      ? avecSocle.replace(/<\/body>/i, `${aides}</body>`)
+      : avecSocle.replace(/<\/html>/i, `${aides}</html>`)
   }
 
+  // Un corps nu : ancien vocabulaire, donc ancienne feuille.
   const corps = brut.startsWith(MARQUE) ? brut.slice(MARQUE.length).trim() : brut
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">`
     + `<meta name="viewport" content="width=device-width,initial-scale=1">`
-    + `<style>${FEUILLE_STYLE_ANCIENNE}</style></head><body>${corps}`
-    + `<script>${SCRIPT_HAUTEUR}</script></body></html>`
+    + `<style>${FEUILLE_STYLE_ANCIENNE}</style></head><body>${corps}${aides}</body></html>`
 }
