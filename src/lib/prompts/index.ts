@@ -797,6 +797,87 @@ alors les répliques des \`segments\` parlés ; \`a_faire\`, \`a_eviter\` et
 
 Le JSON doit être valide : pas de commentaire, pas de virgule finale.`
 
+/**
+ * Les deux bilans, définis une fois.
+ *
+ * Ils existaient en double : une version complète dans `mediaBuying` et
+ * `performance`, et un paragraphe de trois lignes dans `autopilot` — or ce
+ * sont les versions `autopilot` qui tournent réellement, chaque semaine et
+ * chaque mois, sur les comptes. Les agents rendaient donc la version pauvre.
+ */
+const REVUE_HEBDO = `Résumé hebdomadaire des 7 derniers jours, comparé aux 7 précédents.
+
+Établis d'abord le type de compte selon la règle ci-dessus, puis retiens les
+métriques correspondantes :
+- **ecom** : Dépenses, Achats, ROAS, CPA
+- **lead** : Dépenses, Leads, CPL, taux de conversion
+- **traffic** : Dépenses, Clics, CPC, CTR
+- **video** : Dépenses, Vues vidéo, coût par vue, hold rate
+- **engagement** : Dépenses, Engagements, coût par engagement
+- **messagerie** : Dépenses, Conversations, coût par conversation
+- **notoriété** : Dépenses, Portée, CPM, Fréquence
+
+Structure :
+1. **En un coup d'œil** — 3 ou 4 lignes : ce qui a progressé, ce qui a reculé,
+   ce qui demande une décision aujourd'hui.
+2. **Semaine contre semaine** — un tableau des métriques du type, avec la
+   variation en pourcentage. Une seule ligne par métrique.
+3. **Jour par jour** — un tableau des 7 jours sur les mêmes métriques.
+4. **Ce qui marche** — les 3 meilleures publicités, et *pourquoi* : ce qui
+   dans la créa ou l'audience explique le résultat.
+5. **Ce qui ne marche pas** — les 3 moins bonnes, avec l'action à prendre pour
+   chacune : couper, itérer, ou attendre encore un peu.
+6. **Priorités de la semaine** — 3 actions, la plus coûteuse à ne pas faire en
+   premier.
+
+Écris comme un briefing du lundi matin : court, chiffré, sans préambule.
+Quand une variation dépasse 20 %, dis ce qui l'explique plutôt que de la
+constater.`
+
+const BILAN_MENSUEL = `Génère un bilan stratégique mensuel complet.
+
+Structure un rapport présentable à un client ou un investisseur :
+
+1. EXECUTIVE SUMMARY (KPIs clés : Spend, Revenue, ROAS, CPA, Conversions, tendance vs mois précédent, grade de santé)
+
+2. PERFORMANCE PAR SEMAINE
+   Tableau | Semaine | Spend | ROAS | CPA | Conv | CPM | CTR |
+   Identifier semaines fortes/faibles et pourquoi
+
+3. TOP 5 ADS DU MOIS (par ROAS × Volume)
+   - Hook Rate, angle, pourquoi elles marchent
+   - Framework reproductible
+
+4. ANALYSE CRÉATIVE
+   - Format le plus performant (vidéo vs static vs carousel)
+   - Angles/hooks dominants
+   - Créas en fatigue
+
+5. ANALYSE AUDIENCE
+   - Âge/genre/placement les plus performants
+   - Fréquence prospecting vs retargeting
+
+6. IMPACT BUSINESS (rentabilité, MER estimé)
+
+7. PLAN D'ACTION POUR LE MOIS PROCHAIN
+   - 5 actions priorisées, chacune avec **l'impact attendu chiffré** et le temps
+     de mise en œuvre
+   - Le budget recommandé et sa répartition — en euros, pas en pourcentages
+     seuls
+   - Les briefs créatifs à lancer, tirés des apprentissages du mois : chacun
+     nomme la créa dont il part et ce qu'il change
+   - Les tests à mettre en place, avec ce qu'ils doivent départager
+
+8. QUESTIONS STRATÉGIQUES
+   Trois questions business que l'annonceur doit se poser, tirées de ce que les
+   chiffres montrent. Pas des questions de réglage publicitaire : des questions
+   sur l'offre, la cible ou l'objectif. Si les données contredisent un objectif
+   déclaré — une cible de coût par acquisition que le marché ne permet pas —
+   c'est là que ça se dit.
+
+**Le rapport s'adresse à quelqu'un qui décide.** Chaque section se termine par
+ce qu'elle implique, jamais par ce qu'elle a mesuré.`
+
 export const PROMPTS = {
   audit: {
     full: `${SYSTEM_BASE}
@@ -815,7 +896,17 @@ Structure le rapport ainsi :
 1. Health Score (0-100) + Grade (A-F) avec barres visuelles par catégorie
 2. Top 5 Quick Wins (impact élevé, effort faible)
 3. Rapport complet par catégorie
-4. Plan d'action priorisé avec temps estimé de correction`,
+4. Plan d'action priorisé avec **temps estimé de correction** pour chaque action
+5. Recommandations propres à Andromeda : diversité créative et score de
+   similarité. Depuis octobre 2025 le moteur évalue les publicités sur des
+   milliers de modèles ; au-delà de 60 % de similarité entre créas, la
+   diffusion est pénalisée — moins d'impressions, CPM plus élevé. Un adset dont
+   toutes les créas partagent le même décor, le même montage et le même type
+   d'accroche est concerné, même si chacune est bonne prise séparément.
+
+**Déclare ta portée.** Le pied de page dit combien de points ont réellement été
+évalués sur combien, et pourquoi les autres ne l'ont pas été. Un score dont on
+ignore le dénominateur ne veut rien dire.`,
 
     pixel: `${SYSTEM_BASE}
 
@@ -892,7 +983,17 @@ Structure le rapport ainsi :
    - Clics→LPV faible = landing page ou vitesse
    - LPV→ATC faible = offre, prix, page produit
    - ATC→Achat faible = checkout (frais, confiance, friction)
-4. Recommandations concrètes par goulot`,
+4. Recommandations concrètes par goulot
+
+5. **Ce que Meta ne voit pas** — termine en demandant à l'annonceur les chiffres
+   qui manquent pour trancher : taux de transformation côté CRM, délai de
+   rappel, motifs de perte, abandons récupérés. Une étape du funnel dont le
+   taux te paraît anormal sans que les données Meta l'expliquent est une
+   question à poser, pas une conclusion à écrire.
+
+Un funnel n'est pas un relevé : **nomme le goulot, un seul**, celui dont la
+correction change le plus de choses. Si deux étapes sont mauvaises, dis
+laquelle traiter d'abord et pourquoi.`,
 
     profitability: `${SYSTEM_BASE}
 
@@ -918,33 +1019,39 @@ Le ROAS Meta est une métrique de PLATEFORME, pas de business. Analyse :
 IMPORTANT : ne jamais dire "votre ROAS est bon" sans connaître la marge.`,
 
     monthly: `${SYSTEM_BASE}
+${BILAN_MENSUEL}`,
 
-Génère un bilan stratégique mensuel complet.
+    topFlop: `${SYSTEM_BASE}
 
-Structure un rapport présentable à un client ou un investisseur :
+Classe les publicités actives : les meilleures et les moins bonnes, sur 14 jours.
 
-1. EXECUTIVE SUMMARY (KPIs clés : Spend, Revenue, ROAS, CPA, Conversions, tendance vs mois précédent, grade de santé)
+## Avant de classer
+**Un classement n'a de sens qu'entre éléments comparables.** Écarte ce qui n'a
+pas assez dépensé pour être jugé, et dis combien tu en as écarté. Une
+publicité qui a produit une conversion pour 30 € n'est pas « meilleure » que
+celle qui en a produit quarante pour 32 € — dis-le au lieu de les ranger côte
+à côte.
 
-2. PERFORMANCE PAR SEMAINE
-   Tableau | Semaine | Spend | ROAS | CPA | Conv | CPM | CTR |
-   Identifier semaines fortes/faibles et pourquoi
+Si moins de cinq publicités passent le seuil, fais un top 3 / flop 3 et
+explique pourquoi, plutôt que de remplir les places.
 
-3. TOP 5 ADS DU MOIS (par ROAS × Volume)
-   - Hook Rate, angle, pourquoi elles marchent
-   - Framework reproductible
+## Le tableau
+| # | Publicité | Dépense | CPM | CTR | CPC | [conv] | [coût] | Part des [conv] |
 
-4. ANALYSE CRÉATIVE
-   - Format le plus performant (vidéo vs static vs carousel)
-   - Angles/hooks dominants
-   - Créas en fatigue
+Retiens la conversion qui compte pour ce compte — achats, prospects,
+conversations — et son coût. N'affiche pas une colonne que le compte ne
+remplit pas.
 
-5. ANALYSE AUDIENCE
-   - Âge/genre/placement les plus performants
-   - Fréquence prospecting vs retargeting
+## Pour chaque publicité retenue
+Une ligne de verdict, puis **une recommandation qui s'engage** : scaler et de
+combien, itérer et sur quoi, couper, ou attendre et jusqu'à quelle dépense.
+« Continuer à surveiller » n'est pas une recommandation.
 
-6. IMPACT BUSINESS (rentabilité, MER estimé)
-
-7. PLAN D'ACTION MOIS PROCHAIN (5 priorités)`,
+## Ce que le classement révèle
+Termine par ce que l'écart entre le haut et le bas du tableau dit du compte :
+un angle, un format, une audience. Si les cinq meilleures partagent un trait,
+nomme-le — c'est ce qui rend le classement utile la semaine suivante.
+${DATA_FLOORS}`,
 
     attribution: `${SYSTEM_BASE}
 
@@ -962,8 +1069,18 @@ L'attribution Meta est biaisée par défaut. Vérifie :
 
 3. Analyse par campagne :
    | Campagne | Type | Spend % | ROAS | Fenêtre | Flag |
+   Flag les campagnes dont le résultat semble « trop beau ».
 
-4. Recommandations MER comme source de vérité`,
+4. Recommandations :
+   - Tester une fenêtre plus stricte (1-day click seul) pour voir la vraie perf
+   - Exclure les convertis récents du retargeting, et mesurer ce que ça change
+   - Le MER comme source de vérité
+
+5. **Questions pour l'annonceur** — l'attribution ne se tranche pas depuis Meta
+   seul. Demande : le chiffre d'affaires total tous canaux, la part venant de
+   l'organique et de l'e-mail, et si les UTM sont posés sur toutes les
+   publicités. Sans ces trois réponses, tout écart constaté reste une
+   hypothèse — écris-le comme telle.`,
   },
 
   mediaBuying: {
@@ -1009,8 +1126,14 @@ Pour chaque élément à couper :
 
 Puis :
 - Actions concrètes (pause adset/ad)
-- Budget libéré et où le réallouer
-- Flag "zone grise" (pas assez de data)
+- Budget libéré et où le réallouer — nomme les éléments qui le reçoivent
+- Flag "zone grise" (pas assez de data) : recommande d'attendre, et dis
+  combien de dépense il manque avant de pouvoir juger
+
+**Un coût ne se juge jamais dans l'absolu.** Un coût par acquisition de 40 €
+est bon si un client en vaut 80, ruineux s'il en vaut 20. Avant de couper sur
+un critère de coût, rapporte-le à la valeur que porte le profil de marque —
+et si elle n'y est pas, demande-la plutôt que de supposer.
 ${DATA_FLOORS}`,
 
     budgetReallocation: `${SYSTEM_BASE}
@@ -1025,9 +1148,16 @@ Analyse :
 
 Délivrable :
 - Tableau : | Campagne | Budget actuel | % total | ROAS | Recommandation | Nouveau budget |
-- Budget total réalloué (même enveloppe)
-- Impact ROAS estimé
-- Actions concrètes`,
+- Budget total réalloué (même enveloppe — n'augmente jamais l'enveloppe sans
+  qu'on te l'ait demandé ; si elle ne suffit pas, dis-le en une ligne)
+- Impact estimé du plan, chiffré
+- **Actions concrètes et nommées** : quel adset, de quel montant à quel
+  montant. « Rééquilibrer vers les campagnes performantes » n'est pas une
+  action — « passer *Broad FR* de 50 € à 80 €/jour » en est une.
+
+Les hausses se font par paliers : pas plus de 20 à 30 % d'un coup, et pas de
+nouveau palier avant 48 heures. Une réallocation qui double un budget d'un
+coup renvoie l'adset en apprentissage et détruit ce qu'elle voulait exploiter.`,
 
     /**
      * Le briefing du lundi matin.
@@ -1040,35 +1170,7 @@ Délivrable :
      * déjà la couche de données.
      */
     weeklyReview: `${SYSTEM_BASE}
-
-Résumé hebdomadaire des 7 derniers jours, comparé aux 7 précédents.
-
-Établis d'abord le type de compte selon la règle ci-dessus, puis retiens les
-métriques correspondantes :
-- **ecom** : Dépenses, Achats, ROAS, CPA
-- **lead** : Dépenses, Leads, CPL, taux de conversion
-- **traffic** : Dépenses, Clics, CPC, CTR
-- **video** : Dépenses, Vues vidéo, coût par vue, hold rate
-- **engagement** : Dépenses, Engagements, coût par engagement
-- **messagerie** : Dépenses, Conversations, coût par conversation
-- **notoriété** : Dépenses, Portée, CPM, Fréquence
-
-Structure :
-1. **En un coup d'œil** — 3 ou 4 lignes : ce qui a progressé, ce qui a reculé,
-   ce qui demande une décision aujourd'hui.
-2. **Semaine contre semaine** — un tableau des métriques du type, avec la
-   variation en pourcentage. Une seule ligne par métrique.
-3. **Jour par jour** — un tableau des 7 jours sur les mêmes métriques.
-4. **Ce qui marche** — les 3 meilleures publicités, et *pourquoi* : ce qui
-   dans la créa ou l'audience explique le résultat.
-5. **Ce qui ne marche pas** — les 3 moins bonnes, avec l'action à prendre pour
-   chacune : couper, itérer, ou attendre encore un peu.
-6. **Priorités de la semaine** — 3 actions, la plus coûteuse à ne pas faire en
-   premier.
-
-Écris comme un briefing du lundi matin : court, chiffré, sans préambule.
-Quand une variation dépasse 20 %, dis ce qui l'explique plutôt que de la
-constater.`,
+${REVUE_HEBDO}`,
   },
 
   creativeStrategy: {
@@ -1078,13 +1180,30 @@ Audite les créas actives selon le framework Eugene Schwartz (niveaux de conscie
 
 Niveaux : Unaware / Problem Aware / Solution Aware / Product Aware / Most Aware
 
+## Les règles du classement
+- **Une publicité parle à UN niveau**, jamais à deux. « Haut et bas de tunnel »
+  n'est pas un classement, c'est un refus de trancher.
+- **Chaque verdict porte sa preuve** : la citation exacte du hook qui le fonde.
+- **Sois honnête sur la concentration.** Si les dix créas sont product-aware,
+  écris-le. Un compte équilibré est rare ; le dire quand c'est faux ne rend
+  service à personne.
+
+## La fréquence est un instrument de diagnostic
+Quand la fréquence monte pendant que la dépense stagne, le compte n'a pas un
+problème de créa : **il épuise les gens d'un seul niveau de conscience**. La
+sortie est presque toujours plus haut dans le tunnel, pas dans une variante de
+plus au même niveau. Rapproche donc toujours la fréquence de la distribution.
+
 Pour chaque ad : identifier, hook d'ouverture, niveau de conscience, preuve (citation du hook), stade funnel.
 
 Puis :
 - % créas par niveau + % budget par niveau
 - Diagnostic : top-heavy / bottom-heavy / équilibré
 - Gaps : niveaux sous-représentés → implications pour le scaling
-- Top 3 briefs à écrire en priorité`,
+- Top 3 briefs à écrire en priorité
+
+**Un niveau vide est un brief.** Pour chacun : le format qui lui convient le
+mieux, et une accroche d'exemple écrite pour ce compte — pas une direction.`,
 
     creativeAnalysis: `${SYSTEM_BASE}
 
@@ -1099,10 +1218,39 @@ Triées par ROAS décroissant. Code couleur : vert >2, orange 1-2, rouge <1.
 - Métriques complètes (Spend, Hook Rate, Hold Rate, CTR, ROAS, CPA, Conversions)
 - COPY COMPLETE (primary text, headline, description, CTA) — aucun résumé
 - Diagnostic vidéo (si vidéo) : Hook / Hold / Completion analysis
-- Ce qui fonctionne / Ce qui freine
+- CE QUI FONCTIONNE — 3 à 5 leviers. Pour chacun : le nom du levier, pourquoi
+  ça marche, **quelle métrique ça améliore**, et la règle à reproduire sur les
+  prochaines créas.
+- CE QUI LIMITE — 2 à 4 points, uniquement là où une métrique est faible.
+  Nomme le goulot précis et la métrique qu'il abîme.
+- MÉMOIRE NÉGATIVE — **seulement si la publicité sous-performe nettement** :
+  2 à 4 règles absolues à ne plus reproduire, formulées comme des lois de
+  production, pas comme des regrets. « Ne jamais ouvrir sur un plan de marque »,
+  pas « le début manquait d'impact ».
 - 1 action concrète
 
-ÉTAPE 3 — Framework gagnant à reproduire
+ÉTAPE 3 — LOIS TRANSVERSALES
+3 à 6 règles macro valables pour toutes les prochaines créas du compte, tirées
+de ce que l'étape 2 a montré. Des lois, pas des micro-optimisations : « le
+témoignage client bat le porte-parole sur ce compte, sur les quatre créas
+comparables » est une loi ; « soigner le montage » n'en est pas une.
+
+ÉTAPE 4 — CINQ ITÉRATIONS, STRUCTURELLEMENT DIFFÉRENTES
+Pas des variantes : des concepts. **Changer le hook, raccourcir, ajouter un
+élément ou modifier le rythme ne compte pas comme une itération.** Chacune
+change la mécanique narrative, la posture de celui qui parle, ou la dynamique
+— monologue → dialogue, preuve → défi, récit → démonstration.
+
+Pour chacune : nom du concept, type de mécanique, le concept en 6 à 10 lignes
+(qui parle, dans quel contexte, quelle tension, comment la preuve arrive,
+comment la conversion se déclenche), en quoi il diffère structurellement des
+quatre autres, et le KPI principal qu'il vise.
+
+ÉTAPE 5 — AUTO-VÉRIFICATION
+Termine par deux nombres : publicités analysées en détail, et lignes dans le
+tableau récapitulatif. **Ils doivent être égaux.** S'ils ne le sont pas,
+complète avant de rendre — aucun regroupement, aucun résumé, aucune publicité
+sautée.
 ${DATA_FLOORS}
 ${DIRECTION_GUARD}`,
 
@@ -1122,13 +1270,31 @@ Pour chaque angle :
 - PRIORITÉ CRÉATIVE : HIGH/MEDIUM/LOW + justification
 - STATUT : Frais / Actif / Fatigué
 
-Termine avec SYNTHÈSE : total, distribution par niveau conscience, top 3 à briefer immédiatement.`,
+**Un angle n'est ni une accroche ni un format** : c'est l'idée centrale. Si
+deux angles reposent sur le même ressort — même émotion, même preuve, même
+structure d'ouverture — ils n'en font qu'un : supprime le doublon.
+
+**Signale la saturation.** Un angle que les publicités du compte portent déjà
+lourdement se marque *Fatigué*, même s'il est bon : il n'ouvre rien de neuf.
+
+Termine avec SYNTHÈSE : total, distribution par niveau de conscience, top 3 à
+briefer immédiatement avec le pourquoi de chacun, et **le manque le plus
+criant** — le niveau, l'émotion ou le persona que la banque ne couvre pas.`,
 
     fullFunnelStrategy: `${SYSTEM_BASE}
 
 Construis une stratégie créative full-funnel pour ce compte Meta Ads.
 
 SECTION 1 — DIAGNOSTIC COMPTE : distribution conscience actuelle, gaps, fréquence, bottleneck créatif principal
+
+**La fréquence est un indicateur de santé, avec des seuils.** Entre 2 et 4,
+le tunnel respire. Au-dessus de 5, le haut de tunnel est affamé : le compte
+repasse sur les mêmes personnes faute d'en faire entrer de nouvelles. Ce n'est
+alors pas un problème de créa mais d'architecture — dis-le, et fais-en le
+bottleneck principal.
+
+Un compte échoue rarement parce que ses publicités sont mauvaises. Il échoue
+parce qu'un seul niveau de conscience porte tout le budget.
 
 SECTION 2 — ARCHITECTURE PERSONAS : 3-5 personas. Par persona : nom + description spécifique, position sur le spectre de conscience, douleur/désir principal, direction de hook
 
@@ -1155,12 +1321,47 @@ ${DATA_FLOORS}`,
 
     trafficQuality: `${SYSTEM_BASE}
 
-Traffic Quality Watchdog — vérifie la qualité du trafic sur chaque adset actif.
+Vérifie la qualité du trafic acheté sur chaque adset actif.
 
-Focus sur Cost per ATC (e-commerce) ou CPL (lead gen).
-Flag chaque adset où le coût dépasse le seuil cible.
+**Le CTR seul ne dit rien de la qualité.** Un CTR de 3 % qui ne produit aucune
+conversion signale un trafic curieux, pas un trafic intéressé. Ce qui se juge,
+c'est ce que le clic devient.
 
-Format compact : tableau avec KPIs + 3 actions max.`,
+## Ce qu'on mesure
+Retiens l'étape qui suit le clic selon le compte — panier pour du commerce,
+prospect pour de la génération de leads, conversation pour de la messagerie :
+- Le coût de cette étape, rapporté à la cible du profil
+- Le taux de passage **clic → étape suivante** : c'est lui qui dit si le clic
+  valait quelque chose
+- Là où le compte a une étape de plus (panier → achat, prospect → rendez-vous),
+  le taux de passage suivant : il désigne un problème d'après-clic, pas de créa
+
+## Tableau par adset
+| Adset | Dépense | Clics | CTR | [conv] | [coût] | Clic → [conv] | Verdict |
+
+Verdict ∈ { Sain, À surveiller, Dégradé }, fondé sur le coût comparé à la cible
+du compte — jamais sur un barème générique.
+
+## Le diagnostic croisé
+C'est le croisement des deux qui désigne le coupable, pas l'un des deux seul :
+
+| | Coût par conversion bas | Coût par conversion élevé |
+|---|---|---|
+| **CTR élevé** | idéal — scaler | **accroche trompeuse** : la créa attire les mauvaises personnes |
+| **CTR faible** | bon trafic, volume faible — élargir | tout est à revoir : créa *et* ciblage |
+
+L'accroche trompeuse est le cas le plus fréquent et le plus coûteux : elle
+ressemble à un succès dans les rapports de surface.
+
+## Où ça se perd
+Pour chaque adset dégradé, désigne **une seule** étape fautive — impression →
+clic (la créa), ou clic → conversion (la page, l'offre, le formulaire) — avec
+le chiffre qui la désigne.
+
+## Trois actions
+Chacune s'attaque à l'étape nommée juste au-dessus : resserrer le ciblage,
+changer la créa, ou revoir la page d'arrivée. Aucune action générique.
+${DATA_FLOORS}`,
 
     creativeFatigue: `${SYSTEM_BASE}
 
@@ -1175,18 +1376,12 @@ ${DATA_FLOORS}
 ${DIRECTION_GUARD}`,
 
     weeklyReport: `${SYSTEM_BASE}
-
-Weekly Performance Report — review de performance complète.
-
-Inclus : résumé exécutif, tableau journalier, top 3 performers, bottom 3, alertes (fréquence, CTR, CPA), et 3 actions prioritaires pour la semaine prochaine.
-Les chiffres clés d’abord, puis les alertes, puis les actions.`,
+${REVUE_HEBDO}`,
 
     monthlyReview: `${SYSTEM_BASE}
+${BILAN_MENSUEL}
 
-Monthly Strategic Review — bilan stratégique mensuel complet.
-
-Inclus : executive summary, performance par semaine, top 5 ads, analyse créative (formats, angles), analyse audience (âge, genre, placements), impact business (rentabilité, MER estimé), et plan d'action pour le mois prochain avec 5 priorités.
-Présentable à un client ou un investisseur. Chiffre chaque affirmation.`,
+Présentable à un client ou à un investisseur. Chiffre chaque affirmation.`,
   },
 }
 
