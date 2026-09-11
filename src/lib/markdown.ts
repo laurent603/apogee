@@ -50,7 +50,18 @@ export function markdownToHtml(md: string): string {
         .map(cellules)
       const thead = `<thead><tr>${ths.map((h: string) => `<th>${inlineMd(h)}</th>`).join('')}</tr></thead>`
       const tbody = `<tbody>${rows.map((r: string[]) => `<tr>${r.map((c: string) => `<td>${inlineMd(c)}</td>`).join('')}</tr>`).join('')}</tbody>`
-      return `<table>${thead}${tbody}</table>\n`
+      /**
+       * Le conteneur porte le défilement, la table garde sa largeur.
+       *
+       * Le défilement était posé sur la table elle-même, via `display: block`.
+       * Une table en bloc cesse d'être une table pour la mise en page : sa
+       * largeur retombe sur celle de son contenu, et `width: 100%` n'y peut
+       * rien. Un tableau de trois colonnes courtes restait donc étroit, avec
+       * sa bordure et son en-tête bleu s'arrêtant au milieu du fil.
+       *
+       * En sortant le défilement dans une boîte, la table redevient une table.
+       */
+      return `<div class="table-defile"><table>${thead}${tbody}</table></div>\n`
     }
   )
 
@@ -84,7 +95,8 @@ export function markdownToHtml(md: string): string {
     }
 
     // Table rows (already converted)
-    if (line.startsWith('<table>') || line.startsWith('<thead>') || line.startsWith('<tbody>')) {
+    if (line.startsWith('<div class="table-defile">') || line.startsWith('<table>')
+        || line.startsWith('<thead>') || line.startsWith('<tbody>')) {
       flushParagraph(); closeList()
       out.push(line)
       continue
