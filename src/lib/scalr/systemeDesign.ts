@@ -37,6 +37,29 @@ h4{font-size:14px;font-weight:600;color:var(--encre)}
 p,li{font-size:13px;color:var(--encre-3);line-height:1.6}
 strong{color:var(--encre)}
 ul{padding-left:18px}
+
+/* ── Rythme vertical ─────────────────────────────────────────────────────────
+   La remise à zéro des marges en tête de feuille laissait sans aucun écart tout
+   ce qui n'est pas une primitive : un titre ordinaire, un paragraphe, une
+   grille. Un compteur suivi de « Ce qui est déjà acquis » sortait donc collé,
+   et quatre écarts sur six d'un document réel mesuraient zéro pixel.
+
+   L'espacement est porté par les classes du catalogue et par les éléments, pas
+   par un sélecteur universel : la feuille du modèle arrive APRÈS celle-ci, et
+   son propre {margin:0} écraserait toute règle de spécificité nulle. Une classe
+   l'emporte quel que soit l'ordre. */
+.card,.kpi,.grid-2,.grid-3,.grid-4,.table-wrap,.box,.action,.tabs,.copy,.progress-bar{margin-bottom:16px}
+/* Dans une grille, l'écart est le gap : une marge basse décollerait la carte du
+   bas de sa cellule et casserait l'alignement des rangées. */
+.grid-2 > *,.grid-3 > *,.grid-4 > *{margin-bottom:0}
+h1{margin-bottom:6px}
+h2{margin-top:30px;margin-bottom:14px}
+h3{margin-top:22px;margin-bottom:10px}
+h4{margin-top:18px;margin-bottom:8px}
+:where(h1,h2,h3,h4):first-child{margin-top:0}
+p{margin-bottom:10px}
+ul,ol{margin-bottom:12px}
+:where(p,ul,ol):last-child{margin-bottom:0}
 small{font-size:11px;color:var(--encre-4)}
 a{color:var(--accent-clair)}
 
@@ -148,6 +171,10 @@ footer{margin-top:32px;padding:20px;background:var(--surface);border:1px solid v
 footer strong{color:var(--encre-2)}
 
 .wrap{max-width:1120px;margin:0 auto;padding:28px 32px 40px}
+/* Le modèle empile parfois plusieurs .wrap bout à bout, un par grande partie.
+   Leur padding bas et haut suffit à les séparer, sauf qu'il se cumule mal : on
+   rattrape l'espace au lieu de le doubler. */
+.wrap + .wrap{padding-top:0}
 @media(max-width:560px){.wrap{padding:20px 16px 32px}}
 `
 
