@@ -176,6 +176,29 @@ export async function getAccountOverview(accountId: string, token: string, dateP
   return { ...raw, _computed: computeKPIs(raw, leadSource) }
 }
 
+/**
+ * Un budget Meta, dans la devise du compte.
+ *
+ * L'API rend les budgets dans l'**unité mineure** : `"3200"` vaut 32,00 €.
+ * Transmis bruts au modèle, ils étaient lus comme trois mille deux cents euros
+ * — un facteur cent sur chaque recommandation de budget, chaque ratio
+ * budget/CPA et chaque plan de réallocation. L'audit de SB Piscine l'avait
+ * relevé comme une « incohérence du compte » : c'était une conversion
+ * manquante.
+ *
+ * `sync.ts` et la page d'envoi divisaient déjà par cent. Seules les deux
+ * fonctions qui alimentent l'IA ne le faisaient pas.
+ *
+ * Les devises sans sous-unité — yen, won — n'ont pas d'unité mineure et
+ * feraient ici une division de trop. Tous les comptes sont en euros ; le jour
+ * où ce ne sera plus vrai, c'est `currency` du compte qu'il faudra lire.
+ */
+function budgetEnDevise(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n / 100 : null
+}
+
 export async function getCampaigns(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
   const data = await metaFetch(`/${accountId}/campaigns`, token, {
     fields: [
@@ -184,25 +207,38 @@ export async function getCampaigns(accountId: string, token: string, datePreset 
     ].join(','),
     limit: '50',
   })
-  return (data.data || []).map((c: Record<string, unknown>) => ({
-    ...c,
-    _computed: c.insights ? computeKPIs((c.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
-  }))
+  return (data.data || []).map((c: Record<string, unknown>) => {
+    // Les clés brutes sont retirées : les laisser à côté des converties
+    // laisserait le modèle choisir, et il choisirait le plus gros nombre.
+    const { daily_budget, lifetime_budget, ...reste } = c
+    return {
+      ...reste,
+      // Un budget au niveau campagne signale un CBO ; son absence, un ABO.
+      budgetQuotidien: budgetEnDevise(daily_budget),
+      budgetTotal: budgetEnDevise(lifetime_budget),
+      _computed: c.insights ? computeKPIs((c.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
+    }
+  })
 }
 
 export async function getAdSets(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
   const data = await metaFetch(`/${accountId}/adsets`, token, {
     fields: [
-      'id', 'name', 'status', 'campaign_id', 'daily_budget', 'optimization_goal',
-      'targeting', 'learning_stage_info',
+      'id', 'name', 'status', 'campaign_id', 'daily_budget', 'lifetime_budget',
+      'optimization_goal', 'targeting', 'learning_stage_info',
       `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
     limit: '100',
   })
-  return (data.data || []).map((a: Record<string, unknown>) => ({
-    ...a,
-    _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
-  }))
+  return (data.data || []).map((a: Record<string, unknown>) => {
+    const { daily_budget, lifetime_budget, ...reste } = a
+    return {
+      ...reste,
+      budgetQuotidien: budgetEnDevise(daily_budget),
+      budgetTotal: budgetEnDevise(lifetime_budget),
+      _computed: a.insights ? computeKPIs((a.insights as {data: Record<string, unknown>[]}).data?.[0] || {}, leadSource) : null,
+    }
+  })
 }
 
 export async function getAds(accountId: string, token: string, datePreset = 'last_7d', leadSource: LeadSource = 'total') {
