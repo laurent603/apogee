@@ -92,16 +92,14 @@ const PERFORMANCE: EntreeBanque[] = [
   {
     id: 'perf-placement',
     label: 'Performance par placement',
-    etat: 'aEcrire',
-    note: 'La ventilation par placement n’est pas transmise au modèle',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.performance.placements),
   },
   {
     id: 'perf-age-genre',
     label: 'Performance âge × genre',
-    etat: 'aEcrire',
-    note: 'La ventilation âge/genre n’est pas transmise au modèle',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.performance.ageGenre),
   },
   {
     id: 'perf-top-flop',
@@ -158,7 +156,6 @@ const MEDIA_BUYING: EntreeBanque[] = [
     id: 'mb-cpm',
     label: 'Tendance du CPM',
     etat: 'pret',
-    note: 'CPM par placement non transmis — la limite est déclarée dans le prompt',
     prompt: corps(PROMPTS.mediaBuying.cpmTrend),
   },
   {

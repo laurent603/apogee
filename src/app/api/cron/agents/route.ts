@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getVentilations, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
 
 /**
@@ -138,13 +138,17 @@ export async function GET(req: NextRequest) {
             }).catch(() => null))?.content
           )
         : null
-      const [overview, campaigns, adsets, ads, previous] = await Promise.all([
+      const [overview, campaigns, adsets, ads, ventilations, previous] = await Promise.all([
         getAccountOverview(metaAccountId, token, datePreset, leadSource),
         getCampaigns(metaAccountId, token, datePreset, leadSource),
         getAdSets(metaAccountId, token, datePreset, leadSource),
         isCreative
           ? getAdsWithCopy(metaAccountId, token, datePreset, leadSource)
           : getAds(metaAccountId, token, datePreset, leadSource),
+        // Voir /api/ai/analyze : l'interface les affichait, le modèle ne les
+        // recevait pas. Une ventilation en échec revient vide, sans faire
+        // échouer le rapport.
+        getVentilations(metaAccountId, token, datePreset, leadSource),
         getPreviousPeriod(metaAccountId, token, datePreset, leadSource).catch((e) => {
           degraded.push(`Période de comparaison indisponible (${e instanceof Error ? e.message : 'erreur'}) — le rapport ne pourra affirmer aucune tendance.`)
           return null
@@ -156,7 +160,7 @@ export async function GET(req: NextRequest) {
         : `\n## Période précédente\nIndisponible — n'affirme aucune tendance ni fatigue, et dis-le explicitement.`
 
       const format = formatDeSortie(agent.outputFormat)
-      const userMessage = `${agent.instructions}${format ? `\n\nFormat de sortie : ${format}` : ''}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
+      const userMessage = `${agent.instructions}${format ? `\n\nFormat de sortie : ${format}` : ''}\n\n# Données Meta Ads\n## Vue d'ensemble\n${JSON.stringify(overview, null, 2)}\n## Campagnes\n${JSON.stringify(campaigns.slice(0, 10), null, 2)}\n## Ad Sets\n${JSON.stringify(adsets.slice(0, 10), null, 2)}\n## Ventilations\nChaque ligne est déjà un groupe : ne les additionne pas, et ne recompose jamais une portée par addition. Une liste vide signifie que Meta n'a rien renvoyé.\n### Par placement\n${JSON.stringify(ventilations.placement, null, 2)}\n### Par âge et genre\n${JSON.stringify(ventilations.ageGenre, null, 2)}\n### Par appareil\n${JSON.stringify(ventilations.appareil, null, 2)}\n## Ads\n${JSON.stringify(ads.slice(0, 20), null, 2)}${comparison}${ghl ? `\n${ghl}` : ''}${knowledge ? `\n## Référentiel créatif du compte\nTextes écrits pour ce compte par son creative strategist. Reprends SA taxonomie (niveaux de conscience, étapes de tunnel) et son style ; n'invente pas ta propre grille et ne lui attribue aucun chiffre de performance.\n\n${knowledge}` : ''}`
 
       // Une surcharge des serveurs du modèle jetait tout le travail de l'agent
       // et envoyait un e-mail d'échec pour un incident passager. Rien n'a été

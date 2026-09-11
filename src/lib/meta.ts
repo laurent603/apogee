@@ -472,6 +472,74 @@ export async function getLifetimeAdSpend(
   return out
 }
 
+/**
+ * Les ventilations du compte : placement, âge × genre, appareil.
+ *
+ * Elles existaient déjà, mais au niveau d'**une** publicité, dans
+ * `/api/scalr/ad-detail` — c'est ce qui alimente la fiche créa. L'IA, elle, ne
+ * les a jamais reçues : son contexte est bâti sur `getCampaigns`, `getAdSets`
+ * et `getAds`, qui n'envoient aucun `breakdowns`. Elle ne voyait donc pas ce
+ * que l'interface affiche déjà, et deux emplacements de la bibliothèque
+ * restaient vides pour cette seule raison.
+ *
+ * Trois appels, en parallèle. Chaque ligne rendue par Meta est déjà un groupe :
+ * on ne réagrège rien — additionner des portées ne produit pas une portée.
+ *
+ * Une ventilation qui échoue ne fait pas échouer l'analyse : elle revient
+ * vide, et le prompt sait dire qu'il ne l'a pas.
+ */
+export type Ventilations = {
+  placement: Record<string, unknown>[]
+  ageGenre: Record<string, unknown>[]
+  appareil: Record<string, unknown>[]
+}
+
+export async function getVentilations(
+  accountId: string,
+  token: string,
+  datePreset = 'last_7d',
+  leadSource: LeadSource = 'total',
+): Promise<Ventilations> {
+  const appel = async (breakdowns: string, cle: (r: Record<string, unknown>) => string) => {
+    try {
+      const data = await metaFetch(`/${accountId}/insights`, token, {
+        date_preset: datePreset, breakdowns, fields: INSIGHT_FIELDS, limit: '200',
+      })
+      // `computeKPIs` ne rend que les indicateurs dérivés : la dépense, les
+      // impressions et les clics restent sur la ligne brute. Les deux se
+      // recollent ici, sinon le groupe n'a ni volume ni dénominateur.
+      const lignes: Record<string, unknown>[] = data.data || []
+      return lignes
+        .map((r) => ({
+          cle: cle(r),
+          depense: Number(r.spend ?? 0),
+          impressions: Number(r.impressions ?? 0),
+          portee: Number(r.reach ?? 0),
+          clics: Number(r.clicks ?? 0),
+          ctr: r.ctr != null ? Number(r.ctr) : null,
+          cpc: r.cpc != null ? Number(r.cpc) : null,
+          cpm: r.cpm != null ? Number(r.cpm) : null,
+          ...computeKPIs(r, leadSource),
+        }))
+        .filter((r) => r.depense > 0 || r.impressions > 0)
+        .sort((a, b) => b.depense - a.depense)
+    } catch (e) {
+      console.error(`[meta] ventilation ${breakdowns} a échoué :`, e instanceof Error ? e.message : e)
+      return []
+    }
+  }
+
+  const [placement, ageGenre, appareil] = await Promise.all([
+    // Meta rend la plateforme et la position séparément : recollées, elles
+    // donnent le placement tel qu'un media buyer le nomme.
+    appel('publisher_platform,platform_position', (r) =>
+      [r.publisher_platform, r.platform_position].filter(Boolean).join(' · ') || 'inconnu'),
+    appel('age,gender', (r) => [r.age, r.gender].filter(Boolean).join(' · ') || 'inconnu'),
+    appel('impression_device', (r) => String(r.impression_device ?? 'inconnu')),
+  ])
+  return { placement, ageGenre, appareil }
+}
+
 export async function getDailyBreakdown(accountId: string, token: string, days = 7) {
   const since = new Date()
   since.setDate(since.getDate() - days)

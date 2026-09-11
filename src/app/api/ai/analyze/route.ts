@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
 import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getVentilations, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
               }).catch(() => null))?.content
             )
           : null
-        const [overview, campaigns, adsets, ads, daily, previous] = await Promise.all([
+        const [overview, campaigns, adsets, ads, daily, ventilations, previous] = await Promise.all([
           getAccountOverview(accountId, token, datePreset, leadSource),
           getCampaigns(accountId, token, datePreset, leadSource),
           getAdSets(accountId, token, datePreset, leadSource),
@@ -92,6 +92,9 @@ export async function POST(req: NextRequest) {
             ? getAdsWithCopy(accountId, token, datePreset, leadSource)
             : getAds(accountId, token, datePreset, leadSource),
           getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
+          // Placement, âge × genre, appareil : l'interface les affiche depuis
+          // longtemps sur une créa, le modèle ne les avait jamais reçues.
+          getVentilations(accountId, token, datePreset, leadSource),
           // Fatigue and trend prompts need a real baseline to subtract from
           getPreviousPeriod(accountId, token, datePreset, leadSource).catch(() => null),
         ])
@@ -230,6 +233,20 @@ ${JSON.stringify(ads, null, 2)}
 
 ## Données journalières
 ${JSON.stringify(daily, null, 2)}
+
+## Ventilations du compte
+Chaque ligne est déjà un groupe : ne les additionne pas entre elles, et ne
+recompose jamais une portée par addition. Une liste vide signifie que Meta n'a
+rien renvoyé pour cette ventilation — dis-le plutôt que de l'estimer.
+
+### Par placement
+${JSON.stringify(ventilations.placement, null, 2)}
+
+### Par âge et genre
+${JSON.stringify(ventilations.ageGenre, null, 2)}
+
+### Par appareil
+${JSON.stringify(ventilations.appareil, null, 2)}
 ${ghl ? `
 ${ghl}
 ` : ''}

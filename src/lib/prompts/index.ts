@@ -1228,6 +1228,85 @@ est excellent si un prospect sur trois achète pour 12 000 €.`,
     monthly: `${SYSTEM_BASE}
 ${BILAN_MENSUEL}`,
 
+    placements: `${SYSTEM_BASE}
+
+Analyse la performance par placement.
+
+La ventilation par placement t'est fournie. Chaque ligne est un placement
+réel — Fil Facebook, Reels Instagram, Stories, Audience Network, Messenger,
+Threads — et non une estimation.
+
+| Placement | Dépense | Part | Impressions | CPM | CTR | CPC | [conv] | [coût] |
+
+Trie par dépense. Écarte les placements sous 1 % du budget : ils n'ont pas de
+quoi trancher, mais dis combien tu en as écartés.
+
+## Les trois lectures, qui ne disent pas la même chose
+- **Le meilleur [coût]** désigne où mettre l'argent
+- **Le meilleur CTR** désigne où la créa fonctionne — c'est un signal créatif,
+  pas budgétaire
+- **Le CPM le plus bas** désigne où l'attention est la moins chère, ce qui ne
+  veut rien dire si elle ne convertit pas
+
+Un placement peut gagner sur les trois ; c'est rare, et ça se dit.
+
+## Ce qu'il faut regarder de près
+- **Audience Network** : CPM très bas, qualité souvent douteuse. Sous 0,3 % de
+  CTR avec une part de budget notable, c'est un candidat à l'exclusion — mais
+  vérifie d'abord son [coût] réel, pas seulement son CTR.
+- **Reels et Stories** contre **Fil** : ce sont des formats verticaux. Un écart
+  de performance entre eux et le Fil est souvent un problème de format de créa,
+  pas de placement. Dis-le si l'écart est net.
+- **Threads**, s'il apparaît : nouveau, CPM généralement bas, volume faible.
+  À signaler, pas à survendre.
+
+## Ce qu'il ne faut pas conclure trop vite
+Advantage+ Placements répartit lui-même : un placement peu servi ne l'est pas
+forcément parce qu'il est mauvais, mais parce que l'algorithme a choisi
+ailleurs. **Exclure un placement réduit la marge de manœuvre de l'enchère et
+fait souvent monter le CPM global** — ne le recommande que si le chiffre le
+justifie vraiment, et dis ce que ça coûte.
+
+Termine par : ce qu'on exclut, ce qu'on garde, et les créas à produire pour les
+placements qui le méritent.`,
+
+    ageGenre: `${SYSTEM_BASE}
+
+Analyse la performance par tranche d'âge et par genre.
+
+La ventilation t'est fournie, une ligne par couple âge × genre.
+
+## 1. La carte
+Rends une grille : les tranches d'âge en lignes, le genre en colonnes, le
+[coût] dans les cases, colorées par rapport à la cible du compte. C'est la
+lecture qui se fait en une seconde.
+
+## 2. Le tableau
+| Âge × Genre | Dépense | Part | Impressions | CTR | [conv] | [coût] |
+
+## 3. Ce qu'il faut en tirer
+- Le segment le plus rentable, avec son volume — un segment excellent sur trois
+  conversions n'est pas un segment, c'est une anecdote
+- Le segment qui dépense le plus **sans convertir** : c'est lui qui coûte
+- **Le segment ignoré mais prometteur** : peu de dépense, bon [coût]. C'est la
+  trouvaille la plus utile de cette analyse, et celle qu'on rate en ne
+  regardant que le haut du tableau.
+
+## 4. Contre la cible déclarée
+Compare l'audience **réelle** à la cible du profil de marque. Un écart n'est
+pas une erreur : c'est souvent l'algorithme qui a trouvé mieux que le brief. Si
+le compte vise les 35-50 ans et convertit sur les 55-64, dis-le — et dis ce que
+ça implique pour la créa, pas seulement pour le ciblage.
+
+## 5. Ce qu'on fait
+Exclure un segment ne se recommande qu'avec de la dépense **et** un mauvais
+[coût] — pas sur un CTR seul, pas sur vingt clics. Rappelle qu'exclure resserre
+l'audience et fait monter le CPM.
+
+L'action la plus fréquente n'est pas d'exclure : c'est **d'adapter la créa** au
+segment qui convertit. Le ton, l'âge de la personne à l'écran et l'objection
+traitée ne sont pas les mêmes à 28 ans et à 60 ans. Dis lesquels changer.`,
+
     topFlop: `${SYSTEM_BASE}
 
 Classe les publicités actives : les meilleures et les moins bonnes, sur 14 jours.
@@ -1405,8 +1484,10 @@ retargeting a normalement le CPM le plus élevé — audience petite, concurrenc
 forte sur les mêmes personnes. Si ce n'est pas le cas sur ce compte, c'est
 intéressant : dis pourquoi.
 
-**Le CPM par placement ne t'est pas transmis** — ne l'invente pas. Si la
-question se pose, dis qu'elle demande la ventilation par placement.
+**La ventilation par placement t'est fournie** : donne le CPM par placement,
+avec la part de budget de chacun. Audience Network affiche souvent le CPM le
+plus bas du compte sans en être le meilleur placement — rapproche toujours son
+CPM de son [coût] avant d'en tirer quoi que ce soit.
 
 ## 4. Le diagnostic, qui est toujours un croisement
 | | CTR stable | CTR en baisse |
