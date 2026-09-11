@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { anthropic, MODEL_REPORT, REPORT_REASONING, avecReprise } from '@/lib/anthropic'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
-import { DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
+import { DATA_FLOORS, DIRECTION_GUARD, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
 
 /**
  * Le format de sortie demandé à l'agent, débarrassé de toute demande de HTML.
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
           messages: [{
             role: 'user',
             content: userMessage + (generatif
-              ? RAPPORT_HTML
+              ? DISCIPLINE_GENERATIVE + RAPPORT_HTML
               : DISCIPLINE_RAPPORT + RAPPORT_HTML + BLOC_ACTIONNABLES + ORDRE_SORTIE),
           }],
         })

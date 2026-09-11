@@ -68,15 +68,13 @@ const PERFORMANCE: EntreeBanque[] = [
   {
     id: 'perf-funnel',
     label: 'Funnel complet',
-    etat: 'aAdapter',
-    note: 'Sections ajoutées ; le funnel se termine encore sur panier → checkout → achat',
+    etat: 'pret',
     prompt: corps(PROMPTS.performance.funnel),
   },
   {
     id: 'perf-rentabilite',
     label: 'Rentabilité réelle',
-    etat: 'aAdapter',
-    note: 'Bâti sur ROAS et marge produit ; à basculer sur le coût par prospect',
+    etat: 'pret',
     prompt: corps(PROMPTS.performance.profitability),
   },
   {
@@ -88,8 +86,7 @@ const PERFORMANCE: EntreeBanque[] = [
   {
     id: 'perf-mensuel',
     label: 'Bilan stratégique mensuel',
-    etat: 'aAdapter',
-    note: 'Plan d’action et questions ajoutés ; le résumé impose encore Revenue et ROAS',
+    etat: 'pret',
     prompt: corps(PROMPTS.performance.monthly),
   },
   {
@@ -124,15 +121,13 @@ const MEDIA_BUYING: EntreeBanque[] = [
   {
     id: 'mb-kill',
     label: 'Ads / adsets à couper',
-    etat: 'aAdapter',
-    note: 'Complété ; premier critère toujours ROAS < 1.0, jamais atteint en leadform',
+    etat: 'pret',
     prompt: corps(PROMPTS.mediaBuying.kill),
   },
   {
     id: 'mb-budget',
     label: 'Réallocation de budget',
-    etat: 'aAdapter',
-    note: 'Complété ; repère encore les fuites au ROAS',
+    etat: 'pret',
     prompt: corps(PROMPTS.mediaBuying.budgetReallocation),
   },
   {
@@ -193,8 +188,7 @@ const MEDIA_BUYING: EntreeBanque[] = [
   {
     id: 'mb-scaling',
     label: 'Scaling',
-    etat: 'aAdapter',
-    note: 'Critère d’entrée « ROAS > 2.0 » : ne se déclenche jamais en lead gen',
+    etat: 'pret',
     prompt: corps(PROMPTS.mediaBuying.scaling),
   },
   {
@@ -280,8 +274,7 @@ const CREA_ANALYSE: EntreeBanque[] = [
   {
     id: 'cs-exhaustive',
     label: 'Analyse exhaustive, pub par pub',
-    etat: 'aAdapter',
-    note: 'Complété ; le tableau et le code couleur reposent encore sur le ROAS',
+    etat: 'pret',
     prompt: corps(PROMPTS.creativeStrategy.creativeAnalysis),
   },
   {

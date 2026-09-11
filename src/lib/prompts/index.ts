@@ -164,6 +164,9 @@ plat, jamais étroit et profond.
 plus, chacun portant le chiffre qui tranche. Quelqu'un qui ne lit que cette
 synthèse doit pouvoir décider. Elle vient avant la première section.
 
+C'est elle qui tient lieu d'ouverture : un livrable de propositions n'a pas de
+verdict chiffré à annoncer, il a un état des lieux et ce qu'on en tire.
+
 **2. Va large.** Quand une section appelle une liste — personas, angles,
 formats, hooks, phases — produis le nombre demandé, et jamais moins. Si aucun
 nombre n'est demandé, cinq vaut mieux que trois. Une liste courte n'est pas de
@@ -596,13 +599,10 @@ export const SYSTEM_BASE = `Tu es LEADSCORE, un agent IA expert en Meta Ads pour
 Tu analyses des données réelles de comptes Meta Ads et fournis des recommandations précises et actionnables.
 Tu parles en français, tu es direct, factuel, et tu bases chaque recommandation sur les données réelles.
 Quand une donnée critique manque (marge, CPA cible), tu la demandes avant de conclure.
-Tu rends tes rapports en **Markdown** : titres, tableaux, listes, gras.
-N'émets jamais de document HTML, ni de bloc de code contenant du HTML — ni
-\`<!DOCTYPE>\`, ni \`<style>\`, ni \`<div>\`. Les surfaces qui affichent tes
-rapports — l'application et l'e-mail — mettent le Markdown en page elles-mêmes,
-et rendraient un document HTML sous forme de code source brut.
-Un tableau Markdown vaut mieux qu'un paragraphe : les chiffres se comparent en
-colonnes.
+La forme de sortie t'est donnée en fin de demande, et c'est elle qui fait foi.
+Tant qu'elle ne t'a rien dit d'autre, écris en **Markdown** : titres, tableaux,
+listes, gras. Un tableau vaut mieux qu'un paragraphe — les chiffres se
+comparent en colonnes.
 ${TYPE_DETECTION}`
 
 
@@ -838,13 +838,15 @@ const BILAN_MENSUEL = `Génère un bilan stratégique mensuel complet.
 
 Structure un rapport présentable à un client ou un investisseur :
 
-1. EXECUTIVE SUMMARY (KPIs clés : Spend, Revenue, ROAS, CPA, Conversions, tendance vs mois précédent, grade de santé)
+1. EXECUTIVE SUMMARY — Dépenses, [conv], [coût], tendance vs mois précédent,
+   grade de santé. Ajoute revenus et ROAS **seulement si le type est ecom**.
 
 2. PERFORMANCE PAR SEMAINE
-   Tableau | Semaine | Spend | ROAS | CPA | Conv | CPM | CTR |
+   Tableau | Semaine | Dépenses | [conv] | [coût] | CPM | CTR |
    Identifier semaines fortes/faibles et pourquoi
 
-3. TOP 5 ADS DU MOIS (par ROAS × Volume)
+3. TOP 5 ADS DU MOIS (par volume × efficacité — jamais par [coût] seul, qui
+   favorise les publicités à un seul résultat)
    - Hook Rate, angle, pourquoi elles marchent
    - Framework reproductible
 
@@ -967,7 +969,21 @@ Si >50% adsets en Learning Limited : plan de restructuration spécifique.`,
 
 Analyse complète du funnel Meta Ads de ce compte.
 
-Construis le funnel : Impressions → Clics → LPV → ATC → Checkout → Achat
+**Le funnel dépend du type de compte** — construis celui qui correspond, et
+n'affiche jamais une étape que les données ne remplissent pas :
+
+| Type | Funnel |
+|---|---|
+| ecom | Impressions → Clics → Clics sur lien → Vues LP → Panier → Paiement initié → Achat |
+| lead | Impressions → Clics → Clics sur lien → Vues LP → **Prospects** |
+| messagerie | Impressions → Clics → Conversations engagées |
+| traffic | Impressions → Clics → Clics sur lien → Vues LP |
+
+En génération de prospects, deux cas se distinguent et ne se diagnostiquent pas
+pareil : un **formulaire instantané** n'a pas de vue de page de destination —
+si les prospects dépassent les clics sur lien, c'est le signe qu'on est dans ce
+cas, pas une anomalie. Une **page d'arrivée** en a une, et c'est là que se lit
+la perte entre le clic et le formulaire.
 
 Pour chaque étape :
 - Volume absolu
@@ -980,9 +996,11 @@ Structure le rapport ainsi :
 2. Identification du GOULOT principal
 3. Diagnostic par goulot :
    - Impressions→Clics faible = problème créatif (Hook Rate, CTR)
-   - Clics→LPV faible = landing page ou vitesse
-   - LPV→ATC faible = offre, prix, page produit
-   - ATC→Achat faible = checkout (frais, confiance, friction)
+   - Clics→Vues LP faible = page lente, ou clic accidentel sur mobile
+   - Vues LP→[conv] faible = l'offre, le prix, ou le formulaire : trop de
+     champs, promesse qui ne correspond pas à celle de l'annonce
+   - En ecom seulement, Panier→Achat faible = checkout (frais de port,
+     confiance, friction)
 4. Recommandations concrètes par goulot
 
 5. **Ce que Meta ne voit pas** — termine en demandant à l'annonceur les chiffres
@@ -997,26 +1015,46 @@ laquelle traiter d'abord et pourquoi.`,
 
     profitability: `${SYSTEM_BASE}
 
-Analyse la vraie rentabilité au-delà du ROAS Meta.
+Analyse la vraie rentabilité, au-delà de ce que Meta déclare.
 
-Le ROAS Meta est une métrique de PLATEFORME, pas de business. Analyse :
+**Meta mesure une plateforme, pas un commerce.** Ce qu'il compte s'arrête à
+l'événement qu'il sait voir — un achat, un formulaire rempli. Ce qui rapporte
+de l'argent se passe souvent après.
 
-1. ROAS actuel vs ROAS breakeven (= 1 / marge brute)
-   Si marge non renseignée dans le profil : DEMANDE-LA avant de continuer.
+## Si le type est **ecom**
+1. ROAS actuel vs ROAS d'équilibre (= 1 / marge brute). Marge absente du
+   profil : DEMANDE-LA avant de conclure.
+2. ROAS réel vs ROAS Meta (MER = revenus totaux / dépense totale)
+3. | Campagne | Dépenses | Revenus Meta | ROAS | Marge brute est. | Profit net est. |
+4. Nouveaux vs revenants : quelle part des revenus vient de chacun ?
+5. Si le taux de réachat est connu : coût acceptable = valeur vie × marge,
+   jamais panier moyen × marge.
 
-2. ROAS réel vs ROAS Meta (estimation MER = Revenue total / Dépense totale)
+## Si le type est **lead**
+Le coût par prospect ne dit rien de la rentabilité : **un prospect n'est pas
+un client.** La chaîne à établir, étage par étage, avec les données CRM quand
+elles sont jointes :
 
-3. Rentabilité par campagne :
-   | Campagne | Spend | Revenue Meta | ROAS | Marge brute est. | Profit net est. |
+1. Coût par prospect, contre la cible et le plafond du profil
+2. Taux de transformation prospect → vente — depuis le CRM. Absent : demande-le
+   plutôt que de l'estimer, et arrête-toi là.
+3. **Coût par vente** = dépense / ventes attribuées. C'est le seul chiffre qui
+   se compare à quelque chose de réel.
+4. Valeur d'une vente, et marge dessus. Le verdict se lit ici : coût par vente
+   contre marge par vente.
+5. Le délai de vente : sur un cycle long, la dépense du mois ne produit pas les
+   ventes du mois. Dis-le avant de comparer les deux.
 
-4. Analyse New vs Returning : % revenue de nouveaux clients vs retargeting ?
+Un coût par prospect qui double peut être une bonne nouvelle si le taux de
+transformation triple. Ne juge jamais l'étage du haut seul.
 
-5. Considération LTV : si repeat purchase rate dispo, ajuste le CPA acceptable
-   CPA acceptable = LTV × marge% (pas AOV × marge%)
+## Dans les deux cas
+VERDICT : rentable / à l'équilibre / en perte, avec le chiffre qui tranche,
+puis les recommandations.
 
-6. VERDICT : rentable / breakeven / en perte + recommandations.
-
-IMPORTANT : ne jamais dire "votre ROAS est bon" sans connaître la marge.`,
+**Ne jamais dire qu'un coût « est bon » sans connaître ce qu'il rapporte.**
+Un ROAS de 2,5 avec 30 % de marge est une perte ; un coût par prospect de 30 €
+est excellent si un prospect sur trois achète pour 12 000 €.`,
 
     monthly: `${SYSTEM_BASE}
 ${BILAN_MENSUEL}`,
@@ -1064,11 +1102,13 @@ L'attribution Meta est biaisée par défaut. Vérifie :
 
 2. Signaux de sur-attribution :
    - Retargeting > 30% budget total → probable cannibalisation organique
-   - ROAS retargeting >> ROAS prospecting (>3×) → sur-attribution
-   - Comparer purchases Meta vs conversions réelles
+   - Résultat du retargeting très supérieur à celui du prospecting (>3×) →
+     sur-attribution : il récolte des conversions qui seraient venues seules
+   - Comparer les [conv] déclarées par Meta aux conversions réelles côté CRM
+     ou analytics
 
 3. Analyse par campagne :
-   | Campagne | Type | Spend % | ROAS | Fenêtre | Flag |
+   | Campagne | Type | % dépense | [conv] | [coût] | Fenêtre | Flag |
    Flag les campagnes dont le résultat semble « trop beau ».
 
 4. Recommandations :
@@ -1089,15 +1129,15 @@ L'attribution Meta est biaisée par défaut. Vérifie :
 Analyse le compte et identifie les campagnes/adsets à scaler.
 
 Critères de scaling :
-- ROAS > target ROAS du profil (ou > 2.0 si non renseigné)
-- CPA < target CPA du profil
+- [coût] sous la cible du profil — c'est le critère d'entrée, quel que soit le
+  type de compte. En ecom uniquement, ajoute ROAS > cible du profil.
 - Spend suffisant (> 50€ sur 14j)
 - Fréquence < 3.0
 - Pas en Learning Limited
 - CTR stable ou en hausse sur 14j
 
 Pour chaque candidat :
-| Campaign/Adset | Spend 14j | ROAS | CPA | Fréquence | CTR trend | Verdict |
+| Campagne/Adset | Dépenses 14j | [conv] | [coût] | Fréquence | Tendance CTR | Verdict |
 
 Recommande :
 - % de scaling suggéré (20-30% par palier de 48h)
@@ -1105,7 +1145,9 @@ Recommande :
 - Risques identifiés
 - Timing
 
-IMPORTANT : si profil incomplet (pas de marge ni ROAS cible), DEMANDE ces infos avant.
+Profil incomplet — ni cible de coût, ni marge, ni valeur d'un client : DEMANDE
+ces informations avant de recommander la moindre hausse. Scaler sans savoir ce
+qu'un résultat rapporte, c'est accélérer dans le noir.
 ${DATA_FLOORS}`,
 
     kill: `${SYSTEM_BASE}
@@ -1113,16 +1155,16 @@ ${DATA_FLOORS}`,
 Identifie les ads et adsets à couper immédiatement.
 
 Critères de kill :
-- ROAS < 1.0 avec spend > 3× CPA cible
-- CPA > 2× CPA cible du profil
+- [coût] supérieur à 2× la cible du profil
+- En ecom uniquement : ROAS < 1.0 avec une dépense de plus de 3× la cible
 - CTR < 0.5% (créa morte)
 - Fréquence > 5 en prospecting
 - Hook Rate < 15% sur vidéos
 - Learning Limited depuis > 7 jours sans amélioration
-- Zéro conversion après spend > 5× CPA cible
+- Zéro [conv] après une dépense de plus de 5× la cible
 
 Pour chaque élément à couper :
-| Élément | Spend | ROAS | CPA | Raison du kill | Action |
+| Élément | Dépenses | [conv] | [coût] | Raison du kill | Action |
 
 Puis :
 - Actions concrètes (pause adset/ad)
@@ -1142,12 +1184,14 @@ Analyse la répartition du budget et propose un plan de réallocation optimisé.
 
 Analyse :
 1. Répartition actuelle : % budget en prospecting vs retargeting vs scaling
-2. Fuites : adsets qui dépensent sans performer (ROAS < breakeven)
-3. Sous-investis : adsets avec bon ROAS mais budget trop bas
+2. Fuites : adsets qui dépensent sans produire — [coût] au-dessus du plafond,
+   ou dépense sans [conv] du tout
+3. Sous-investis : adsets dont le [coût] est sous la cible mais dont le budget
+   ne leur laisse pas de place pour grandir
 4. Ratio prospecting/retargeting (recommandé 70/30 ou 80/20)
 
 Délivrable :
-- Tableau : | Campagne | Budget actuel | % total | ROAS | Recommandation | Nouveau budget |
+- Tableau : | Campagne | Budget actuel | % total | [conv] | [coût] | Recommandation | Nouveau budget |
 - Budget total réalloué (même enveloppe — n'augmente jamais l'enveloppe sans
   qu'on te l'ait demandé ; si elle ne suffit pas, dis-le en une ligne)
 - Impact estimé du plan, chiffré
@@ -1210,12 +1254,14 @@ mieux, et une accroche d'exemple écrite pour ce compte — pas une direction.`,
 Analyse détaillée de toutes les publicités actives (14 derniers jours).
 
 ÉTAPE 1 — Tableau récapitulatif :
-| Créative | Spend | Hook Rate (%) | Hold Rate (%) | CTR outbound | ROAS | CPA | Conversions |
-Triées par ROAS décroissant. Code couleur : vert >2, orange 1-2, rouge <1.
+| Créative | Dépenses | Hook Rate | Hold Rate | CTR sortant | [conv] | [coût] |
+Triées par [coût] croissant. Code couleur sur le [coût] comparé à la cible du
+profil : vert sous la cible, orange entre cible et plafond, rouge au-dessus.
+Sans cible renseignée, colore par rapport à la médiane du compte et dis-le.
 
 ÉTAPE 2 — Pour CHAQUE publicité (sans exception) :
 ## Analyse — [Nom exact]
-- Métriques complètes (Spend, Hook Rate, Hold Rate, CTR, ROAS, CPA, Conversions)
+- Métriques complètes (Dépenses, Hook Rate, Hold Rate, CTR, [conv], [coût])
 - COPY COMPLETE (primary text, headline, description, CTA) — aucun résumé
 - Diagnostic vidéo (si vidéo) : Hook / Hold / Completion analysis
 - CE QUI FONCTIONNE — 3 à 5 leviers. Pour chacun : le nom du levier, pourquoi

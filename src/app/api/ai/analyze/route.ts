@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -134,9 +134,23 @@ export async function POST(req: NextRequest) {
         // pas faire un bandeau de chiffres, une pastille d'état ni une carte.
         // Il ne porte alors pas de bloc d'actionnables — celui-ci se lit dans
         // un rapport Markdown, pas dans un document mis en page.
+        /**
+         * `DISCIPLINE_GENERATIVE` était orpheline depuis `4f48e42`.
+         *
+         * Son unique point d'appel — `disciplinePour(demande) + BLOC_ACTIONNABLES`
+         * — a été remplacé par le branchement HTML, et la constante est restée
+         * exportée sans personne pour l'importer. Depuis, aucun livrable
+         * génératif ne recevait « produis le nombre demandé, et jamais moins »
+         * ni « jamais deux fois la même mécanique » : d'où les banques d'angles
+         * qui rendent huit entrées dont trois reposent sur le même ressort.
+         *
+         * Les deux blocs ne se recouvrent pas : l'un gouverne la matière,
+         * l'autre la forme. La forme vient en dernier, c'est ce qui se lit juste
+         * avant d'écrire.
+         */
         const blocFinal = deep
           ? (generatif
-              ? RAPPORT_HTML
+              ? DISCIPLINE_GENERATIVE + RAPPORT_HTML
               : DISCIPLINE_RAPPORT + RAPPORT_HTML + BLOC_ACTIONNABLES + ORDRE_SORTIE)
           : ''
 
@@ -175,7 +189,9 @@ export async function POST(req: NextRequest) {
          * `chatProfond` ne commande donc plus que la **profondeur** — modèle de
          * rapport et réflexion étendue — pas la forme.
          */
-        const disciplineChat = deep ? '' : RAPPORT_HTML
+        const disciplineChat = deep
+          ? ''
+          : (generatif ? DISCIPLINE_GENERATIVE + RAPPORT_HTML : RAPPORT_HTML)
 
         const systemPrompt = customPrompt
           ? `${rolePrompt || 'Tu es un expert Meta Ads et consultant en marketing digital.'} Tu analyses les données réelles du compte Meta Ads fourni et tu réponds précisément à la demande. Tes réponses sont structurées, actionnables et basées uniquement sur les données fournies. Tu utilises des tableaux, des titres et des listes.${outputInstruction}`
