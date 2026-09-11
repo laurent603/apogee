@@ -2,6 +2,8 @@
  * Most accounts here are lead gen, not e-commerce. Without this, prompts written
  * around ROAS and basket size make the model invent metrics the data never had.
  */
+import { METHODE_J7, LECTURE_GAGNANTS } from './j7'
+
 export const TYPE_DETECTION = `
 ## Type de compte — à établir avant toute analyse
 Déduis le type depuis les actions réellement présentes dans les données, par ordre de priorité :
@@ -1388,10 +1390,28 @@ Pour chaque candidat :
 | Campagne/Adset | Dépenses 14j | [conv] | [coût] | Fréquence | Tendance CTR | Verdict |
 
 Recommande :
-- % de scaling suggéré (20-30% par palier de 48h)
-- Budget actuel → budget cible
+- **+20 % toutes les 48 h** sur les ad sets gagnants. Au-delà, l'apprentissage
+  se réinitialise et la hausse coûte plus qu'elle ne rapporte.
+- Budget actuel → budget cible, en euros
 - Risques identifiés
 - Timing
+
+**Mais la hausse de budget n'est qu'une des quatre voies, et la moins
+durable.** « Il n'y a pas de méthode de scaling, il y a une méthode de
+testing » : on scale en multipliant les tests actifs et en isolant plus de
+variables. Les quatre voies :
+1. **Combinaisons gagnantes** — la meilleure publicité croisée avec la meilleure
+   audience. C'est celle qui rapporte le plus, et elle suppose que les deux
+   soient identifiées.
+2. **Machine learning** — Advantage+ alimenté par ce qui a gagné
+3. **Verticale** — une campagne par produit, offre ou service
+4. **Géographique** — ouvrir une zone une fois les combinaisons trouvées
+
+Dis laquelle s'applique à ce compte, et pourquoi les autres non.
+
+Deux garde-fous : **jamais de budget à vie** sur une audience qu'on voudra
+scaler, et **on conserve l'identifiant de la publicité** quand on la reprend
+ailleurs — la preuve sociale accumulée ne se duplique pas.
 
 Profil incomplet — ni cible de coût, ni marge, ni valeur d'un client : DEMANDE
 ces informations avant de recommander la moindre hausse. Scaler sans savoir ce
@@ -1424,6 +1444,12 @@ Puis :
 est bon si un client en vaut 80, ruineux s'il en vaut 20. Avant de couper sur
 un critère de coût, rapporte-le à la valeur que porte le profil de marque —
 et si elle n'y est pas, demande-la plutôt que de supposer.
+
+**Ne sois pas romantique.** Une publicité ou une audience qui ne produit rien
+après **2× le [coût] cible dépensé** se ferme, sans discussion et sans égard
+pour le travail qu'elle a demandé. Rien n'empêche de la relancer plus tard, dans
+un autre contexte ou avec un autre angle — dis-le, ça rend la décision plus
+facile à prendre.
 ${DATA_FLOORS}`,
 
     budgetReallocation: `${SYSTEM_BASE}
@@ -1790,16 +1816,22 @@ de ce que l'étape 2 a montré. Des lois, pas des micro-optimisations : « le
 témoignage client bat le porte-parole sur ce compte, sur les quatre créas
 comparables » est une loi ; « soigner le montage » n'en est pas une.
 
-ÉTAPE 4 — CINQ ITÉRATIONS, STRUCTURELLEMENT DIFFÉRENTES
-Pas des variantes : des concepts. **Changer le hook, raccourcir, ajouter un
-élément ou modifier le rythme ne compte pas comme une itération.** Chacune
-change la mécanique narrative, la posture de celui qui parle, ou la dynamique
-— monologue → dialogue, preuve → défi, récit → démonstration.
+ÉTAPE 4 — CINQ DÉCLINAISONS DE LA MEILLEURE PUBLICITÉ
+Pars de la publicité gagnante et décline-la selon **RTDF** — Rédaction, Tagline,
+Design, Format. **Une seule variable bouge par déclinaison** : modifier la
+tagline en même temps que le design, c'est tester deux choses et n'en apprendre
+aucune.
 
-Pour chacune : nom du concept, type de mécanique, le concept en 6 à 10 lignes
-(qui parle, dans quel contexte, quelle tension, comment la preuve arrive,
-comment la conversion se déclenche), en quoi il diffère structurellement des
-quatre autres, et le KPI principal qu'il vise.
+La répartition habituelle : trois déclinaisons de design — mineure, modérée,
+poussée — et deux de tagline. Ou un changement de format à rédaction constante :
+la même idée en vidéo puis en carrousel.
+
+Pour chacune : la variable isolée, ce qui reste strictement identique, ce qu'on
+cherche à apprendre, et le KPI qui tranchera.
+
+Quand le compte n'a pas encore de publicité gagnante établie, dis-le et propose
+une manche de stade 1 à la place — cinq accroches sur le même visuel — plutôt
+que des déclinaisons d'une créa qui n'a rien prouvé.
 
 ÉTAPE 5 — AUTO-VÉRIFICATION
 Termine par deux nombres : publicités analysées en détail, et lignes dans le
@@ -1864,14 +1896,21 @@ les invente pas.
 - La phrase exacte, telle qu'elle se dit ou s'affiche à l'écran
 - Pour qui elle est écrite — une phrase, une personne située
 - Le niveau de conscience
-- Le type : nommer le problème · solution ratée · curiosité · rupture de
-  schéma · transformation · preuve sociale
+- Le type, parmi les sept de la méthode : **douleur · résultat désiré ·
+  proclamation · appel à l'avatar · avertissement · découverte · rupture de
+  schéma**
 - Pourquoi elle marche, en une phrase : le mécanisme, pas l'éloge
 - Le format qui lui convient : témoignage, statique, micro-trottoir, face
   caméra, démonstration
 
 Termine par **celle à tester en premier**, avec la raison — rattachée au
-segment d'audience le plus large disponible, pas à ton goût.`,
+segment d'audience le plus large disponible, pas à ton goût.
+
+**Cinq accroches, c'est une manche de stade 1.** Elles se testent en campagne
+Trafic, même visuel et même audience partout, une variante par ad set, et
+**c'est le plus haut CTR lien du test qui gagne** — pas un seuil sectoriel.
+Rappelle-le en une ligne, et propose d'enchaîner sur les titres une fois le hook
+tranché.`,
 
     winner: `${SYSTEM_BASE}
 
@@ -1903,9 +1942,7 @@ des clients — cite-les. Et **la phrase la plus forte**, avec ce qui la rend
 forte.
 
 ## 4. Ce qu'on en retient — au moins cinq principes
-Chacun sous cette forme : « Ça marche parce que [mécanisme]. Donc les prochains
-briefs doivent [action précise]. » Un principe qui ne se termine pas par une
-instruction n'en est pas un.
+${LECTURE_GAGNANTS}
 
 ## 5. Comment itérer
 - Même accroche, autre format
@@ -1913,7 +1950,15 @@ instruction n'en est pas un.
 - Même angle, autre niveau de conscience
 - Les signaux de fatigue à surveiller, avec le seuil qui déclenchera le
   remplacement
-- La première itération à lancer, et pourquoi celle-là`,
+- La première itération à lancer, et pourquoi celle-là
+
+**Les itérations sont des déclinaisons, pas des concepts libres** : une seule
+variable bouge à la fois — la rédaction, la tagline, le design ou le format.
+Deux variables dans une même déclinaison, et le résultat ne veut plus rien dire.
+
+Et si tu recommandes de dupliquer la publicité : rappelle que **l'identifiant de
+la publication doit être conservé**, sinon la preuve sociale accumulée —
+mentions, commentaires, partages — repart de zéro.`,
 
     formats: `${SYSTEM_BASE}
 
@@ -1943,37 +1988,47 @@ a une concentration à signaler. Dis-le au lieu de désigner un gagnant.
 Termine par ce qu'il faut produire ensuite, et en quelle proportion.`,
 
     testPlan: `${SYSTEM_BASE}
+${METHODE_J7}
 
-Construis le plan de test créatif des deux prochaines semaines.
+Construis le plan de test des deux prochaines semaines pour ce compte.
 
-Un test n'existe que s'il peut être perdu. Chaque test énoncé ici porte donc
-une question fermée et le chiffre qui y répondra.
+## 1. Où en est le compte
+Situe-le dans les quatre stades, **avec les chiffres qui le prouvent**. Un
+compte sans hook gagnant identifié est au stade 1, quelle que soit son
+ancienneté — et le dire est plus utile que de proposer un test d'audience qui
+n'a aucune chance d'aboutir.
 
-## 1. Ce qu'on sait déjà
-Trois lignes : ce que les données du compte ont déjà tranché, et qu'il est
-inutile de retester. On ne teste pas ce qui est acquis.
+Dis aussi ce qui est déjà tranché et qu'il serait inutile de retester.
 
-## 2. Les tests, par ordre de priorité
-Pour chacun :
-- **La question** — « le témoignage client bat-il le face-caméra sur l'audience
-  froide ? », pas « tester de nouveaux formats »
-- **Ce qui change, et ce qui reste identique** — un seul facteur bouge
-- **Le volume nécessaire** : la dépense minimale par variante pour trancher,
-  calculée sur la cible de coût du compte, pas sur un barème
-- **La durée** avant de regarder, et pourquoi
-- **Le chiffre qui décide**, avec l'écart à partir duquel on conclut
-- **Ce qu'on fait dans les deux cas** — si la réponse est oui, si c'est non
+## 2. Le prochain test, en détail
+Un seul test à la fois, au stade où le compte se trouve.
+- **La variable isolée**, et tout ce qui reste identique
+- **Les 5 à 10 éléments** à tester, écrits — pas décrits. Des hooks, ce sont des
+  phrases ; des rédactions, ce sont des textes.
+- **La configuration** : objectif de campagne, structure, audience, budget par
+  ad set, durée
+- **Ce qui tranche** : le plus haut CTR lien au stade 1, le [coût] aux stades 2
+  et 3
+- **La règle de fermeture** et celle de validation, chiffrées sur la cible de ce
+  compte
 
-## 3. Ce que le compte peut se permettre
-Rapproche le nombre de tests du budget et du volume de conversions. **Un compte
-qui produit dix conversions par semaine ne peut pas trancher trois tests en
-parallèle** : dis combien il peut en porter, quitte à n'en garder qu'un.
+## 3. Ce que le compte peut porter
+Rapproche le plan du budget et du volume de conversions réels. **Un compte qui
+produit dix conversions par semaine ne peut pas trancher trois tests en
+parallèle.** Dis combien il peut en porter — quitte à n'en garder qu'un.
 
-C'est la partie que les plans de test omettent, et c'est celle qui les rend
-faux.
+C'est la partie que les plans de test omettent, et celle qui les rend faux.
 
 ## 4. Le calendrier
-Semaine 1, semaine 2 : ce qui se lance, ce qui se regarde, ce qui se décide.`,
+Semaine 1, semaine 2 : ce qui se lance, ce qui se regarde, ce qui se décide.
+Rappelle la cadence de fond — stade 1 deux fois par mois, stade 2 une fois par
+semaine, stade 3 une fois par mois.
+
+## 5. Ce qu'on inscrit au document de test
+Les lignes à créer, avec leur identifiant — HO, HD, TH ou R — pour que le
+résultat soit consigné et non redécouvert dans six mois.`,
+
+
 
     survey: `${SYSTEM_BASE}
 
