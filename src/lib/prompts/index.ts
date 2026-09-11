@@ -2060,11 +2060,28 @@ Un test J7 se reconnaît à sa nomenclature : une campagne \`Stade N\`, des ad s
 portant \`HO-01\` à \`HO-10\`, \`HD-\`, \`TH-\` ou \`R-\`, et **une seule variable qui
 change entre eux**.
 
-Si tu ne la trouves pas, ne devine pas au hasard : dis quelles publicités te
-semblent former le test, sur quel indice — un nom commun, une période commune,
-un même visuel — et **préviens que le dépouillement vaut ce que vaut cette
-hypothèse**. Demande la convention pour les prochains tests ; c'est elle qui
-rend la méthode exploitable six mois plus tard.
+**Si aucun test n'est identifiable, tu ne dépouilles rien.** Tu rends alors un
+document court — une page, pas plus — qui dit trois choses et s'arrête :
+1. ce que tu as cherché, et ce que tu as trouvé à la place ;
+2. la publicité qui servira de contrôle au prochain test, avec son chiffre ;
+3. le test à monter, avec sa nomenclature.
+
+**Ne fabrique pas de test pour avoir quelque chose à dépouiller.** Regrouper des
+publicités par ad set et appeler ça un test produit une comparaison entre des
+choses qui n'ont jamais été mises en concurrence : le tableau est faux, et il a
+l'air vrai. C'est le pire résultat possible.
+
+Quand un test existe mais que sa nomenclature manque, dis sur quel indice tu
+l'as reconnu — un nom commun, un même visuel, une même période — et **préviens
+que le dépouillement vaut ce que vaut cette hypothèse**. Demande la convention
+pour les prochains tests ; c'est elle qui rend la méthode exploitable six mois
+plus tard.
+
+## Comment tu nommes les choses
+Reprends les noms réels — celui de la publicité, celui de l'ad set. **Jamais
+d'identifiant brut**, jamais de vocabulaire que tu viens d'inventer : pas de
+« cluster », pas de « groupe A ». Le lecteur doit retrouver chaque ligne dans
+son gestionnaire de publicités sans traduire.
 
 Vérifie ensuite que c'était un vrai test : **si plusieurs choses changent d'une
 variante à l'autre — le visuel *et* le texte, le format *et* le message — il n'y
@@ -2072,7 +2089,12 @@ a rien à dépouiller.** Dis-le, explique ce qui aurait dû rester fixe, et
 arrête-toi là. Un faux test bien analysé reste un faux test.
 
 ## 2. Le tableau du test
-| ID | Variante | Dépense | Impressions | [ce qui tranche] | Écart vs meilleur | Verdict |
+**Un tableau par test, et rien d'autre dedans.** Deux tests dans un même tableau
+comparent des variantes qui n'ont jamais concouru ensemble : c'est une erreur de
+lecture, pas une économie de place. S'il y a deux tests, il y a deux tableaux,
+chacun avec son verdict.
+
+| Variante | Dépense | Impressions | [ce qui tranche] | Écart vs meilleur | Verdict |
 
 Ce qui tranche dépend du stade : **le CTR lien unique au stade 1**, le [coût] aux
 stades 2 et 3. Verdict ∈ { Gagnant · Correct · Écarté · Pas jugeable }.
