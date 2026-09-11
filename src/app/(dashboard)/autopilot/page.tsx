@@ -8,59 +8,13 @@ import type { AutopilotAgent } from '@/types'
 import { extraireActionnables, sansBlocActionnables, type Actionnable } from '@/lib/scalr/actionnables'
 import { RapportSections, type Kpi } from '@/components/scalr/RapportSections'
 import { estRapportHtml } from '@/lib/scalr/rapportHtml'
+import { BANQUE, entreesAPlat, compter, type CategorieBanque, type DossierBanque, type EntreeBanque } from '@/lib/prompts/banque'
+import { useRouter } from 'next/navigation'
+import { LigneEntree } from '@/components/scalr/LigneBanque'
 
 type Tab = 'session' | 'agent' | 'history' | 'settings'
 
 // --- Markdown renderer ---
-
-// --- Prompt bank (34 prompts, 4 catégories) ---
-const PROMPT_BANK = {
-  'Performance': [
-    // Le résumé du lundi. Il choisit ses métriques selon le type de compte
-    // plutôt que d'imposer ROAS et CPA, qui ne veulent rien dire sur un compte
-    // de génération de prospects.
-    { id: 'p0', label: 'Résumé hebdomadaire', prompt: "Génère un résumé hebdomadaire couvrant les 7 derniers jours, comparé aux 7 précédents. Ce qui s'est amélioré, ce qui a diminué, ce qui demande une attention immédiate, et les priorités de la semaine prochaine. Déduis d'abord le type de compte depuis les actions présentes (purchase/omni_purchase → ecom ; lead/onsite_conversion.lead_grouped → lead ; landing_page_view/link_click → traffic ; video_view → video ; post_engagement/page_engagement → engagement ; messaging_conversation_started_7d → messagerie ; sinon → notoriété) et retiens les métriques correspondantes — ecom : Dépenses, Achats, ROAS, CPA ; lead : Dépenses, Leads, CPL ; traffic : Dépenses, Clics, CPC, CTR ; video : Dépenses, Vues vidéo, coût par vue ; engagement : Dépenses, Engagements, coût par engagement ; messagerie : Dépenses, Conversations, coût par conversation ; notoriété : Dépenses, Portée, CPM, Fréquence. Tableau semaine contre semaine. Sois concis comme un briefing du lundi matin." },
-    { id: 'p1', label: 'Analyse globale du compte', prompt: 'Analyse les performances globales de mon compte sur les 7 derniers jours. Identifie les tendances principales, les points forts et les alertes.' },
-    { id: 'p2', label: 'Top / Flop des publicités', prompt: 'Liste le top 5 et flop 5 de mes publicités actives sur 14 jours. Pour chaque ad, donne : CPM, CTR, CPC, ROAS et une recommandation.' },
-    { id: 'p3', label: 'Analyse du ROAS', prompt: 'Analyse en profondeur le ROAS de toutes mes campagnes actives. Identifie les campagnes rentables vs déficitaires et les leviers pour améliorer.' },
-    { id: 'p4', label: 'Détection des ads à couper', prompt: 'Identifie les publicités à couper maintenant. Critères : spend > 2× CPA cible sans conversion, ou CPC > 2€ avec CTR < 0.5%.' },
-    { id: 'p5', label: 'Analyse du CPM', prompt: 'Analyse le CPM par campagne et ad set. Identifie les audiences avec CPM anormalement élevé et les raisons possibles.' },
-    { id: 'p6', label: 'Courbe de performance journalière', prompt: 'Analyse la courbe de performance jour par jour sur les 30 derniers jours. Identifie les pics, creux et facteurs explicatifs.' },
-    { id: 'p7', label: 'Analyse du funnel complet', prompt: 'Analyse le funnel complet : impressions → clics → vue LP → ATC → checkout → achat. Identifie le point de rupture principal.' },
-    { id: 'p8', label: 'Alerte dépassement budget', prompt: 'Vérifie si des campagnes dépassent leur budget prévisionnel. Calcule le rythme de dépense actuel vs objectif mensuel.' },
-  ],
-  'Créa & Stratégie': [
-    { id: 'c1', label: 'Scan de fatigue créative', prompt: 'Lance un scan de fatigue créative sur toutes les ads actives. Signale celles avec fréquence > 3 et CTR en baisse sur 7j.' },
-    { id: 'c2', label: 'Hook Rate analysis', prompt: 'Analyse le Hook Rate de toutes mes vidéos actives. Classe-les du plus performant au moins bon et donne des recommandations.' },
-    { id: 'c3', label: 'Hold Rate analysis', prompt: 'Analyse le Hold Rate de mes vidéos. Quels créatifs retiennent le mieux l\'attention et pourquoi ?' },
-    { id: 'c4', label: 'Comparaison formats créatifs', prompt: 'Compare les performances entre les formats 1:1, 9:16 et 16:9. Lequel génère le meilleur ROAS sur mes campagnes ?' },
-    { id: 'c5', label: 'Angles créatifs qui convertissent', prompt: 'Analyse les titres et descriptions de mes meilleures ads. Quels angles créatifs génèrent le plus de conversions ?' },
-    { id: 'c6', label: 'Brief créatif IA', prompt: 'Génère 3 briefs créatifs détaillés pour remplacer mes 3 publicités les moins performantes. Inclus : angle, accroche, structure, CTA.' },
-    { id: 'c7', label: 'Test créatif recommandé', prompt: 'Sur la base de mes données actuelles, recommande un plan de test créatif pour les 2 prochaines semaines.' },
-    { id: 'c8', label: 'Analyse des CTA', prompt: 'Analyse l\'efficacité des call-to-actions utilisés dans mes publicités. Quels CTA génèrent le meilleur CTR ?' },
-  ],
-  'Media Buying': [
-    { id: 'm1', label: 'Audit des ad sets', prompt: 'Audite tous mes ad sets actifs : budget, audience, optimisation, résultats phase apprentissage. Donne une note /10 et des actions.' },
-    { id: 'm2', label: 'Analyse des audiences', prompt: 'Compare les performances par audience (âge, genre, placement). Identifie les segments les plus rentables.' },
-    { id: 'm3', label: 'Recommandation de budget', prompt: 'Sur la base du ROAS actuel, recommande une réallocation des budgets entre les campagnes pour maximiser le profit.' },
-    { id: 'm4', label: 'Analyse des placements', prompt: 'Compare les performances par placement (Feed, Stories, Reels, Audience Network). Recommande la meilleure stratégie.' },
-    { id: 'm5', label: 'Phase apprentissage', prompt: 'Identifie les ad sets encore en phase apprentissage. Lesquels ont des signaux positifs et méritent d\'attendre ?' },
-    { id: 'm6', label: 'Stratégie de scaling', prompt: 'Identifie les campagnes prêtes à scaler. Propose une stratégie de scaling précise (budget, audience, duplicate).' },
-    { id: 'm7', label: 'Analyse CPL / CPA', prompt: 'Analyse le coût par lead ou coût par achat par campagne et ad set. Compare au CPA cible et identifie les outliers.' },
-    { id: 'm8', label: 'Détection des conflits d\'audience', prompt: 'Vérifie si des ad sets se chevauchent sur les audiences et causent une compétition interne au compte.' },
-    { id: 'm9', label: 'Optimisation des enchères', prompt: 'Analyse la stratégie d\'enchères actuelle. Recommande des ajustements pour réduire le CPM sans sacrifier les conversions.' },
-  ],
-  'Reporting': [
-    { id: 'r1', label: 'Rapport hebdomadaire', prompt: 'Génère un rapport de performance complet pour la semaine écoulée. Format : executive summary, tableaux, alertes, actions prioritaires.' },
-    { id: 'r2', label: 'Rapport mensuel client', prompt: 'Génère un rapport mensuel présentable à un client. Include : performance vs mois précédent, insights créatifs, plan d\'action.' },
-    { id: 'r3', label: 'Dashboard HTML', prompt: 'Génère un dashboard HTML visuel de la performance du compte sur 30 jours avec les KPIs clés, graphiques et recommandations.' },
-    { id: 'r4', label: 'Résumé exécutif', prompt: 'Rédige un résumé exécutif de 5 lignes sur la performance du compte ce mois-ci. Pour partage rapide avec le client.' },
-    { id: 'r5', label: 'Comparaison M/M', prompt: 'Compare les performances du mois en cours vs le mois précédent. Mets en évidence les évolutions positives et négatives.' },
-    { id: 'r6', label: 'Analyse de rentabilité', prompt: 'Analyse la rentabilité globale du compte : ROAS, MER estimé, revenue brut, coût des dépenses pub. L\'activité est-elle rentable ?' },
-    { id: 'r7', label: 'Rapport d\'audit complet', prompt: 'Génère un audit complet du compte : structure, budget, créas, audiences, pixel. Note chaque dimension et donne un plan d\'amélioration.' },
-    { id: 'r8', label: 'Plan d\'action 7 jours', prompt: 'Sur la base de l\'analyse actuelle, génère un plan d\'action détaillé pour les 7 prochains jours. Priorités classées par impact.' },
-  ],
-}
 
 const PRESET_AGENTS = [
   {
@@ -407,8 +361,12 @@ export default function AutopilotPage() {
   const [streaming, setStreaming] = useState(false)
   const [search, setSearch] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [openCategory, setOpenCategory] = useState<keyof typeof PROMPT_BANK | null>(null)
+  // La bibliothèque a deux niveaux : Creative Strategy porte des sous-dossiers,
+  // les trois autres catégories portent directement leurs entrées.
+  const [openCategory, setOpenCategory] = useState<CategorieBanque | null>(null)
+  const [openDossier, setOpenDossier] = useState<DossierBanque | null>(null)
   const [chatRole, setChatRole] = useState('performance_manager')
+  const router = useRouter()
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -427,16 +385,26 @@ export default function AutopilotPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [pickerOpen])
 
+  // La recherche porte aussi sur la note : « ventilation », « ROAS »,
+  // « Events Manager » retrouvent les emplacements concernés.
   const searchResults = search.trim()
-    ? (Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).flatMap((cat) =>
-        PROMPT_BANK[cat]
-          .filter((p) =>
-            p.label.toLowerCase().includes(search.toLowerCase()) ||
-            p.prompt.toLowerCase().includes(search.toLowerCase())
-          )
-          .map((p) => ({ ...p, category: cat as string }))
-      )
+    ? entreesAPlat().filter((e) => {
+        const q = search.toLowerCase()
+        return e.label.toLowerCase().includes(q)
+          || e.prompt.toLowerCase().includes(q)
+          || (e.note || '').toLowerCase().includes(q)
+      })
     : []
+
+  /** Deux entrées de la bibliothèque ne sont pas des consignes mais des pages
+   *  dédiées — l'analyse de commentaires et le générateur de briefs. */
+  function ouvrirOutil(lien: string) {
+    setPickerOpen(false)
+    setSearch('')
+    setOpenCategory(null)
+    setOpenDossier(null)
+    router.push(lien)
+  }
 
   /** Load the prompt into the field rather than running it — it stays editable. */
   function pickPrompt(prompt: string) {
@@ -444,6 +412,7 @@ export default function AutopilotPage() {
     setPickerOpen(false)
     setSearch('')
     setOpenCategory(null)
+    setOpenDossier(null)
     setTimeout(() => {
       const el = inputRef.current
       if (!el) return
@@ -1003,15 +972,21 @@ export default function AutopilotPage() {
                   <div className="flex-1 min-h-0 overflow-y-auto py-1">
                     {searchResults.length === 0 ? (
                       <p className="text-xs text-gray-400 text-center py-6">Aucun résultat</p>
-                    ) : searchResults.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => pickPrompt(p.prompt)}
-                        className="w-full text-left px-3 py-2 hover:bg-[#f8f9fc] transition-colors"
-                      >
-                        <span className="text-sm text-[#0d0d12]">{p.label}</span>
-                        <span className="block text-[10px] text-gray-400 mt-0.5">{p.category}</span>
-                      </button>
+                    ) : searchResults.map((e) => (
+                      <LigneEntree key={e.id} entree={e} chemin={e.chemin} onChoisir={pickPrompt} onOuvrirOutil={ouvrirOutil} />
+                    ))}
+                  </div>
+                ) : openDossier ? (
+                  <div className="flex-1 min-h-0 overflow-y-auto py-1">
+                    <button
+                      onClick={() => setOpenDossier(null)}
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 text-xs text-gray-500 hover:text-[#0d0d12] border-b border-[#E5E7EB]"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+                      {openCategory?.nom} › {openDossier.nom}
+                    </button>
+                    {openDossier.entrees.map((e) => (
+                      <LigneEntree key={e.id} entree={e} onChoisir={pickPrompt} onOuvrirOutil={ouvrirOutil} />
                     ))}
                   </div>
                 ) : openCategory ? (
@@ -1021,30 +996,37 @@ export default function AutopilotPage() {
                       className="w-full text-left px-3 py-2 flex items-center gap-2 text-xs text-gray-500 hover:text-[#0d0d12] border-b border-[#E5E7EB]"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
-                      {openCategory}
+                      {openCategory.nom}
                     </button>
-                    {PROMPT_BANK[openCategory].map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => pickPrompt(p.prompt)}
-                        className="w-full text-left px-3 py-2 text-sm text-[#0d0d12] hover:bg-[#f8f9fc] transition-colors"
-                      >
-                        {p.label}
-                      </button>
-                    ))}
+                    {openCategory.dossiers
+                      ? openCategory.dossiers.map((d) => (
+                          <button
+                            key={d.nom}
+                            onClick={() => setOpenDossier(d)}
+                            className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-[#f8f9fc] transition-colors"
+                          >
+                            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                            <span className="text-sm text-[#0d0d12] flex-1">{d.nom}</span>
+                            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{d.entrees.length}</span>
+                            <svg className="w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                          </button>
+                        ))
+                      : (openCategory.entrees || []).map((e) => (
+                          <LigneEntree key={e.id} entree={e} onChoisir={pickPrompt} onOuvrirOutil={ouvrirOutil} />
+                        ))}
                   </div>
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto py-1">
                     <p className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bibliothèque</p>
-                    {(Object.keys(PROMPT_BANK) as (keyof typeof PROMPT_BANK)[]).map((cat) => (
+                    {BANQUE.map((cat) => (
                       <button
-                        key={cat}
+                        key={cat.nom}
                         onClick={() => setOpenCategory(cat)}
                         className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-[#f8f9fc] transition-colors"
                       >
                         <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                        <span className="text-sm text-[#0d0d12] flex-1">{cat}</span>
-                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{PROMPT_BANK[cat].length}</span>
+                        <span className="text-sm text-[#0d0d12] flex-1">{cat.nom}</span>
+                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{compter(cat)}</span>
                         <svg className="w-3.5 h-3.5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
                       </button>
                     ))}
