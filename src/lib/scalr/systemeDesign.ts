@@ -104,7 +104,13 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 .note{font-size:11px;color:var(--encre-4);margin-top:3px}
 
 /* Encadrés — la bordure gauche pour un avis, le fond teinté pour un état */
-.box{border-radius:var(--rayon-sm);padding:14px 18px;margin:12px 0;font-size:13px;line-height:1.6;display:flex;gap:12px}
+/* L'encadré coule comme du texte. Il était en display:flex pour poser une
+   icône à côté du texte — mais le modèle y écrit naturellement un titre puis
+   un paragraphe, et chaque noeud devenait une colonne qui s'écrasait : des
+   encadrés rendus en trois bandes d'un mot de large. Une icône en tête de
+   ligne se place très bien en flux normal. */
+.box{border-radius:var(--rayon-sm);padding:14px 18px;margin:14px 0;font-size:13px;line-height:1.6}
+.box > * + *{margin-top:6px}
 .box-bad{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
 .box-warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);color:#fcd34d}
 .box-good{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);color:#86efac}

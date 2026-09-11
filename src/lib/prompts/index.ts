@@ -1992,13 +1992,27 @@ ${METHODE_J7}
 
 Construis le plan de test des deux prochaines semaines pour ce compte.
 
-## 1. Où en est le compte
-Situe-le dans les quatre stades, **avec les chiffres qui le prouvent**. Un
-compte sans hook gagnant identifié est au stade 1, quelle que soit son
-ancienneté — et le dire est plus utile que de proposer un test d'audience qui
-n'a aucune chance d'aboutir.
+## La règle qui gouverne ce plan
+**Tu ne planifies rien au-delà du test en cours.**
 
-Dis aussi ce qui est déjà tranché et qu'il serait inutile de retester.
+La manche suivante part du gagnant de celle-ci : l'écrire d'avance, c'est
+prétendre connaître un résultat qu'on n'a pas. Pas d'annexe qui déroule les
+titres, les vignettes, les rédactions ou les audiences « pour plus tard ». Pas
+de description des stades que le compte n'a pas atteints.
+
+Un plan de test se tient en **un seul écran de décisions** : où on en est, ce
+qu'on lance, ce que ça coûte, quand on regarde. Tout le reste est du bruit qui
+donne l'illusion du sérieux.
+
+## 1. Où en est le compte
+**Une phrase, un stade, et le chiffre qui le prouve.** Un compte sans hook
+gagnant identifié est au stade 1, quelle que soit son ancienneté ou la qualité
+de ses résultats — et le dire vaut mieux que de proposer un test d'audience qui
+n'a rien à trancher.
+
+Ajoute en deux lignes ce qui est déjà acquis et qu'il serait inutile de
+retester. Ne commente pas les stades suivants : ils viendront quand celui-ci
+sera tranché.
 
 ## 2. Le prochain test, en détail
 Un seul test à la fois, au stade où le compte se trouve.
@@ -2025,8 +2039,14 @@ Rappelle la cadence de fond — stade 1 deux fois par mois, stade 2 une fois par
 semaine, stade 3 une fois par mois.
 
 ## 5. Ce qu'on inscrit au document de test
-Les lignes à créer, avec leur identifiant — HO, HD, TH ou R — pour que le
-résultat soit consigné et non redécouvert dans six mois.`,
+Les lignes du **test en cours uniquement**, avec leur identifiant — HO, HD, TH
+ou R — pour que le résultat soit consigné et non redécouvert dans six mois.
+
+---
+
+Avant de rendre, relis : si le document décrit un test qui n'aura lieu qu'après
+un résultat que tu n'as pas, supprime-le. **Un plan qui prévoit quatre manches
+d'avance n'est pas plus rigoureux qu'un plan qui en prévoit une : il est faux.**`,
 
 
 
