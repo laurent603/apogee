@@ -2,7 +2,7 @@
  * Most accounts here are lead gen, not e-commerce. Without this, prompts written
  * around ROAS and basket size make the model invent metrics the data never had.
  */
-import { METHODE_J7, LECTURE_GAGNANTS } from './j7'
+import { METHODE_J7, LECTURE_GAGNANTS, ELEMENTS_ECRITS } from './j7'
 
 export const TYPE_DETECTION = `
 ## Type de compte — à établir avant toute analyse
@@ -1891,17 +1891,12 @@ les invente pas.
 4. **Cinq accroches, cinq portes d'entrée émotionnelles différentes.** Cinq
    variantes d'une même idée n'en font qu'une.
 
-## Pour chacune
-**ACCROCHE [n]**
-- La phrase exacte, telle qu'elle se dit ou s'affiche à l'écran
-- Pour qui elle est écrite — une phrase, une personne située
-- Le niveau de conscience
-- Le type, parmi les sept de la méthode : **douleur · résultat désiré ·
-  proclamation · appel à l'avatar · avertissement · découverte · rupture de
-  schéma**
-- Pourquoi elle marche, en une phrase : le mécanisme, pas l'éloge
-- Le format qui lui convient : témoignage, statique, micro-trottoir, face
-  caméra, démonstration
+${ELEMENTS_ECRITS}
+
+Ajoute, sous le tableau, ce que le tableau ne peut pas porter : pour chaque
+accroche, **la personne à qui elle parle** en une phrase — quelqu'un de situé,
+pas une cible — et **le format** qui lui convient : témoignage, statique,
+micro-trottoir, face caméra, démonstration.
 
 Termine par **celle à tester en premier**, avec la raison — rattachée au
 segment d'audience le plus large disponible, pas à ton goût.
@@ -2017,14 +2012,15 @@ sera tranché.
 ## 2. Le prochain test, en détail
 Un seul test à la fois, au stade où le compte se trouve.
 - **La variable isolée**, et tout ce qui reste identique
-- **Les 5 à 10 éléments** à tester, écrits — pas décrits. Des hooks, ce sont des
-  phrases ; des rédactions, ce sont des textes.
+- **Les 5 à 10 éléments** à tester, dans le tableau décrit ci-dessous
 - **La configuration** : objectif de campagne, structure, audience, budget par
   ad set, durée
 - **Ce qui tranche** : le plus haut CTR lien au stade 1, le [coût] aux stades 2
   et 3
 - **La règle de fermeture** et celle de validation, chiffrées sur la cible de ce
   compte
+
+${ELEMENTS_ECRITS}
 
 ## 3. Ce que le compte peut porter
 Rapproche le plan du budget et du volume de conversions réels. **Un compte qui

@@ -125,6 +125,43 @@ n'actionne qu'un seul levier a toujours une marge ailleurs.
 `
 
 /**
+ * Comment s'écrivent les éléments d'une manche.
+ *
+ * Le plan rendait « Douleur · Résultat désiré · Proclamation… — 5 à 7 variantes
+ * suffisent ». C'est la liste des types, pas le test : personne ne peut tourner
+ * ça. Un plan de test ne vaut que si les variantes sont écrites, prêtes à être
+ * collées dans le gestionnaire de publicités.
+ */
+export const ELEMENTS_ECRITS = `
+## Les éléments de la manche — écrits, pas décrits
+
+Ils se rendent **dans un tableau**, jamais en liste de types :
+
+| ID | Type | [l'élément] | Pourquoi celui-là pour ce compte |
+
+- **ID** : la nomenclature du document de test — HO-01 à HO-10 pour les hooks,
+  HD- pour les titres, TH- pour les vignettes, R- pour les rédactions.
+- **L'élément** : la phrase exacte, entre guillemets, telle qu'elle sera
+  prononcée ou affichée. Pas une intention, pas un thème — un texte tournable
+  tel quel.
+- **Pourquoi celui-là** : ce qu'il exploite **dans ce compte** — une objection
+  relevée dans les commentaires, un segment qui dépense sans convertir, une
+  promesse qu'aucune créa active ne porte, un chiffre du persona. Une
+  justification qui vaudrait pour n'importe quel annonceur du secteur n'est pas
+  une justification.
+
+**Aucun élément ne répète le ressort d'un autre.** Termine le tableau par une
+ligne qui nomme les mécaniques obtenues — « peur, confort, autorité,
+qualification, responsabilité, calcul, preuve physique, proximité » — et vérifie
+qu'elles sont bien distinctes. Deux variantes qui reposent sur la même émotion
+n'en font qu'une, et le test perd une place pour rien.
+
+Les sept types de hook sont un point de départ, pas une limite : si une
+mécanique réellement différente sort des données du compte — l'appartenance
+locale, le calcul économique — prends-la et nomme-la.
+`
+
+/**
  * Ce que chaque élément gagnant dit de la créa suivante.
  *
  * C'est le geste d'analyse de la semaine 4 de l'Accélérateur, et celui qui
