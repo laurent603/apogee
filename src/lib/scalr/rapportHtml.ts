@@ -101,9 +101,19 @@ export function extraireRapportHtml(contenu: string): string {
           ? doc.replace(/<head([^>]*)>/i, `<head$1>${socle}`)
           : doc.replace(/<html([^>]*)>/i, `<html$1><head><meta charset="utf-8">${socle}</head>`))
 
-    return /<\/body>/i.test(avecSocle)
-      ? avecSocle.replace(/<\/body>/i, `${aides}</body>`)
-      : avecSocle.replace(/<\/html>/i, `${aides}</html>`)
+    /**
+     * Les aides s'ajoutent à la fin, quoi qu'il arrive.
+     *
+     * Elles étaient injectées par remplacement de `</body>`, sinon de
+     * `</html>`. Un document qui ne ferme ni l'une ni l'autre — le modèle
+     * termine parfois sur le `</script>` de son graphique — ne recevait donc
+     * **rien**, et `String.replace` sur une balise absente ne lève aucune
+     * erreur : les onglets ne réagissaient plus, la hauteur du cadre restait
+     * fausse, et rien ne le signalait.
+     */
+    if (/<\/body>/i.test(avecSocle)) return avecSocle.replace(/<\/body>/i, `${aides}</body>`)
+    if (/<\/html>/i.test(avecSocle)) return avecSocle.replace(/<\/html>/i, `${aides}</html>`)
+    return `${avecSocle}${aides}</body></html>`
   }
 
   // Un corps nu : ancien vocabulaire, donc ancienne feuille.

@@ -121,7 +121,11 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 .action .duree{font-size:11px;color:var(--encre-4);white-space:nowrap;background:var(--surface-3);padding:3px 10px;border-radius:var(--pilule)}
 
 /* Onglets en pilules dans un conteneur à fond */
-.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--bordure);border-radius:10px;padding:4px;width:fit-content;max-width:100%;overflow-x:auto;margin-bottom:16px}
+/* Les onglets reviennent à la ligne plutôt que de défiler. Sans retour à la ligne, six
+   onglets faisaient 1 118 px dans 556 px de cadre : les trois derniers
+   n'étaient atteignables que par un défilement horizontal sans barre visible,
+   donc invisibles. Un onglet qu'on ne voit pas est un onglet qui n'existe pas. */
+.tabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface);border:1px solid var(--bordure);border-radius:10px;padding:4px;width:fit-content;max-width:100%;margin-bottom:16px}
 .tab{font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;cursor:pointer;color:var(--encre-4);background:none;border:none;white-space:nowrap;font-family:inherit;transition:all .2s}
 .tab:hover{color:var(--encre-2)}
 .tab.active{background:var(--surface-3);color:var(--encre)}
