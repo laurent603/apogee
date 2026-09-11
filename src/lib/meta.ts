@@ -203,6 +203,9 @@ export async function getCampaigns(accountId: string, token: string, datePreset 
   const data = await metaFetch(`/${accountId}/campaigns`, token, {
     fields: [
       'id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget',
+      // La stratégie d'enchère n'était demandée nulle part : aucun prompt ne
+      // pouvait la juger, et l'audit de structure la devinait.
+      'bid_strategy',
       `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
     limit: '50',
@@ -226,6 +229,7 @@ export async function getAdSets(accountId: string, token: string, datePreset = '
     fields: [
       'id', 'name', 'status', 'campaign_id', 'daily_budget', 'lifetime_budget',
       'optimization_goal', 'targeting', 'learning_stage_info',
+      'bid_strategy', 'bid_amount', 'destination_type',
       `insights.date_preset(${datePreset}){${INSIGHT_FIELDS_NESTED}}`,
     ].join(','),
     limit: '100',

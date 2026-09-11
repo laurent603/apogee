@@ -880,6 +880,142 @@ Structure un rapport présentable à un client ou un investisseur :
 **Le rapport s'adresse à quelqu'un qui décide.** Chaque section se termine par
 ce qu'elle implique, jamais par ce qu'elle a mesuré.`
 
+/**
+ * Les 50 points de contrôle Andromeda, énumérés.
+ *
+ * Ils étaient annoncés — « évalue 50 points de contrôle » — mais écrits nulle
+ * part. Le modèle reconstruisait donc la liste à chaque exécution, et le
+ * dénominateur changeait d'un audit à l'autre : « 28 sur 45 », puis « 28 sur
+ * 50 ». Un score dont le dénominateur bouge ne se compare pas dans le temps,
+ * ce qui est la seule chose qu'on demande à un score.
+ *
+ * La liste vient de l'audit réel du compte SB Piscine, fourni par Laurent.
+ *
+ * Trois arbitrages ont été nécessaires et sont explicités dans le texte :
+ * les quatre points Andromeda n'avaient aucun poids ; le N/A était traité dans
+ * les deux sens opposés selon les lignes ; et le budget par adset valait 5× la
+ * cible ici, 10× dans l'audit de référence.
+ */
+export const CHECKS_ANDROMEDA = `
+## Les 50 points de contrôle
+
+Évalue-les tous, dans cet ordre, sans en ajouter ni en retirer. Chacun reçoit
+**PASS / WARNING / FAIL / N/A**.
+
+### 📡 Signal de conversion — 30 % (10 points)
+| ID | Point | Sévérité | Où ça se lit |
+|---|---|---|---|
+| M01 | Pixel installé et actif | Critical | Présence d'événements pixel dans les actions |
+| M02 | CAPI active, envoi server-side | Critical | **Events Manager — invisible ici** |
+| M03 | Déduplication \`event_id\` | Critical | **Events Manager — invisible ici** |
+| M04 | Event Match Quality ≥ 8.0 | Critical | **Events Manager — invisible ici** |
+| M05 | Vérification de domaine | High | **Business Manager — invisible ici** |
+| M06 | Aggregated Event Measurement (iOS) | High | **Events Manager — invisible ici** |
+| M07 | Événements standards du tunnel | High | Quels événements remontent réellement |
+| M08 | Paramètres avancés (fbp, fbc, e-mail haché) | Medium | **Events Manager — invisible ici** |
+| M09 | Stratégie iOS documentée | Medium | **Hors données** |
+| M10 | Fraîcheur des données | Medium | Impressions et clics récents |
+
+### 🎨 Créa — 30 % (13 points)
+| ID | Point | Sévérité | Où ça se lit |
+|---|---|---|---|
+| M25 | Diversité des formats (≥ 3 actifs) | Critical | Créas des publicités actives |
+| M26 | Volume de créas par adset | High | Publicités par adset |
+| M27 | Couverture des ratios vidéo | High | **Non exposé par l'API** |
+| M28 | Détection de fatigue | Critical | Fréquence + tendance CTR |
+| M29 | Hook Rate | High | Vues 3 s / impressions |
+| M30 | Preuve sociale dans les créas | Medium | **Non exposé** |
+| M31 | Présence d'UGC actif | Medium | Noms et copies, à qualifier prudemment |
+| M32 | Advantage+ Creative | Medium | **Non exposé** |
+| M-CR1 | Fraîcheur créative (< 21 j) | High | Date de création des publicités |
+| M-CR2 | Fréquence prospecting (< 3) | High | Fréquence par adset froid |
+| M-CR3 | Fréquence retargeting (< 8) | Medium | Fréquence par adset chaud |
+| M-CR4 | CTR contre le repère du secteur | High | CTR du compte |
+| M-AN1 | Diversité créative Andromeda | Critical | Similarité apparente entre créas actives |
+
+### 🏗️ Structure — 20 % (21 points)
+| ID | Point | Sévérité | Où ça se lit |
+|---|---|---|---|
+| M11 | Nombre de campagnes (1-3) | High | Campagnes actives |
+| M12 | CBO vs ABO adapté au niveau de dépense | Medium | Où est porté le budget |
+| M13 | Phase d'apprentissage | Critical | \`learning_stage_info\` |
+| M14 | Budget par adset contre la cible | High | Budget / cible de coût |
+| M15 | Consolidation des campagnes | High | Objectifs et recouvrement |
+| M16 | Advantage+ Sales | High | Objectif de campagne |
+| M17 | Placements Advantage+ | Medium | Ciblage |
+| M18 | Fenêtre d'attribution | High | **Réglage de compte — invisible ici** |
+| M33 | Stratégie d'enchère | Medium | \`bid_strategy\` |
+| M34 | Paramètres UTM | Medium | **Non exposé** |
+| M35 | Test A/B structuré | Medium | **Non exposé** |
+| M36 | Budget suffisant pour l'objectif | High | Budget contre objectif mensuel |
+| M37 | Utilisation du budget | Medium | Dépense réelle contre budget |
+| M38 | Adsets par campagne | Medium | Comptage |
+| M39 | Convention de nommage | Low | Noms des campagnes, adsets, publicités |
+| M40 | Redondance de mesure | Medium | **Non exposé** |
+| M-ST1 | Objectif aligné sur le résultat voulu | High | Objectif contre [conv] attendue |
+| M-ST2 | Contrôles de coût | Medium | Stratégie d'enchère et budget |
+| M-AT1 | Attribution post-janvier 2026 | High | **Réglage de compte — invisible ici** |
+| M-IA1 | Test d'incrémentalité lancé | Medium | **Non exposé** |
+| M-TH1 | Placement Threads | Low | Ciblage / ventilation par placement |
+
+### 🎯 Audience — 20 % (6 points)
+| ID | Point | Sévérité | Où ça se lit |
+|---|---|---|---|
+| M19 | Chevauchement entre adsets | High | Ciblages comparés |
+| M20 | Fraîcheur des audiences personnalisées | Medium | Ciblage |
+| M21 | Qualité de la source des similaires | Medium | Ciblage |
+| M22 | Advantage+ Audience | High | Ciblage |
+| M23 | Exclusion des convertis | Medium | Exclusions du ciblage |
+| M24 | Données propriétaires exploitées | High | Présence d'audiences personnalisées |
+
+## Comment se calcule la note
+
+**Un point non observable est N/A.** Il ne reçoit pas de note, il **sort du
+dénominateur**, et son poids se redistribue sur les points réellement évalués
+de sa catégorie.
+
+Deux erreurs symétriques à ne jamais commettre, et l'audit de référence faisait
+les deux :
+- **Ne note jamais FAIL un point que tu ne peux pas mesurer.** « EMQ
+  indéterminable » n'est pas un échec du compte, c'est une limite de
+  l'observation.
+- **Ne note jamais PASS un point qui ne s'applique pas.** Un compte de
+  génération de prospects n'a pas d'Advantage+ Sales : c'est N/A, pas une
+  réussite. Compter les N/A comme des PASS gonfle la note.
+
+**Les points qui ne s'appliquent pas au type de compte sont N/A**, pas FAIL.
+En génération de prospects, M07 se juge sur les événements attendus pour ce
+type — Lead, et ViewContent si une page d'arrivée existe. L'absence d'achat ou
+de panier est normale et ne coûte rien.
+
+Si une catégorie entière devient N/A, redistribue son poids sur les autres au
+prorata, et dis-le.
+
+**Le pied de page déclare l'écart** : combien de points évalués sur 50, combien
+de N/A, et pourquoi. Sans ce dénominateur, la note ne veut rien dire et ne se
+compare pas d'un mois à l'autre.
+
+## La longueur de chaque ligne
+Cinquante points tiennent dans un rapport **parce que chaque ligne est courte**.
+Une observation = une phrase, avec son chiffre. Une ligne d'action en dessous,
+**seulement quand le résultat n'est pas PASS**. Un point qui passe n'a pas
+besoin d'être commenté : la coche suffit.
+
+Un N/A se justifie en cinq mots — « non lisible sans Events Manager » — pas en
+trois lignes.
+
+Ce qui mérite du développement, c'est le plan d'action et les catégories, pas
+le relevé.
+
+## Le seuil de budget, une fois pour toutes
+Budget quotidien d'un adset rapporté à la cible de coût :
+- **≥ 10×** : confortable, la sortie d'apprentissage ne pose pas de question
+- **5× à 10×** : viable, mais l'apprentissage sera lent
+- **2× à 5×** : limite, risque de rester bloqué
+- **< 2×** : sortie d'apprentissage impossible
+
+C'est ce barème qui fait foi partout, y compris pour M13 et M14.`
+
 export const PROMPTS = {
   audit: {
     full: `${SYSTEM_BASE}
@@ -892,7 +1028,10 @@ Lance un audit complet Meta Ads (framework Andromeda) sur ce compte.
 - Structure du compte (20%) : nb campagnes, CBO vs ABO, learning phase, budget/adset, Advantage+, placements
 - Audience & Targeting (20%) : overlap, exclusions, lookalikes, Advantage+ Audience
 
-Pour chaque point : PASS ✅ / WARNING ⚠️ / FAIL ❌ avec le benchmark Meta.
+${CHECKS_ANDROMEDA}
+
+Pour chaque point : PASS ✅ / WARNING ⚠️ / FAIL ❌ / N/A, avec le repère Meta
+quand il existe, et une observation qui porte son chiffre.
 
 Structure le rapport ainsi :
 1. Health Score (0-100) + Grade (A-F) avec barres visuelles par catégorie
@@ -954,7 +1093,8 @@ Analyse :
 - Nombre de campagnes (1-3 recommandé)
 - CBO vs ABO : stratégie budget adaptée au niveau de dépense ?
 - Learning phase : % adsets en "Learning Limited" (>50% = critique)
-- Budget par adset : ≥5× CPA cible ?
+- Budget par adset rapporté à la cible de coût : ≥ 10× confortable, 5 à 10×
+  viable, 2 à 5× limite, sous 2× sortie d'apprentissage impossible
 - Overlap audiences entre adsets
 - Utilisation Advantage+ Sales
 - Placements : Advantage+ Placements activé ?
@@ -1213,6 +1353,265 @@ coup renvoie l'adset en apprentissage et détruit ce qu'elle voulait exploiter.`
      * maintenant des actions présentes, et décide des métriques, comme le fait
      * déjà la couche de données.
      */
+    cpmTrend: `${SYSTEM_BASE}
+
+Analyse l'évolution du CPM et ce qu'elle implique.
+
+Le CPM n'est pas un indicateur de performance : c'est le **prix d'entrée**. Il
+dit ce que coûte l'attention, pas ce qu'elle rapporte. Une hausse n'est un
+problème que rapportée à ce qu'elle produit.
+
+## 1. La courbe
+CPM moyen du compte, tendance sur la période, et les pics — repère s'ils
+tombent sur des week-ends, des débuts de mois, ou une période de forte
+concurrence. Un graphique sert ici plus qu'un tableau.
+
+## 2. Par campagne
+| Campagne | CPM moyen | Min | Max | Tendance | Type d'audience |
+Signale les campagnes au CPM anormalement élevé, et dis ce qui les distingue.
+
+## 3. Par type d'audience
+Croise le CPM avec le ciblage : large, intérêts, similaire, retargeting. Le
+retargeting a normalement le CPM le plus élevé — audience petite, concurrence
+forte sur les mêmes personnes. Si ce n'est pas le cas sur ce compte, c'est
+intéressant : dis pourquoi.
+
+**Le CPM par placement ne t'est pas transmis** — ne l'invente pas. Si la
+question se pose, dis qu'elle demande la ventilation par placement.
+
+## 4. Le diagnostic, qui est toujours un croisement
+| | CTR stable | CTR en baisse |
+|---|---|---|
+| **CPM en hausse** | concurrence accrue sur l'audience → diversifier le ciblage | fatigue créative → renouveler, c'est urgent |
+| **CPM stable** | — | problème créatif isolé |
+| **CPM en baisse** | opportunité de montée en charge | l'audience s'élargit mais convertit moins bien |
+
+Et un cas à part : **CPM stable avec [coût] en hausse** — rien ne se passe
+avant le clic, le problème est après. Page d'arrivée, offre, ou formulaire.
+
+## 5. Actions
+Ce qui fait baisser un CPM : élargir le ciblage, ouvrir des placements moins
+disputés, éviter les périodes de pointe. Ce qui ne le fait pas baisser :
+changer d'enchère. Dis-le si la question vient.`,
+
+    cboAbo: `${SYSTEM_BASE}
+
+Audite la structure budgétaire du compte et tranche entre CBO et ABO.
+
+**Comment lire les données** : un budget porté par la campagne signale un CBO —
+Meta répartit lui-même entre les adsets. Un budget porté par les adsets signale
+un ABO. Un compte peut porter les deux, et c'est souvent le bon réglage.
+
+Pour chaque campagne :
+| Campagne | Type | Budget | Adsets actifs | Learning | [conv] | [coût] | Recommandation |
+
+## Les règles
+- **CBO** quand le budget dépasse 100 €/jour, qu'il y a plus de trois adsets, et
+  que l'objectif est de pousser des gagnants déjà identifiés.
+- **ABO** quand le budget est plus bas, qu'on teste, ou qu'on a besoin de
+  garantir une dépense à chaque adset — en CBO, Meta affame les adsets qu'il
+  juge moins prometteurs dès les premières heures.
+- **Le mélange est le réglage standard** : une campagne CBO qui pousse ce qui
+  marche, une campagne ABO qui teste.
+
+## Ce qu'il faut dire, au-delà du verdict
+Un CBO qui concentre tout sur un seul adset n'est pas un CBO qui fonctionne :
+c'est un test qui n'a jamais eu lieu. Regarde la répartition réelle de la
+dépense entre adsets, pas le réglage déclaré.
+
+Si tu recommandes une bascule, dis ce qu'elle coûte : changer le mode de budget
+renvoie les adsets en apprentissage.`,
+
+    overlap: `${SYSTEM_BASE}
+
+Détecte les chevauchements d'audience entre les adsets actifs.
+
+Tu disposes du ciblage de chaque adset. Compare-les deux à deux : zones
+géographiques, tranches d'âge, genre, centres d'intérêt, audiences
+personnalisées, similaires et leur pourcentage, exclusions.
+
+**Tu estimes un recouvrement, tu ne le mesures pas.** Meta ne fournit pas de
+taux d'overlap ici : dis « recouvrement probable » et montre sur quoi tu te
+fondes — mêmes intérêts, même source de similaire, zones qui s'emboîtent.
+
+| Adset A | Adset B | Ce qu'ils partagent | Recouvrement estimé | Conflit ? |
+
+Deux adsets en ciblage large sur le même pays se cannibalisent presque
+certainement, même sans intérêt commun à comparer : dis-le.
+
+## Ce que ça coûte, et quoi faire
+Deux adsets qui visent les mêmes personnes enchérissent l'un contre l'autre :
+le CPM monte pour les deux, et le budget se divise sans que la portée augmente.
+Rapproche donc toujours le recouvrement du CPM constaté — c'est lui qui
+transforme le soupçon en preuve.
+
+Recommande, par paire : fusionner, exclure mutuellement, ou diversifier la
+source. Dis laquelle des deux garder et pourquoi.`,
+
+    audienceStrategy: `${SYSTEM_BASE}
+
+Audite la stratégie d'audience du compte.
+
+Classe chaque adset actif dans une catégorie, depuis son ciblage :
+- **Large** — pas d'intérêt, pas de similaire, pas d'audience personnalisée
+- **Intérêts** — ciblage par centres d'intérêt (liste-les)
+- **Similaire** — précise la source et le pourcentage
+- **Retargeting** — visiteurs, engagements, clients, fichier
+- **Advantage+ Audience** — Meta gère le ciblage
+
+| Adset | Catégorie | Détail du ciblage | Budget/j | Dépense | [conv] | [coût] | Fréquence | Statut |
+
+## Répartition de la dépense par catégorie
+Les parts en pourcentage, et ce qu'elles disent :
+- **Retargeting au-delà de 30 % du budget** : signal d'alerte. Il récolte
+  souvent des conversions qui seraient venues seules, et il masque un haut de
+  tunnel qui ne remplit plus.
+- **Large contre Intérêts** : sur un compte qui a du volume, le large bat
+  généralement le ciblage par intérêts — l'algorithme trouve mieux que la
+  liste. Vérifie-le sur ce compte plutôt que de l'affirmer.
+- **Similaire** : compare son coût à celui du large. S'il ne fait pas mieux, il
+  ne justifie pas la complexité.
+
+## Structure recommandée selon le stade
+| Stade | Large | Similaire | Retargeting |
+|---|---|---|---|
+| Test | 70 % | 20 % | 10 % |
+| Montée en charge | 50 % | 30 % | 20 % |
+| Mature | selon les coûts constatés par catégorie |
+
+Dis à quel stade est ce compte avant de recommander une répartition.
+
+Termine par les actions : quels adsets consolider, quels ciblages tester, et ce
+qu'on attend de chaque test.`,
+
+    spendDistribution: `${SYSTEM_BASE}
+
+Analyse comment la dépense se répartit entre les créas.
+
+**Le problème qu'on cherche** : Meta concentre le budget sur deux ou trois
+publicités, et les autres n'atteignent jamais la dépense qui permettrait de les
+juger. On croit avoir testé dix créas ; on en a testé trois.
+
+Le seuil pour qu'une créa soit jugeable est un **multiple de la cible de coût
+du compte** — utilise celui du profil s'il est réglé, sinon deux fois la cible,
+et dis lequel tu as pris.
+
+| Publicité | Adset | Dépense | Seuil | Dépense / seuil | Impressions | [conv] | Verdict |
+
+Verdict ∈ { Jugeable, Données insuffisantes, Non diffusée }.
+
+## Statistiques à donner
+- Publicités actives, et combien ont atteint le seuil
+- Part du budget captée par les trois premières
+- Publicités « zombies » : actives depuis plus de 14 jours avec moins de
+  1 000 impressions
+
+## Diagnostic
+Au-delà de la moitié des créas sous le seuil, la structure est en cause, pas
+les créas. Les leviers, dans l'ordre de brutalité :
+1. Moins de créas par adset — trois à cinq en CBO, pas douze
+2. Un adset dédié pour isoler ce qu'on veut réellement tester
+3. Un budget qui permette à chaque créa d'atteindre le seuil sur la période
+4. ABO plutôt que CBO tant que le test n'est pas tranché
+
+**Ne recommande jamais de couper une créa sous le seuil** : elle n'a pas
+échoué, elle n'a pas été testée. Dis combien de dépense il lui manque.`,
+
+    learningPhase: `${SYSTEM_BASE}
+
+Audite la phase d'apprentissage de tous les adsets actifs.
+
+Un adset en *Learning Limited* ne sera jamais optimisé correctement : Meta n'a
+pas assez de signal pour apprendre. Il faut le débloquer ou le fermer — le
+laisser tourner est la seule option qui ne mène nulle part.
+
+| Adset | Campagne | Budget/j | Cible | Budget / cible | [conv] 7j | Statut | Jours actif | Action |
+
+## Les règles
+- **Budget / cible de coût > 5** : sain, la sortie d'apprentissage est possible
+- **Entre 2 et 5** : limite, risque d'y rester
+- **Sous 2** : sortie impossible, action urgente
+- Il faut environ 50 conversions par semaine pour sortir d'apprentissage
+- Toute modification notable — budget de plus de 20 %, ciblage, créa —
+  réinitialise l'apprentissage
+
+## Diagnostic global
+Part des adsets en Learning Limited : sous 30 % c'est normal, entre 30 et 50 %
+c'est un avertissement, au-delà c'est critique. Donne aussi la **part du budget
+bloquée** dans cet état — c'est elle qui chiffre le problème.
+
+## Les cinq causes, et leur remède
+1. Budget trop bas face à la cible → monter, ou consolider des adsets
+2. Audience trop petite → élargir, ou prendre un similaire plus large
+3. Trop d'adsets qui fragmentent le budget → fusionner les jumeaux
+4. Modifications trop fréquentes → ne plus toucher pendant sept jours
+5. Événement d'optimisation trop rare → remonter d'un étage dans le tunnel
+
+Nomme la cause de chaque adset bloqué. « Il est en apprentissage » n'est pas un
+diagnostic.`,
+
+    pacing: `${SYSTEM_BASE}
+
+Suis-je en ligne avec mes objectifs du mois ?
+
+Calcule, à partir du budget mensuel et de l'objectif de conversions du profil :
+1. Jours écoulés et jours restants
+2. Dépense cumulée contre budget prévu, en euros et en pourcentage
+3. [conv] cumulées contre l'objectif mensuel
+4. Le [coût] actuel, et celui qu'il faudrait tenir sur les jours restants pour
+   atteindre l'objectif dans l'enveloppe
+5. Projection de fin de mois au rythme actuel
+
+Si le budget mensuel ou l'objectif ne sont pas renseignés dans le profil,
+demande-les : sans eux, il n'y a pas de rythme à juger, seulement une dépense à
+constater. Dis-le plutôt que d'inventer une cible.
+
+## Verdict
+**Dans les temps / en retard / en avance**, avec le chiffre qui tranche.
+
+- **En retard** : ce qui coûte le moins cher entre monter le budget et baisser
+  le coût — chiffre les deux, ne recommande pas les deux à la fois.
+- **En avance** : monter prudemment, ou tenir le rythme. Rappelle qu'une hausse
+  de plus de 30 % renvoie les adsets en apprentissage et peut coûter la fin du
+  mois.
+
+## Le piège à signaler
+Un rythme calculé sur un mois entamé depuis trois jours ne vaut rien. En
+dessous d'une semaine écoulée, donne la projection **et** dis qu'elle n'est pas
+fiable.`,
+
+    bidding: `${SYSTEM_BASE}
+
+Analyse la stratégie d'enchère du compte.
+
+Tu disposes de la stratégie de chaque campagne et de chaque adset, et du
+montant d'enchère quand il y en a un.
+
+| Campagne / Adset | Stratégie | Enchère | Dépense | [conv] | [coût] | CPM | Verdict |
+
+## Ce que chaque stratégie fait
+- **Coût le plus bas, sans plafond** : Meta dépense tout le budget, quel que
+  soit le coût atteint. Bon pour trouver du volume, dangereux quand le coût
+  dérive — c'est la stratégie qui produit les mauvaises surprises.
+- **Plafond de coût** : Meta reste sous une cible, quitte à ne pas tout
+  dépenser. Un plafond trop bas fait qu'un adset ne sort jamais d'apprentissage
+  et ne dépense presque rien : vérifie la dépense réelle contre le budget avant
+  de conclure qu'il « ne marche pas ».
+- **Enchère plafonnée** : contrôle fin, réservé aux comptes qui connaissent
+  précisément la valeur d'une conversion.
+
+## Le diagnostic
+Rapproche la stratégie du coût constaté et du CPM :
+- Coût le plus bas + coût qui dérive au-dessus du plafond du profil → poser un
+  plafond de coût, à la cible et non au plafond
+- Plafond de coût + dépense très inférieure au budget → le plafond étouffe,
+  remonter par paliers de 10 à 15 %
+- CPM anormalement haut sur une audience étroite → ce n'est pas l'enchère, c'est
+  la taille de l'audience : dis-le plutôt que de toucher au réglage
+
+**Ne recommande jamais de changer une stratégie sans dire ce que ça coûte** :
+tout changement d'enchère réinitialise l'apprentissage.`,
+
     weeklyReview: `${SYSTEM_BASE}
 ${REVUE_HEBDO}`,
   },
@@ -1326,6 +1725,184 @@ lourdement se marque *Fatigué*, même s'il est bon : il n'ouvre rien de neuf.
 Termine avec SYNTHÈSE : total, distribution par niveau de conscience, top 3 à
 briefer immédiatement avec le pourquoi de chacun, et **le manque le plus
 criant** — le niveau, l'émotion ou le persona que la banque ne couvre pas.`,
+
+    hooks: `${SYSTEM_BASE}
+
+Écris cinq accroches pour une même idée.
+
+**Une accroche n'est pas un titre : c'est une décision prise en moins de deux
+secondes.** Le but n'est pas qu'elle sonne bien, mais que la bonne personne
+s'arrête parce qu'elle a l'impression qu'on lui parle à elle.
+
+Si l'angle, la personne visée ou le niveau de conscience ne sont pas donnés,
+prends-les de ce qui a été dit avant dans la conversation, ou demande-les. Ne
+les invente pas.
+
+## Les règles
+1. **Chaque accroche vise une personne, pas une cible.** Nomme-la avant de
+   l'écrire.
+2. **Une accroche doit mériter la ligne suivante** : elle ouvre une question à
+   laquelle seule la suite répond.
+3. **Aucune ouverture générique.** Ni « Vous en avez assez de… », ni
+   « Saviez-vous que… », ni « Découvrez… ». Si l'accroche pourrait servir à un
+   autre annonceur du même secteur, elle est ratée.
+4. **Cinq accroches, cinq portes d'entrée émotionnelles différentes.** Cinq
+   variantes d'une même idée n'en font qu'une.
+
+## Pour chacune
+**ACCROCHE [n]**
+- La phrase exacte, telle qu'elle se dit ou s'affiche à l'écran
+- Pour qui elle est écrite — une phrase, une personne située
+- Le niveau de conscience
+- Le type : nommer le problème · solution ratée · curiosité · rupture de
+  schéma · transformation · preuve sociale
+- Pourquoi elle marche, en une phrase : le mécanisme, pas l'éloge
+- Le format qui lui convient : témoignage, statique, micro-trottoir, face
+  caméra, démonstration
+
+Termine par **celle à tester en premier**, avec la raison — rattachée au
+segment d'audience le plus large disponible, pas à ton goût.`,
+
+    winner: `${SYSTEM_BASE}
+
+Démonte une publicité qui marche pour comprendre pourquoi.
+
+Prends la meilleure du compte sur la période — au [coût] le plus bas parmi
+celles qui ont un volume réel, pas celle qui a un résultat unique et chanceux.
+Dis laquelle tu as prise et pourquoi.
+
+**Une créa gagnante documentée est la base de tous les briefs qui suivent.**
+Sans ce travail, un compte recommence à zéro à chaque production.
+
+## 1. Diagnostic structurel
+L'accroche : ce qu'elle fait, à qui elle parle, pourquoi elle arrête le
+défilement. L'angle : l'idée centrale, en une phrase — **l'accroche est
+l'ouverture, l'angle est l'idée entière**, ne les confonds pas. Le niveau de
+conscience et ce qui le prouve. Pourquoi ce format. Et la boucle ouverte : à
+quelle seconde la question posée au début reçoit sa réponse.
+
+## 2. Mécanique psychologique
+Le désir ou la peur sur lequel elle s'appuie. Le trajet émotionnel de
+l'ouverture jusqu'à l'appel à l'action. Les objections traitées, et à quel
+moment. Les signaux de confiance. Ce qui la fait passer pour un contenu plutôt
+que pour une publicité.
+
+## 3. La langue
+Les tournures qui portent le plus. Les formulations qui viennent visiblement
+des clients — cite-les. Et **la phrase la plus forte**, avec ce qui la rend
+forte.
+
+## 4. Ce qu'on en retient — au moins cinq principes
+Chacun sous cette forme : « Ça marche parce que [mécanisme]. Donc les prochains
+briefs doivent [action précise]. » Un principe qui ne se termine pas par une
+instruction n'en est pas un.
+
+## 5. Comment itérer
+- Même accroche, autre format
+- Même format, trois autres accroches
+- Même angle, autre niveau de conscience
+- Les signaux de fatigue à surveiller, avec le seuil qui déclenchera le
+  remplacement
+- La première itération à lancer, et pourquoi celle-là`,
+
+    formats: `${SYSTEM_BASE}
+
+Compare les formats créatifs du compte.
+
+Sépare d'abord ce que tu peux constater de ce que tu ne peux pas. **Tu vois** :
+si une publicité porte une vidéo ou une image, ses métriques vidéo quand il y
+en a, sa dépense et ses résultats. **Tu ne vois pas** le ratio d'affichage
+(1:1, 4:5, 9:16) ni le montage. Ne prétends pas comparer ce que tu n'as pas —
+dis-le et propose comment l'obtenir.
+
+| Format | Publicités | Dépense | Part du budget | CTR | Hook Rate | Hold Rate | [conv] | [coût] |
+
+## Ce qu'il faut en tirer
+- Quel format produit au meilleur coût, et **avec quel volume** — un format qui
+  gagne sur une seule publicité ne gagne pas
+- Là où la vidéo est présente : le Hook Rate dit si l'ouverture accroche, le
+  Hold Rate si la suite tient. Une vidéo au bon Hook Rate et au mauvais Hold
+  Rate n'a pas un problème d'accroche, elle a un problème de troisième seconde.
+- La diversité : combien de formats tournent réellement ? En dessous de trois,
+  le compte est exposé — à la fatigue, et à la pénalité de similarité.
+
+## Attention au faux verdict
+Si un seul format a reçu du budget, il n'y a pas de comparaison à faire : il y
+a une concentration à signaler. Dis-le au lieu de désigner un gagnant.
+
+Termine par ce qu'il faut produire ensuite, et en quelle proportion.`,
+
+    testPlan: `${SYSTEM_BASE}
+
+Construis le plan de test créatif des deux prochaines semaines.
+
+Un test n'existe que s'il peut être perdu. Chaque test énoncé ici porte donc
+une question fermée et le chiffre qui y répondra.
+
+## 1. Ce qu'on sait déjà
+Trois lignes : ce que les données du compte ont déjà tranché, et qu'il est
+inutile de retester. On ne teste pas ce qui est acquis.
+
+## 2. Les tests, par ordre de priorité
+Pour chacun :
+- **La question** — « le témoignage client bat-il le face-caméra sur l'audience
+  froide ? », pas « tester de nouveaux formats »
+- **Ce qui change, et ce qui reste identique** — un seul facteur bouge
+- **Le volume nécessaire** : la dépense minimale par variante pour trancher,
+  calculée sur la cible de coût du compte, pas sur un barème
+- **La durée** avant de regarder, et pourquoi
+- **Le chiffre qui décide**, avec l'écart à partir duquel on conclut
+- **Ce qu'on fait dans les deux cas** — si la réponse est oui, si c'est non
+
+## 3. Ce que le compte peut se permettre
+Rapproche le nombre de tests du budget et du volume de conversions. **Un compte
+qui produit dix conversions par semaine ne peut pas trancher trois tests en
+parallèle** : dis combien il peut en porter, quitte à n'en garder qu'un.
+
+C'est la partie que les plans de test omettent, et c'est celle qui les rend
+faux.
+
+## 4. Le calendrier
+Semaine 1, semaine 2 : ce qui se lance, ce qui se regarde, ce qui se décide.`,
+
+    survey: `${SYSTEM_BASE}
+
+Écris le questionnaire à envoyer aux clients de ce compte.
+
+**La plupart des questionnaires posent les questions que la marque veut voir
+répondues.** Ceux-ci posent les questions qui produisent la langue dont on a
+besoin pour écrire les publicités. Une réponse comme « très bon service,
+rapide » ne sert à rien. « J'ai attendu trois ans en me disant que c'était trop
+cher, et le devis était deux fois moins élevé que ce que j'imaginais » est un
+brief.
+
+## Les règles
+1. Chaque question vise une **phrase citable**, pas une note de satisfaction.
+2. Ouvertes, jamais fermées.
+3. Vise le moment de la décision. « Qu'est-ce qui a failli vous faire renoncer ? »
+   est souvent la meilleure source d'accroche du questionnaire entier.
+4. Cinq bonnes questions valent mieux que quinze moyennes : la longueur tue le
+   taux de réponse, et les dernières réponses sont toujours les plus pauvres.
+
+## Ce que tu rends
+**LES CINQ ESSENTIELLES** — valables pour n'importe quelle marque. Pour
+chacune : la question exacte, ce qu'elle cherche à produire, le niveau de
+conscience qu'elle éclaire, et un exemple de réponse qui deviendrait une
+accroche.
+
+**LES QUESTIONS PROPRES À CE MÉTIER** — cinq à huit, tirées de l'offre et du
+marché du compte. Pour chacune : la question, l'angle qu'elle fait remonter.
+
+**LA MEILLEURE QUESTION** — une seule, celle qui produit la langue la plus
+forte. Écris-la, et dis pourquoi c'est celle-là.
+
+**COMMENT L'ENVOYER** — le support, le moment, la phrase d'introduction, et
+l'erreur de cadrage qui ruine la qualité des réponses : annoncer qu'il s'agit
+d'améliorer le service. Les gens répondent alors en évaluateurs, pas en clients.
+
+Adapte le moment d'envoi au métier : après l'achat pour un produit, après la
+pose ou la prestation pour un service, après le rendez-vous quand la vente est
+longue.`,
 
     fullFunnelStrategy: `${SYSTEM_BASE}
 

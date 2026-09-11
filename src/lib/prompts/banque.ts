@@ -133,16 +133,14 @@ const MEDIA_BUYING: EntreeBanque[] = [
   {
     id: 'mb-cbo-abo',
     label: 'CBO vs ABO',
-    etat: 'aEcrire',
-    note: 'Le sujet est éclaté en une puce de l’audit de structure',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.cboAbo),
   },
   {
     id: 'mb-overlap',
     label: 'Chevauchement d’audiences',
-    etat: 'aEcrire',
-    note: 'Le sujet est une puce de l’audit de structure ; `targeting` est pourtant récupéré',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.overlap),
   },
   {
     id: 'mb-review-7j',
@@ -153,37 +151,33 @@ const MEDIA_BUYING: EntreeBanque[] = [
   {
     id: 'mb-strategie-audience',
     label: 'Stratégie d’audience',
-    etat: 'aEcrire',
-    note: 'Classer chaque adset en Broad / Intérêts / LAL / Retargeting / Advantage+',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.audienceStrategy),
   },
   {
     id: 'mb-cpm',
     label: 'Tendance du CPM',
-    etat: 'aEcrire',
-    note: 'CPM par jour et par campagne disponibles ; par placement, non transmis',
-    prompt: '',
+    etat: 'pret',
+    note: 'CPM par placement non transmis — la limite est déclarée dans le prompt',
+    prompt: corps(PROMPTS.mediaBuying.cpmTrend),
   },
   {
     id: 'mb-distribution',
     label: 'Distribution du spend entre créas',
-    etat: 'aEcrire',
-    note: 'Le seuil « jugeable » existe déjà en réglage de compte (facteurRegardable)',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.spendDistribution),
   },
   {
     id: 'mb-learning',
     label: 'Phase d’apprentissage',
-    etat: 'aEcrire',
-    note: '`learning_stage_info` est récupéré mais n’a pas de prompt dédié',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.learningPhase),
   },
   {
     id: 'mb-pacing',
     label: 'Pacing du mois',
-    etat: 'aEcrire',
-    note: 'monthlyAdBudget et monthlyConvTarget sont déjà dans les réglages de marque',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.pacing),
   },
   {
     id: 'mb-scaling',
@@ -194,9 +188,8 @@ const MEDIA_BUYING: EntreeBanque[] = [
   {
     id: 'mb-encheres',
     label: 'Optimisation des enchères',
-    etat: 'aEcrire',
-    note: 'Aucun prompt ne parle de bid strategy',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.mediaBuying.bidding),
   },
 ]
 
@@ -225,9 +218,8 @@ const CREA_RESEARCH: EntreeBanque[] = [
   {
     id: 'cs-questionnaire',
     label: 'Questionnaire client',
-    etat: 'aEcrire',
-    note: 'Ne demande que le profil de marque — faisable sans nouvelle donnée',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.creativeStrategy.survey),
   },
   {
     id: 'cs-commentaires',
@@ -243,9 +235,8 @@ const CREA_GENERATION: EntreeBanque[] = [
   {
     id: 'cs-hooks',
     label: '5 variations de hook',
-    etat: 'aEcrire',
-    note: 'Le hook n’existe qu’à l’intérieur d’un brief complet',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.creativeStrategy.hooks),
   },
   {
     id: 'cs-brief',
@@ -267,9 +258,8 @@ const CREA_ANALYSE: EntreeBanque[] = [
   {
     id: 'cs-gagnant',
     label: 'Rétro-ingénierie d’un gagnant',
-    etat: 'aEcrire',
-    note: 'Documenter pourquoi une créa marche, et ce que les prochains briefs doivent en tirer',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.creativeStrategy.winner),
   },
   {
     id: 'cs-exhaustive',
@@ -280,9 +270,8 @@ const CREA_ANALYSE: EntreeBanque[] = [
   {
     id: 'cs-formats',
     label: 'Comparaison de formats',
-    etat: 'aEcrire',
-    note: 'Vidéo vs statique vs carrousel, et les ratios 1:1 / 4:5 / 9:16',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.creativeStrategy.formats),
   },
 ]
 
@@ -302,9 +291,8 @@ const CREA_STRATEGY: EntreeBanque[] = [
   {
     id: 'cs-plan-test',
     label: 'Plan de test créatif',
-    etat: 'aEcrire',
-    note: 'La suite logique de la banque d’angles : quoi tester, dans quel ordre, sur quel volume',
-    prompt: '',
+    etat: 'pret',
+    prompt: corps(PROMPTS.creativeStrategy.testPlan),
   },
 ]
 
@@ -312,8 +300,7 @@ const AUDIT: EntreeBanque[] = [
   {
     id: 'audit-complet',
     label: 'Audit complet Andromeda',
-    etat: 'aAdapter',
-    note: 'Complété ; les 50 points ne sont toujours pas énumérés',
+    etat: 'pret',
     prompt: corps(PROMPTS.audit.full),
   },
   {
@@ -332,8 +319,7 @@ const AUDIT: EntreeBanque[] = [
   {
     id: 'audit-structure',
     label: 'Structure du compte',
-    etat: 'aAdapter',
-    note: 'Budget par adset : ≥ 5× le CPA cible ici, ≥ 10× dans l’audit de référence',
+    etat: 'pret',
     prompt: corps(PROMPTS.audit.structure),
   },
 ]

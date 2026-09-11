@@ -166,7 +166,8 @@ export async function GET(req: NextRequest) {
         let texte = ''
         const stream = await anthropic.messages.stream({
           model: MODEL_REPORT,
-          max_tokens: 40000,
+          // Voir /api/ai/analyze : borné par maxDuration, pas par le modèle.
+          max_tokens: 56000,
           ...REPORT_REASONING,
           /**
            * Tout rapport d'agent sort en document HTML — la revue hebdomadaire

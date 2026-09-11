@@ -282,7 +282,17 @@ ${JSON.stringify(previous.ads, null, 2)}`
            * en balises et en style. À seize mille, la dernière section sautait
            * — c'est exactement ce qu'on cherche à corriger.
            */
-          max_tokens: deep || chatProfond ? 40000 : 24000,
+          /**
+           * Le plafond de sortie, borné par le temps plus que par le modèle.
+           *
+           * L'audit Andromeda à 50 points a été coupé à 40 000 : avec la
+           * réflexion étendue, qui compte dans ce plafond, un rapport dense le
+           * dépasse. Le modèle accepte 64 000, mais à environ quatre-vingt-dix
+           * jetons par seconde cela ferait sept cents secondes, contre huit
+           * cents avant que Vercel ne coupe la fonction — sans marge pour
+           * l'appel Meta ni l'écriture en base. 56 000 tient dans le budget.
+           */
+          max_tokens: deep || chatProfond ? 56000 : 24000,
           system: systemPrompt,
           messages: [
             /**
