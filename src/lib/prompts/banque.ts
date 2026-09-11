@@ -291,6 +291,12 @@ const CREA_STRATEGY: EntreeBanque[] = [
     etat: 'pret',
     prompt: corps(PROMPTS.creativeStrategy.testPlan),
   },
+  {
+    id: 'cs-depouillement',
+    label: 'Dépouiller un test',
+    etat: 'pret',
+    prompt: corps(PROMPTS.creativeStrategy.testReadout),
+  },
 ]
 
 const AUDIT: EntreeBanque[] = [

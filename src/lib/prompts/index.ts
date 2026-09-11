@@ -2050,6 +2050,71 @@ d'avance n'est pas plus rigoureux qu'un plan qui en prévoit une : il est faux.*
 
 
 
+    testReadout: `${SYSTEM_BASE}
+${METHODE_J7}
+
+Dépouille un test terminé et décide de la suite.
+
+## 1. Retrouve le test
+Un test J7 se reconnaît à sa nomenclature : une campagne \`Stade N\`, des ad sets
+portant \`HO-01\` à \`HO-10\`, \`HD-\`, \`TH-\` ou \`R-\`, et **une seule variable qui
+change entre eux**.
+
+Si tu ne la trouves pas, ne devine pas au hasard : dis quelles publicités te
+semblent former le test, sur quel indice — un nom commun, une période commune,
+un même visuel — et **préviens que le dépouillement vaut ce que vaut cette
+hypothèse**. Demande la convention pour les prochains tests ; c'est elle qui
+rend la méthode exploitable six mois plus tard.
+
+Vérifie ensuite que c'était un vrai test : **si plusieurs choses changent d'une
+variante à l'autre — le visuel *et* le texte, le format *et* le message — il n'y
+a rien à dépouiller.** Dis-le, explique ce qui aurait dû rester fixe, et
+arrête-toi là. Un faux test bien analysé reste un faux test.
+
+## 2. Le tableau du test
+| ID | Variante | Dépense | Impressions | [ce qui tranche] | Écart vs meilleur | Verdict |
+
+Ce qui tranche dépend du stade : **le CTR lien unique au stade 1**, le [coût] aux
+stades 2 et 3. Verdict ∈ { Gagnant · Correct · Écarté · Pas jugeable }.
+
+**Une variante sous-diffusée n'a pas perdu : elle n'a pas été testée.** Sépare-la
+des perdantes et dis combien de dépense il lui manque.
+
+## 3. Le test a-t-il tranché ?
+La question qu'on saute toujours. Trois réponses possibles, et il faut en
+choisir une :
+- **Oui** — le meilleur se détache nettement, sur un volume suffisant
+- **Partiellement** — un groupe de tête se dégage, mais le premier et le second
+  sont à départager ; dis comment
+- **Non** — les écarts sont dans le bruit. Alors on ne couronne personne : on
+  relance avec des variantes plus contrastées, ou on accepte que cette variable
+  ne fasse pas de différence sur ce compte. **C'est un résultat, pas un échec.**
+
+Un écart de deux points de CTR entre deux variantes sur quatre cents impressions
+chacune ne prouve rien. Dis-le plutôt que de désigner un gagnant par politesse.
+
+## 4. Ce que le gagnant enseigne
+${LECTURE_GAGNANTS}
+
+Fais le même travail sur **la perdante la plus nette** : ce qui n'a pas pris est
+un enseignement aussi, et il évite de le reproduire. Formule-le en règle
+négative — « ne plus ouvrir sur X sur cette audience ».
+
+## 5. La manche suivante
+- **Ce qui devient le contrôle** : l'élément gagnant, figé, qui part dans tous
+  les tests suivants
+- **La prochaine variable** : au stade 1, hook → titre → vignette dans cet ordre.
+  Le stade 1 terminé, on passe au stade 2 sur la publicité construite.
+- **Ce qu'on ne teste pas encore**, et pourquoi. Une audience ne se teste pas
+  avant d'avoir une publicité gagnante.
+- Sa configuration : objectif, budget par ad set, durée, règle de fermeture
+
+## 6. À consigner
+Les lignes du document de test, avec leur identifiant, leur chiffre, leur statut
+— *Winning · Moyen · Mauvais* — et la date. **C'est cette trace qui empêche de
+refaire le même test dans six mois**, et elle ne coûte que le temps de l'écrire.
+${DATA_FLOORS}`,
+
     survey: `${SYSTEM_BASE}
 
 Écris le questionnaire à envoyer aux clients de ce compte.
