@@ -8,6 +8,7 @@ import type { AutopilotAgent } from '@/types'
 import { extraireActionnables, sansBlocActionnables, type Actionnable } from '@/lib/scalr/actionnables'
 import { RapportSections, type Kpi } from '@/components/scalr/RapportSections'
 import { estRapportHtml } from '@/lib/scalr/rapportHtml'
+import { nomType, badgeType } from '@/lib/scalr/typesRapport'
 import { BANQUE, entreesAPlat, compter, type CategorieBanque, type DossierBanque, type EntreeBanque } from '@/lib/prompts/banque'
 import { useRouter } from 'next/navigation'
 import { LigneEntree } from '@/components/scalr/LigneBanque'
@@ -492,7 +493,7 @@ export default function AutopilotPage() {
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
 
   // --- History ---
-  type Report = { id: string; title: string; content: string; createdAt: string; type?: string; agent: { name: string } | null }
+  type Report = { id: string; title: string; content: string; createdAt: string; type?: string; downloadedAt?: string | null; agent: { name: string } | null }
   const [reports, setReports] = useState<Report[]>([])
   const [expandedReport, setExpandedReport] = useState<string | null>(null)
 
@@ -567,6 +568,32 @@ export default function AutopilotPage() {
     const res = await fetch(`/api/reports?id=${id}`, { method: 'DELETE' }).catch(() => null)
     if (!res?.ok) { toast.error('Suppression refusée'); loadReports() }
     else toast.success('Rapport supprimé')
+  }
+
+  /**
+   * Le téléchargement, et la trace qu'il laisse.
+   *
+   * Cette fonction vivait dans l'historique des lancements, d'où les analyses
+   * viennent d'être retirées. Sans elle on perdrait la seule marque disant
+   * qu'un rapport a déjà été transmis à un client — et cette marque va en base,
+   * sinon elle disparaîtrait au rafraîchissement.
+   */
+  async function telechargerRapport(r: Report) {
+    const texte = sansBlocActionnables(r.content)
+    if (!texte) return
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([texte], { type: 'text/markdown;charset=utf-8' }))
+    a.download = `${r.title.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 60).trim() || 'analyse'}.md`
+    a.click()
+    URL.revokeObjectURL(a.href)
+
+    const d = await fetch('/api/reports', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: r.id }),
+    }).then((x) => x.json()).catch(() => null)
+    if (d?.downloadedAt) {
+      setReports((liste) => liste.map((x) => (x.id === r.id ? { ...x, downloadedAt: d.downloadedAt } : x)))
+    }
   }
 
   const loadReports = useCallback(async () => {
@@ -1454,7 +1481,16 @@ export default function AutopilotPage() {
                           {isNew && <span className="text-[10px] font-bold bg-[#3434ef] text-white px-2 py-0.5 rounded-full">Nouveau</span>}
                           {idx === 0 && !isNew && <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Dernier</span>}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {/* Le badge de type dit ce qu'est le rapport ; celui
+                              de l'agent dit qui l'a produit. Les deux comptent,
+                              et un rapport lancé à la main n'a que le premier. */}
+                          <span className={badgeType(report.type)}>{nomType(report.type)}</span>
+                          {report.downloadedAt && (
+                            <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              Téléchargé le {new Date(report.downloadedAt).toLocaleDateString('fr-FR')}
+                            </span>
+                          )}
                           {report.agent && (
                             <span className="text-xs font-medium text-[#3434ef] bg-blue-50 px-2 py-0.5 rounded-md">{report.agent.name}</span>
                           )}
@@ -1481,6 +1517,10 @@ export default function AutopilotPage() {
                       <div className="border-t border-[#E5E7EB]">
                         <div className="px-5 py-5">
                           <RapportSections markdown={sansBlocActionnables(report.content)} kpis={kpis} />
+                          <button onClick={() => telechargerRapport(report)}
+                            className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef] transition-colors">
+                            Télécharger en Markdown
+                          </button>
                         </div>
 
                         {/* Ce que le rapport réclame comme nouvelles créas.

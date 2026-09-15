@@ -3,61 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { clsx } from 'clsx'
-import { markdownToHtml } from '@/lib/markdown'
-import { sansBlocActionnables } from '@/lib/scalr/actionnables'
 
 /**
- * L'historique du compte : ce qui s'est passé, dans l'ordre.
+ * L'historique des lancements — et rien d'autre.
  *
- * Il ne montrait que les lancements. Les analyses — quatre-vingt-quatre en
- * base — étaient bien enregistrées et **aucune page ne les affichait** : la
- * modale d'une créa donnait l'impression de jeter son travail alors qu'il
- * était conservé.
+ * Cette page a un temps porté les analyses aussi, parce qu'aucun écran ne les
+ * montrait alors qu'elles étaient enregistrées. Ce n'est plus vrai : Autopilot
+ * a son propre historique, avec ses filtres par agent et ses badges de type.
  *
- * Un lancement et une analyse sont deux choses qui se sont produites sur le
- * compte ; les séparer en deux écrans obligerait à se souvenir laquelle
- * chercher où. Une seule liste chronologique, donc, avec le type en filtre —
- * « Lancements » y étant un type parmi les autres — et chaque ligne rendue
- * selon ce qu'elle est : un lancement montre ses compteurs et son journal, une
- * analyse s'ouvre sur son texte.
+ * Les garder aux deux endroits obligeait à se demander laquelle des deux listes
+ * faisait foi. « Lancer » montre donc ce qu'on a lancé, « Autopilot » ce qu'on
+ * a analysé — chaque écran répond de ce qu'il porte.
  */
 
 type Lancement = {
   id: string; metaAccountId: string; campaignName: string
   objective: string | null; structure: string | null
   adsetCount: number; adCount: number; status: string; logs: string; createdAt: string
-}
-
-type Rapport = {
-  id: string; title: string; type: string
-  adId: string | null; adName: string | null; createdAt: string
-  downloadedAt: string | null
-}
-
-type Entree =
-  | ({ genre: 'lancement'; date: string } & Lancement)
-  | ({ genre: 'rapport'; date: string } & Rapport)
-
-/** Les catégories techniques ne se montrent pas telles quelles. */
-const NOMS_TYPE: Record<string, string> = {
-  creativeStrategy: 'Analyse créa',
-  creative: 'Analyse créa',
-  audit: 'Audit technique',
-  autopilot: 'Autopilot',
-  session: 'Discussion',
-  mediaBuying: 'Média buying',
-  performance: 'Performance',
-}
-const nomType = (t: string) => NOMS_TYPE[t] || t
-
-const TEINTE_TYPE: Record<string, string> = {
-  creativeStrategy: 'bg-violet-50 text-violet-700 border-violet-200',
-  creative: 'bg-violet-50 text-violet-700 border-violet-200',
-  audit: 'bg-amber-50 text-amber-700 border-amber-200',
-  autopilot: 'bg-blue-50 text-blue-700 border-blue-200',
-  session: 'bg-gray-100 text-gray-600 border-gray-200',
-  mediaBuying: 'bg-teal-50 text-teal-700 border-teal-200',
-  performance: 'bg-teal-50 text-teal-700 border-teal-200',
 }
 
 const horodatage = (d: string) => {
@@ -68,131 +30,60 @@ const horodatage = (d: string) => {
 export default function HistoryPage() {
   const { selectedAccount } = useStore()
   const [lancements, setLancements] = useState<Lancement[]>([])
-  const [rapports, setRapports] = useState<Rapport[]>([])
-  const [typesDispo, setTypesDispo] = useState<{ type: string; nombre: number }[]>([])
-  const [filtre, setFiltre] = useState('all')
+  const [filtre, setFiltre] = useState<'all' | 'success' | 'error'>('all')
   const [recherche, setRecherche] = useState('')
   const [ouvert, setOuvert] = useState<string | null>(null)
-  const [aSupprimer, setASupprimer] = useState<string | null>(null)
-  const [message, setMessage] = useState('')
-  const [contenu, setContenu] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
   const charger = useCallback(() => {
     setLoading(true)
     const metaId = selectedAccount?.metaAccountId || selectedAccount?.id
-    Promise.all([
-      fetch(metaId ? `/api/launch-history?metaAccountId=${metaId}` : '/api/launch-history')
-        .then((r) => r.json()).catch(() => []),
-      selectedAccount?.id
-        ? fetch(`/api/reports?dbAccountId=${selectedAccount.id}`).then((r) => r.json()).catch(() => ({}))
-        : Promise.resolve({}),
-    ]).then(([l, r]) => {
-      setLancements(Array.isArray(l) ? l : [])
-      setRapports(r?.reports || [])
-      setTypesDispo(r?.types || [])
-      setLoading(false)
-    })
+    fetch(metaId ? `/api/launch-history?metaAccountId=${metaId}` : '/api/launch-history')
+      .then((r) => r.json())
+      .catch(() => [])
+      .then((l) => {
+        setLancements(Array.isArray(l) ? l : [])
+        setLoading(false)
+      })
   }, [selectedAccount?.id, selectedAccount?.metaAccountId])
 
   useEffect(() => { charger() }, [charger])
 
-  /** Le texte n'est tiré qu'à l'ouverture : la liste ne le porte pas. */
-  async function ouvrir(r: Rapport) {
-    if (ouvert === r.id) { setOuvert(null); return }
-    setOuvert(r.id)
-    if (contenu[r.id]) return
-    const d = await fetch(`/api/reports?id=${r.id}`).then((x) => x.json()).catch(() => null)
-    if (d?.report?.content) setContenu((c) => ({ ...c, [r.id]: d.report.content }))
-  }
+  const reussis = lancements.filter((l) => l.status === 'success').length
 
-  /**
-   * La suppression demande deux clics, pas une boîte de dialogue.
-   *
-   * Un historique se nettoie par lots — surtout après une série de tests — et
-   * une confirmation modale à chaque ligne rend l'opération pénible. Le bouton
-   * change d'état et se rétracte au bout de quelques secondes : l'erreur reste
-   * difficile, le ménage reste rapide.
-   */
-  async function supprimer(r: Rapport) {
-    if (aSupprimer !== r.id) {
-      setASupprimer(r.id)
-      setTimeout(() => setASupprimer((x) => (x === r.id ? null : x)), 4000)
-      return
-    }
-    setASupprimer(null)
-    // La ligne disparaît tout de suite : attendre le serveur pour un ménage de
-    // vingt lignes donnerait l'impression que rien ne se passe.
-    setRapports((liste) => liste.filter((x) => x.id !== r.id))
-    if (ouvert === r.id) setOuvert(null)
-    const res = await fetch(`/api/reports?id=${r.id}`, { method: 'DELETE' }).catch(() => null)
-    if (!res?.ok) { setMessage('Suppression refusée — rechargez la page.'); charger() }
-  }
-
-  async function telecharger(r: Rapport) {
-    const texte = sansBlocActionnables(contenu[r.id])
-    if (!texte) return
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([texte], { type: 'text/markdown;charset=utf-8' }))
-    // Un nom de fichier lisible dans un dossier de téléchargements.
-    a.download = `${r.title.replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 60).trim() || 'analyse'}.md`
-    a.click()
-    URL.revokeObjectURL(a.href)
-
-    // La marque va en base : sans trace, elle disparaîtrait au rafraîchissement
-    // et on ne saurait plus ce qui a déjà été transmis à un client.
-    const d = await fetch('/api/reports', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: r.id }),
-    }).then((x) => x.json()).catch(() => null)
-    if (d?.downloadedAt) {
-      setRapports((liste) => liste.map((x) => (x.id === r.id ? { ...x, downloadedAt: d.downloadedAt } : x)))
-    }
-  }
-
-  const entrees = useMemo<Entree[]>(() => {
-    const l: Entree[] = lancements.map((x) => ({ ...x, genre: 'lancement', date: x.createdAt }))
-    const r: Entree[] = rapports.map((x) => ({ ...x, genre: 'rapport', date: x.createdAt }))
-    let tout = [...l, ...r]
-    if (filtre === 'lancement') tout = l
-    else if (filtre !== 'all') tout = r.filter((x) => x.genre === 'rapport' && x.type === filtre)
+  const visibles = useMemo(() => {
+    let tout = lancements
+    if (filtre === 'success') tout = tout.filter((l) => l.status === 'success')
+    else if (filtre === 'error') tout = tout.filter((l) => l.status !== 'success')
     if (recherche.trim()) {
       const q = recherche.toLowerCase()
-      tout = tout.filter((x) =>
-        (x.genre === 'lancement' ? x.campaignName : `${x.title} ${x.adName ?? ''}`).toLowerCase().includes(q))
+      tout = tout.filter((l) => l.campaignName.toLowerCase().includes(q))
     }
-    return tout.sort((a, b) => b.date.localeCompare(a.date))
-  }, [lancements, rapports, filtre, recherche])
+    return [...tout].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  }, [lancements, filtre, recherche])
 
   const onglets = [
-    { id: 'all', label: 'Tout', n: lancements.length + rapports.length },
-    { id: 'lancement', label: 'Lancements', n: lancements.length },
-    ...typesDispo.map((t) => ({ id: t.type, label: nomType(t.type), n: t.nombre })),
+    { id: 'all' as const, label: 'Tous', n: lancements.length },
+    { id: 'success' as const, label: 'Réussis', n: reussis },
+    { id: 'error' as const, label: 'En échec', n: lancements.length - reussis },
   ]
 
   return (
     <div className="space-y-4 max-w-5xl">
-      {message && (
-        <div className="card border border-amber-200 bg-amber-50 py-2">
-          <p className="text-xs text-amber-800">{message}</p>
-        </div>
-      )}
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Historique</h1>
+          <h1 className="page-title">Historique des lancements</h1>
           <p className="page-subtitle mt-0.5">
-            Lancements et analyses pour <strong>{selectedAccount?.name || 'tous les comptes'}</strong>
+            Ce qui a été envoyé sur <strong>{selectedAccount?.name || 'tous les comptes'}</strong>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <input value={recherche} onChange={(e) => setRecherche(e.target.value)}
-            placeholder="Rechercher…" className="input w-auto text-sm py-1.5 min-w-[160px]" />
+            placeholder="Rechercher une campagne…" className="input w-auto text-sm py-1.5 min-w-[180px]" />
           <button onClick={charger} className="text-xs text-[#3434ef] hover:underline">Actualiser</button>
         </div>
       </div>
 
-      {/* Le type en filtre, « Lancements » y compris. */}
       <div className="flex flex-wrap gap-2">
         {onglets.filter((o) => o.n > 0 || o.id === 'all').map((o) => (
           <button key={o.id} onClick={() => setFiltre(o.id)}
@@ -206,108 +97,47 @@ export default function HistoryPage() {
 
       {loading && <div className="card text-center py-20 text-gray-400 text-sm">Chargement…</div>}
 
-      {!loading && !entrees.length && (
+      {!loading && !visibles.length && (
         <div className="card text-center py-16">
-          <p className="text-[#0d0d12] font-medium">Rien à afficher pour ce filtre.</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Les lancements et les analyses de ce compte apparaissent ici, du plus récent au plus ancien.
+          <p className="text-[#0d0d12] font-medium">Aucun lancement pour ce filtre.</p>
+          <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto">
+            Les campagnes envoyées depuis <strong>Upload</strong> apparaissent ici, du plus récent au plus
+            ancien. Les analyses, elles, sont dans l’historique d’Autopilot.
           </p>
         </div>
       )}
 
-      {!loading && entrees.length > 0 && (
+      {!loading && visibles.length > 0 && (
         <div className="space-y-2.5">
-          {entrees.map((e) => {
+          {visibles.map((e) => {
             const estOuvert = ouvert === e.id
-
-            if (e.genre === 'lancement') {
-              return (
-                <div key={e.id} className="card">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <span className={clsx('mt-1 w-2 h-2 rounded-full flex-shrink-0',
-                        e.status === 'success' ? 'bg-emerald-500' : 'bg-red-500')} />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm text-[#0d0d12] truncate">{e.campaignName}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-gray-50 text-gray-600 border-gray-200 mr-1.5">
-                            Lancement
-                          </span>
-                          {e.adsetCount} ad set{e.adsetCount !== 1 ? 's' : ''} · {e.adCount} pub{e.adCount !== 1 ? 's' : ''}
-                          {e.objective && <> · {e.objective}</>}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0 pl-5 sm:pl-0">
-                      <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">{horodatage(e.date)}</span>
-                      <button onClick={() => setOuvert(estOuvert ? null : e.id)}
-                        className="text-xs text-[#3434ef] hover:underline">
-                        {estOuvert ? 'Masquer' : 'Journal'}
-                      </button>
-                    </div>
-                  </div>
-                  {estOuvert && (
-                    <pre className="mt-3 pt-3 border-t border-[#F3F4F6] text-xs text-gray-600 whitespace-pre-wrap font-mono bg-[#f8f9fc] rounded-lg p-3 max-h-60 overflow-y-auto">
-                      {e.logs || '(vide)'}
-                    </pre>
-                  )}
-                </div>
-              )
-            }
-
             return (
               <div key={e.id} className="card">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm text-[#0d0d12] break-words">{e.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      <span className={clsx('inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border mr-1.5',
-                        TEINTE_TYPE[e.type] || 'bg-gray-50 text-gray-600 border-gray-200')}>
-                        {nomType(e.type)}
-                      </span>
-                      {e.adName ? <>sur {e.adName}</> : 'sur l’ensemble du compte'}
-                      {e.downloadedAt && (
-                        <span className="inline-block ml-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
-                          Téléchargé le {new Date(e.downloadedAt).toLocaleDateString('fr-FR')}
-                        </span>
-                      )}
-                    </p>
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <span className={clsx('mt-1 w-2 h-2 rounded-full flex-shrink-0',
+                      e.status === 'success' ? 'bg-emerald-500' : 'bg-red-500')} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-[#0d0d12] truncate">{e.campaignName}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {e.adsetCount} ad set{e.adsetCount !== 1 ? 's' : ''} · {e.adCount} pub{e.adCount !== 1 ? 's' : ''}
+                        {e.objective && <> · {e.objective}</>}
+                        {e.structure && <> · {e.structure}</>}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">{horodatage(e.date)}</span>
-                    <button onClick={() => ouvrir(e)} className="text-xs text-[#3434ef] hover:underline">
-                      {estOuvert ? 'Masquer' : 'Lire'}
-                    </button>
-                    <button onClick={() => supprimer(e)}
-                      title={aSupprimer === e.id ? 'Cliquez à nouveau pour supprimer' : 'Supprimer'}
-                      className={aSupprimer === e.id
-                        ? 'text-xs font-semibold text-red-600 hover:underline'
-                        // Se révéler au survol condamne le bouton sur mobile, où
-                        // le survol n'existe pas — et le rend invisible ailleurs.
-                        : 'text-xs text-gray-400 hover:text-red-500 transition-colors'}>
-                      {aSupprimer === e.id ? 'Confirmer' : 'Supprimer'}
+                  <div className="flex items-center gap-3 flex-shrink-0 pl-5 sm:pl-0">
+                    <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">{horodatage(e.createdAt)}</span>
+                    <button onClick={() => setOuvert(estOuvert ? null : e.id)}
+                      className="text-xs text-[#3434ef] hover:underline">
+                      {estOuvert ? 'Masquer' : 'Journal'}
                     </button>
                   </div>
                 </div>
-
                 {estOuvert && (
-                  <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
-                    {contenu[e.id] ? (
-                      <>
-                        {/* Le rapport est du Markdown : le rendre en texte brut
-                            noyait les titres dans les dièses et laissait les
-                            tableaux en barres verticales. */}
-                        <div className="chat-report bg-[#f8f9fc] rounded-lg p-4 max-h-[560px] overflow-y-auto"
-                          dangerouslySetInnerHTML={{ __html: markdownToHtml(sansBlocActionnables(contenu[e.id])) }} />
-                        <button onClick={() => telecharger(e)}
-                          className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-gray-600 hover:border-[#3434ef] hover:text-[#3434ef]">
-                          Télécharger en Markdown
-                        </button>
-                      </>
-                    ) : (
-                      <p className="text-xs text-gray-400">Chargement…</p>
-                    )}
-                  </div>
+                  <pre className="mt-3 pt-3 border-t border-[#F3F4F6] text-xs text-gray-600 whitespace-pre-wrap font-mono bg-[#f8f9fc] rounded-lg p-3 max-h-60 overflow-y-auto">
+                    {e.logs || '(vide)'}
+                  </pre>
                 )}
               </div>
             )
