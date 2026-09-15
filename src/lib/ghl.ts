@@ -9,7 +9,31 @@
 
 const BASE = 'https://services.leadconnectorhq.com'
 const VERSION = '2021-07-28'
-const MAX_PAGES = 20
+/**
+ * Le plafond de pagination — un garde-fou, plus une limite de fait.
+ *
+ * Il valait vingt pages de cent. Sur Aqualiss, GoHighLevel annonce 2 122
+ * opportunités : la boucle s'arrêtait à 2 000 et les 122 dernières n'étaient
+ * jamais lues. Elles portaient 13 affaires gagnées et 99 455 € — d'où un compte
+ * à 51 affaires et 402 110 € là où le CRM en montrait 64 pour 501 565 €.
+ *
+ * La boucle sortait silencieusement, exactement comme si elle avait fini. Un
+ * total tronqué qui a l'air complet est pire qu'une erreur : on bâtit dessus.
+ *
+ * Deux cents pages couvrent vingt mille enregistrements. Le plafond ne doit plus
+ * jamais être ce qui décide du résultat — d'où `tronque`, qui le dit quand il
+ * l'est malgré tout.
+ */
+const MAX_PAGES = 200
+
+/** Ce que la dernière synchronisation a laissé de côté, s'il y a lieu. */
+export type Troncature = { quoi: string; lu: number; total: number | null }
+let troncatures: Troncature[] = []
+export const troncaturesGhl = () => troncatures
+function noteTroncature(quoi: string, lu: number, total: number | null) {
+  troncatures.push({ quoi, lu, total })
+  console.error(`[ghl] ${quoi} — pagination tronquée : ${lu} lus sur ${total ?? 'un total inconnu'}`)
+}
 
 export type AdStat = {
   adName: string
@@ -71,11 +95,20 @@ export async function checkGhlAccess(token: string, locationId: string): Promise
 
 async function fetchOpportunities(token: string, locationId: string): Promise<Opportunity[]> {
   const all: Opportunity[] = []
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  // GoHighLevel annonce le total dans `meta.total` : on s'en sert pour savoir
+  // qu'on a tout lu, au lieu de le déduire d'un nombre de pages.
+  let total: number | null = null
+  let page = 1
+  for (; page <= MAX_PAGES; page++) {
     const r = await call(`/opportunities/search?location_id=${locationId}&limit=100&page=${page}`, token)
     const batch = (r.opportunities || []) as Opportunity[]
+    if (total === null && typeof r?.meta?.total === 'number') total = r.meta.total
     all.push(...batch)
     if (batch.length < 100) break
+    if (total !== null && all.length >= total) break
+  }
+  if (page > MAX_PAGES && (total === null || all.length < total)) {
+    noteTroncature('opportunités', all.length, total)
   }
   return all
 }
@@ -117,6 +150,7 @@ export function aggregateByAd(opps: Opportunity[]): GhlSummary {
 }
 
 export async function syncGhl(token: string, locationId: string): Promise<GhlSummary> {
+  troncatures = []
   return aggregateByAd(await fetchOpportunities(token, locationId))
 }
 
@@ -320,7 +354,8 @@ async function parCurseur(token: string, locationId: string): Promise<Contact[]>
   const tous: Contact[] = []
   let apres: unknown[] | undefined
 
-  for (let i = 0; i < MAX_PAGES; i++) {
+  let i = 0
+  for (; i < MAX_PAGES; i++) {
     const r = await call('/contacts/search', token, {
       locationId, pageLimit: 100, ...(apres ? { searchAfter: apres } : {}),
     })
@@ -332,12 +367,14 @@ async function parCurseur(token: string, locationId: string): Promise<Contact[]>
     apres = lot[lot.length - 1]?.searchAfter
     if (!apres || lot.length < 100) break
   }
+  if (i >= MAX_PAGES) noteTroncature('contacts (curseur)', tous.length, null)
   return tous
 }
 
 async function parPage(token: string, locationId: string): Promise<Contact[]> {
   const tous: Contact[] = []
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  let page = 1
+  for (; page <= MAX_PAGES; page++) {
     try {
       const r = await call(`/contacts/?locationId=${locationId}&limit=100&page=${page}`, token)
       const lot = (r.contacts || r.data || []) as Contact[]
@@ -345,10 +382,12 @@ async function parPage(token: string, locationId: string): Promise<Contact[]> {
       if (lot.length < 100) break
     } catch {
       // Une page qui casse ne doit pas jeter celles déjà obtenues : le tunnel
-      // sera incomplet, ce qui vaut mieux que vide.
+      // sera incomplet, ce qui vaut mieux que vide — mais on le dit.
+      noteTroncature('contacts (page)', tous.length, null)
       break
     }
   }
+  if (page > MAX_PAGES) noteTroncature('contacts (page)', tous.length, null)
   return tous
 }
 
@@ -385,6 +424,7 @@ export async function syncGhlComplet(token: string, locationId: string, tags: Ta
   tunnel: JourCrm[]
   erreurContacts: string | null
 }> {
+  troncatures = []
   const opps = await fetchOpportunities(token, locationId)
   const resume = aggregateByAd(opps)
 
