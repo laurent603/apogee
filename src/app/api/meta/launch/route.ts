@@ -99,6 +99,33 @@ function cleanTargeting(t: LaunchAdset['targeting']): Record<string, unknown> {
   return out
 }
 
+/**
+ * Le lien d'aperçu d'une publicité, pour le journal.
+ *
+ * Une publicité peut être créée, active et en diffusion sans apparaître dans le
+ * gestionnaire : celui-ci s'ouvre dans un contexte de Business Manager, et un
+ * compte partagé en direct reste invisible depuis le mauvais contexte. C'est
+ * arrivé, et il a fallu interroger l'API pour prouver que les trois publicités
+ * existaient bel et bien.
+ *
+ * Ce lien, lui, ne dépend d'aucun contexte. Il vaut donc mieux qu'un identifiant
+ * dans un journal — on clique, on voit la publicité.
+ *
+ * Il ne peut pas faire échouer un lancement : sans lui, le journal est
+ * simplement moins riche.
+ */
+async function apercu(adId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v21.0/${adId}?fields=preview_shareable_link&access_token=${encodeURIComponent(token)}`,
+    )
+    const d = await res.json() as { preview_shareable_link?: string }
+    return d.preview_shareable_link || null
+  } catch {
+    return null
+  }
+}
+
 async function metaPost(path: string, token: string, body: Record<string, unknown>) {
   const res = await fetch(`https://graph.facebook.com/v21.0${path}`, {
     method: 'POST',
@@ -534,7 +561,8 @@ export async function POST(req: NextRequest) {
                 ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
               })
               if (adData.error) throw new Error(`Ad "${adName}" : ${metaError(adData)}`)
-              send(`✓ Ad créée : "${adName}"`)
+              const lien1 = await apercu(adData.id as string, token)
+              send(`✓ Ad créée : "${adName}"${lien1 ? ` — aperçu : ${lien1}` : ''}`)
               launchAdCount++
             }
 
@@ -705,9 +733,10 @@ export async function POST(req: NextRequest) {
                   continue
                 }
 
+                const lien2 = await apercu(adData.id as string, token)
                 send(c.routed
-                  ? `✓ Ad créée : "${adName}" — ${c.label} (feed → Feed, story → Stories/Reels)`
-                  : `✓ Ad créée : "${adName}" — sans routage par placement`)
+                  ? `✓ Ad créée : "${adName}" — ${c.label} (feed → Feed, story → Stories/Reels)${lien2 ? ` — aperçu : ${lien2}` : ''}`
+                  : `✓ Ad créée : "${adName}" — sans routage par placement${lien2 ? ` — aperçu : ${lien2}` : ''}`)
                 launchAdCount++
                 placed = true
                 break
