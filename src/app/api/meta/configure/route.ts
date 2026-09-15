@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
           headline: (ld?.name || vd?.title || afsTitles[0]?.text || creative?.title || '') as string,
           description: (ld?.description || vd?.link_description || afsDescs[0]?.text || '') as string,
           cta_type: (ossCta?.type || afsCtas[0] || 'LEARN_MORE') as string,
-          destination_url: (ld?.link || vd?.link || ossCta?.value?.link || afsCTAs[0]?.value?.link || afsLinks[0]?.website_url || '') as string,
+          destination_url: (ld?.link || ossCta?.value?.link || afsCTAs[0]?.value?.link || afsLinks[0]?.website_url || '') as string,
           lead_gen_form_id: (ossCta?.value?.lead_gen_form_id || afsCTAs[0]?.value?.lead_gen_form_id || '') as string,
           thumbnail: (creative?.thumbnail_url || creative?.image_url || null) as string | null,
         }
@@ -80,7 +80,14 @@ export async function GET(req: NextRequest) {
             'creative{id,name,title,body,image_url,thumbnail_url,video_id,' +
               'object_story_spec{page_id,' +
                 'link_data{message,name,description,link,image_hash,call_to_action{type,value{lead_gen_form_id,link}}},' +
-                'video_data{message,title,link_description,link,video_id,call_to_action{type,value{lead_gen_form_id,link}}}' +
+                            // `link` n'existe pas sur `video_data` : Meta valide l'expansion
+            // objet par objet et rejette TOUTE la requête pour un seul créatif
+            // fautif — `(#100) Tried accessing nonexisting field (link)`. La
+            // route basculait alors sur son repli minimal, sans
+            // object_story_spec ni asset_feed_spec : plus de texte, plus de
+            // page, plus de formulaire. Le lien se lit dans
+            // `call_to_action.value.link`, qui est demandé juste après.
+            'video_data{message,title,link_description,video_id,call_to_action{type,value{lead_gen_form_id,link}}}' +
               '}}',
           ].join(','),
           limit: '200',

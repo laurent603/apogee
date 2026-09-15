@@ -833,7 +833,25 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sfmAdsetId, sfmCampaignId, accountId])
 
+  /**
+   * Importer une annonce existante remplit aussi le formulaire.
+   *
+   * L'annonce était transmise telle quelle au parent, sans que les champs du
+   * modal bougent : la Page restait sur la première de la liste et le
+   * formulaire sur rien. Ce que l'écran montrait n'était donc pas ce qui
+   * partirait au lancement — lequel lit bien `_pageId`. Un écran qui ment sur
+   * ce qu'il va faire est pire qu'un écran vide.
+   */
   function applyAdFromMeta(ad: MetaAd) {
+    const pr = ad._parsed
+    if (ad._pageId) setPageId(ad._pageId)
+    if (pr?.lead_gen_form_id) setLeadGenFormId(pr.lead_gen_form_id)
+    if (pr?.destination_url) setWebsiteUrl(pr.destination_url)
+    if (pr?.primary_text) setPrimaryTexts([pr.primary_text])
+    if (pr?.headline) setHeadlines([pr.headline])
+    if (pr?.description) setDescription(pr.description)
+    if (pr?.cta_type) setCta(pr.cta_type)
+
     if (onApplyToAdset) {
       onApplyToAdset(ad)
     } else {
