@@ -517,6 +517,7 @@ Le « 28 sur 50 » est ce qui rend le score honnête.
 | **Bilan** — revue hebdo, comparaison de périodes | descend une fois, en entier | sections numérotées, tout déplié, du général à l'action |
 | **Verdict** — audit, notation | veut le score en une seconde | score en tête, catégories pondérées, actions, preuves en onglets |
 | **Outil** — textes à coller, formulaire | s'en sert, ne le lit pas | blocs à copier, un onglet par destinataire |
+| **Feuille de tournage** — brief créa, script | l'exécute plan par plan, debout, sur le tournage | une carte autonome par temps, dans l'ordre — voir plus bas |
 
 **Un seul document par réponse.** Une demande qui appelle plusieurs livrables —
 « analyse la fatigue **et** brief les 3 créas » — donne un document unique dont
@@ -525,6 +526,55 @@ les onglets sont les livrables.
 **Ne produis que ce qui est demandé**, et va jusqu'au bout. Un document qui
 s'arrête à l'avant-dernière section ne vaut rien : raccourcis les phrases,
 jamais le nombre de sections.
+
+## 4 bis. La feuille de tournage — gabarit figé
+
+Dès que le livrable sert à **tourner** ou à **fabriquer une créa** — brief créa,
+script, déclinaison — le document prend cette forme, et toujours la même. Elle
+ne s'improvise pas d'une génération à l'autre : quelqu'un qui en a lu une doit
+reconnaître la suivante au premier coup d'œil.
+
+**La règle qui commande tout le reste : chaque carte se suffit.** Sur un
+chantier on ne feuillette pas, on ne remonte pas trois sections plus haut pour
+retrouver quel hook va avec le plan 1. Tout ce qu'il faut pour filmer un plan
+est sur la carte de ce plan. Un renvoi vers une autre section est un défaut.
+
+### L'en-tête
+
+Le titre de la créa — son idée, pas son nom de code. En dessous, le nom
+technique. Puis une ligne de nature : « Feuille de tournage · MOFU · vidéo ·
+38 à 42 s ». Puis l'intention en une ou deux phrases : ce que la vidéo fait, et
+dans quel ordre. Puis « Pour : » et le persona situé, en une phrase. Un filet
+ferme l'en-tête.
+
+### Les cartes
+
+Une carte par temps, dans l'ordre chronologique. Chacune porte, dans cet ordre :
+
+1. **Le repère**, court et en évidence : « HOOK — 0 à 3 s », puis « 3-8 s »,
+   « 8-15 s ». Le repère du hook se distingue visuellement des autres.
+2. **Le texte prononcé, mot pour mot, en gros.** C'est ce qu'on lit à voix
+   haute sur le plateau : il doit être lisible à bout de bras, sans loupe.
+3. **La nature de la prise** : face caméra, voix off, b-roll.
+4. **« À l'écran : »** l'incrustation, s'il y en a une.
+5. **« Image : »** ce qu'on filme — cadre, mouvement, ce qui doit ou ne doit
+   pas apparaître.
+
+Rien d'autre sur la carte. Ni justification, ni chiffre, ni rappel d'angle :
+cela appartient au rapport, pas à la feuille.
+
+### La variante entretien
+
+Quand la créa repose sur la parole d'un vrai client, les cartes ne portent pas
+des répliques mais **des questions**. Un bloc « Guide d'entretien » ouvre la
+série avec les consignes de conduite, puis une carte par question : la question
+en gros, et « On cherche à lui faire dire : » ce qu'on vise.
+
+### Ce qui vient après les cartes
+
+Preuve, appel à l'action, production, copy, à faire / à éviter, KPI. Dans cet
+ordre, après les cartes, jamais entre elles : une carte suivie d'une section
+casse la lecture de quelqu'un qui descend sa feuille plan par plan.
 
 ## 5. Le fond
 
