@@ -392,6 +392,28 @@ ${JSON.stringify(previous.ads, null, 2)}`
          * seule analyse, l'une préfixée « autopilot — », l'autre non.
          */
         if (dbAccountId && fullResult && enregistrer !== false) {
+          /**
+           * Le titre vient du document, pas de l'heure.
+           *
+           * Six discussions d'un même après-midi s'appelaient « Discussion —
+           * 16/09/2026 14:45 », « … 15:01 », « … 15:16 » : indiscernables. Pour
+           * savoir laquelle portait les personas et laquelle les feuilles de
+           * tournage, il fallait les ouvrir une par une. Or le document se
+           * nomme lui-même — « MC Energy — 5 feuilles de tournage » — et ce nom
+           * est exactement ce qu'on cherche en revenant six semaines plus tard.
+           *
+           * L'horodatage reste en suffixe : deux versions du même livrable
+           * doivent rester distinguables dans la liste.
+           */
+          const titreDuDocument = (() => {
+            const t = /<title[^>]*>([^<]{3,120})<\/title>/i.exec(fullResult)?.[1]?.trim()
+            const h = /<h1[^>]*>([\s\S]{3,120}?)<\/h1>/i.exec(fullResult)?.[1]?.replace(/<[^>]+>/g, '').trim()
+            const nom = (t || h || '').replace(/\s+/g, ' ')
+            if (!nom || nom.length < 3) return null
+            const heure = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            return `${nom.slice(0, 90)} — ${heure}`
+          })()
+
           await prisma.report.create({
             data: {
               // Le nom de la créa fait un bien meilleur titre que la catégorie :
@@ -403,7 +425,8 @@ ${JSON.stringify(previous.ads, null, 2)}`
                * session — 01/09/2026 » : un intitulé technique, impossible à
                * distinguer d'un rapport d'agent dans l'historique.
                */
-              title: titre
+              title: (typeRapport === 'session' && titreDuDocument)
+                || titre
                 || (adName
                   ? `${adName} — ${new Date().toLocaleDateString('fr-FR')}`
                   : `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`),

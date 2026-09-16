@@ -582,6 +582,19 @@ que « A1 » veut dire, il filme ce qui est écrit devant lui.
 Le test : masque tout le document sauf une carte. Si l'on ne peut plus tourner
 ce plan, la carte est incomplète.
 
+### L'impression, et le bouton qui ne peut pas marcher
+
+Le document s'affiche d'abord dans un cadre en bac à sable, où le navigateur
+**bloque l'impression déclenchée par script**. Un bouton qui appelle
+\`window.print()\` ne fera donc rien là où le lecteur le voit, et il conclura
+que l'outil est cassé.
+
+N'en propose pas. Écris la marche à suivre : **ouvrir le document dans un
+onglet** — l'icône en haut à droite du cadre — puis imprimer depuis cet
+onglet, et choisir « Enregistrer au format PDF ». Si le document a des
+onglets et qu'un seul doit sortir, dis de sélectionner l'onglet voulu avant
+d'imprimer, et masque les autres en \`@media print\`.
+
 ### La variante entretien
 
 Quand la créa repose sur la parole d'un vrai client, les cartes ne portent pas
