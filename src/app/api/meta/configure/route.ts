@@ -175,10 +175,14 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === 'audiences') {
+      // Les similaires étaient exclues ici. Le stade 3 de la méthode J7 demande
+      // explicitement de tester « similaire valeur vie » et « similaire acheteurs
+      // 3/5/10 % » : les filtrer revenait à interdire la moitié du stade.
+      // La limite passe à 200 : sans le filtre, les similaires occupent des places
+      // dans la même page et pouvaient évincer des audiences classiques.
       const data = await metaFetch(`/${accountId}/customaudiences`, token, {
         fields: 'id,name,approximate_count_lower_bound,subtype',
-        limit: '100',
-        filtering: JSON.stringify([{ field: 'subtype', operator: 'NOT_IN', value: ['LOOKALIKE'] }]),
+        limit: '200',
       })
       return NextResponse.json(data.data || [])
     }

@@ -37,6 +37,9 @@ interface LaunchAdset {
     age_min?: number; age_max?: number; genders?: number[]
     geo_locations?: { countries?: string[] }
     custom_audiences?: { id: string; name: string }[]
+    excluded_custom_audiences?: { id: string; name?: string }[]
+    flexible_spec?: Record<string, unknown>[]
+    targeting_automation?: { advantage_audience?: number }
   }
   promoted_object?: { pixel_id?: string; custom_event_type?: string; page_id?: string }
   _isNew?: boolean
@@ -95,6 +98,32 @@ function cleanTargeting(t: LaunchAdset['targeting']): Record<string, unknown> {
   // Only include custom_audiences if non-empty — empty array causes Invalid parameter
   if (t.custom_audiences && t.custom_audiences.length > 0) {
     out.custom_audiences = t.custom_audiences.map(a => ({ id: a.id }))
+  }
+  // Mêmes précautions que ci-dessus : un tableau vide fait rejeter l'adset entier.
+  if (t.excluded_custom_audiences && t.excluded_custom_audiences.length > 0) {
+    out.excluded_custom_audiences = t.excluded_custom_audiences.map(a => ({ id: a.id }))
+  }
+  // Ciblage détaillé. Meta refuse aussi les blocs vides à l'intérieur du tableau,
+  // pas seulement le tableau vide — d'où le filtre sur chaque entrée.
+  const flex = (t.flexible_spec || []).filter(b => b && Object.keys(b).length > 0)
+  if (flex.length > 0) {
+    out.flexible_spec = flex
+    /**
+     * `targeting_automation` est couplé à `flexible_spec`, et ne voyage qu'avec lui.
+     *
+     * Meta refuse le ciblage détaillé sans indicateur Advantage+ explicite —
+     * `(#100)` sous-code 1870227, « Indicateur d'audience Advantage requis ».
+     * Les deux partent donc ensemble ou pas du tout.
+     *
+     * Et *seulement* avec lui : Meta réverbère `targeting_automation` sur 100 %
+     * des adsets, avec des valeurs mélangées (mesuré sur 29 adsets réels, 12 à
+     * `advantage_audience: 1` et 17 à `0`). Le transmettre systématiquement
+     * changerait le comportement Advantage+ de chaque lancement, y compris ceux
+     * sans aucun intérêt à cibler.
+     */
+    out.targeting_automation = {
+      advantage_audience: t.targeting_automation?.advantage_audience ?? 0,
+    }
   }
   return out
 }
