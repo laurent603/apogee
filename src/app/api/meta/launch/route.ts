@@ -81,6 +81,38 @@ interface LaunchBody {
 /* ── Helpers ─────────────────────────────────────────────────────────────────── */
 
 // Map CreateAdsetModal optimization labels → valid Meta API values
+/**
+ * Les couples objectif de campagne × objectif de performance que Meta refuse.
+ *
+ * Liste de REFUS et non d'autorisation : elle ne peut que prévenir un échec,
+ * jamais en provoquer un. Un couple absent part chez Meta, qui reste l'arbitre.
+ * Mesuré en `validate_only` contre de vraies campagnes du compte.
+ */
+const COUPLES_REFUSES: Record<string, string[]> = {
+  OUTCOME_TRAFFIC: ['VALUE', 'LEAD_GENERATION', 'AD_RECALL_LIFT'],
+  OUTCOME_LEADS: ['POST_ENGAGEMENT', 'THRUPLAY', 'AD_RECALL_LIFT'],
+  OUTCOME_AWARENESS: ['LANDING_PAGE_VIEWS', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS', 'VALUE', 'POST_ENGAGEMENT'],
+  OUTCOME_ENGAGEMENT: ['AD_RECALL_LIFT'],
+}
+/** Ce qu'on propose à la place dans le message d'erreur. */
+const PERF_SUGGEREE: Record<string, string> = {
+  OUTCOME_TRAFFIC: 'vues de page de destination, clics sur le lien, couverture ou impressions',
+  OUTCOME_LEADS: 'prospects, conversions, vues de page de destination ou clics sur le lien',
+  OUTCOME_AWARENESS: 'couverture ou impressions',
+  OUTCOME_ENGAGEMENT: 'interactions, ThruPlay ou clics sur le lien',
+}
+/** Les anciens noms d'objectifs, encore portés par de vieilles campagnes. */
+const LEGACY_OBJECTIF: Record<string, string> = {
+  LEAD_GENERATION: 'OUTCOME_LEADS',
+  CONVERSIONS: 'OUTCOME_SALES',
+  LINK_CLICKS: 'OUTCOME_TRAFFIC',
+  BRAND_AWARENESS: 'OUTCOME_AWARENESS',
+  REACH: 'OUTCOME_AWARENESS',
+  VIDEO_VIEWS: 'OUTCOME_ENGAGEMENT',
+  POST_ENGAGEMENT: 'OUTCOME_ENGAGEMENT',
+  PAGE_LIKES: 'OUTCOME_ENGAGEMENT',
+}
+
 const OPT_GOAL_MAP: Record<string, string> = {
   MAXIMIZE_NUMBER_OF_CONVERSIONS: 'OFFSITE_CONVERSIONS',
   MAXIMIZE_CONVERSION_VALUE: 'VALUE',
@@ -287,6 +319,32 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        /* ── 0. Le couple objectif × objectif de performance ───────────────── */
+        /**
+         * Contrôlé avant toute écriture : la campagne est créée en premier, et
+         * un couple refusé ne se voyait qu'à l'ensemble suivant — laissant une
+         * campagne vide sur le compte à chaque tentative.
+         *
+         * Le cas qui a motivé ce garde-fou : « Choisir dans Meta » recopie
+         * l'objectif de performance du modèle d'ensemble — `LEAD_GENERATION` —
+         * dans une campagne Trafic, qui ne l'accepte pas.
+         */
+        {
+          const objectifCampagne = LEGACY_OBJECTIF[campaign?.objective || ''] || campaign?.objective || ''
+          const brut = adsetTemplate?.optimization_goal || 'OFFSITE_CONVERSIONS'
+          let but = OPT_GOAL_MAP[brut] ?? brut
+          // Les campagnes de prospects forcent LEAD_GENERATION plus bas.
+          if (objectifCampagne === 'OUTCOME_LEADS') but = 'LEAD_GENERATION'
+          if (COUPLES_REFUSES[objectifCampagne]?.includes(but)) {
+            const suggestion = PERF_SUGGEREE[objectifCampagne]
+            throw new Error(
+              `L'objectif de performance « ${but} » de l'ensemble n'est pas accepté par une campagne ${objectifCampagne}.`
+              + (suggestion ? ` Choisissez plutôt : ${suggestion}.` : '')
+              + ` Si l'ensemble vient de « Choisir dans Meta », il porte l'objectif de sa campagne d'origine —`
+              + ` reconfigurez-le depuis l'onglet « Créer ».`,
+            )
+          }
+        }
         /* ── 1. Campaign ───────────────────────────────────────────────────── */
         const budgetCents = Math.round(Number(budget || 50) * 100)
         // CBO: explicit flag OR campaign-level budget on imported campaign

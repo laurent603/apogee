@@ -485,11 +485,11 @@ const PERF_GOALS_PAR_OBJECTIF: Record<string, { id: string; label: string }[]> =
     { id: 'REACH', label: 'Maximiser la couverture' },
     { id: 'IMPRESSIONS', label: 'Maximiser les impressions' },
   ],
+  // `AD_RECALL_LIFT` et `THRUPLAY` étaient proposés ici : Meta les refuse sous
+  // Notoriété (#100, sous-code 2490408), vérifié contre le compte.
   OUTCOME_AWARENESS: [
     { id: 'REACH', label: 'Maximiser la couverture' },
     { id: 'IMPRESSIONS', label: 'Maximiser les impressions' },
-    { id: 'AD_RECALL_LIFT', label: 'Maximiser la mémorisation publicitaire' },
-    { id: 'THRUPLAY', label: 'Maximiser les ThruPlay' },
   ],
   OUTCOME_ENGAGEMENT: [
     { id: 'POST_ENGAGEMENT', label: 'Maximiser les interactions' },
