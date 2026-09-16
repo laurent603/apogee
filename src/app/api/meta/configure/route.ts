@@ -174,6 +174,35 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(data.data || [])
     }
 
+    /**
+     * Recherche d'intérêts, comportements et évènements de vie.
+     *
+     * `targetingsearch` plutôt que `/search?type=adinterest` : il est scopé au
+     * compte publicitaire — donc des tailles d'audience réalistes — et il
+     * renvoie le `type` de chaque entrée. C'est ce type qui commande le
+     * regroupement dans `flexible_spec` : Meta attend `{ interests: [...],
+     * behaviors: [...] }`, pas une liste à plat.
+     */
+    if (type === 'interests') {
+      const q = searchParams.get('q')?.trim()
+      if (!q || q.length < 2) return NextResponse.json([])
+      const data = await metaFetch(`/${accountId}/targetingsearch`, token, {
+        q, locale: 'fr_FR', limit: '25',
+      })
+      const RETENUS = new Set(['interests', 'behaviors', 'life_events', 'industries', 'income', 'family_statuses'])
+      return NextResponse.json(
+        (data.data as Record<string, unknown>[] || [])
+          .filter(x => RETENUS.has(String(x.type)))
+          .map(x => ({
+            id: String(x.id),
+            name: String(x.name ?? ''),
+            type: String(x.type),
+            taille: Number(x.audience_size_lower_bound ?? 0),
+            chemin: (x.path as string[] | undefined)?.join(' › ') ?? '',
+          })),
+      )
+    }
+
     if (type === 'audiences') {
       // Les similaires étaient exclues ici. Le stade 3 de la méthode J7 demande
       // explicitement de tester « similaire valeur vie » et « similaire acheteurs

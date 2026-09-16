@@ -13,7 +13,72 @@ interface UploadedFile {
   ratio?: string; concept: string; iteration: string; format: string; aiConfidence?: number
 }
 interface NomenclatureGroup { concept: string; iterations: UploadedFile[] }
-type TestStructure = 'one-ad-one-adset' | 'one-concept-one-adset' | 'all-in-one' | 'insert-in-adset'
+type TestStructure = 'one-ad-one-adset' | 'one-concept-one-adset' | 'all-in-one' | 'insert-in-adset' | 'audience-test'
+
+/**
+ * Une audience du stade 3.
+ *
+ * Les quatre autres structures font varier la créa et tiennent l'audience
+ * constante. Le stade 3 inverse : créa gagnante en contrôle, cinq à dix
+ * audiences en variable. Chacune produit son propre ensemble, et son nom
+ * entre dans le nom de l'ensemble — c'est lui qu'on lira dans le tableau
+ * de suivi quand il faudra dire laquelle a gagné.
+ */
+type Interet = { id: string; name: string; type: string; taille?: number; chemin?: string }
+type Audience = {
+  uid: string
+  nom: string
+  /** `advantage_audience`. À 1 Meta déborde de la cible : les intérêts ne sont plus qu'une suggestion. */
+  advantagePlus: boolean
+  pays: string[]
+  ageMin: number
+  ageMax: number
+  genre: 'ALL' | 'MALE' | 'FEMALE'
+  interets: Interet[]
+  inclus: string[]
+  exclus: string[]
+  /** En euros. La méthode demande 2× le coût cible, par ensemble et par jour. */
+  budget: string
+}
+
+const audienceVierge = (nom = ''): Audience => ({
+  uid: `aud_${Math.random().toString(36).slice(2, 9)}`,
+  nom, advantagePlus: false, pays: ['FR'], ageMin: 18, ageMax: 65,
+  genre: 'ALL', interets: [], inclus: [], exclus: [], budget: '',
+})
+
+/** Les huit audiences que le stade 3 demande de tester, à remplir ensuite. */
+const AUDIENCES_STADE_3 = [
+  'Advantage+ seul', 'Intérêts larges', 'Broad + âge avatar',
+  'Similaire valeur vie', 'Similaire acheteurs 3%', 'Similaire acheteurs 5%',
+  'Intérêts très nichés', 'Stack de concurrents',
+]
+
+/**
+ * L'audience, traduite pour Meta.
+ *
+ * `flexible_spec` groupe par type — `{ interests: [...], behaviors: [...] }` —
+ * et non à plat. `targeting_automation` part systématiquement : Meta l'exige
+ * sur tout ensemble créé de zéro (sous-code 1870227), et dès que l'âge minimal
+ * dépasse 18 (sous-code 1870188).
+ */
+function cibleDe(a: Audience): Record<string, unknown> {
+  const t: Record<string, unknown> = {
+    geo_locations: { countries: a.pays.length ? a.pays : ['FR'] },
+    age_min: a.ageMin,
+    age_max: a.ageMax,
+    genders: a.genre === 'ALL' ? [1, 2] : a.genre === 'MALE' ? [1] : [2],
+    targeting_automation: { advantage_audience: a.advantagePlus ? 1 : 0 },
+  }
+  if (a.interets.length) {
+    const parType: Record<string, { id: string; name: string }[]> = {}
+    for (const i of a.interets) (parType[i.type] ||= []).push({ id: i.id, name: i.name })
+    t.flexible_spec = [parType]
+  }
+  if (a.inclus.length) t.custom_audiences = a.inclus.map(id => ({ id }))
+  if (a.exclus.length) t.excluded_custom_audiences = a.exclus.map(id => ({ id }))
+  return t
+}
 type LaunchStatus = 'SCHEDULED_PAUSED' | 'SCHEDULED_LIVE' | 'CREATED_PAUSED' | 'LIVE_NOW'
 
 interface MetaCampaign {
@@ -1219,6 +1284,235 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
   )
 }
 
+
+/* ─── Constructeur d'audiences — stade 3 ─────────────────────────────────── */
+
+const PAYS_COURANTS = [['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['LU', 'Luxembourg'], ['CA', 'Canada']]
+
+function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
+  audiences: Audience[]
+  setAudiences: React.Dispatch<React.SetStateAction<Audience[]>>
+  accountId?: string
+  custom: MetaAudience[]
+}) {
+  const [ouverte, setOuverte] = useState<string | null>(null)
+  const maj = (uid: string, p: Partial<Audience>) =>
+    setAudiences(prev => prev.map(a => (a.uid === uid ? { ...a, ...p } : a)))
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold text-[#0d0d12]">Audiences à tester</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Cinq à dix, une par ensemble. La créa ne bouge pas — c’est l’audience qu’on mesure.
+          </p>
+        </div>
+        <div className="flex gap-1.5">
+          {audiences.length === 0 && (
+            <button
+              onClick={() => setAudiences(AUDIENCES_STADE_3.map(n => audienceVierge(n)))}
+              className="btn-secondary text-xs py-1 px-2.5">
+              Charger les 8 du stade 3
+            </button>
+          )}
+          <button onClick={() => setAudiences(prev => [...prev, audienceVierge()])}
+            className="btn-primary text-xs py-1 px-2.5">+ Audience</button>
+        </div>
+      </div>
+
+      {audiences.length === 0 && (
+        <p className="text-xs text-gray-400 border border-dashed border-[#E5E7EB] rounded-lg p-3 text-center">
+          Aucune audience. Chaque audience ajoutée produira son propre ensemble.
+        </p>
+      )}
+
+      {audiences.map((a, i) => (
+        <div key={a.uid} className="border border-[#E5E7EB] rounded-lg">
+          <div className="flex items-center gap-2 p-2.5">
+            <span className="text-xs text-gray-400 w-5 shrink-0">{i + 1}</span>
+            <input
+              className="input flex-1 text-xs py-1"
+              placeholder="Nom de l’audience — il entrera dans le nom de l’ensemble"
+              value={a.nom}
+              onChange={e => maj(a.uid, { nom: e.target.value })} />
+            <button onClick={() => setOuverte(ouverte === a.uid ? null : a.uid)}
+              className="btn-secondary text-xs py-1 px-2.5 shrink-0">
+              {ouverte === a.uid ? 'Replier' : 'Régler'}
+            </button>
+            <button onClick={() => setAudiences(prev => prev.filter(x => x.uid !== a.uid))}
+              className="text-gray-300 hover:text-red-500 px-1 shrink-0" title="Retirer">×</button>
+          </div>
+
+          {ouverte === a.uid && (
+            <div className="border-t border-[#E5E7EB] p-3 space-y-3">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 mt-0.5 rounded accent-[#3434ef]"
+                  checked={a.advantagePlus}
+                  onChange={e => maj(a.uid, { advantagePlus: e.target.checked })} />
+                <div>
+                  <p className="text-xs font-medium text-[#0d0d12]">Audience Advantage+</p>
+                  <p className="text-xs text-gray-400">
+                    Meta élargit au-delà de la cible : les intérêts et l’âge ne sont plus que des
+                    suggestions. À laisser décoché pour mesurer une audience précise.
+                  </p>
+                </div>
+              </label>
+
+              <div>
+                <label className="label">Pays</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PAYS_COURANTS.map(([code, nom]) => (
+                    <button key={code}
+                      onClick={() => maj(a.uid, { pays: a.pays.includes(code) ? a.pays.filter(c => c !== code) : [...a.pays, code] })}
+                      className={clsx('text-xs px-2.5 py-1 rounded-full transition-colors',
+                        a.pays.includes(code) ? 'bg-[#f0f0ff] text-[#3434ef] font-medium' : 'bg-gray-100 text-gray-500 hover:text-gray-700')}>
+                      {nom}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="label">Âge min</label>
+                  <input className="input text-xs py-1" type="number" min={13} max={65} value={a.ageMin}
+                    onChange={e => maj(a.uid, { ageMin: Number(e.target.value) || 18 })} />
+                </div>
+                <div>
+                  <label className="label">Âge max</label>
+                  <input className="input text-xs py-1" type="number" min={13} max={65} value={a.ageMax}
+                    onChange={e => maj(a.uid, { ageMax: Number(e.target.value) || 65 })} />
+                </div>
+                <div>
+                  <label className="label">Genre</label>
+                  <select className="select text-xs py-1" value={a.genre}
+                    onChange={e => maj(a.uid, { genre: e.target.value as Audience['genre'] })}>
+                    <option value="ALL">H/F</option>
+                    <option value="MALE">Hommes</option>
+                    <option value="FEMALE">Femmes</option>
+                  </select>
+                </div>
+              </div>
+
+              <RechercheInterets
+                accountId={accountId}
+                choisis={a.interets}
+                onChange={interets => maj(a.uid, { interets })} />
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Audiences incluses</label>
+                  <SelecteurAudiences options={custom} choisies={a.inclus}
+                    onChange={inclus => maj(a.uid, { inclus })} />
+                </div>
+                <div>
+                  <label className="label">Audiences exclues</label>
+                  <SelecteurAudiences options={custom} choisies={a.exclus}
+                    onChange={exclus => maj(a.uid, { exclus })} />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Budget quotidien de cet ensemble (€)</label>
+                <input className="input text-xs py-1" type="number" placeholder="2× le coût cible"
+                  value={a.budget} onChange={e => maj(a.uid, { budget: e.target.value })} />
+                <p className="text-xs text-gray-400 mt-1">
+                  Vide, l’ensemble reprend le budget quotidien de l’étape.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Recherche d'intérêts, de comportements et d'évènements de vie chez Meta. */
+function RechercheInterets({ accountId, choisis, onChange }: {
+  accountId?: string
+  choisis: Interet[]
+  onChange: (i: Interet[]) => void
+}) {
+  const [q, setQ] = useState('')
+  const [res, setRes] = useState<Interet[]>([])
+  const [charge, setCharge] = useState(false)
+
+  useEffect(() => {
+    if (!accountId || q.trim().length < 2) { setRes([]); return }
+    // Laisser la frappe se terminer avant d'interroger Meta : le quota d'appels
+    // se consomme vite, et chaque touche déclencherait une requête.
+    const t = setTimeout(async () => {
+      setCharge(true)
+      try {
+        const r = await fetch(`/api/meta/configure?accountId=${accountId}&type=interests&q=${encodeURIComponent(q.trim())}`)
+        const d = await r.json()
+        setRes(Array.isArray(d) ? d : [])
+      } catch { setRes([]) }
+      setCharge(false)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [q, accountId])
+
+  return (
+    <div>
+      <label className="label">Intérêts et comportements</label>
+      {choisis.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {choisis.map(i => (
+            <button key={i.id} onClick={() => onChange(choisis.filter(x => x.id !== i.id))}
+              className="text-xs px-2.5 py-1 rounded-full bg-[#f0f0ff] text-[#3434ef] font-medium hover:line-through">
+              {i.name} ×
+            </button>
+          ))}
+        </div>
+      )}
+      <input className="input text-xs py-1" placeholder="Rechercher un intérêt, un comportement…"
+        value={q} onChange={e => setQ(e.target.value)} />
+      {charge && <p className="text-xs text-gray-400 mt-1">Recherche…</p>}
+      {res.length > 0 && (
+        <div className="mt-1.5 border border-[#E5E7EB] rounded-lg max-h-44 overflow-y-auto divide-y divide-[#F3F4F6]">
+          {res.filter(r => !choisis.some(c => c.id === r.id)).map(r => (
+            <button key={r.id}
+              onClick={() => { onChange([...choisis, r]); setQ('') }}
+              className="w-full text-left px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+              <p className="text-xs text-[#0d0d12]">{r.name}</p>
+              <p className="text-xs text-gray-400">
+                {r.type}{r.chemin ? ` · ${r.chemin}` : ''}
+                {r.taille ? ` · ~${Math.round(r.taille / 1000).toLocaleString('fr-FR')} k` : ''}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Cases à cocher sur les audiences personnalisées du compte, similaires comprises. */
+function SelecteurAudiences({ options, choisies, onChange }: {
+  options: MetaAudience[]
+  choisies: string[]
+  onChange: (ids: string[]) => void
+}) {
+  if (!options.length) {
+    return <p className="text-xs text-gray-400 border border-[#E5E7EB] rounded-lg p-2">Aucune audience sur ce compte.</p>
+  }
+  return (
+    <div className="border border-[#E5E7EB] rounded-lg max-h-32 overflow-y-auto divide-y divide-[#F3F4F6]">
+      {options.map(o => (
+        <label key={o.id} className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-gray-50">
+          <input type="checkbox" className="w-3.5 h-3.5 rounded accent-[#3434ef] shrink-0"
+            checked={choisies.includes(o.id)}
+            onChange={e => onChange(e.target.checked ? [...choisies, o.id] : choisies.filter(x => x !== o.id))} />
+          <span className="text-xs text-[#0d0d12] truncate">{o.name}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 /* ─── Step constants ─────────────────────────────────────────────────────────── */
 
 const STEPS = [
@@ -1233,6 +1527,7 @@ const TEST_STRUCTURES: { id: TestStructure; label: string; sub: string }[] = [
   { id: 'one-concept-one-adset', label: '1 concept 1 ensemble', sub: 'Regroupées par concept' },
   { id: 'all-in-one', label: 'Tout-en-un', sub: 'Un seul ensemble, toutes les créas' },
   { id: 'insert-in-adset', label: 'Insérer dans un ensemble', sub: 'Dans des ensembles existants' },
+  { id: 'audience-test', label: 'Test d’audiences', sub: 'Une audience par ensemble, même créa' },
 ]
 const LAUNCH_STATUSES: { id: LaunchStatus; label: string }[] = [
   { id: 'SCHEDULED_PAUSED', label: 'Programmée, en pause' },
@@ -1254,6 +1549,7 @@ export default function UploadPage() {
   const [bulkPaste, setBulkPaste] = useState('')
 
   const [testStructure, setTestStructure] = useState<TestStructure>('one-ad-one-adset')
+  const [audiences, setAudiences] = useState<Audience[]>([])
   const [launchStatus, setLaunchStatus] = useState<LaunchStatus>('SCHEDULED_PAUSED')
   const [launchDate, setLaunchDate] = useState('')
   const [launchTime, setLaunchTime] = useState('06:00')
@@ -1385,6 +1681,14 @@ export default function UploadPage() {
   const [createAdModalInitialTab, setCreateAdModalInitialTab] = useState(0)
 
   function openCreateAdset() { fetchPixels(); fetchAudiences(); setCreateAdsetModal(true) }
+
+  // Le constructeur d'audiences a besoin des audiences du compte, similaires
+  // comprises. Elles n'étaient chargées qu'à l'ouverture du modal d'ensemble :
+  // sans ce déclenchement, le sélecteur annonçait « aucune audience ».
+  useEffect(() => {
+    if (testStructure === 'audience-test') fetchAudiences()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testStructure, metaId])
   function openCreateAd(adsetIndex?: number, initialTab = 0) {
     fetchPages()
     setCurrentOpenAdsetIndex(adsetIndex ?? null)
@@ -1517,7 +1821,7 @@ export default function UploadPage() {
   // Aperçu générique du builder, sans discriminant.
   const builtAdsetName = buildAdsetNameFor('')
 
-  const treeNodes: { adsetName: string; adGroups: AdGroup[] }[] = (() => {
+  const treeNodes: { adsetName: string; adGroups: AdGroup[]; _audience?: { targeting: Record<string, unknown>; daily_budget?: string } }[] = (() => {
     // Le discriminant est ce que la structure fait varier : la créa quand
     // chacune a son adset, le concept quand ils sont regroupés. Sans builder
     // actif, il tient lieu de nom à lui seul — comportement d'origine.
@@ -1526,6 +1830,18 @@ export default function UploadPage() {
     if (testStructure === 'one-ad-one-adset') return adGroups.map(g => ({ adsetName: named(g.adName, g.adName), adGroups: [g] }))
     if (testStructure === 'one-concept-one-adset') return groups.map(g => ({ adsetName: named(g.concept, g.concept), adGroups: groupByAd(g.iterations) }))
     if (testStructure === 'all-in-one') return adGroups.length ? [{ adsetName: named('', 'Adset_1'), adGroups }] : []
+    // Stade 3 : c'est l'audience qui découpe, pas la créa. Chaque audience
+    // reçoit l'intégralité des créas — en pratique la gagnante, seule.
+    if (testStructure === 'audience-test') {
+      if (!adGroups.length) return []
+      return audiences
+        .filter(a => a.nom.trim())
+        .map(a => ({
+          adsetName: named(a.nom.trim(), a.nom.trim()),
+          adGroups,
+          _audience: { targeting: cibleDe(a), daily_budget: a.budget.trim() || undefined },
+        }))
+    }
     return adGroups.length ? [{ adsetName: named('', 'Adset existant'), adGroups }] : []
   })()
 
@@ -1625,6 +1941,10 @@ export default function UploadPage() {
         }),
       })),
       _adTemplateOverride: perAdsetAdTemplate[ni] ?? null,
+      // Le ciblage propre à ce nœud, quand le stade 3 en a défini un. Absent,
+      // le serveur retombe sur l'adset modèle — comportement des quatre autres
+      // structures.
+      _audience: node._audience ?? null,
     }))
 
     // Phase 3: call real Meta launch API
@@ -1948,6 +2268,16 @@ export default function UploadPage() {
                 ))}
               </div>
             </div>
+
+            {testStructure === 'audience-test' && (
+              <div className="border-t border-[#E5E7EB] pt-3">
+                <ConstructeurAudiences
+                  audiences={audiences}
+                  setAudiences={setAudiences}
+                  accountId={metaId}
+                  custom={metaAudiences} />
+              </div>
+            )}
 
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wider">Budget & Schedule</p>
