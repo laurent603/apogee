@@ -137,12 +137,12 @@ function Confetti({ active }: { active: boolean }) {
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className={clsx('bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] w-full', wide ? 'sm:w-[780px]' : 'sm:w-[640px]')} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB] flex-shrink-0">
-          <h2 className="text-sm font-semibold text-[#0d0d12]">{title}</h2>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 text-lg">×</button>
+      <div className={clsx('bg-white rounded-2xl shadow-xl flex flex-col max-h-[92vh] w-full', wide ? 'sm:w-[940px]' : 'sm:w-[720px]')} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-7 py-5 border-b border-[#E5E7EB] flex-shrink-0">
+          <h2 className="text-base font-semibold text-[#0d0d12]">{title}</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 text-xl">×</button>
         </div>
-        <div className="overflow-y-auto flex-1 p-5">{children}</div>
+        <div className="overflow-y-auto flex-1 px-7 py-6">{children}</div>
       </div>
     </div>
   )
@@ -233,15 +233,27 @@ type ObjectifCampagne =
   | 'OUTCOME_TRAFFIC' | 'OUTCOME_SALES' | 'OUTCOME_LEADS'
   | 'OUTCOME_AWARENESS' | 'OUTCOME_ENGAGEMENT'
 
-function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaCampaign) => void; onClose: () => void; accountId?: string }) {
+function CreateCampaignModal({ onSave, onClose, accountId, initial }: {
+  onSave: (c: MetaCampaign) => void; onClose: () => void; accountId?: string
+  /**
+   * La campagne en cours de configuration, quand on revient la modifier.
+   *
+   * Une campagne créée ici n'existe pas encore chez Meta — elle n'est postée
+   * qu'au lancement. Rouvrir le modal repartait pourtant d'un formulaire
+   * vierge, ce qui obligeait à tout ressaisir pour changer un seul réglage.
+   * On garde son `id` : c'est un remplacement, pas une seconde campagne.
+   */
+  initial?: MetaCampaign | null
+}) {
+  const modification = !!initial
   const [activeTab, setActiveTab] = useState(0)
-  const [name, setName] = useState('')
-  const [objective, setObjective] = useState<ObjectifCampagne>('OUTCOME_LEADS')
-  const [isCBO, setIsCBO] = useState(false)
-  const [budget, setBudget] = useState('')
+  const [name, setName] = useState(initial?.name ?? '')
+  const [objective, setObjective] = useState<ObjectifCampagne>((initial?.objective as ObjectifCampagne) ?? 'OUTCOME_LEADS')
+  const [isCBO, setIsCBO] = useState(initial?.budget_rebalance_flag ?? false)
+  const [budget, setBudget] = useState(initial?.daily_budget ?? '')
   const [bidStrategy, setBidStrategy] = useState('Lowest cost')
   const [specialCat, setSpecialCat] = useState('None')
-  const [status, setStatus] = useState<'PAUSED' | 'ACTIVE'>('PAUSED')
+  const [status, setStatus] = useState<'PAUSED' | 'ACTIVE'>((initial?.status as 'PAUSED' | 'ACTIVE') ?? 'PAUSED')
 
   const [sfmCampaigns, setSfmCampaigns] = useState<MetaCampaign[]>([])
   const [sfmLoading, setSfmLoading] = useState(false)
@@ -272,7 +284,22 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
 
   function handleSave() {
     if (!name.trim()) { toast.error('Nom de campagne requis'); return }
-    onSave({ id: `new_${Date.now()}`, name: name.trim(), status, objective, budget_rebalance_flag: isCBO, daily_budget: isCBO ? undefined : budget, _isNew: true })
+    /**
+     * CBO = budget porté par la campagne. ABO = budget porté par l'ensemble.
+     *
+     * C'était l'inverse : `daily_budget` n'était rempli qu'en ABO. Or le
+     * serveur déduit le mode de la présence de ce budget —
+     * `isCBO = budget_rebalance_flag || daily_budget` — si bien que choisir
+     * ABO produisait une campagne CBO, budget posé sur la campagne et aucun
+     * sur les ensembles. Le mode ABO était donc inatteignable.
+     */
+    onSave({
+      id: initial?.id ?? `new_${Date.now()}`,
+      name: name.trim(), status, objective,
+      budget_rebalance_flag: isCBO,
+      daily_budget: isCBO ? budget : undefined,
+      _isNew: true,
+    })
   }
 
   const OBJECTIVES = [
@@ -373,10 +400,10 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
           <div>
             <label className="label">Répartition du budget</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[{ val: false, label: 'CBO', sub: 'Campaign Budget' }, { val: true, label: 'ABO', sub: 'Ad Set Budget' }].map(o => (
-                <button key={String(o.val)} onClick={() => setIsCBO(!o.val)}
-                  className={clsx('p-3.5 rounded-xl border-2 text-center transition-all', isCBO === !o.val ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-gray-300')}>
-                  <p className={clsx('text-sm font-bold', isCBO === !o.val ? 'text-[#3434ef]' : 'text-[#0d0d12]')}>{o.label}</p>
+              {[{ cbo: true, label: 'CBO', sub: 'Budget sur la campagne' }, { cbo: false, label: 'ABO', sub: 'Budget sur l’ensemble' }].map(o => (
+                <button key={o.label} onClick={() => setIsCBO(o.cbo)}
+                  className={clsx('p-3.5 rounded-xl border-2 text-center transition-all', isCBO === o.cbo ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB] hover:border-gray-300')}>
+                  <p className={clsx('text-sm font-bold', isCBO === o.cbo ? 'text-[#3434ef]' : 'text-[#0d0d12]')}>{o.label}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{o.sub}</p>
                 </button>
               ))}
@@ -384,8 +411,8 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
           </div>
           <div>
             <label className="label">Budget</label>
-            {isCBO
-              ? <div className="input bg-gray-50 text-gray-400 text-sm cursor-not-allowed">Budget will be set at ad set level</div>
+            {!isCBO
+              ? <div className="input bg-gray-50 text-gray-400 text-sm cursor-not-allowed">Défini sur chaque ensemble de publicités</div>
               : <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span><input className="input pl-7" placeholder="50" type="number" value={budget} onChange={e => setBudget(e.target.value)} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">/ jour</span></div>
             }
           </div>
@@ -412,7 +439,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
       </div>}
       <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[#E5E7EB]">
         <button onClick={onClose} className="btn-secondary">Annuler</button>
-        {activeTab === 0 && <button onClick={handleSave} className="btn-primary px-6">Créer la campagne</button>}
+        {activeTab === 0 && <button onClick={handleSave} className="btn-primary px-6">{modification ? 'Enregistrer les modifications' : 'Créer la campagne'}</button>}
         {activeTab === 1 && sfmSelected && <button onClick={handleSfmConfirm} className="btn-primary px-6">Créer la campagne</button>}
       </div>
     </Modal>
@@ -1984,8 +2011,12 @@ export default function UploadPage() {
                     {selectedCampaign ? 'Change' : 'Select'}
                   </button>
                   <button onClick={() => setCreateCampaignModal(true)} className="btn-primary text-xs py-1 px-2.5 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                    Créer
+                    {selectedCampaign?._isNew ? (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    )}
+                    {selectedCampaign?._isNew ? 'Modifier' : 'Créer'}
                   </button>
                 </div>
               </div>
@@ -2446,6 +2477,7 @@ export default function UploadPage() {
           onSave={c => { setSelectedCampaign(c); setCreateCampaignModal(false) }}
           onClose={() => setCreateCampaignModal(false)}
           accountId={metaId}
+          initial={selectedCampaign?._isNew ? selectedCampaign : null}
         />
       )}
 
