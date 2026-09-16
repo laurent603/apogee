@@ -1298,15 +1298,30 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
   const [ouverte, setOuverte] = useState<string | null>(null)
   const maj = (uid: string, p: Partial<Audience>) =>
     setAudiences(prev => prev.map(a => (a.uid === uid ? { ...a, ...p } : a)))
+  // Une audience sans nom ne produit pas d'ensemble : c'est son nom qui nomme
+  // l'ensemble. Le compte le dit à l'écran plutôt que de la faire disparaître
+  // en silence de l'arbre du dessous.
+  const nommees = audiences.filter(a => a.nom.trim()).length
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold text-[#0d0d12]">Audiences à tester</p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Cinq à dix, une par ensemble. La créa ne bouge pas — c’est l’audience qu’on mesure.
+          <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+            Cinq à dix. La créa ne bouge pas — c’est l’audience qu’on mesure.{' '}
+            <span className="text-[#0d0d12] font-medium">
+              Chacune devient un ensemble dans l’arbre ci-dessous.
+            </span>
           </p>
+          {audiences.length > 0 && (
+            <p className={clsx('text-xs mt-1 font-medium', nommees ? 'text-[#3434ef]' : 'text-amber-600')}>
+              {nommees
+                ? `${nommees} ensemble${nommees > 1 ? 's' : ''} sera${nommees > 1 ? 'ont' : ''} créé${nommees > 1 ? 's' : ''}`
+                : 'Aucune audience nommée — aucun ensemble ne sera créé'}
+              {audiences.length > nommees && ` · ${audiences.length - nommees} sans nom, ignorée${audiences.length - nommees > 1 ? 's' : ''}`}
+            </p>
+          )}
         </div>
         <div className="flex gap-1.5">
           {audiences.length === 0 && (
@@ -1332,8 +1347,8 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
           <div className="flex items-center gap-2 p-2.5">
             <span className="text-xs text-gray-400 w-5 shrink-0">{i + 1}</span>
             <input
-              className="input flex-1 text-xs py-1"
-              placeholder="Nom de l’audience — il entrera dans le nom de l’ensemble"
+              className={clsx('input flex-1 text-xs py-1', !a.nom.trim() && 'border-amber-300 bg-amber-50/40')}
+              placeholder="Nom de l’audience — sans lui, pas d’ensemble"
               value={a.nom}
               onChange={e => maj(a.uid, { nom: e.target.value })} />
             <button onClick={() => setOuverte(ouverte === a.uid ? null : a.uid)}
@@ -2309,18 +2324,6 @@ export default function UploadPage() {
 
           {/* RIGHT */}
           <div className="flex-1 p-5 space-y-4 min-w-0">
-            {/* Le constructeur vit ici, et non dans la colonne de gauche : à
-                240 px, ses champs se repliaient les uns sur les autres. */}
-            {testStructure === 'audience-test' && (
-              <div className="border border-[#E5E7EB] rounded-xl p-4">
-                <ConstructeurAudiences
-                  audiences={audiences}
-                  setAudiences={setAudiences}
-                  accountId={metaId}
-                  custom={metaAudiences} />
-              </div>
-            )}
-
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wider">Campaign Structure</p>
               <a href="/creative-strategist" target="_blank" className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
@@ -2365,6 +2368,13 @@ export default function UploadPage() {
               {/* Quick Bulk Edit */}
               <div className="border-t border-[#F3F4F6] pt-3 space-y-2">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Quick Bulk Edit</p>
+                {testStructure === 'audience-test' && (
+                  <p className="text-xs text-gray-500 bg-[#f0f0ff] rounded-lg px-2.5 py-2 leading-relaxed">
+                    En test d’audiences, les paramètres d’ensemble ne servent qu’à l’objectif de
+                    performance, au pixel et à la Page. <strong className="font-medium">Le ciblage vient
+                    des audiences</strong>, définies plus bas — une par ensemble.
+                  </p>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-600 w-24 flex-shrink-0">Adset params :</span>
                   <button onClick={() => { setAdsetModal(true); const cid = selectedCampaign?.id; fetchAdsets(cid?.startsWith('new_') ? undefined : cid) }} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg hover:border-[#3434ef] hover:text-[#3434ef] hover:bg-[#f0f0ff] transition-all">
@@ -2575,6 +2585,20 @@ export default function UploadPage() {
                 )}
               </div>
             </div>
+
+            {/* Le constructeur se lit juste avant l'arbre qu'il produit :
+                campagne, puis paramètres, puis audiences, puis les ensembles
+                qui en découlent. En haut de colonne, rien ne disait ce qu'il
+                pilotait. */}
+            {testStructure === 'audience-test' && (
+              <div className="border border-[#E5E7EB] rounded-xl p-4">
+                <ConstructeurAudiences
+                  audiences={audiences}
+                  setAudiences={setAudiences}
+                  accountId={metaId}
+                  custom={metaAudiences} />
+              </div>
+            )}
 
             {/* Tree */}
             {treeNodes.length > 0 && (
