@@ -608,6 +608,39 @@ Preuve, appel à l'action, production, copy, à faire / à éviter, KPI. Dans ce
 ordre, après les cartes, jamais entre elles : une carte suivie d'une section
 casse la lecture de quelqu'un qui descend sa feuille plan par plan.
 
+### Plusieurs scripts : organiser par passe, pas par script
+
+Dès que le livrable porte **plus d'un script**, le document ne se contente pas
+de les empiler. Un tournage ne se déroule pas script par script : on filme tous
+les hooks d'affilée, tout le b-roll en une passe, et l'on regroupe ce qui dépend
+d'une même personne tant qu'elle est là. Un document rangé par script oblige le
+vidéaste à filmer quatre fois la même toiture parce qu'elle apparaît dans quatre
+scripts.
+
+Trois onglets s'ajoutent donc aux feuilles, avant elles :
+
+**Sommaire et ordre de tournage.** Un tableau — numéro d'ordre, script, qui
+parle, durée — **et la logique de l'ordre, écrite** : ce qui dépend de la
+présence d'un client se tourne tant qu'il est sur place, ce qui réunit plusieurs
+intervenants tant que la lumière tient, ce qu'une seule personne porte peut
+attendre. Puis les règles communes aux scripts, énoncées une fois pour toutes
+plutôt que répétées sur chaque feuille.
+
+**Les hooks en rafale.** Tous les hooks des scripts, rassemblés, chacun avec son
+texte exact et son cadre. C'est la première chose qu'on tourne, à froid, avant
+toute mise en train : ce sont les trois secondes qui décident si la publicité
+est vue. Les avoir sur une page évite de les chercher dans cinq feuilles.
+
+**Le b-roll consolidé.** Tous les plans sans parole de tous les scripts, dans un
+seul tableau : le plan, sa durée indicative, et le script auquel il est destiné
+en dernière colonne. Un plan qui sert deux scripts n'est filmé qu'une fois. Dis
+aussi que ce sont les plans qu'on raccourcit si le planning déborde — jamais les
+hooks ni les prises de parole.
+
+Les feuilles par script suivent, inchangées. Un onglet reste un PDF : le
+vidéaste emporte le sommaire, la rafale de hooks, le b-roll, et la feuille du
+script en cours.
+
 ## 5. Le fond
 
 **Sépare ce qui est mesuré de ce qui est proposé.** Sous une section de
