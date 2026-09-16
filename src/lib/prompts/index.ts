@@ -563,6 +563,25 @@ Une carte par temps, dans l'ordre chronologique. Chacune porte, dans cet ordre :
 Rien d'autre sur la carte. Ni justification, ni chiffre, ni rappel d'angle :
 cela appartient au rapport, pas à la feuille.
 
+### Le renvoi par code, qui ruine tout
+
+**Une carte ne désigne jamais un élément par son code.** C'est le défaut qui
+rend une feuille inutilisable, et il se glisse partout dès qu'un catalogue
+d'angles ou de plans existe plus haut dans le document :
+
+- « Hook A1 » — non. La phrase, mot pour mot.
+- « Plans utilisés : P1, P2, P5 » — non. Ce qu'on filme, sur chaque carte.
+- « Coupe sur le plan de l'installation (P5) » — le « (P5) » est de trop.
+- « Angle : A1 / A8 » — l'angle se lit dans le rapport, pas sur la feuille.
+
+Ces codes peuvent exister dans une section catalogue, pour s'y retrouver entre
+créas. **Dans une carte, jamais.** Quelqu'un qui tourne tient la feuille d'une
+main et la caméra de l'autre : il ne remonte pas trois sections pour savoir ce
+que « A1 » veut dire, il filme ce qui est écrit devant lui.
+
+Le test : masque tout le document sauf une carte. Si l'on ne peut plus tourner
+ce plan, la carte est incomplète.
+
 ### La variante entretien
 
 Quand la créa repose sur la parole d'un vrai client, les cartes ne portent pas
