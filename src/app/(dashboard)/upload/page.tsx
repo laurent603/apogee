@@ -1574,6 +1574,22 @@ export default function UploadPage() {
 
   const [testStructure, setTestStructure] = useState<TestStructure>('one-ad-one-adset')
   const [audiences, setAudiences] = useState<Audience[]>([])
+  /**
+   * Les paramètres de suivi, collés aux liens sortants de chaque publicité.
+   *
+   * Sans eux, un prospect arrivé en CRM depuis une landing n'a aucune trace de
+   * la créa qui l'a produit : on sait ce qu'une campagne a coûté, jamais quelle
+   * publicité a fait la vente. `{{ad.id}}` est la clé stable — les noms
+   * changent, l'identifiant non. `{{site_source_name}}` sépare Facebook
+   * d'Instagram, ce qui compte quand on teste Feed contre Story.
+   *
+   * Sans effet sur les publicités à formulaire Meta : il n'y a pas de page
+   * d'arrivée, et le prospect y arrive déjà avec ses identifiants natifs.
+   */
+  const [urlTags, setUrlTags] = useState(
+    'utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.name}}'
+    + '&utm_term={{adset.name}}&utm_content={{ad.name}}&utm_id={{ad.id}}',
+  )
   const [launchStatus, setLaunchStatus] = useState<LaunchStatus>('SCHEDULED_PAUSED')
   const [launchDate, setLaunchDate] = useState('')
   const [launchTime, setLaunchTime] = useState('06:00')
@@ -2014,6 +2030,7 @@ export default function UploadPage() {
             : adTemplate,
           treeNodes: enrichedNodes,
           testStructure,
+          urlTags,
           launchStatus,
           launchDate,
           launchTime,
@@ -2611,6 +2628,38 @@ export default function UploadPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Suivi UTM — appliqué à tous les créatifs du lancement. */}
+            <div className="border border-[#E5E7EB] rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[#0d0d12]">Paramètres de suivi</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                    Collés aux liens sortants de chaque publicité. Sans eux, un prospect arrivé en CRM
+                    depuis une landing n’a aucune trace de la créa qui l’a produit.
+                  </p>
+                </div>
+                {urlTags.trim() && (
+                  <button onClick={() => setUrlTags('')}
+                    className="btn-secondary text-xs py-1 px-2.5 shrink-0">Retirer</button>
+                )}
+              </div>
+              <input className="input text-xs py-1.5 font-mono" placeholder="utm_source=…&utm_medium=…"
+                value={urlTags} onChange={e => setUrlTags(e.target.value)} />
+              <p className="text-xs text-gray-400 leading-relaxed">
+                <span className="font-mono">{'{{ad.id}}'}</span>,{' '}
+                <span className="font-mono">{'{{campaign.name}}'}</span>,{' '}
+                <span className="font-mono">{'{{adset.name}}'}</span>,{' '}
+                <span className="font-mono">{'{{site_source_name}}'}</span> sont substitués par Meta à la
+                diffusion. L’identifiant est la clé stable — les noms changent, lui non.
+                {selectedCampaign?.objective === 'OUTCOME_LEADS' && (
+                  <span className="block mt-1 text-amber-600">
+                    Cette campagne utilise un formulaire Meta : il n’y a pas de page d’arrivée, ces
+                    paramètres n’auront aucun effet. Le prospect arrive déjà avec ses identifiants natifs.
+                  </span>
+                )}
+              </p>
             </div>
 
             {blocageAudienceTest && (

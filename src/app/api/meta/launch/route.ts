@@ -76,6 +76,25 @@ interface LaunchBody {
   launchDate: string
   launchTime: string
   budget: string
+  /** Paramètres de suivi collés aux liens sortants. Voir `nettoieUrlTags`. */
+  urlTags?: string
+}
+
+/**
+ * Les paramètres de suivi, mis en forme pour Meta.
+ *
+ * `url_tags` se pose sur le créatif et s'applique à tous ses clics sortants.
+ * Meta accepte un `?` ou un `&` en tête sans broncher — et produit alors une
+ * destination en `…/??utm_source=`, que les outils d'analyse ignorent. On les
+ * retire donc, ainsi que les espaces qu'un copier-coller traîne toujours.
+ *
+ * Les variables dynamiques de Meta — `{{ad.id}}`, `{{campaign.name}}`,
+ * `{{site_source_name}}` — passent telles quelles : c'est Meta qui les
+ * substitue à la diffusion.
+ */
+function nettoieUrlTags(brut?: string): string | null {
+  const t = (brut || '').trim().replace(/^[?&]+/, '').replace(/\s+/g, '')
+  return t || null
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────────── */
@@ -244,7 +263,7 @@ export async function POST(req: NextRequest) {
     return new Response('data: ❌ Payload invalide\n\n', { status: 400, headers: { 'Content-Type': 'text/event-stream' } })
   }
 
-  const { accountId, campaign, adsetTemplate, adTemplate, treeNodes, testStructure, launchStatus, launchDate, launchTime, budget } = body
+  const { accountId, campaign, adsetTemplate, adTemplate, treeNodes, testStructure, launchStatus, launchDate, launchTime, budget, urlTags } = body
 
   if (!accountId) {
     return new Response('data: ❌ accountId manquant\n\n', { status: 400, headers: { 'Content-Type': 'text/event-stream' } })
@@ -374,6 +393,7 @@ export async function POST(req: NextRequest) {
         }
         /* ── 1. Campaign ───────────────────────────────────────────────────── */
         const budgetCents = Math.round(Number(budget || 50) * 100)
+        const urlTagsPropres = nettoieUrlTags(urlTags)
         // CBO: explicit flag OR campaign-level budget on imported campaign
         const isCBO = !!(campaign?.budget_rebalance_flag) || !!campaign?.daily_budget
 
@@ -725,6 +745,7 @@ export async function POST(req: NextRequest) {
                 name: adName,
                 object_story_spec: spec,
                 ...(leadGenFormId ? { destination_type: 'ON_AD' } : {}),
+                ...(urlTagsPropres ? { url_tags: urlTagsPropres } : {}),
               }
               console.log('[launch] creative body:', JSON.stringify(creativeBody))
               const creativeData = await metaPost(`/${accountId}/adcreatives`, token, creativeBody)
@@ -856,6 +877,7 @@ export async function POST(req: NextRequest) {
                   body: {
                     name: adName,
                     object_story_spec: storySpec,
+                    ...(urlTagsPropres ? { url_tags: urlTagsPropres } : {}),
                     asset_feed_spec: {
                       ...assetList(true), ...copy,
                       ad_formats: [adFormat],
@@ -870,6 +892,7 @@ export async function POST(req: NextRequest) {
                   body: {
                     name: adName,
                     object_story_spec: storySpec,
+                    ...(urlTagsPropres ? { url_tags: urlTagsPropres } : {}),
                     asset_feed_spec: {
                       ...assetList(true), ...copy,
                       ad_formats: [adFormat],
