@@ -1345,81 +1345,90 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
           </div>
 
           {ouverte === a.uid && (
-            <div className="border-t border-[#E5E7EB] p-3 space-y-3">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 mt-0.5 rounded accent-[#3434ef]"
-                  checked={a.advantagePlus}
-                  onChange={e => maj(a.uid, { advantagePlus: e.target.checked })} />
-                <div>
-                  <p className="text-xs font-medium text-[#0d0d12]">Audience Advantage+</p>
-                  <p className="text-xs text-gray-400">
-                    Meta élargit au-delà de la cible : les intérêts et l’âge ne sont plus que des
-                    suggestions. À laisser décoché pour mesurer une audience précise.
-                  </p>
-                </div>
-              </label>
+            <div className="border-t border-[#E5E7EB] p-4">
+              {/* Deux colonnes dès le format moyen : le panneau vivait dans une
+                  bande de 240 px où chaque champ se repliait sous le précédent. */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                <div className="space-y-4 min-w-0">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 mt-0.5 rounded accent-[#3434ef] shrink-0"
+                      checked={a.advantagePlus}
+                      onChange={e => maj(a.uid, { advantagePlus: e.target.checked })} />
+                    <div>
+                      <p className="text-xs font-medium text-[#0d0d12]">Audience Advantage+</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">
+                        Meta élargit au-delà de la cible : les intérêts et l’âge ne sont plus que
+                        des suggestions. À laisser décoché pour mesurer une audience précise.
+                      </p>
+                    </div>
+                  </label>
 
-              <div>
-                <label className="label">Pays</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {PAYS_COURANTS.map(([code, nom]) => (
-                    <button key={code}
-                      onClick={() => maj(a.uid, { pays: a.pays.includes(code) ? a.pays.filter(c => c !== code) : [...a.pays, code] })}
-                      className={clsx('text-xs px-2.5 py-1 rounded-full transition-colors',
-                        a.pays.includes(code) ? 'bg-[#f0f0ff] text-[#3434ef] font-medium' : 'bg-gray-100 text-gray-500 hover:text-gray-700')}>
-                      {nom}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  <div>
+                    <label className="label">Pays</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PAYS_COURANTS.map(([code, nom]) => (
+                        <button key={code}
+                          onClick={() => maj(a.uid, { pays: a.pays.includes(code) ? a.pays.filter(c => c !== code) : [...a.pays, code] })}
+                          className={clsx('text-xs px-2.5 py-1 rounded-full transition-colors',
+                            a.pays.includes(code) ? 'bg-[#f0f0ff] text-[#3434ef] font-medium' : 'bg-gray-100 text-gray-500 hover:text-gray-700')}>
+                          {nom}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="label">Âge min</label>
-                  <input className="input text-xs py-1" type="number" min={13} max={65} value={a.ageMin}
-                    onChange={e => maj(a.uid, { ageMin: Number(e.target.value) || 18 })} />
-                </div>
-                <div>
-                  <label className="label">Âge max</label>
-                  <input className="input text-xs py-1" type="number" min={13} max={65} value={a.ageMax}
-                    onChange={e => maj(a.uid, { ageMax: Number(e.target.value) || 65 })} />
-                </div>
-                <div>
-                  <label className="label">Genre</label>
-                  <select className="select text-xs py-1" value={a.genre}
-                    onChange={e => maj(a.uid, { genre: e.target.value as Audience['genre'] })}>
-                    <option value="ALL">H/F</option>
-                    <option value="MALE">Hommes</option>
-                    <option value="FEMALE">Femmes</option>
-                  </select>
-                </div>
-              </div>
+                  <div className="flex items-end gap-2">
+                    <div className="w-20 shrink-0">
+                      <label className="label">Âge min</label>
+                      <input className="input text-xs py-1" type="number" min={13} max={65} value={a.ageMin}
+                        onChange={e => maj(a.uid, { ageMin: Number(e.target.value) || 18 })} />
+                    </div>
+                    <span className="text-xs text-gray-400 pb-1.5">à</span>
+                    <div className="w-20 shrink-0">
+                      <label className="label">Âge max</label>
+                      <input className="input text-xs py-1" type="number" min={13} max={65} value={a.ageMax}
+                        onChange={e => maj(a.uid, { ageMax: Number(e.target.value) || 65 })} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="label">Genre</label>
+                      <select className="select text-xs py-1" value={a.genre}
+                        onChange={e => maj(a.uid, { genre: e.target.value as Audience['genre'] })}>
+                        <option value="ALL">Hommes et femmes</option>
+                        <option value="MALE">Hommes</option>
+                        <option value="FEMALE">Femmes</option>
+                      </select>
+                    </div>
+                  </div>
 
-              <RechercheInterets
-                accountId={accountId}
-                choisis={a.interets}
-                onChange={interets => maj(a.uid, { interets })} />
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="label">Audiences incluses</label>
-                  <SelecteurAudiences options={custom} choisies={a.inclus}
-                    onChange={inclus => maj(a.uid, { inclus })} />
+                  <div>
+                    <label className="label">Budget quotidien de cet ensemble (€)</label>
+                    <input className="input text-xs py-1" type="number" placeholder="2× le coût cible"
+                      value={a.budget} onChange={e => maj(a.uid, { budget: e.target.value })} />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Vide, l’ensemble reprend le budget quotidien de l’étape.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="label">Audiences exclues</label>
-                  <SelecteurAudiences options={custom} choisies={a.exclus}
-                    onChange={exclus => maj(a.uid, { exclus })} />
-                </div>
-              </div>
 
-              <div>
-                <label className="label">Budget quotidien de cet ensemble (€)</label>
-                <input className="input text-xs py-1" type="number" placeholder="2× le coût cible"
-                  value={a.budget} onChange={e => maj(a.uid, { budget: e.target.value })} />
-                <p className="text-xs text-gray-400 mt-1">
-                  Vide, l’ensemble reprend le budget quotidien de l’étape.
-                </p>
+                <div className="space-y-4 min-w-0">
+                  <RechercheInterets
+                    accountId={accountId}
+                    choisis={a.interets}
+                    onChange={interets => maj(a.uid, { interets })} />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="min-w-0">
+                      <label className="label">Audiences incluses</label>
+                      <SelecteurAudiences options={custom} choisies={a.inclus}
+                        onChange={inclus => maj(a.uid, { inclus })} />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="label">Audiences exclues</label>
+                      <SelecteurAudiences options={custom} choisies={a.exclus}
+                        onChange={exclus => maj(a.uid, { exclus })} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -2269,16 +2278,6 @@ export default function UploadPage() {
               </div>
             </div>
 
-            {testStructure === 'audience-test' && (
-              <div className="border-t border-[#E5E7EB] pt-3">
-                <ConstructeurAudiences
-                  audiences={audiences}
-                  setAudiences={setAudiences}
-                  accountId={metaId}
-                  custom={metaAudiences} />
-              </div>
-            )}
-
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wider">Budget & Schedule</p>
               {isCBO && <div className="text-xs text-[#3434ef] bg-[#f0f0ff] rounded-lg p-2.5">Budget géré au niveau campagne (CBO)</div>}
@@ -2309,7 +2308,19 @@ export default function UploadPage() {
           </div>
 
           {/* RIGHT */}
-          <div className="flex-1 p-5 space-y-4">
+          <div className="flex-1 p-5 space-y-4 min-w-0">
+            {/* Le constructeur vit ici, et non dans la colonne de gauche : à
+                240 px, ses champs se repliaient les uns sur les autres. */}
+            {testStructure === 'audience-test' && (
+              <div className="border border-[#E5E7EB] rounded-xl p-4">
+                <ConstructeurAudiences
+                  audiences={audiences}
+                  setAudiences={setAudiences}
+                  accountId={metaId}
+                  custom={metaAudiences} />
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-[#0d0d12] uppercase tracking-wider">Campaign Structure</p>
               <a href="/creative-strategist" target="_blank" className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
