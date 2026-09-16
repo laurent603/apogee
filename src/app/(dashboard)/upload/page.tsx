@@ -228,10 +228,15 @@ function CampaignNamingBuilder({ onNameChange, name, setName }: { onNameChange?:
   )
 }
 
+/** Les cinq objectifs ODAX que le wizard sait créer. */
+type ObjectifCampagne =
+  | 'OUTCOME_TRAFFIC' | 'OUTCOME_SALES' | 'OUTCOME_LEADS'
+  | 'OUTCOME_AWARENESS' | 'OUTCOME_ENGAGEMENT'
+
 function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaCampaign) => void; onClose: () => void; accountId?: string }) {
   const [activeTab, setActiveTab] = useState(0)
   const [name, setName] = useState('')
-  const [objective, setObjective] = useState<'OUTCOME_SALES' | 'OUTCOME_LEADS'>('OUTCOME_SALES')
+  const [objective, setObjective] = useState<ObjectifCampagne>('OUTCOME_LEADS')
   const [isCBO, setIsCBO] = useState(false)
   const [budget, setBudget] = useState('')
   const [bidStrategy, setBidStrategy] = useState('Lowest cost')
@@ -271,8 +276,11 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
   }
 
   const OBJECTIVES = [
+    { id: 'OUTCOME_TRAFFIC' as const, label: 'Traffic', desc: 'Send people to a destination — the stage 1 campaign of the J7 method, judged on link CTR', icon: '🔗' },
     { id: 'OUTCOME_SALES' as const, label: 'Sales', desc: 'Drive purchases, sign-ups, or other valuable actions on your website or app', icon: '🛒' },
     { id: 'OUTCOME_LEADS' as const, label: 'Leads', desc: 'Collect leads for your business through forms, calls, or messaging', icon: '👥' },
+    { id: 'OUTCOME_AWARENESS' as const, label: 'Awareness', desc: 'Show your ad to the largest possible share of your audience', icon: '📣' },
+    { id: 'OUTCOME_ENGAGEMENT' as const, label: 'Engagement', desc: 'Get messages, video views, post engagement or page likes', icon: '💬' },
   ]
 
   return (
@@ -413,7 +421,59 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
 
 /* ─── Create Adset Modal ─────────────────────────────────────────────────────── */
 
-const PERF_GOALS = ['Maximize number of conversions', 'Maximize conversion value', 'Maximize number of leads', 'Maximize number of link clicks', 'Maximize reach']
+/**
+ * Les objectifs de performance ouverts par chaque objectif de campagne.
+ *
+ * `id` est la valeur Meta, envoyée telle quelle : le serveur la laisse passer
+ * si elle n'est pas dans `OPT_GOAL_MAP`, lequel ne sert plus qu'aux anciens
+ * libellés translittérés.
+ *
+ * La table ODAX de Meta n'est pas publiée sous une forme exploitable. Les
+ * combinaisons ci-dessous sont celles du modèle ODAX, recoupées avec ce que
+ * les comptes acceptent réellement — vérifié en `validate_only` : sept
+ * objectifs de perf sur OUTCOME_LEADS, LANDING_PAGE_VIEWS sur OUTCOME_TRAFFIC,
+ * REACH sur OUTCOME_AWARENESS. Meta reste l'arbitre : une combinaison refusée
+ * remonte son message tel quel dans le journal de lancement.
+ */
+const PERF_GOALS_PAR_OBJECTIF: Record<string, { id: string; label: string }[]> = {
+  OUTCOME_TRAFFIC: [
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
+    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
+    { id: 'REACH', label: 'Maximize reach' },
+    { id: 'IMPRESSIONS', label: 'Maximize impressions' },
+  ],
+  OUTCOME_SALES: [
+    { id: 'OFFSITE_CONVERSIONS', label: 'Maximize number of conversions' },
+    { id: 'VALUE', label: 'Maximize conversion value' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
+    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
+    { id: 'REACH', label: 'Maximize reach' },
+  ],
+  OUTCOME_LEADS: [
+    { id: 'LEAD_GENERATION', label: 'Maximize number of leads' },
+    { id: 'OFFSITE_CONVERSIONS', label: 'Maximize number of conversions' },
+    { id: 'VALUE', label: 'Maximize conversion value' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
+    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
+    { id: 'REACH', label: 'Maximize reach' },
+    { id: 'IMPRESSIONS', label: 'Maximize impressions' },
+  ],
+  OUTCOME_AWARENESS: [
+    { id: 'REACH', label: 'Maximize reach' },
+    { id: 'IMPRESSIONS', label: 'Maximize impressions' },
+    { id: 'AD_RECALL_LIFT', label: 'Maximize ad recall lift' },
+    { id: 'THRUPLAY', label: 'Maximize ThruPlays' },
+  ],
+  OUTCOME_ENGAGEMENT: [
+    { id: 'POST_ENGAGEMENT', label: 'Maximize post engagement' },
+    { id: 'THRUPLAY', label: 'Maximize ThruPlays' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
+    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
+    { id: 'REACH', label: 'Maximize reach' },
+  ],
+}
+/** Repli quand aucune campagne n'est encore choisie. */
+const PERF_GOALS_DEFAUT = PERF_GOALS_PAR_OBJECTIF.OUTCOME_LEADS
 const CONV_EVENTS = ['Purchase', 'Lead', 'ViewContent', 'AddToCart', 'InitiateCheckout', 'CompleteRegistration', 'Contact', 'Subscribe']
 const COUNTRIES = [
   { code: 'FR', flag: '🇫🇷', name: 'France' }, { code: 'BE', flag: '🇧🇪', name: 'Belgique' },
@@ -424,11 +484,14 @@ const COUNTRIES = [
 ]
 const AGES = [13, 15, 18, 21, 25, 30, 35, 40, 45, 50, 55, 60, 65]
 
-function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId }: {
+function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId, objective }: {
   onSave: (a: MetaAdset) => void; onClose: () => void
   isCBO: boolean; pixels: MetaPixel[]; audiences: MetaAudience[]
   accountId?: string
+  /** Objectif de la campagne choisie : il commande les objectifs de performance offerts. */
+  objective?: string
 }) {
+  const perfGoals = (objective && PERF_GOALS_PAR_OBJECTIF[objective]) || PERF_GOALS_DEFAUT
   const [activeTab, setActiveTab] = useState(0)
 
   // "Select from Meta" tab state
@@ -474,7 +537,12 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
     onClose()
   }
 
-  const [perfGoal, setPerfGoal] = useState('Maximize number of conversions')
+  const [perfGoal, setPerfGoal] = useState(perfGoals[0].id)
+  // Changer d'objectif de campagne referme les objectifs de perf qu'il n'ouvre
+  // pas : sans ça on enverrait un couple que Meta refuse.
+  useEffect(() => {
+    if (!perfGoals.some(g => g.id === perfGoal)) setPerfGoal(perfGoals[0].id)
+  }, [perfGoals, perfGoal])
   const [pixelId, setPixelId] = useState(pixels[0]?.id || '')
   const [convEvent, setConvEvent] = useState('Purchase')
   const [budget, setBudget] = useState('')
@@ -502,7 +570,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
   function handleSave() {
     onSave({
       id: `new_${Date.now()}`, name: 'Nouvel adset', campaign_id: '', status: 'PAUSED',
-      optimization_goal: perfGoal.toUpperCase().replace(/ /g, '_'),
+      optimization_goal: perfGoal,
       targeting: {
         age_min: ageMin, age_max: ageMax || 65,
         genders: gender === 'ALL' ? [1, 2] : gender === 'MALE' ? [1] : [2],
@@ -577,7 +645,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
           <div>
             <label className="label">Performance Goal</label>
             <select className="select" value={perfGoal} onChange={e => setPerfGoal(e.target.value)}>
-              {PERF_GOALS.map(g => <option key={g}>{g}</option>)}
+              {perfGoals.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2394,6 +2462,7 @@ export default function UploadPage() {
           pixels={metaPixels}
           audiences={metaAudiences}
           accountId={metaId}
+          objective={selectedCampaign?.objective}
         />
       )}
 
