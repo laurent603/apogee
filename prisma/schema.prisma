@@ -299,6 +299,13 @@ model Report {
   /// Quand le rapport a été téléchargé. Sert à le signaler dans la liste :
   /// sans trace en base, la marque disparaîtrait au rafraîchissement.
   downloadedAt DateTime?
+  /// Le fil complet de la discussion, quand le rapport en est une.
+  ///
+  /// Le fil ne vivait que dans l'état React de la page : fermer l'onglet
+  /// effaçait une après-midi de travail — six personas, quatorze angles — et
+  /// l'historique n'en gardait que la dernière réponse. On enregistre donc les
+  /// tours pour pouvoir reprendre la conversation là où elle s'est arrêtée.
+  messages     Json?
   isRead      Boolean         @default(false)
   createdAt   DateTime        @default(now())
 

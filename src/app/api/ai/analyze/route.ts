@@ -409,6 +409,24 @@ ${JSON.stringify(previous.ads, null, 2)}`
                   : `${category} — ${analysisType} — ${new Date().toLocaleDateString('fr-FR')}`),
               type: typeRapport || category,
               content: fullResult,
+              /**
+               * Le fil complet, pour qu'une discussion puisse être reprise.
+               *
+               * Il ne vivait que dans l'état React de la page : fermer l'onglet
+               * effaçait le travail d'une après-midi, et l'historique n'en
+               * gardait que la dernière réponse. On enregistre donc les tours
+               * précédents, la question posée et la réponse rendue.
+               *
+               * Seulement pour une discussion : un rapport d'agent n'a pas de
+               * fil à reprendre, et la colonne resterait un poids mort.
+               */
+              messages: typeRapport === 'session'
+                ? [
+                    ...(Array.isArray(historique) ? historique : []),
+                    { role: 'user', content: String(customPrompt || '') },
+                    { role: 'assistant', content: fullResult },
+                  ]
+                : undefined,
               adAccountId: dbAccountId,
               adId: typeof adId === 'string' ? adId : null,
               adName: typeof adName === 'string' ? adName : null,

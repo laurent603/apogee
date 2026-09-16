@@ -493,7 +493,12 @@ export default function AutopilotPage() {
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
 
   // --- History ---
-  type Report = { id: string; title: string; content: string; createdAt: string; type?: string; downloadedAt?: string | null; agent: { name: string } | null }
+  type Report = {
+    id: string; title: string; content: string; createdAt: string
+    type?: string; downloadedAt?: string | null; agent: { name: string } | null
+    /** Le fil de la discussion, quand le rapport en est une. */
+    messages?: Message[] | null
+  }
   const [reports, setReports] = useState<Report[]>([])
   const [expandedReport, setExpandedReport] = useState<string | null>(null)
 
@@ -1577,6 +1582,29 @@ export default function AutopilotPage() {
                         )}
 
                         <div className="px-5 pb-4 flex items-center gap-3">
+                          {/**
+                            * Reprendre une discussion là où elle s'est arrêtée.
+                            *
+                            * Le fil ne vivait que dans l'état de la page : fermer
+                            * l'onglet effaçait une après-midi de travail, et
+                            * l'historique n'en gardait que la dernière réponse.
+                            * Les discussions d'avant le 16/09/2026 n'ont pas de
+                            * fil enregistré — le bouton ne s'affiche donc que
+                            * lorsqu'il y en a un.
+                            */}
+                          {Array.isArray(report.messages) && report.messages.length > 0 && (
+                            <button
+                              onClick={() => {
+                                setMessages(report.messages as Message[])
+                                setTab('session')
+                                toast.success('Discussion reprise — continuez où vous en étiez')
+                              }}
+                              className="flex items-center gap-1.5 text-xs font-medium text-white bg-[#3434ef] hover:bg-[#2a2ad4] rounded-lg px-3 py-1.5 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                              Reprendre la discussion
+                            </button>
+                          )}
                           <button
                             onClick={() => { navigator.clipboard.writeText(sansBlocActionnables(report.content)); toast.success('Rapport copié !') }}
                             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#0d0d12] transition-colors border border-[#E5E7EB] rounded-lg px-3 py-1.5"
