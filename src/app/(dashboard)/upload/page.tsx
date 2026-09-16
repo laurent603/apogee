@@ -83,7 +83,7 @@ type LaunchStatus = 'SCHEDULED_PAUSED' | 'SCHEDULED_LIVE' | 'CREATED_PAUSED' | '
 
 interface MetaCampaign {
   id: string; name: string; status: string; objective: string
-  daily_budget?: string; budget_rebalance_flag?: boolean; _isNew?: boolean
+  daily_budget?: string; lifetime_budget?: string; budget_rebalance_flag?: boolean; _isNew?: boolean
 }
 interface MetaAdset {
   id: string; name: string; campaign_id: string; status: string
@@ -1644,7 +1644,28 @@ export default function UploadPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const metaId = selectedAccount?.metaAccountId || selectedAccount?.id || ''
-  const isCBO = selectedCampaign?.budget_rebalance_flag ?? false
+  /**
+   * Le budget est-il porté par la campagne ?
+   *
+   * Seul `budget_rebalance_flag` était consulté, là où le serveur décide sur
+   * `budget_rebalance_flag || daily_budget`. Une campagne choisie dans Meta qui
+   * porte un budget sans le drapeau — le cas de « [LDS] - Acq - iso - Lead_Ads »,
+   * 15 €/jour — passait donc pour de l'ABO côté écran : on proposait des budgets
+   * par ensemble que le serveur écartait ensuite en silence.
+   */
+  const isCBO = !!(selectedCampaign?.budget_rebalance_flag) || !!selectedCampaign?.daily_budget
+  const budgetLifetime = !!selectedCampaign?.lifetime_budget
+  /**
+   * Le stade 3 se juge audience par audience : chacune doit disposer du même
+   * budget, tenu constant. En CBO, Meta redistribue sur les premiers signaux et
+   * affame une audience avant qu'elle ait servi — on conclut qu'elle est
+   * mauvaise alors qu'elle n'a pas été testée. Le budget lifetime, lui, est
+   * exclu par la méthode : impossible à scaler ensuite.
+   */
+  const blocageAudienceTest =
+    testStructure === 'audience-test'
+      ? (budgetLifetime ? 'lifetime' : isCBO ? 'cbo' : null)
+      : null
 
   async function fetchCampaigns() {
     if (!metaId) return; setLoadingMeta(true)
@@ -1877,7 +1898,7 @@ export default function UploadPage() {
   )
 
   const totalAds = adGroups.length
-  const adsetConfigured = adsetTemplate !== null
+  const adsetConfigured = adsetTemplate !== null && !blocageAudienceTest
   const adConfigured = adTemplate !== null
 
   async function simulateLaunch() {
@@ -2045,7 +2066,13 @@ export default function UploadPage() {
         </div>
         {step === 3 && (
           <div className="flex items-center gap-3 flex-wrap">
-            {!adsetConfigured && <span className="text-xs text-red-500 font-medium">Paramètres d&apos;adset manquants</span>}
+            {!adsetConfigured && (
+              <span className="text-xs text-red-500 font-medium">
+                {blocageAudienceTest === 'cbo' ? 'Test d’audiences : campagne en CBO'
+                  : blocageAudienceTest === 'lifetime' ? 'Test d’audiences : budget lifetime'
+                  : 'Paramètres d’adset manquants'}
+              </span>
+            )}
             <button onClick={() => setStep(2)} className="btn-secondary flex items-center gap-1.5">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               Previous
@@ -2585,6 +2612,25 @@ export default function UploadPage() {
                 )}
               </div>
             </div>
+
+            {blocageAudienceTest && (
+              <div className="border border-red-200 bg-red-50 rounded-xl p-4">
+                <p className="text-xs font-semibold text-red-700">
+                  {blocageAudienceTest === 'cbo'
+                    ? 'Un test d’audiences ne peut pas tourner en CBO'
+                    : 'Un test d’audiences ne peut pas tourner en budget lifetime'}
+                </p>
+                <p className="text-xs text-red-600 mt-1 leading-relaxed">
+                  {blocageAudienceTest === 'cbo'
+                    ? 'La campagne porte le budget, et Meta le redistribue entre les ensembles dès les premiers signaux : une audience se retrouve affamée avant d’avoir servi, et l’on conclut qu’elle est mauvaise alors qu’elle n’a pas été testée. Chaque audience doit disposer du même budget, tenu constant.'
+                    : 'Un budget lifetime ne se scale pas : la méthode l’exclut. Passez la campagne en budget quotidien.'}
+                </p>
+                <p className="text-xs text-red-600 mt-2">
+                  Choisissez une campagne en <strong className="font-semibold">ABO</strong> — budget porté par
+                  l’ensemble — ou créez-en une depuis l’onglet « Créer ».
+                </p>
+              </div>
+            )}
 
             {/* Le constructeur se lit juste avant l'arbre qu'il produit :
                 campagne, puis paramètres, puis audiences, puis les ensembles

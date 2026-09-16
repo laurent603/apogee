@@ -44,7 +44,7 @@ interface LaunchTreeNode {
 }
 interface LaunchCampaign {
   id: string; name: string; status: string; objective: string
-  daily_budget?: string; budget_rebalance_flag?: boolean; _isNew?: boolean
+  daily_budget?: string; lifetime_budget?: string; budget_rebalance_flag?: boolean; _isNew?: boolean
 }
 interface LaunchAdset {
   id: string; name: string; status: string; optimization_goal: string
@@ -319,6 +319,33 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        /* ── 0. Le stade 3 exige l'ABO ───────────────────────────────────── */
+        /**
+         * Un test d'audiences se juge audience par audience, à budget égal et
+         * constant. En CBO, Meta redistribue dès les premiers signaux : une
+         * audience est affamée avant d'avoir servi, et on la déclare mauvaise
+         * alors qu'elle n'a pas été testée. Le budget lifetime est exclu par la
+         * méthode — il ne se scale pas.
+         *
+         * Contrôlé ici et pas seulement à l'écran : la route est le dernier
+         * endroit où le test peut encore être sauvé.
+         */
+        if (testStructure === 'audience-test') {
+          if (campaign?.lifetime_budget) {
+            throw new Error(
+              'Un test d\'audiences ne peut pas tourner sur un budget lifetime : il ne se scale pas.'
+              + ' Passez la campagne en budget quotidien, porté par les ensembles.',
+            )
+          }
+          if (campaign?.budget_rebalance_flag || campaign?.daily_budget) {
+            throw new Error(
+              'Un test d\'audiences ne peut pas tourner en CBO : Meta redistribue le budget entre les'
+              + ' ensembles et affame une audience avant qu\'elle ait servi. Chaque audience doit disposer'
+              + ' du même budget, tenu constant — choisissez une campagne en ABO.',
+            )
+          }
+        }
+
         /* ── 0. Le couple objectif × objectif de performance ───────────────── */
         /**
          * Contrôlé avant toute écriture : la campagne est créée en premier, et
