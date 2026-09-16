@@ -25,6 +25,22 @@ interface LaunchTreeNode {
   adsetName: string
   adGroups: LaunchAdGroup[]
   _adTemplateOverride?: LaunchAd | null
+  /**
+   * Audience propre à ce nœud — le stade 3 de la méthode J7.
+   *
+   * Les quatre structures de test existantes font varier la créa et tiennent
+   * l'audience constante : tous les nœuds héritent du même `adsetTemplate`.
+   * Le stade 3 inverse le rapport — créa gagnante en contrôle, cinq à dix
+   * audiences en variable — et chaque nœud porte alors la sienne.
+   *
+   * Absent, on retombe sur `adsetTemplate` : c'est le cas de tous les
+   * lancements actuels, dont le corps de requête ne change pas d'un octet.
+   */
+  _audience?: {
+    targeting?: LaunchAdset['targeting']
+    /** En euros, comme une saisie du wizard — pas en centimes comme Meta. */
+    daily_budget?: string
+  } | null
 }
 interface LaunchCampaign {
   id: string; name: string; status: string; objective: string
@@ -88,7 +104,14 @@ function metaError(data: Record<string, unknown>): string {
 }
 
 // Strip empty arrays and deprecated fields from Meta targeting
-function cleanTargeting(t: LaunchAdset['targeting']): Record<string, unknown> {
+function cleanTargeting(
+  t: LaunchAdset['targeting'],
+  /**
+   * L'ensemble est construit dans le wizard — « Create New » ou une audience
+   * de stade 3 — et non hérité d'un adset Meta par « Select from Meta ».
+   */
+  indicateurRequis = false,
+): Record<string, unknown> {
   if (!t) return { geo_locations: { countries: ['FR'] }, age_min: 18, age_max: 65 }
   const out: Record<string, unknown> = {}
   if (t.geo_locations) out.geo_locations = t.geo_locations
@@ -106,21 +129,30 @@ function cleanTargeting(t: LaunchAdset['targeting']): Record<string, unknown> {
   // Ciblage détaillé. Meta refuse aussi les blocs vides à l'intérieur du tableau,
   // pas seulement le tableau vide — d'où le filtre sur chaque entrée.
   const flex = (t.flexible_spec || []).filter(b => b && Object.keys(b).length > 0)
-  if (flex.length > 0) {
-    out.flexible_spec = flex
-    /**
-     * `targeting_automation` est couplé à `flexible_spec`, et ne voyage qu'avec lui.
-     *
-     * Meta refuse le ciblage détaillé sans indicateur Advantage+ explicite —
-     * `(#100)` sous-code 1870227, « Indicateur d'audience Advantage requis ».
-     * Les deux partent donc ensemble ou pas du tout.
-     *
-     * Et *seulement* avec lui : Meta réverbère `targeting_automation` sur 100 %
-     * des adsets, avec des valeurs mélangées (mesuré sur 29 adsets réels, 12 à
-     * `advantage_audience: 1` et 17 à `0`). Le transmettre systématiquement
-     * changerait le comportement Advantage+ de chaque lancement, y compris ceux
-     * sans aucun intérêt à cibler.
-     */
+  if (flex.length > 0) out.flexible_spec = flex
+
+  /**
+   * `targeting_automation` n'est transmis que là où Meta l'exige.
+   *
+   * Meta réverbère ce champ sur 100 % des adsets, avec des valeurs mélangées
+   * — mesuré sur 29 adsets réels, 12 à `advantage_audience: 1` et 17 à `0`.
+   * Le transmettre systématiquement changerait le comportement Advantage+ de
+   * tous les lancements « Select from Meta », qui fonctionnent. Deux cas
+   * seulement le réclament :
+   *
+   * 1. `flexible_spec` présent — Meta refuse le ciblage détaillé sans
+   *    indicateur explicite : `(#100)` sous-code 1870227.
+   * 2. `indicateurRequis` — l'adset est construit dans le wizard, pas hérité.
+   *    Meta exige alors l'indicateur quoi qu'il arrive, y compris sur un broad
+   *    18-65 sans le moindre intérêt : même sous-code, reproduit sur une
+   *    campagne créée le 16/09/2026. Les campagnes plus anciennes sont
+   *    antérieures à cette règle, d'où des modèles qui passent encore sans.
+   *
+   * La valeur reste celle de la source quand il y en a une ; à défaut `0`,
+   * c'est-à-dire sans expansion d'audience — un test de créa ne vaut que si
+   * Meta ne déborde pas de la cible qu'on lui a donnée.
+   */
+  if (flex.length > 0 || indicateurRequis) {
     out.targeting_automation = {
       advantage_audience: t.targeting_automation?.advantage_audience ?? 0,
     }
@@ -355,7 +387,10 @@ export async function POST(req: NextRequest) {
               status: adsetStatus,
               optimization_goal: optimizationGoal,
               billing_event: billingEvent,
-              targeting: cleanTargeting(adsetTemplate?.targeting),
+              targeting: cleanTargeting(
+                node._audience?.targeting ?? adsetTemplate?.targeting,
+                !!node._audience?.targeting || !!adsetTemplate?._isNew,
+              ),
             }
 
             // OUTCOME_LEADS / LEAD_GENERATION adsets must declare ON_AD destination
@@ -364,12 +399,22 @@ export async function POST(req: NextRequest) {
             }
 
             if (!isCBO) {
-              const rawBudget = adsetTemplate?.daily_budget
-              const adsetBudgetCents = rawBudget
-                ? (adsetTemplate?._isNew
-                    ? Math.round(Number(rawBudget) * 100)
-                    : Number(rawBudget))
-                : budgetCents
+              // Une audience de stade 3 porte son propre budget — 2× le coût
+              // cible, par ad set et par jour. Il est saisi en euros dans le
+              // wizard, là où `adsetTemplate` vient de Meta et compte déjà en
+              // centimes ; d'où les deux conversions distinctes.
+              const budgetAudience = node._audience?.daily_budget
+              let adsetBudgetCents: number
+              if (budgetAudience) {
+                adsetBudgetCents = Math.round(Number(budgetAudience) * 100)
+              } else {
+                const rawBudget = adsetTemplate?.daily_budget
+                adsetBudgetCents = rawBudget
+                  ? (adsetTemplate?._isNew
+                      ? Math.round(Number(rawBudget) * 100)
+                      : Number(rawBudget))
+                  : budgetCents
+              }
               adsetBody.daily_budget = String(adsetBudgetCents)
             }
 
