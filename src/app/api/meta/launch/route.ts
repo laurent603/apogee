@@ -318,13 +318,24 @@ export async function POST(req: NextRequest) {
           if (isCBO) {
             // CBO: budget at campaign level (budget_rebalance_flag deprecated in v7+)
             campaignBody.daily_budget = String(budgetCents)
+            /**
+             * La stratégie d'enchère ne se déclare qu'avec le budget qu'elle gouverne.
+             *
+             * Elle était posée sur toutes les campagnes, budget ou non. Meta la
+             * refuse sur une campagne sans budget — c'est-à-dire en ABO :
+             * « Cette campagne n'a pas de budget. Ajoutez un budget pour modifier
+             * la stratégie d'enchère. » (#100, sous-code 1885737). Créer une
+             * campagne ABO était donc impossible, sur les trois objectifs — alors
+             * que la méthode J7 impose l'ABO aux stades 1, 2 et 3.
+             *
+             * En ABO elle est posée sur l'ensemble, plus bas : c'est là qu'elle
+             * vit chez Meta, où 6 campagnes ABO sur 7 n'en portent aucune.
+             */
+            campaignBody.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'
           } else {
             // ABO: budget at adset level
             campaignBody.is_adset_budget_sharing_enabled = false
           }
-          // Explicitly declare bid strategy — Meta may default to LOWEST_COST_WITH_BID_CAP
-          // for some OUTCOME_* campaign types, causing adset creation to fail (subcode 1815857)
-          campaignBody.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'
           console.log('[launch] campaign body:', JSON.stringify(campaignBody))
           const data = await metaPost(`/${accountId}/campaigns`, token, campaignBody)
           if (data.error) throw new Error(`Campagne : ${metaError(data)}`)
@@ -416,6 +427,13 @@ export async function POST(req: NextRequest) {
                   : budgetCents
               }
               adsetBody.daily_budget = String(adsetBudgetCents)
+              // En ABO, la stratégie d'enchère vit ici. Sans elle, Meta réclame
+              // un montant ou des contraintes d'enchère (#100, sous-code 2490487)
+              // et l'ensemble n'est pas créé. On reprend celle du modèle quand il
+              // en a une, comme pour `billing_event` juste au-dessus.
+              adsetBody.bid_strategy = (!adsetTemplate?._isNew && adsetRaw?.bid_strategy)
+                ? String(adsetRaw.bid_strategy)
+                : 'LOWEST_COST_WITHOUT_CAP'
             }
 
             if (NEEDS_PIXEL.has(optimizationGoal) && adsetTemplate?.promoted_object?.pixel_id) {
