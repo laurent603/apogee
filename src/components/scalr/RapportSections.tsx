@@ -137,11 +137,48 @@ function CadreHtml({ html }: { html: string }) {
       <div className="rounded-xl overflow-hidden border border-[#E5E7EB]">
         <div className="flex items-center gap-3 px-4 py-2.5 bg-[#12141f] border-b border-[#21262d]">
           <span className="text-xs font-medium text-[#c9d1d9] truncate">{titre}</span>
+          {/**
+            * Ouvrir et télécharger, à côté d'agrandir.
+            *
+            * Le document ne pouvait ni sortir de la page ni s'imprimer : le
+            * cadre est déclaré `sandbox="allow-scripts"`, sans `allow-modals`,
+            * donc le navigateur y bloque `window.print()`. Un document destiné
+            * à un tournage — qu'on emporte sur un chantier, qu'on imprime — ne
+            * peut pas rester prisonnier d'un aperçu.
+            *
+            * L'adresse blob existait déjà pour le cadre ; il suffisait de
+            * l'attacher à deux liens. Ouvert dans un onglet plein, le document
+            * s'imprime normalement, et « Enregistrer en PDF » redevient
+            * accessible.
+            */}
+          <a
+            href={adresse ?? undefined}
+            download={`${(titre || 'document').replace(/[^\w\sÀ-ÿ-]/g, '').slice(0, 60).trim() || 'document'}.html`}
+            title="Télécharger le document"
+            aria-label="Télécharger le document"
+            className="ml-auto p-1 rounded-md text-[#8b949e] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" />
+            </svg>
+          </a>
+          <a
+            href={adresse ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Ouvrir dans un onglet — imprimable"
+            aria-label="Ouvrir dans un onglet"
+            className="p-1 rounded-md text-[#8b949e] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" x2="21" y1="14" y2="3" />
+            </svg>
+          </a>
           <button
             onClick={() => setAgrandi(true)}
             title="Agrandir le rapport"
             aria-label="Agrandir le rapport"
-            className="ml-auto p-1 rounded-md text-[#8b949e] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+            className="p-1 rounded-md text-[#8b949e] hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
