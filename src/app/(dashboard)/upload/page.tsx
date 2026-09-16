@@ -276,18 +276,18 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
   }
 
   const OBJECTIVES = [
-    { id: 'OUTCOME_TRAFFIC' as const, label: 'Traffic', desc: 'Send people to a destination — the stage 1 campaign of the J7 method, judged on link CTR', icon: '🔗' },
-    { id: 'OUTCOME_SALES' as const, label: 'Sales', desc: 'Drive purchases, sign-ups, or other valuable actions on your website or app', icon: '🛒' },
-    { id: 'OUTCOME_LEADS' as const, label: 'Leads', desc: 'Collect leads for your business through forms, calls, or messaging', icon: '👥' },
-    { id: 'OUTCOME_AWARENESS' as const, label: 'Awareness', desc: 'Show your ad to the largest possible share of your audience', icon: '📣' },
-    { id: 'OUTCOME_ENGAGEMENT' as const, label: 'Engagement', desc: 'Get messages, video views, post engagement or page likes', icon: '💬' },
+    { id: 'OUTCOME_TRAFFIC' as const, label: 'Trafic', desc: 'Envoyer vers une destination — la campagne du stade 1, jugée au CTR lien', icon: '🔗' },
+    { id: 'OUTCOME_SALES' as const, label: 'Ventes', desc: 'Achats, inscriptions et autres actions de valeur sur votre site', icon: '🛒' },
+    { id: 'OUTCOME_LEADS' as const, label: 'Prospects', desc: 'Collecter des prospects par formulaire, appel ou messagerie', icon: '👥' },
+    { id: 'OUTCOME_AWARENESS' as const, label: 'Notoriété', desc: 'Toucher la plus large part possible de votre audience', icon: '📣' },
+    { id: 'OUTCOME_ENGAGEMENT' as const, label: 'Engagement', desc: 'Messages, vues de vidéo, interactions ou mentions J’aime', icon: '💬' },
   ]
 
   return (
     <Modal title="Configurer la campagne" onClose={onClose} wide>
       {/* Tabs */}
       <div className="flex border-b border-[#E5E7EB] mb-5 -mx-5 px-5 gap-1">
-        {['Create New', 'Select from Meta'].map((t, i) => (
+        {['Créer', 'Choisir dans Meta'].map((t, i) => (
           <button key={t} onClick={() => setActiveTab(i)} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', activeTab === i ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
         ))}
       </div>
@@ -338,12 +338,12 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
       {activeTab === 0 && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-5">
           <div className="space-y-2">
-            <label className="label">Campaign Name <span className="text-red-500">*</span></label>
+            <label className="label">Nom de la campagne <span className="text-red-500">*</span></label>
             <input className="input" placeholder="Enter campaign name" value={name} onChange={e => setName(e.target.value)} autoFocus />
             <CampaignNamingBuilder name={name} setName={setName} />
           </div>
           <div>
-            <label className="label">Campaign Objective <span className="text-red-500">*</span></label>
+            <label className="label">Objectif de campagne <span className="text-red-500">*</span></label>
             <div className="space-y-2">
               {OBJECTIVES.map(o => (
                 <button key={o.id} onClick={() => setObjective(o.id)}
@@ -361,7 +361,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
             </div>
           </div>
           <div>
-            <label className="label">Special Ad Category</label>
+            <label className="label">Catégorie spéciale</label>
             <select className="select" value={specialCat} onChange={e => setSpecialCat(e.target.value)}>
               {SPECIAL_AD_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
@@ -371,7 +371,7 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
 
         <div className="space-y-5">
           <div>
-            <label className="label">Budget Optimization</label>
+            <label className="label">Répartition du budget</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[{ val: false, label: 'CBO', sub: 'Campaign Budget' }, { val: true, label: 'ABO', sub: 'Ad Set Budget' }].map(o => (
                 <button key={String(o.val)} onClick={() => setIsCBO(!o.val)}
@@ -390,14 +390,14 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
             }
           </div>
           <div>
-            <label className="label">Bid Strategy</label>
+            <label className="label">Stratégie d’enchère</label>
             <select className="select" value={bidStrategy} onChange={e => setBidStrategy(e.target.value)}>
               {BID_STRATEGIES.map(s => <option key={s}>{s}</option>)}
             </select>
             <p className="text-xs text-gray-400 mt-1">Get the most results for your budget</p>
           </div>
           <div>
-            <label className="label">Campaign Status</label>
+            <label className="label">Statut de la campagne</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[{ id: 'PAUSED' as const, label: 'Paused' }, { id: 'ACTIVE' as const, label: 'Active' }].map(s => (
                 <button key={s.id} onClick={() => setStatus(s.id)}
@@ -437,39 +437,39 @@ function CreateCampaignModal({ onSave, onClose, accountId }: { onSave: (c: MetaC
  */
 const PERF_GOALS_PAR_OBJECTIF: Record<string, { id: string; label: string }[]> = {
   OUTCOME_TRAFFIC: [
-    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
-    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
-    { id: 'REACH', label: 'Maximize reach' },
-    { id: 'IMPRESSIONS', label: 'Maximize impressions' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximiser les vues de page de destination' },
+    { id: 'LINK_CLICKS', label: 'Maximiser les clics sur le lien' },
+    { id: 'REACH', label: 'Maximiser la couverture' },
+    { id: 'IMPRESSIONS', label: 'Maximiser les impressions' },
   ],
   OUTCOME_SALES: [
-    { id: 'OFFSITE_CONVERSIONS', label: 'Maximize number of conversions' },
-    { id: 'VALUE', label: 'Maximize conversion value' },
-    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
-    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
-    { id: 'REACH', label: 'Maximize reach' },
+    { id: 'OFFSITE_CONVERSIONS', label: 'Maximiser les conversions' },
+    { id: 'VALUE', label: 'Maximiser la valeur de conversion' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximiser les vues de page de destination' },
+    { id: 'LINK_CLICKS', label: 'Maximiser les clics sur le lien' },
+    { id: 'REACH', label: 'Maximiser la couverture' },
   ],
   OUTCOME_LEADS: [
-    { id: 'LEAD_GENERATION', label: 'Maximize number of leads' },
-    { id: 'OFFSITE_CONVERSIONS', label: 'Maximize number of conversions' },
-    { id: 'VALUE', label: 'Maximize conversion value' },
-    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
-    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
-    { id: 'REACH', label: 'Maximize reach' },
-    { id: 'IMPRESSIONS', label: 'Maximize impressions' },
+    { id: 'LEAD_GENERATION', label: 'Maximiser les prospects' },
+    { id: 'OFFSITE_CONVERSIONS', label: 'Maximiser les conversions' },
+    { id: 'VALUE', label: 'Maximiser la valeur de conversion' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximiser les vues de page de destination' },
+    { id: 'LINK_CLICKS', label: 'Maximiser les clics sur le lien' },
+    { id: 'REACH', label: 'Maximiser la couverture' },
+    { id: 'IMPRESSIONS', label: 'Maximiser les impressions' },
   ],
   OUTCOME_AWARENESS: [
-    { id: 'REACH', label: 'Maximize reach' },
-    { id: 'IMPRESSIONS', label: 'Maximize impressions' },
-    { id: 'AD_RECALL_LIFT', label: 'Maximize ad recall lift' },
-    { id: 'THRUPLAY', label: 'Maximize ThruPlays' },
+    { id: 'REACH', label: 'Maximiser la couverture' },
+    { id: 'IMPRESSIONS', label: 'Maximiser les impressions' },
+    { id: 'AD_RECALL_LIFT', label: 'Maximiser la mémorisation publicitaire' },
+    { id: 'THRUPLAY', label: 'Maximiser les ThruPlay' },
   ],
   OUTCOME_ENGAGEMENT: [
-    { id: 'POST_ENGAGEMENT', label: 'Maximize post engagement' },
-    { id: 'THRUPLAY', label: 'Maximize ThruPlays' },
-    { id: 'LANDING_PAGE_VIEWS', label: 'Maximize landing page views' },
-    { id: 'LINK_CLICKS', label: 'Maximize number of link clicks' },
-    { id: 'REACH', label: 'Maximize reach' },
+    { id: 'POST_ENGAGEMENT', label: 'Maximiser les interactions' },
+    { id: 'THRUPLAY', label: 'Maximiser les ThruPlay' },
+    { id: 'LANDING_PAGE_VIEWS', label: 'Maximiser les vues de page de destination' },
+    { id: 'LINK_CLICKS', label: 'Maximiser les clics sur le lien' },
+    { id: 'REACH', label: 'Maximiser la couverture' },
   ],
 }
 /** Repli quand aucune campagne n'est encore choisie. */
@@ -551,7 +551,6 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
   const [gender, setGender] = useState<'ALL' | 'MALE' | 'FEMALE'>('ALL')
   const [locations, setLocations] = useState<string[]>(['FR'])
   const [locSearch, setLocSearch] = useState('')
-  const [advantagePlus, setAdvantagePlus] = useState(true)
   const [audienceTab, setAudienceTab] = useState<'include' | 'exclude'>('include')
   const [audienceSearch, setAudienceSearch] = useState('')
   const [includedAudiences, setIncludedAudiences] = useState<string[]>([])
@@ -588,7 +587,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
     <Modal title="Configurer l'adset" onClose={onClose} wide>
       {/* Tabs */}
       <div className="flex border-b border-[#E5E7EB] mb-5 -mx-5 px-5 gap-1">
-        {['Create New', 'Select from Meta'].map((t, i) => (
+        {['Créer', 'Choisir dans Meta'].map((t, i) => (
           <button key={t} onClick={() => setActiveTab(i)} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', activeTab === i ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
         ))}
       </div>
@@ -643,7 +642,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
             Conversion
           </p>
           <div>
-            <label className="label">Performance Goal</label>
+            <label className="label">Objectif de performance</label>
             <select className="select" value={perfGoal} onChange={e => setPerfGoal(e.target.value)}>
               {perfGoals.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
             </select>
@@ -657,14 +656,14 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
               }
             </div>
             <div>
-              <label className="label">Conversion Event <span className="text-red-500">*</span></label>
+              <label className="label">Évènement de conversion <span className="text-red-500">*</span></label>
               <select className="select" value={convEvent} onChange={e => setConvEvent(e.target.value)}>
                 {CONV_EVENTS.map(e => <option key={e}>{e}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="label">Bid Strategy</label>
+            <label className="label">Stratégie d’enchère</label>
             <div className="input bg-gray-50 text-gray-500 text-sm cursor-not-allowed">Highest volume or value</div>
           </div>
         </div>
@@ -694,7 +693,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
 
           {/* Locations */}
           <div>
-            <label className="label">Locations <span className="text-red-500">*</span></label>
+            <label className="label">Lieux <span className="text-red-500">*</span></label>
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               <input className="input pl-9" placeholder="Search locations..." value={locSearch} onChange={e => setLocSearch(e.target.value)} />
@@ -721,7 +720,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
           {/* Age & Gender */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Age Range</label>
+              <label className="label">Tranche d’âge</label>
               <div className="flex items-center gap-2">
                 <select className="select flex-1" value={ageMin} onChange={e => setAgeMin(Number(e.target.value))}>
                   {AGES.map(a => <option key={a} value={a}>{a}</option>)}
@@ -734,7 +733,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
               </div>
             </div>
             <div>
-              <label className="label">Gender</label>
+              <label className="label">Genre</label>
               <div className="grid grid-cols-3 gap-1">
                 {(['ALL', 'MALE', 'FEMALE'] as const).map(g => (
                   <button key={g} onClick={() => setGender(g)}
@@ -749,7 +748,7 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
           {/* Custom Audiences */}
           {audiences.length > 0 && (
             <div>
-              <label className="label">Custom Audiences</label>
+              <label className="label">Audiences personnalisées</label>
               <div className="flex border border-[#E5E7EB] rounded-lg overflow-hidden mb-2">
                 <button onClick={() => setAudienceTab('include')} className={clsx('flex-1 py-2 text-xs font-medium flex items-center justify-center gap-1', audienceTab === 'include' ? 'bg-[#f0f0ff] text-[#3434ef]' : 'text-gray-500')}>
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg> Include
@@ -781,24 +780,20 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
             </div>
           )}
 
-          {/* Placements */}
+          {/* Placements — imposés par le format, pas réglables ici.
+              La route envoie les emplacements Fil pour une créa 1:1 et Story
+              pour une 9:16 : c'est ce qui rend la comparaison lisible d'un
+              test à l'autre. Une case « Advantage+ » vivait ici sans jamais
+              sortir de `handleSave`, et promettait des placements automatiques
+              que rien ne posait. Le ciblage détaillé qu'elle révélait était un
+              champ sans `value` ni `onChange` — décoratif lui aussi. */}
           <div>
             <label className="label">Placements</label>
-            <label className="flex items-start gap-2.5 p-3 border border-[#E5E7EB] rounded-xl cursor-pointer hover:border-[#3434ef] transition-all">
-              <input type="checkbox" checked={advantagePlus} onChange={e => setAdvantagePlus(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-[#3434ef]" />
-              <div>
-                <p className="text-sm font-medium text-[#0d0d12]">Use Advantage+ Placements</p>
-                <p className="text-xs text-gray-400 mt-0.5">Meta picks the best-performing placements automatically (recommended).</p>
-              </div>
-            </label>
+            <p className="text-xs text-gray-400">
+              Fil pour les créas carrées, Story et Reels pour les verticales —
+              déduits du ratio de chaque créa.
+            </p>
           </div>
-
-          {!advantagePlus && (
-            <div>
-              <label className="label">Detailed Targeting</label>
-              <input className="input" placeholder="Search interests, behaviors, demographics..." />
-            </div>
-          )}
         </div>
       </div>}
       <div className="flex items-center gap-2 mt-6 pt-4 border-t border-[#E5E7EB]">
@@ -957,7 +952,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
     <Modal title="Configurer l'annonce" onClose={onClose} wide>
       {/* Tabs */}
       <div className="flex border-b border-[#E5E7EB] mb-5 -mx-5 px-5 gap-1">
-        {['Create New', 'Select from Meta'].map((t, i) => (
+        {['Créer', 'Choisir dans Meta'].map((t, i) => (
           <button key={t} onClick={() => setActiveTab(i)} className={clsx('pb-2.5 px-3 text-xs font-medium border-b-2 -mb-px transition-all', activeTab === i ? 'border-[#3434ef] text-[#3434ef]' : 'border-transparent text-gray-400 hover:text-gray-600')}>{t}</button>
         ))}
         <button className="pb-2.5 px-3 text-xs font-medium text-gray-400 border-b-2 border-transparent -mb-px ml-auto flex items-center gap-1.5 hover:text-[#3434ef]">
@@ -978,7 +973,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
               </select>
             </div>
             <div>
-              <label className="label">Adset</label>
+              <label className="label">Ensemble</label>
               <select className="select" value={sfmAdsetId} onChange={e => setSfmAdsetId(e.target.value)} disabled={!sfmCampaignId}>
                 <option value="">— Tous les adsets —</option>
                 {sfmAdsets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1033,7 +1028,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
         <div className="space-y-3">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Identity</p>
           <div>
-            <label className="label">Facebook Page <span className="text-red-500">*</span></label>
+            <label className="label">Page Facebook <span className="text-red-500">*</span></label>
             {pages.length > 0
               ? <select className="select" value={pageId} onChange={e => setPageId(e.target.value)}>{pages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
               : <input className="input" placeholder="Nom de la Page Facebook" value={pageId} onChange={e => setPageId(e.target.value)} />
@@ -1041,7 +1036,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="label">Instagram Account</label>
+              <label className="label">Compte Instagram</label>
               <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">@</span><input className="input pl-7" placeholder="compte instagram" value={igAccount} onChange={e => setIgAccount(e.target.value)} /></div>
             </div>
             <div>
@@ -1087,11 +1082,11 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
           ) : (
             <>
               <div>
-                <label className="label">Website URL <span className="text-red-500">*</span></label>
+                <label className="label">URL du site <span className="text-red-500">*</span></label>
                 <input className="input" placeholder="https://www.example.com/" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)} />
               </div>
               <div>
-                <label className="label">Lead Gen Form ID <span className="text-gray-400 font-normal text-xs">(campagne prospects — remplace l'URL)</span></label>
+                <label className="label">ID du formulaire <span className="text-gray-400 font-normal text-xs">(campagne prospects — remplace l'URL)</span></label>
                 <input className="input font-mono text-sm" placeholder="ex: 1234567890123456" value={leadGenFormId} onChange={e => setLeadGenFormId(e.target.value.trim())} />
               </div>
             </>
@@ -1102,7 +1097,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
           </div>
           {useDisplayLink && (
             <div>
-              <label className="label">Display Link</label>
+              <label className="label">Lien affiché</label>
               <input className="input" placeholder="www.example.com" value={displayLink} onChange={e => setDisplayLink(e.target.value)} />
               <p className="text-xs text-gray-400 mt-1">Shown instead of the full URL in your ad</p>
             </div>
@@ -1114,7 +1109,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Ad Creative</p>
 
           <div>
-            <label className="label">Ad format</label>
+            <label className="label">Format de publicité</label>
             <p className="text-xs text-gray-400 mb-2">Collection uses a hero image plus product tiles from your catalog. Default runs a single-media ad.</p>
             <div className="flex gap-4">
               {[{ id: 'SINGLE' as const, label: 'Single media' }, { id: 'COLLECTION' as const, label: 'Collection' }].map(f => (
@@ -1128,7 +1123,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
 
           {/* Primary Texts */}
           <div>
-            <label className="label">Primary Text <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({primaryTexts.length}/5)</span></label>
+            <label className="label">Texte principal <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({primaryTexts.length}/5)</span></label>
             <div className="space-y-2">
               {primaryTexts.map((t, i) => (
                 <div key={i} className="relative">
@@ -1148,7 +1143,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
 
           {/* Headlines */}
           <div>
-            <label className="label">Headline <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({headlines.length}/5)</span></label>
+            <label className="label">Titre <span className="text-red-500">*</span> <span className="text-gray-400 font-normal">({headlines.length}/5)</span></label>
             <div className="space-y-2">
               {headlines.map((h, i) => (
                 <div key={i} className="relative">
@@ -1173,7 +1168,7 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
           </div>
 
           <div>
-            <label className="label">Call to Action</label>
+            <label className="label">Bouton d’action</label>
             <select className="select" value={cta} onChange={e => setCta(e.target.value)}>
               {CTA_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
@@ -1202,21 +1197,21 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
 const STEPS = [
   { id: 1, label: 'Import', desc: 'Médias & fichiers' },
   { id: 2, label: 'Nomenclature', desc: 'Détection IA' },
-  { id: 3, label: 'Configure Testing', desc: 'Campagne & adsets' },
+  { id: 3, label: 'Configuration', desc: 'Campagne & ensembles' },
   { id: 4, label: 'Aperçu', desc: 'Vérification' },
   { id: 5, label: 'Lancement', desc: 'Publication Meta' },
 ]
 const TEST_STRUCTURES: { id: TestStructure; label: string; sub: string }[] = [
-  { id: 'one-ad-one-adset', label: '1 Adset 1 Ad', sub: 'Each creative gets its own adset' },
-  { id: 'one-concept-one-adset', label: '1 Concept 1 Adset', sub: 'Grouped by concept' },
-  { id: 'all-in-one', label: 'All in One', sub: 'One adset, all creatives' },
-  { id: 'insert-in-adset', label: 'Insert in Adset', sub: 'Into existing adsets' },
+  { id: 'one-ad-one-adset', label: '1 ensemble 1 pub', sub: 'Chaque créa a son propre ensemble' },
+  { id: 'one-concept-one-adset', label: '1 concept 1 ensemble', sub: 'Regroupées par concept' },
+  { id: 'all-in-one', label: 'Tout-en-un', sub: 'Un seul ensemble, toutes les créas' },
+  { id: 'insert-in-adset', label: 'Insérer dans un ensemble', sub: 'Dans des ensembles existants' },
 ]
 const LAUNCH_STATUSES: { id: LaunchStatus; label: string }[] = [
-  { id: 'SCHEDULED_PAUSED', label: 'Scheduled & Paused' },
-  { id: 'SCHEDULED_LIVE', label: 'Scheduled & Live' },
-  { id: 'CREATED_PAUSED', label: 'Created Paused' },
-  { id: 'LIVE_NOW', label: 'Live Now' },
+  { id: 'SCHEDULED_PAUSED', label: 'Programmée, en pause' },
+  { id: 'SCHEDULED_LIVE', label: 'Programmée, active' },
+  { id: 'CREATED_PAUSED', label: 'Créée en pause' },
+  { id: 'LIVE_NOW', label: 'Active immédiatement' },
 ]
 
 /* ─── Main ───────────────────────────────────────────────────────────────────── */
