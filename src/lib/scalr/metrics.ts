@@ -52,10 +52,15 @@ export const METRICS: MetricDef[] = [
   { key: 'resultValue', group: 'CONVERSION', label: 'Résultat', format: 'int', good: 'high', defaut: true },
   { key: 'leads', group: 'CONVERSION', label: 'Leads', format: 'int', good: 'high', defaut: true },
   { key: 'convRate', group: 'CONVERSION', label: 'CVR', format: 'pct', good: 'high', defaut: true, dec: 1 },
-  /** Les deux maillons que le CPL seul écrase : ce qui se perd entre le clic
-   *  et la page, puis entre la page et le formulaire. Le premier est une
-   *  affaire de vitesse de chargement, le second de rédaction. */
-  { key: 'lpvRate', group: 'CONVERSION', label: 'Clic → arrivée', format: 'pct', good: 'high', dec: 1 },
+  /**
+   * Ce que la page convertit, une fois qu'on y est arrivé.
+   *
+   * Il y avait un « clic → arrivée » à côté, retiré : sous l'attribution par
+   * défaut, une vue de page peut naître d'un affichage sans clic, si bien que
+   * le rapport dépasse 100 % — 158,8 % sur un compte réel. Ce n'est pas un
+   * taux, c'est le quotient de deux mesures qui ne se contiennent pas. Le
+   * rétablir demanderait de synchroniser une fenêtre clic-seul.
+   */
   { key: 'leadRate', group: 'CONVERSION', label: 'Arrivée → lead', format: 'pct', good: 'high', dec: 1 },
 
   // COST — une hausse est toujours une mauvaise nouvelle
@@ -123,7 +128,7 @@ export const PRESETS: Preset[] = [
     id: 'decomposition',
     label: 'Décomposition',
     quand: 'Une fois par semaine, au niveau publicité',
-    colonnes: ['spend', 'cpm', 'hookRate', 'holdRate', 'linkCtr', 'lpvRate', 'leadRate', 'cpl'],
+    colonnes: ['spend', 'cpm', 'hookRate', 'holdRate', 'linkCtr', 'leadRate', 'cpl'],
   },
   {
     id: 'crea',

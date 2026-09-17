@@ -166,17 +166,20 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     convRate: pct(leads, t.linkClicks),
 
     /**
-     * Les deux maillons que le coût par prospect écrase en un seul chiffre.
+     * Ce que la page convertit : les prospects nés **sur la page**, rapportés
+     * aux arrivées sur cette page.
      *
-     * Entre le clic et l'arrivée se perd la vitesse de chargement ; entre
-     * l'arrivée et le formulaire se perd la rédaction. Un CPL qui monte ne dit
-     * pas lequel des deux a lâché, ces deux taux le disent.
+     * Le numérateur exclut les prospects de formulaire natif — ils n'ont jamais
+     * vu la page. Les compter donnait 68,6 % sur un compte Lead Ads là où le
+     * taux réel de la page était de 15,9 % : un numérateur et un dénominateur
+     * prélevés sur deux populations différentes, le travers que décrit
+     * `economie.ts`, appliqué au tunnel.
      *
-     * Restent nuls sur un compte Lead Ads natif : le formulaire s'ouvre dans
-     * l'application, il n'y a ni clic sortant ni page de destination.
+     * Vide quand la ligne n'a aucune vue de page. Une campagne Messenger n'a
+     * pas un taux de conversion de zéro : elle n'en a pas, et l'afficher à 0 %
+     * la ferait passer pour un échec alors qu'elle ne visait pas la page.
      */
-    lpvRate: pct(t.landingPageViews, t.linkClicks),
-    leadRate: pct(leads, t.landingPageViews),
+    leadRate: t.landingPageViews > 0 ? pct(t.pixelLeads, t.landingPageViews) : null,
 
     // Tunnel du clic à l'achat
     funnel: {
