@@ -198,7 +198,11 @@ interface MetaCampaign {
 interface MetaAdset {
   id: string; name: string; campaign_id: string; status: string
   optimization_goal: string; daily_budget?: string
-  targeting?: { age_min?: number; age_max?: number; genders?: number[]; geo_locations?: { countries?: string[] }; custom_audiences?: { id: string; name: string }[] }
+  targeting?: {
+    age_min?: number; age_max?: number; genders?: number[]
+    geo_locations?: { countries?: string[]; cities?: { key: string; radius?: number; distance_unit?: string }[] }
+    custom_audiences?: { id: string; name: string }[]
+  }
   promoted_object?: { pixel_id?: string; custom_event_type?: string }
   _isNew?: boolean
 }
@@ -761,6 +765,10 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
   const [gender, setGender] = useState<'ALL' | 'MALE' | 'FEMALE'>('ALL')
   const [locations, setLocations] = useState<string[]>(['FR'])
   const [locSearch, setLocSearch] = useState('')
+  // Pays entiers ou villes avec rayon. Le second est le ciblage réel de la
+  // plupart des comptes ; les deux ensemble, Meta les refuse (1487756).
+  const [zone, setZone] = useState<'pays' | 'villes'>('pays')
+  const [villes, setVilles] = useState<Ville[]>([])
   const [audienceTab, setAudienceTab] = useState<'include' | 'exclude'>('include')
   const [audienceSearch, setAudienceSearch] = useState('')
   const [includedAudiences, setIncludedAudiences] = useState<string[]>([])
@@ -783,7 +791,9 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
       targeting: {
         age_min: ageMin, age_max: ageMax || 65,
         genders: gender === 'ALL' ? [1, 2] : gender === 'MALE' ? [1] : [2],
-        geo_locations: { countries: locations },
+        geo_locations: zone === 'villes' && villes.length
+          ? { cities: villes.map(v => ({ key: v.key, radius: v.rayon, distance_unit: 'kilometer' })) }
+          : { countries: locations },
         custom_audiences: includedAudiences.map(id => ({ id, name: audiences.find(a => a.id === id)?.name || id })),
       },
       promoted_object: { pixel_id: pixelId, custom_event_type: convEvent.toUpperCase() },
@@ -904,7 +914,19 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
           {/* Locations */}
           <div>
             <label className="label">Lieux <span className="text-red-500">*</span></label>
-            <div className="relative">
+            <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-2.5">
+              {([['pays', 'Pays entiers'], ['villes', 'Villes + rayon']] as const).map(([id, lib]) => (
+                <button key={id} onClick={() => setZone(id)}
+                  className={clsx('flex-1 text-sm py-1.5 rounded-md transition-colors',
+                    zone === id ? 'bg-white text-[#0d0d12] font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+                  {lib}
+                </button>
+              ))}
+            </div>
+            {zone === 'villes' ? (
+              <RechercheVilles accountId={accountId} choisies={villes} onChange={setVilles} />
+            ) : (
+            <><div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               <input className="input pl-9" placeholder="Search locations..." value={locSearch} onChange={e => setLocSearch(e.target.value)} />
             </div>
@@ -924,6 +946,8 @@ function CreateAdsetModal({ onSave, onClose, isCBO, pixels, audiences, accountId
                   </button>
                 ))}
               </div>
+            )}
+            </>
             )}
           </div>
 
