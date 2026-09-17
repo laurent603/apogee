@@ -125,6 +125,25 @@ export function computeMetrics(t: Totals, objective?: string | null) {
      *  surévaluée et sous-estimerait donc la répétition réelle. */
     frequency: multiJours ? null : per(t.impressions, t.reachSum),
 
+    /**
+     * Ce que la répétition coûte : le prix de mille *personnes* moins celui de
+     * mille impressions. Nul au départ, il se creuse à mesure que la fréquence
+     * monte — et il se creuse **avant** que le CTR ne chute.
+     *
+     * Dans cet ordre, et pas l'inverse : dès que la fréquence dépasse 1, il y a
+     * moins de personnes que d'impressions, donc atteindre mille personnes
+     * coûte plus cher qu'afficher mille fois. La soustraction posée dans
+     * l'autre sens rend un nombre négatif qui décroît quand la fatigue
+     * s'aggrave — vérifié sur données réelles avant de le laisser passer.
+     *
+     * Écarté sur plusieurs jours pour la même raison que la fréquence : la
+     * portée y est une somme de portées journalières, donc surévaluée, ce qui
+     * rapetisserait l'écart et rendrait la fatigue invisible au moment précis
+     * où elle s'installe.
+     */
+    coutRepetition: multiJours || t.reachSum === 0 || t.impressions === 0 ? null
+      : r2((t.spend / t.reachSum) * 1000 - (t.spend / t.impressions) * 1000),
+
     leads,
     formLeads: t.formLeads,
     pixelLeads: t.pixelLeads,
@@ -145,6 +164,19 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     cpc: per(t.spend, t.clicks),
     cpcLink: per(t.spend, t.linkClicks),
     convRate: pct(leads, t.linkClicks),
+
+    /**
+     * Les deux maillons que le coût par prospect écrase en un seul chiffre.
+     *
+     * Entre le clic et l'arrivée se perd la vitesse de chargement ; entre
+     * l'arrivée et le formulaire se perd la rédaction. Un CPL qui monte ne dit
+     * pas lequel des deux a lâché, ces deux taux le disent.
+     *
+     * Restent nuls sur un compte Lead Ads natif : le formulaire s'ouvre dans
+     * l'application, il n'y a ni clic sortant ni page de destination.
+     */
+    lpvRate: pct(t.landingPageViews, t.linkClicks),
+    leadRate: pct(leads, t.landingPageViews),
 
     // Tunnel du clic à l'achat
     funnel: {

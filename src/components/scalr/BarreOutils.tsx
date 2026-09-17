@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
-import { METRICS, GROUPES, METRIC_BY_KEY } from '@/lib/scalr/metrics'
+// `PRESETS` est déjà pris dans ce fichier par les périodes ; les jeux de
+// colonnes entrent donc sous leur propre nom.
+import { METRICS, GROUPES, METRIC_BY_KEY, PRESETS as PRESETS_COLONNES } from '@/lib/scalr/metrics'
 import {
   CHAMPS_FILTRE, CHAMP_PAR_CLE, GROUPES_CHAMPS, OPERATEURS,
   libelleCondition, valeursConnues, type Condition,
@@ -388,6 +390,28 @@ export function BarreOutils({ r, set, niveau, options, lignes, comparaison }: {
 
       {/* ── Colonnes ── */}
       <div className="card flex flex-wrap items-center gap-2" ref={refMetrique}>
+        {/* Trois jeux prêts, parce qu'un tableau se choisit selon la question
+            qu'on se pose, pas en cochant onze cases à chaque fois. */}
+        {niveau !== 'crea' && (
+          <>
+            <span className="text-[10px] font-medium text-gray-400 mr-0.5">Préréglage</span>
+            {PRESETS_COLONNES.map((p) => {
+              const actif = p.colonnes.length === colonnes.length
+                && p.colonnes.every((k, i) => colonnes[i] === k)
+              return (
+                <button key={p.id} type="button" title={p.quand}
+                  onClick={() => setColonnes(p.colonnes)}
+                  className={clsx('text-xs px-2.5 py-1.5 rounded-lg border whitespace-nowrap transition-colors',
+                    actif ? 'border-[#3434ef] bg-[#3434ef] text-white'
+                      : 'border-[#E5E7EB] text-gray-600 hover:border-gray-300')}>
+                  {p.label}
+                </button>
+              )
+            })}
+            <span className="w-px h-5 bg-[#E5E7EB] mx-1" />
+          </>
+        )}
+
         <span className="text-[10px] font-medium text-gray-400 mr-0.5">
           {niveau === 'crea' ? 'Indicateurs des cartes' : 'Colonnes'}
         </span>

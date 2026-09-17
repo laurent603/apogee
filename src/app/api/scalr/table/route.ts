@@ -220,6 +220,17 @@ export async function GET(req: NextRequest) {
       reachSum: reach ?? m.reachSum,
       reachIsApproximate: reach === null,
       frequency,
+      /**
+       * Recalculé ici pour la même raison que la fréquence : l'agrégation
+       * l'écarte sur plusieurs jours, faute d'une portée dédoublonnée. La
+       * route en a une vraie, donc l'écart entre le prix de mille impressions
+       * et celui de mille personnes redevient mesurable — et sans ce
+       * rattrapage la colonne serait vide sur toute fenêtre, c'est-à-dire
+       * toujours.
+       */
+      coutRepetition: reach && reach > 0 && m.impressions > 0
+        ? Math.round(((m.spend / reach) * 1000 - (m.spend / m.impressions) * 1000) * 100) / 100
+        : m.coutRepetition,
       precedent: mPrev,
     }
   })
@@ -291,6 +302,16 @@ export async function GET(req: NextRequest) {
       variation(l[cle as keyof typeof l] as number | null, l.precedent[cle] as number | null)
     return {
       ...l,
+      /**
+       * La dépense en multiples du coût cible.
+       *
+       * Se calcule ici et non dans l'agrégation : la cible vient des réglages
+       * du compte, que `computeMetrics` ne connaît pas — et ne doit pas
+       * connaître, sous peine de rendre une fonction pure dépendante d'une
+       * base. Sans cible, la colonne reste vide plutôt que de se rabattre sur
+       * un seuil inventé.
+       */
+      depX: goals.targetCpl ? Math.round((l.spend / goals.targetCpl) * 100) / 100 : null,
       decision: d,
       variations: {
         spend: varie('spend'), impressions: varie('impressions'), clicks: varie('clicks'),
@@ -300,6 +321,8 @@ export async function GET(req: NextRequest) {
         ctr: varie('ctr'), linkCtr: varie('linkCtr'), frequency: varie('frequency'),
         hookRate: varie('hookRate'), holdRate: varie('holdRate'), thruplays: varie('thruplays'),
         reachSum: varie('reachSum'),
+        lpvRate: varie('lpvRate'), leadRate: varie('leadRate'),
+        coutRepetition: varie('coutRepetition'),
       },
       precedent: undefined,
     }
@@ -311,6 +334,24 @@ export async function GET(req: NextRequest) {
     precedente: { since: prev.since.toISOString().slice(0, 10), until: prev.until.toISOString().slice(0, 10) },
     attribution,
     goals,
+    /**
+     * Le seul contrôle qui vaille avant de faire confiance à une colonne.
+     *
+     * Toutes les métriques de cette page sont déclarées par Meta. Un tracking
+     * cassé produit des tableaux parfaitement lisibles et entièrement faux :
+     * sur un compte réel, quatorze prospects annoncés pour trois contacts créés
+     * — un même formulaire déclenchait deux évènements navigateur et un
+     * évènement serveur sans identifiant commun.
+     *
+     * Le rapport doit tendre vers 1. Il n'existe qu'ici : Apogee est le seul à
+     * tenir les deux comptages. Et il reste au niveau du compte, parce que le
+     * CRM n'attribue pas ses contacts à une publicité — seulement ses affaires.
+     */
+    fiabilite: (() => {
+      const crm = Number(crmFenetre._sum.leads ?? 0)
+      const meta = lignes.reduce((t, l) => t + (l.leads || 0), 0)
+      return crm > 0 && meta > 0 ? { meta, crm, ratio: Math.round((meta / crm) * 100) / 100 } : null
+    })(),
     // De quoi expliquer d'où vient la cible, quand elle est déduite.
     economie: eco,
     lignes: avecDecision.sort((a, b) => b.spend - a.spend),

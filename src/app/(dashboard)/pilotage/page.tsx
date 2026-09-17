@@ -237,6 +237,8 @@ export default function PilotagePage() {
     periode: { since: string; until: string }
     precedente: { since: string; until: string }
     goals: { targetCpl: number | null; maxCpl: number | null }
+    /** Prospects déclarés par Meta rapportés aux contacts créés au CRM. */
+    fiabilite: { meta: number; crm: number; ratio: number } | null
     options: { campagnes: { id: string; nom: string }[]; adsets: { id: string; nom: string; campagneId: string | null }[]; objectifs: string[]; formats: string[] }
   } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -566,6 +568,21 @@ export default function PilotagePage() {
           decision={(data?.lignes as Ligne[] | undefined)?.find((l) => l.id === detailOuvert)?.decision}
           format={(data?.lignes as (Ligne & { creativeType?: string })[] | undefined)?.find((l) => l.id === detailOuvert)?.creativeType ?? undefined}
           onClose={() => setDetailOuvert(null)} />
+      )}
+
+      {/* Toutes les colonnes ci-dessus sont déclarées par Meta. Un tracking
+          cassé rend un tableau lisible et faux — ce rapport est le seul garde-fou,
+          et il ne s'affiche que quand il dérape, pour ne pas devenir du décor. */}
+      {data?.fiabilite && data.fiabilite.ratio > 1.15 && (
+        <div className="card border-amber-200 bg-amber-50">
+          <p className="text-xs text-amber-900 leading-snug">
+            <strong>{data.fiabilite.meta.toLocaleString('fr-FR')} prospects déclarés par Meta
+            pour {data.fiabilite.crm.toLocaleString('fr-FR')} contacts créés au CRM</strong> sur la même
+            période, soit un rapport de {data.fiabilite.ratio.toFixed(2)} là où il devrait tendre vers 1.
+            Doublons d’évènements, formulaires abandonnés ou attribution perdue : tant que l’écart est là,
+            chaque coût par prospect de ce tableau est sous-évalué d’autant.
+          </p>
+        </div>
       )}
 
       {data && (
