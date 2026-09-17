@@ -135,12 +135,31 @@ export function extractActionValue(
   const selfNamed = field !== 'actions' && field !== 'action_values'
     && types.length === 1 && types[0] === field
 
-  let sum = 0
+  /**
+   * Une liste de types est une liste d'**alias**, pas une addition.
+   *
+   * Meta renvoie le même évènement sous plusieurs noms selon la configuration
+   * du compte : `landing_page_view` et `omni_landing_page_view` valent tous
+   * deux 1 745, `offsite_conversion.fb_pixel_lead` et `onsite_web_lead` valent
+   * tous deux 90. Les additionner doublait la métrique — vues de page et
+   * prospects pixel étaient faux d'un facteur deux sur les trois comptes, donc
+   * les coûts par prospect faux de moitié, et tout ce qui en découle avec.
+   *
+   * Le maximum plutôt que le premier trouvé : quand deux alias diffèrent, l'un
+   * est presque toujours le sur-ensemble de l'autre — `page_engagement`
+   * contient `post_engagement`. Retenir le plus grand ne perd rien.
+   *
+   * L'addition reste pour un champ que Meta ventile lui-même en plusieurs
+   * lignes, reconnaissable à ce qu'il porte son propre nom : les paliers vidéo.
+   */
+  let total = 0
+  let alias = 0
   for (const a of arr as MetaAction[]) {
-    if (selfNamed) { sum += num(a?.value); continue }
-    if (a?.action_type && types.includes(a.action_type)) sum += num(a.value)
+    if (selfNamed) { total += num(a?.value); continue }
+    if (a?.action_type && types.includes(a.action_type)) alias = Math.max(alias, num(a.value))
   }
-  return field === 'action_values' || field === 'conversion_values' ? sum : Math.round(sum)
+  const v = selfNamed ? total : alias
+  return field === 'action_values' || field === 'conversion_values' ? v : Math.round(v)
 }
 
 /** Recherche approximative sur le nom du type d'action, avec exclusions.
