@@ -211,6 +211,8 @@ interface MetaAd {
 interface MetaPage { id: string; name: string }
 interface MetaPixel { id: string; name: string }
 interface MetaAudience { id: string; name: string; approximate_count_lower_bound?: number }
+/** Une liste d'audiences enregistrée dans Apogee, rejouable d'un mois sur l'autre. */
+interface ListeAudiences { id: string; name: string; audiences: unknown; updatedAt: string }
 /** Une audience enregistrée de l'Ads Manager : un ciblage complet, pas une liste de personnes. */
 interface MetaSavedAudience {
   id: string; name: string
@@ -1405,10 +1407,12 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
 
 const PAYS_COURANTS = [['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['LU', 'Luxembourg'], ['CA', 'Canada']]
 
-function ConstructeurAudiences({ audiences, setAudiences, accountId, custom, enregistrees }: {
+function ConstructeurAudiences({ audiences, setAudiences, accountId, dbAccountId, custom, enregistrees }: {
   audiences: Audience[]
   setAudiences: React.Dispatch<React.SetStateAction<Audience[]>>
   accountId?: string
+  /** Identifiant en base du compte. Absent, la bibliothèque n'a pas où écrire. */
+  dbAccountId?: string
   custom: MetaAudience[]
   enregistrees: MetaSavedAudience[]
 }) {
@@ -1417,6 +1421,55 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom, enr
   const [aImporter, setAImporter] = useState<string[]>([])
   const [importEnCours, setImportEnCours] = useState(false)
   const [retires, setRetires] = useState<string[]>([])
+  const [biblioOuverte, setBiblioOuverte] = useState(false)
+  const [listes, setListes] = useState<ListeAudiences[]>([])
+  const [nomListe, setNomListe] = useState('')
+  const [enregistrement, setEnregistrement] = useState(false)
+
+  useEffect(() => {
+    if (!dbAccountId) { setListes([]); return }
+    let vivant = true
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/audience-sets?dbAccountId=${dbAccountId}`)
+        const d = await r.json()
+        if (vivant) setListes(Array.isArray(d) ? d : [])
+      } catch { /* la bibliothèque reste vide, le constructeur fonctionne */ }
+    })()
+    return () => { vivant = false }
+  }, [dbAccountId])
+
+  async function enregistrer() {
+    const nom = nomListe.trim()
+    if (!nom || !dbAccountId || !audiences.length) return
+    setEnregistrement(true)
+    try {
+      const r = await fetch('/api/audience-sets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dbAccountId, name: nom, audiences }),
+      })
+      if (r.ok) {
+        const set = await r.json()
+        setListes(prev => [set, ...prev.filter(l => l.id !== set.id)])
+        setNomListe('')
+      }
+    } catch { /* rien à enregistrer si le réseau tombe */ }
+    setEnregistrement(false)
+  }
+
+  /** Recharge une liste. Les identifiants sont refaits : charger deux fois la
+   *  même liste ne doit pas produire deux audiences de même clé React. */
+  function charger(l: ListeAudiences) {
+    const reprises = (Array.isArray(l.audiences) ? l.audiences : []) as Audience[]
+    setAudiences(reprises.map(a => ({ ...a, uid: `aud_${Math.random().toString(36).slice(2, 9)}` })))
+    setBiblioOuverte(false)
+  }
+
+  async function supprimer(id: string) {
+    setListes(prev => prev.filter(l => l.id !== id))
+    try { await fetch(`/api/audience-sets?id=${id}`, { method: 'DELETE' }) } catch {}
+  }
 
   /**
    * Importe les audiences cochées, en écartant au passage les centres d'intérêt
@@ -1477,6 +1530,12 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom, enr
           )}
         </div>
         <div className="flex gap-1.5 shrink-0">
+          {dbAccountId && (
+            <button onClick={() => setBiblioOuverte(o => !o)}
+              className="btn-secondary text-xs py-1 px-2.5">
+              Bibliothèque{listes.length ? ` (${listes.length})` : ''}
+            </button>
+          )}
           {enregistrees.length > 0 && (
             <button onClick={() => setImportOuvert(o => !o)}
               className="btn-secondary text-xs py-1 px-2.5">
@@ -1494,6 +1553,56 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom, enr
             className="btn-primary text-xs py-1 px-2.5">+ Audience</button>
         </div>
       </div>
+
+      {/* Bibliothèque. Le stade 3 se rejoue chaque mois sur la même liste :
+          l'enregistrer une fois évite de la ressaisir onze fois. */}
+      {biblioOuverte && dbAccountId && (
+        <div className="border border-[#E5E7EB] rounded-lg p-3 bg-gray-50/60 space-y-2">
+          {listes.length > 0 ? (
+            <div className="border border-[#E5E7EB] rounded-lg bg-white max-h-52 overflow-y-auto divide-y divide-[#F3F4F6]">
+              {listes.map(l => {
+                const n = Array.isArray(l.audiences) ? l.audiences.length : 0
+                return (
+                  <div key={l.id} className="flex items-center gap-2 px-2.5 py-1.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-[#0d0d12] truncate">{l.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {n} audience{n > 1 ? 's' : ''} · {new Date(l.updatedAt).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                    <button onClick={() => charger(l)} className="btn-secondary text-xs py-1 px-2.5 shrink-0">
+                      {audiences.length ? 'Remplacer' : 'Charger'}
+                    </button>
+                    <button onClick={() => supprimer(l.id)}
+                      className="text-gray-300 hover:text-red-500 px-1 shrink-0" title="Supprimer">×</button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">
+              Aucune liste enregistrée sur ce compte.
+            </p>
+          )}
+
+          <div className="flex gap-1.5">
+            <input className="input text-xs py-1 flex-1 min-w-0"
+              placeholder="Nom de la liste — « Stade 3, solaire »"
+              value={nomListe} onChange={e => setNomListe(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') enregistrer() }} />
+            <button onClick={enregistrer}
+              disabled={!nomListe.trim() || !audiences.length || enregistrement}
+              className="btn-primary text-xs py-1 px-2.5 shrink-0 disabled:opacity-40">
+              {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+            <button onClick={() => setBiblioOuverte(false)}
+              className="text-xs text-gray-400 hover:text-gray-600 px-1.5 shrink-0">Fermer</button>
+          </div>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Charger une liste remplace les audiences en cours. Un nom déjà pris est écrasé.
+          </p>
+        </div>
+      )}
 
       {/* Import des audiences enregistrées du compte. Un compte qui travaille
           par ville en a souvent des dizaines, déjà réglées — les ressaisir à la
@@ -3035,6 +3144,7 @@ export default function UploadPage() {
                   audiences={audiences}
                   setAudiences={setAudiences}
                   accountId={metaId}
+                  dbAccountId={selectedAccount?.sansBase ? undefined : selectedAccount?.id}
                   custom={metaAudiences}
                   enregistrees={savedAudiences} />
               </div>

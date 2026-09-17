@@ -77,6 +77,26 @@ model AdAccount {
 
   @@unique([userId, metaAccountId])
   briefs          Brief[]
+  audienceSets    AudienceSet[]
+}
+
+/// Une liste d'audiences à tester, enregistrée pour être rejouée.
+///
+/// Le stade 3 de la méthode J7 se rejoue sur la même liste canonique d'un
+/// mois sur l'autre : sans ça, chaque test recommence par une demi-heure de
+/// ressaisie. Le contenu est le tableau d'audiences du constructeur, tel
+/// qu'il vit dans le wizard — villes et rayons compris.
+model AudienceSet {
+  id          String    @id @default(cuid())
+  name        String
+  audiences   Json
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([adAccountId, name])
+  @@index([adAccountId])
 }
 
 /// Reference ad copy pulled from the account's Notion workspace. Synced on
