@@ -309,6 +309,31 @@ export default function BrandSettingsPage() {
     })
     const marge = settings.productMarginPct
     const roas = eco.depense > 0 && eco.caSigne > 0 ? eco.caSigne / eco.depense : null
+
+    /**
+     * Ce que le budget saisi devrait produire.
+     *
+     * Le budget mensuel ne servait à rien : stocké, affiché, jamais lu. Or
+     * c'est la seule intention que l'écran contient — tout le reste est du
+     * constat. Rapporté au CPL qu'on s'est fixé, il dit combien de prospects
+     * et de signatures ce mois doit rendre, et la dépense réelle dit si on
+     * tient le plan.
+     *
+     * Au CPL cible, pas au CPL réel : c'est le plancher que la règle impose.
+     * Le coût réel, plus bas, est montré à côté — l'écart entre les deux est
+     * la marge de manœuvre, et elle ne se voit qu'en comparant.
+     */
+    const budget = settings.monthlyAdBudget
+    const projection = budget && calc.cplCible && calc.tauxSignatureMedia != null && calc.margeParClient != null
+      ? {
+          prospects: budget / calc.cplCible,
+          signatures: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100),
+          margeNette: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100) * calc.margeParClient - budget,
+          prospectsAuReel: calc.cplMeta ? budget / calc.cplMeta : null,
+          depenseMensuelle: eco.periode.jours > 0 ? (eco.depense / eco.periode.jours) * 30 : null,
+        }
+      : null
+
     return {
       ...eco,
       ...calc,
@@ -317,8 +342,10 @@ export default function BrandSettingsPage() {
       roi: roas != null && marge
         ? ((eco.caSigne * (marge / 100) - eco.depense) / eco.depense) * 100
         : null,
+      projection,
     }
-  }, [eco, settings.averageOrderValue, settings.productMarginPct, settings.partAcquisition])
+  }, [eco, settings.averageOrderValue, settings.productMarginPct, settings.partAcquisition,
+      settings.monthlyAdBudget])
 
   /** Un compte de génération de prospects n'a ni ROAS, ni MER, ni catalogue :
    *  ces champs resteraient vides et encombreraient l'écran. */
@@ -717,6 +744,41 @@ export default function BrandSettingsPage() {
                         </>
                       )}
                     </div>
+
+                    {/* La seule intention de l'écran : ce que le budget doit rendre. */}
+                    {ecoVif.projection && (
+                      <div className="border-t border-[#E5E7EB] pt-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                          Ce que le budget devrait produire
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            ['Prospects / mois', Math.round(ecoVif.projection.prospects).toLocaleString('fr-FR')],
+                            ['Signatures / mois', ecoVif.projection.signatures.toFixed(1)],
+                            ['Marge nette / mois', euro(ecoVif.projection.margeNette)],
+                            ['Dépensé / mois', euro(ecoVif.projection.depenseMensuelle)],
+                          ].map(([l, v]) => (
+                            <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
+                              <p className="text-sm font-bold text-[#0d0d12] tabular-nums">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-gray-500 leading-snug mt-2">
+                          Au <strong>CPL cible de {euro(ecoVif.cplCible)}</strong>, qui est un plafond :
+                          {ecoVif.projection.prospectsAuReel != null && (
+                            <> au coût réel de {euro(ecoVif.cplMeta)}, le même budget achèterait
+                            {' '}<strong>{Math.round(ecoVif.projection.prospectsAuReel).toLocaleString('fr-FR')} prospects</strong>.
+                            L’écart entre les deux est votre marge de manœuvre.</>
+                          )}
+                          {ecoVif.projection.depenseMensuelle != null && settings.monthlyAdBudget && (
+                            <> Vous dépensez aujourd’hui <strong>{Math.round((ecoVif.projection.depenseMensuelle / settings.monthlyAdBudget) * 100)} %</strong> du
+                            budget annoncé.</>
+                          )}
+                          {' '}Projection à taux de signature constant : elle vaut ce que vaut cette hypothèse.
+                        </p>
+                      </div>
+                    )}
 
                     {/* L'écart de comptage est une information, pas un détail. */}
                     {ecoVif.couverture != null && ecoVif.couverture < 90 && (
