@@ -166,6 +166,17 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     convRate: pct(leads, t.linkClicks),
 
     /**
+     * Ce qui se perd entre le clic et l'arrivée : vitesse de chargement,
+     * fermetures avant affichage, redirections.
+     *
+     * Retiré un moment, au motif qu'il dépassait 100 % sur un compte réel. Le
+     * tort n'était pas au ratio mais à la donnée : les vues de page étaient
+     * comptées deux fois, Meta les renvoyant sous deux noms. Corrigé, le même
+     * compte affiche 79,4 %.
+     */
+    lpvRate: pct(t.landingPageViews, t.linkClicks),
+
+    /**
      * Ce que la page convertit : les prospects nés **sur la page**, rapportés
      * aux arrivées sur cette page.
      *

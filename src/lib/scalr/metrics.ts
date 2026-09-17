@@ -44,16 +44,22 @@ export const METRICS: MetricDef[] = [
   // CONVERSION
   { key: 'resultValue', group: 'CONVERSION', label: 'Résultat', format: 'int', good: 'high', defaut: true },
   { key: 'leads', group: 'CONVERSION', label: 'Leads', format: 'int', good: 'high', defaut: true },
-  { key: 'convRate', group: 'CONVERSION', label: 'CVR', format: 'pct', good: 'high', defaut: true, dec: 1 },
+  /** Prospects ÷ clics sur un lien : le taux de transformation du formulaire,
+   *  bout en bout depuis le clic. Portait l'étiquette « CVR », qui ne disait
+   *  pas de quelle conversion il s'agissait. */
+  { key: 'convRate', group: 'CONVERSION', label: 'Transfo form.', format: 'pct', good: 'high', defaut: true, dec: 1 },
   /**
-   * Ce que la page convertit, une fois qu'on y est arrivé.
+   * Les trois maillons que le coût par prospect écrase en un seul chiffre.
    *
-   * Il y avait un « clic → arrivée » à côté, retiré : sous l'attribution par
-   * défaut, une vue de page peut naître d'un affichage sans clic, si bien que
-   * le rapport dépasse 100 % — 158,8 % sur un compte réel. Ce n'est pas un
-   * taux, c'est le quotient de deux mesures qui ne se contiennent pas. Le
-   * rétablir demanderait de synchroniser une fenêtre clic-seul.
+   * `lpvRate` a été retiré un moment, au motif qu'il dépassait 100 % — 158,8 %
+   * sur Egide. Le tort n'était pas au ratio mais à la donnée : les vues de page
+   * étaient comptées deux fois. Corrigé, le même compte affiche 79,4 %.
+   *
+   * `convRate` garde son nom technique mais porte le libellé de l'agence :
+   * prospects rapportés aux clics, c'est le taux de transformation du
+   * formulaire, bout en bout depuis le clic.
    */
+  { key: 'lpvRate', group: 'CONVERSION', label: 'Clic → arrivée', format: 'pct', good: 'high', dec: 1 },
   { key: 'leadRate', group: 'CONVERSION', label: 'Arrivée → lead', format: 'pct', good: 'high', dec: 1 },
 
   // COST — une hausse est toujours une mauvaise nouvelle
@@ -109,7 +115,7 @@ export const PRESETS: Preset[] = [
     id: 'decomposition',
     label: 'Décomposition',
     quand: 'Une fois par semaine, au niveau publicité',
-    colonnes: ['spend', 'cpm', 'hookRate', 'holdRate', 'linkCtr', 'leadRate', 'cpl'],
+    colonnes: ['spend', 'cpm', 'hookRate', 'holdRate', 'linkCtr', 'lpvRate', 'leadRate', 'convRate', 'cpl'],
   },
   {
     id: 'crea',
