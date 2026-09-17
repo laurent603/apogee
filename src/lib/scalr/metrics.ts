@@ -65,6 +65,9 @@ export const METRICS: MetricDef[] = [
    * formule ne rattrape ça.
    */
   { key: 'lpvRate', group: 'CONVERSION', label: 'LPVR', format: 'pct', good: 'high', dec: 1 },
+  /** Le compte brut derrière LPVR. Une publicité qui n'envoie pas sur le web
+   *  reste à zéro, ce qui se lit plus vite qu'un taux vide. */
+  { key: 'landingPageViews', group: 'CONVERSION', label: 'Vues LP', format: 'int', good: 'high' },
 
   // COST — une hausse est toujours une mauvaise nouvelle
   { key: 'costPerResult', group: 'COST', label: 'Coût/rés.', format: 'eur', good: 'low', defaut: true, dec: 2 },
@@ -120,6 +123,26 @@ export const PRESETS: Preset[] = [
     label: 'Décomposition',
     quand: 'Une fois par semaine, au niveau publicité',
     colonnes: ['spend', 'cpm', 'hookRate', 'holdRate', 'linkCtr', 'lpvRate', 'convRate', 'cpl'],
+  },
+  /**
+   * Le stade 2 de la méthode J7 — RTDF : rédaction, tagline, design, format.
+   *
+   * Le stade 1 juge si la créa mérite le clic ; celui-ci juge ce qui se passe
+   * après. Les colonnes suivent donc le chemin du clic jusqu'au prospect, et
+   * la décision se prend sur le coût par prospect : on ferme un ad set à deux
+   * fois le coût cible sans conversion, on valide un gagnant à dix conversions
+   * au coût cible.
+   *
+   * Un quatrième préréglage alors que la note plus haut en défend trois : il
+   * ne répond pas à une question de plus, il répond à la même à un autre stade,
+   * et c'est ce découpage-là que l'agence utilise.
+   */
+  {
+    id: 'stade2',
+    label: 'Stade 2',
+    quand: 'RTDF — la rédaction convertit-elle ? · niveau publicité · ventiler par jour',
+    colonnes: ['spend', 'cpm', 'frequency', 'linkCtr', 'linkClicks',
+      'landingPageViews', 'lpvRate', 'convRate', 'leads', 'cpl'],
   },
   {
     id: 'crea',
