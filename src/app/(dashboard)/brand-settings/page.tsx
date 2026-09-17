@@ -165,8 +165,13 @@ function SelectField({ label, field, options, settings, onChange }: SelectProps)
  * compte rapporte » d'un côté, « à partir de quand l'outil crie » de l'autre —
  * et n'ont pas la même fréquence de consultation. Elles ont donc chacune leur
  * onglet, et chacune toute la largeur.
+ *
+ * « Fondation financière » plutôt qu'« Économie du compte » : c'est ce sur quoi
+ * tout le reste repose, et le mot le dit. « Règles de décision » plutôt que
+ * « Seuils des verdicts » : un seuil est un nombre, une règle est ce qu'on en
+ * fait — et c'est bien de cela qu'il s'agit ici.
  */
-const TABS = ['Le client', 'L’audience', 'Économie du compte', 'Seuils des verdicts', 'Technique & CRM', 'Référentiel créatif']
+const TABS = ['Le client', 'L’audience', 'Fondation financière', 'Règles de décision', 'Technique & CRM', 'Référentiel créatif']
 
 type GhlState = {
   hasToken: boolean
@@ -581,7 +586,7 @@ export default function BrandSettingsPage() {
             <div>
 
               <div className="border border-[#E5E7EB] rounded-2xl p-4 max-w-3xl">
-                <p className="text-sm font-semibold text-[#0d0d12]">Seuils des verdicts</p>
+                <p className="text-sm font-semibold text-[#0d0d12]">Règles de décision</p>
                 <p className="text-xs text-gray-400 mt-0.5 mb-3 leading-snug">
                   Ils décident de ce qui s’affiche Winner, Fatigue ou À couper dans Media buying.
                   Laissés vides, les valeurs entre parenthèses s’appliquent — un compte non réglé
@@ -629,7 +634,7 @@ export default function BrandSettingsPage() {
             <div>
 
               <div className="border border-[#E5E7EB] rounded-2xl p-4">
-                <p className="text-sm font-semibold text-[#0d0d12]">Économie du compte</p>
+                <p className="text-sm font-semibold text-[#0d0d12]">Fondation financière</p>
                 <p className="text-xs text-gray-400 mt-0.5 mb-3 leading-snug">
                   Ce qu’un prospect vaut réellement, déduit de la valeur d’un client, de la marge
                   et du <strong>taux de signature mesuré dans le CRM</strong> — pas d’une estimation.
