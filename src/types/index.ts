@@ -50,6 +50,9 @@ export interface BrandSettings {
   strategicGoal?: string
   shortTermGoal?: string
   monthlyAdBudget?: number
+  /** Ce que l'agence facture par mois. Entre dans le coût d'acquisition d'un
+   *  client, jamais dans le coût par prospect. */
+  honorairesMensuels?: number
   monthlyConvTarget?: number
   budgetFlexibility?: string
   targetCpa?: number

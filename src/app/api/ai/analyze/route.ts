@@ -215,6 +215,14 @@ ${leadSourceNote}
 ## Brand Settings
 ${brandSettings ? JSON.stringify(brandSettings, null, 2) : 'Non renseigné'}
 
+**\`honorairesMensuels\`** est ce que l'agence facture par mois. Il entre dans le
+coût d'acquisition d'un client — dépense publicitaire + honoraires, divisé par
+les signatures — et dans le ROI. Jamais dans le coût par prospect ni dans le
+jugement d'une publicité : un honoraire est un coût de compte, il s'ajouterait
+également à toutes les annonces sans rien dire de leur qualité relative. S'il est
+absent, dis que le coût d'acquisition ne compte que la publicité plutôt que de
+supposer un montant.
+
 ## Vue d'ensemble (${datePreset})
 ${JSON.stringify(overview, null, 2)}
 

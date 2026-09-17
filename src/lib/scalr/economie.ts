@@ -37,6 +37,20 @@ export type Entrees = {
   /** Prospects tels que Meta les compte, et dépense de la même période. */
   leadsMeta?: number
   depense?: number
+  /**
+   * Les honoraires de l'agence sur la même période.
+   *
+   * Ils entrent dans le coût d'acquisition d'un client — ce que l'entreprise
+   * paie vraiment pour signer — et nulle part ailleurs. Surtout pas dans le
+   * coût par prospect : un honoraire est un coût de compte, pas un coût de
+   * publicité, et l'étaler sur les annonces ferait passer des publicités
+   * rentables pour des publicités à couper.
+   *
+   * Seule la route `economie` les fournit aujourd'hui. Le cockpit appelle la
+   * même fonction sans eux, et son verdict économique — non affiché — s'en
+   * trouverait décalé s'il l'était un jour.
+   */
+  honoraires?: number
 }
 
 export type Economie = {
@@ -53,10 +67,13 @@ export type Economie = {
   cplPointMort: number | null
   cplCible: number | null
 
-  /** Le seul rapport sans dénominateur discutable. */
+  /** Le seul rapport sans dénominateur discutable — honoraires compris. */
   coutParSignature: number | null
   /** Ce que chaque client signé laisse une fois l'acquisition payée. */
   margeRestante: number | null
+  /** Ce qu'a coûté l'acquisition sur la période, publicité et honoraires. */
+  coutTotal: number
+  honoraires: number
 
   /** Coût par prospect, dans les deux comptages. */
   cplMeta: number | null
@@ -87,7 +104,18 @@ export function economie(e: Entrees): Economie {
   const tauxSignatureMedia = leadsMeta > 0 ? r2((e.signes / leadsMeta) * 100) : null
   const couverture = leadsMeta > 0 && e.leads > 0 ? r2((e.leads / leadsMeta) * 100) : null
 
-  const coutParSignature = e.signes > 0 && depense > 0 ? r2(depense / e.signes) : null
+  /**
+   * Le coût d'un client inclut l'honoraire, le coût d'un prospect non.
+   *
+   * Ce que l'entreprise paie pour signer, c'est la publicité **et** l'agence.
+   * Mais le coût par prospect sert à juger des publicités entre elles, et un
+   * honoraire ne se répartit pas sur des annonces : il s'ajouterait à toutes,
+   * également, sans rien dire de leur qualité relative.
+   */
+  const honoraires = n(e.honoraires)
+  const coutTotal = r2(depense + honoraires)
+
+  const coutParSignature = e.signes > 0 && coutTotal > 0 ? r2(coutTotal / e.signes) : null
   const margeRestante = margeParClient != null && coutParSignature != null
     ? r2(margeParClient - coutParSignature) : null
 
@@ -96,7 +124,7 @@ export function economie(e: Entrees): Economie {
 
   const base = {
     margeParClient, tauxSignature, tauxSignatureMedia, couverture,
-    coutParSignature, margeRestante, cplMeta, cplCrm,
+    coutParSignature, margeRestante, cplMeta, cplCrm, coutTotal, honoraires,
   }
 
   if (manquant.length || margeParClient == null) {

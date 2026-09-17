@@ -200,6 +200,11 @@ model BrandSettings {
   strategicGoal         String?
   shortTermGoal         String?
   monthlyAdBudget       Float?
+  /// Ce que l'agence facture par mois. Entre dans le coût d'acquisition d'un
+  /// client, jamais dans le coût par prospect : un honoraire est un coût de
+  /// compte, pas un coût de publicité. L'étaler sur les annonces ferait passer
+  /// des publicités rentables pour des publicités à couper.
+  honorairesMensuels    Float?
   monthlyConvTarget     Int?
   budgetFlexibility     String?
   targetCpa             Float?

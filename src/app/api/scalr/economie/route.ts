@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       where: { adAccountId: dbAccountId },
       select: {
         averageOrderValue: true, productMarginPct: true, partAcquisition: true,
-        cplDerive: true, targetCpa: true,
+        cplDerive: true, targetCpa: true, honorairesMensuels: true,
       },
     }),
     prisma.ghlDaily.aggregate({
@@ -89,6 +89,13 @@ export async function GET(req: NextRequest) {
   const leadsMeta = Number(media._sum.formLeads ?? 0) || Number(media._sum.pixelLeads ?? 0)
     || Number(media._sum.totalLeads ?? 0)
 
+  // Les honoraires sont mensuels, la fenêtre fait quatre-vingt-dix jours :
+  // 30,44 est la durée moyenne d'un mois, pour ne pas facturer trois mois là
+  // où il s'en est écoulé 2,96.
+  const honoraires = reglages?.honorairesMensuels
+    ? Math.round((reglages.honorairesMensuels * (JOURS / 30.44)) * 100) / 100
+    : 0
+
   const eco = economie({
     valeurClient: reglages?.averageOrderValue ?? null,
     margePct: reglages?.productMarginPct ?? null,
@@ -97,6 +104,7 @@ export async function GET(req: NextRequest) {
     signes,
     leadsMeta,
     depense,
+    honoraires,
   })
 
   return NextResponse.json({
@@ -111,6 +119,8 @@ export async function GET(req: NextRequest) {
     caCrm,
     /** Dépense des trente derniers jours clos — le rythme, pas le cumul. */
     depense30: Math.round(Number(media30._sum.spend ?? 0) * 100) / 100,
+    /** Les honoraires mensuels tels qu'ils sont saisis, pour l'affichage. */
+    honorairesMensuels: reglages?.honorairesMensuels ?? null,
     cplSaisi: reglages?.targetCpa ?? null,
     actif: Boolean(reglages?.cplDerive),
     verdict: verdictSignature(eco.coutParSignature, eco.margeParClient),

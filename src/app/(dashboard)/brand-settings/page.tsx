@@ -28,6 +28,8 @@ type EcoApercu = {
   cplCible: number | null
   coutParSignature: number | null
   margeRestante: number | null
+  coutTotal: number
+  honoraires: number
   cplMeta: number | null
   cplCrm: number | null
   manquant: string[]
@@ -43,6 +45,7 @@ type EcoApercu = {
   depense: number
   /** Dépense des trente derniers jours clos — le rythme, pas le cumul. */
   depense30: number
+  honorairesMensuels: number | null
   cplSaisi: number | null
   actif: boolean
   verdict: { niveau: 'bon' | 'attention' | 'mauvais'; texte: string } | null
@@ -319,8 +322,17 @@ export default function BrandSettingsPage() {
       signes: eco.signes,
       leadsMeta: eco.leadsMeta,
       depense: eco.depense,
+      honoraires: settings.honorairesMensuels
+        ? (settings.honorairesMensuels * (eco.periode.jours / 30.44))
+        : 0,
     })
     const marge = settings.productMarginPct
+
+    /**
+     * Le ROAS reste sur la seule dépense publicitaire — c'est ce que le sigle
+     * dit — et le ROI se calcule sur le coût complet, honoraires compris. Deux
+     * étiquettes, deux dénominateurs, chacune ce qu'elle annonce.
+     */
     const roas = eco.depense > 0 && eco.caSigne > 0 ? eco.caSigne / eco.depense : null
 
     /**
@@ -345,7 +357,8 @@ export default function BrandSettingsPage() {
       ? {
           prospects: budget / calc.cplCible,
           signatures: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100),
-          margeNette: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100) * calc.margeParClient - budget,
+          margeNette: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100) * calc.margeParClient
+            - budget - (settings.honorairesMensuels || 0),
           prospectsAuReel: calc.cplMeta ? budget / calc.cplMeta : null,
           depenseMensuelle: eco.depense30 > 0 ? (eco.depense30 / 30) * 30.44 : null,
         }
@@ -356,13 +369,13 @@ export default function BrandSettingsPage() {
       ...calc,
       verdict: verdictSignature(calc.coutParSignature, calc.margeParClient),
       roas,
-      roi: roas != null && marge
-        ? ((eco.caSigne * (marge / 100) - eco.depense) / eco.depense) * 100
+      roi: eco.caSigne > 0 && calc.coutTotal > 0 && marge
+        ? ((eco.caSigne * (marge / 100) - calc.coutTotal) / calc.coutTotal) * 100
         : null,
       projection,
     }
   }, [eco, settings.averageOrderValue, settings.productMarginPct, settings.partAcquisition,
-      settings.monthlyAdBudget])
+      settings.monthlyAdBudget, settings.honorairesMensuels])
 
   /** Un compte de génération de prospects n'a ni ROAS, ni MER, ni catalogue :
    *  ces champs resteraient vides et encombreraient l'écran. */
@@ -660,6 +673,7 @@ export default function BrandSettingsPage() {
                   <p className="text-xs font-semibold text-[#0d0d12] mb-2">Saisie manuelle et budget</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                     <Field label="Budget mensuel (€)" field="monthlyAdBudget" type="number" placeholder="ex : 5000" settings={settings} onChange={handleChange} />
+                    <Field label="Honoraires / mois (€)" field="honorairesMensuels" type="number" placeholder="ex : 1500" settings={settings} onChange={handleChange} />
                     <Field label="CPA cible (€)" field="targetCpa" type="number" placeholder="ex : 25" settings={settings} onChange={handleChange} />
                     <Field label="CPA max (€)" field="maxCpa" type="number" placeholder="ex : 40" settings={settings} onChange={handleChange} />
                     {!leadGen && <Field label="ROAS cible" field="targetRoas" type="number" placeholder="ex : 2.5" settings={settings} onChange={handleChange} />}
@@ -702,9 +716,10 @@ export default function BrandSettingsPage() {
                             ? `les ${(ecoVif.signesCrm - ecoVif.signes).toLocaleString('fr-FR')} autres n’ont aucune attribution et ne se mettent`
                             : 'l’autre n’a aucune attribution et ne se met'} pas au crédit de la dépense.</>
                         )}
-                        {' '}Le ROI se calcule sur la marge
-                        {settings.productMarginPct ? ` (${settings.productMarginPct} %)` : ''}, pas sur le
-                        chiffre d’affaires.
+                        {' '}Le <strong>ROAS</strong> se rapporte à la seule dépense publicitaire ; le
+                        {' '}<strong>ROI</strong> se calcule sur la marge
+                        {settings.productMarginPct ? ` (${settings.productMarginPct} %)` : ''} et déduit le coût
+                        complet{ecoVif.honoraires > 0 ? ', honoraires compris' : ''}.
                       </p>
                     </div>
 
@@ -733,6 +748,17 @@ export default function BrandSettingsPage() {
                           {ecoVif.verdict.texte}
                         </p>
                       )}
+                      <p className="text-[11px] text-gray-500 leading-snug mt-2">
+                        {ecoVif.honoraires > 0 ? (
+                          <>Le coût par signature compte la publicité <strong>et vos honoraires</strong> :
+                          {' '}{euro(ecoVif.depense)} + {euro(ecoVif.honoraires)} sur la période, soit
+                          {' '}{euro(ecoVif.coutTotal)}. C’est ce que l’entreprise paie réellement pour signer
+                          un client, et donc le chiffre à présenter.</>
+                        ) : (
+                          <>Le coût par signature ne compte que la publicité. Renseignez vos honoraires
+                          mensuels ci-dessus pour obtenir le coût réel d’acquisition d’un client.</>
+                        )}
+                      </p>
                     </div>
 
                     {/* Le seuil par prospect, et le comptage sur lequel il repose. */}
