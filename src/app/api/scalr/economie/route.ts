@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.ghlDaily.aggregate({
       where: { adAccountId: dbAccountId, date: { gte: since, lte: until } },
-      _sum: { leads: true, signes: true, ca: true },
+      _sum: { leads: true, signes: true, ca: true, signesMeta: true, caMeta: true },
     }),
     prisma.metaDailyAd.aggregate({
       where: { adAccountId: dbAccountId, attribution: 'default', date: { gte: since, lte: until } },
@@ -48,7 +48,23 @@ export async function GET(req: NextRequest) {
   ])
 
   const leadsCrm = Number(crm._sum.leads ?? 0)
-  const signes = Number(crm._sum.signes ?? 0)
+
+  /**
+   * Seules les affaires qui portent l'identifiant d'une publicité entrent dans
+   * le calcul.
+   *
+   * Diviser la dépense Meta par toutes les signatures du CRM, y compris celles
+   * venues d'ailleurs, sous-estime le coût d'acquisition — c'est le travers du
+   * dénominateur décrit en tête de `economie.ts`, transposé aux signatures. Et
+   * c'est ce chiffre-là qu'on présente au client : ce que le média a produit,
+   * pas ce que l'entreprise a signé.
+   *
+   * Les totaux du CRM restent servis à côté, parce que l'écart avec eux se
+   * remarque et demande une explication plutôt qu'un silence.
+   */
+  const signes = Number(crm._sum.signesMeta ?? 0)
+  const signesCrm = Number(crm._sum.signes ?? 0)
+  const caCrm = Math.round(Number(crm._sum.ca ?? 0) * 100) / 100
 
   const depense = Math.round(Number(media._sum.spend ?? 0) * 100) / 100
   const leadsMeta = Number(media._sum.formLeads ?? 0) || Number(media._sum.pixelLeads ?? 0)
@@ -71,7 +87,9 @@ export async function GET(req: NextRequest) {
     leadsMeta,
     signes,
     depense,
-    caSigne: Math.round(Number(crm._sum.ca ?? 0) * 100) / 100,
+    caSigne: Math.round(Number(crm._sum.caMeta ?? 0) * 100) / 100,
+    signesCrm,
+    caCrm,
     cplSaisi: reglages?.targetCpa ?? null,
     actif: Boolean(reglages?.cplDerive),
     verdict: verdictSignature(eco.coutParSignature, eco.margeParClient),

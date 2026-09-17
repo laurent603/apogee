@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
     // la cible, quand le compte a choisi ce mode.
     prisma.ghlDaily.aggregate({
       where: { adAccountId: dbAccountId, date: { gte: since, lte: until } },
-      _sum: { leads: true, signes: true },
+      _sum: { leads: true, signes: true, signesMeta: true },
     }),
   ])
 
@@ -262,7 +262,9 @@ export async function GET(req: NextRequest) {
         margePct: reglages.productMarginPct ?? null,
         partAcquisitionPct: reglages.partAcquisition ?? null,
         leads: Number(crmFenetre._sum.leads ?? 0),
-        signes: Number(crmFenetre._sum.signes ?? 0),
+        // Seules les signatures rattachées à une publicité : le seuil doit être
+        // le même ici et dans Brand Settings.
+        signes: Number(crmFenetre._sum.signesMeta ?? 0),
         // Le dénominateur du taux doit être celui du CPL qu'il sert à juger.
         leadsMeta: leadsMetaFenetre,
         depense: depenseFenetre,

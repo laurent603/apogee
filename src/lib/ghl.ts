@@ -285,7 +285,18 @@ export type TagsTunnel = {
   signe: string | null
 }
 
-export type JourCrm = { date: string; leads: number; rdv: number; devis: number; signes: number; ca: number }
+/**
+ * Une journée de tunnel.
+ *
+ * `signesMeta` et `caMeta` sont le sous-ensemble de `signes` et `ca` qu'une
+ * publicité a produit — la seule part qu'on puisse porter au crédit de la
+ * dépense devant un client.
+ */
+export type JourCrm = {
+  date: string; leads: number; rdv: number; devis: number
+  signes: number; ca: number
+  signesMeta: number; caMeta: number
+}
 
 type Contact = { id?: string; dateAdded?: string; createdAt?: string; tags?: unknown }
 
@@ -447,7 +458,7 @@ function assembleTunnel(contacts: Contact[], opps: Opportunity[], tags: TagsTunn
   const ligne = (d: string) => {
     const existante = parJour.get(d)
     if (existante) return existante
-    const neuve: JourCrm = { date: d, leads: 0, rdv: 0, devis: 0, signes: 0, ca: 0 }
+    const neuve: JourCrm = { date: d, leads: 0, rdv: 0, devis: 0, signes: 0, ca: 0, signesMeta: 0, caMeta: 0 }
     parJour.set(d, neuve)
     return neuve
   }
@@ -464,13 +475,17 @@ function assembleTunnel(contacts: Contact[], opps: Opportunity[], tags: TagsTunn
   }
 
   let signeesParOpportunite = 0
-  for (const o of opps as unknown as Record<string, unknown>[]) {
+  for (const o of opps) {
     if (String(o.status ?? '').toLowerCase() !== 'won') continue
-    const d = jourSignature(o)
+    const d = jourSignature(o as unknown as Record<string, unknown>)
     if (!d) continue
     const l = ligne(d)
+    const montant = Number(o.monetaryValue) || 0
     l.signes++
-    l.ca += Number(o.monetaryValue) || 0
+    l.ca += montant
+    // Seules les affaires qui portent un `utmAdId` se mettent au crédit de la
+    // dépense : les autres ont été signées par ailleurs.
+    if (creditedAd(o)?.utmAdId) { l.signesMeta++; l.caMeta += montant }
     signeesParOpportunite++
   }
 

@@ -535,6 +535,17 @@ model GhlDaily {
   /// Chiffre d'affaires des opportunités gagnées ce jour-là.
   ca     Float @default(0)
 
+  /// La part de `signes` et `ca` rattachable à une publicité, par l'`utmAdId`
+  /// porté par l'opportunité. C'est ce qu'on peut présenter au client comme
+  /// venant du média : le reste a été signé par ailleurs et ne se met pas au
+  /// crédit de la dépense.
+  ///
+  /// Reste à zéro sur les comptes dont les signatures sont comptées par
+  /// étiquette de contact plutôt que par opportunité : un contact ne porte pas
+  /// d'attribution, donc la part média y est inconnue, pas nulle.
+  signesMeta Int   @default(0)
+  caMeta     Float @default(0)
+
   syncedAt DateTime @default(now())
 
   @@unique([adAccountId, date])

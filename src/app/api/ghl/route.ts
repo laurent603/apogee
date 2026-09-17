@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
               adAccountId: dbAccountId,
               date: new Date(`${j.date}T00:00:00.000Z`),
               leads: j.leads, rdv: j.rdv, devis: j.devis, signes: j.signes, ca: j.ca,
+              signesMeta: j.signesMeta, caMeta: j.caMeta,
             })),
           }),
         ])

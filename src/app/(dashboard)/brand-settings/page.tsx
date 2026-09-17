@@ -33,9 +33,14 @@ type EcoApercu = {
   manquant: string[]
   leadsCrm: number
   leadsMeta: number
+  /** Signatures et chiffre d'affaires **rattachés à une publicité** : ce que le
+   *  média a produit, et la seule part qu'on présente au client. */
   signes: number
-  depense: number
   caSigne: number
+  /** Les mêmes comptages toutes origines, pour réconcilier avec le CRM. */
+  signesCrm: number
+  caCrm: number
+  depense: number
   cplSaisi: number | null
   actif: boolean
   verdict: { niveau: 'bon' | 'attention' | 'mauvais'; texte: string } | null
@@ -618,13 +623,15 @@ export default function BrandSettingsPage() {
                       Sur {ecoVif.periode.jours} jours · {euro(ecoVif.depense)} dépensés
                     </p>
 
-                    {/* Ce que la dépense a rapporté, avant tout calcul par unité. */}
+                    {/* La phrase qu'on dit au client : ce que la dépense a produit. */}
                     <div>
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                        Retour sur la dépense
+                        Ce que la publicité a produit
                       </p>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {[
+                          ['Prospects', ecoVif.leadsMeta.toLocaleString('fr-FR')],
+                          ['Affaires gagnées', ecoVif.signes.toLocaleString('fr-FR')],
                           ['CA signé', euro(ecoVif.caSigne)],
                           ['ROAS', ecoVif.roas != null ? `${ecoVif.roas.toFixed(2)}×` : '—'],
                           ['ROI sur marge', ecoVif.roi != null
@@ -637,9 +644,15 @@ export default function BrandSettingsPage() {
                         ))}
                       </div>
                       <p className="text-[11px] text-gray-500 leading-snug mt-2">
-                        Le chiffre d’affaires vient du <strong>CRM</strong> : il compte toutes les affaires
-                        signées sur la période, <strong>y compris celles saisies à la main</strong>, sans lien
-                        avec une publicité — le ROAS est donc une borne haute. Le ROI se calcule sur la marge
+                        Prospects comptés par Meta ; affaires et chiffre d’affaires <strong>rattachés à une
+                        publicité</strong> par l’identifiant d’annonce porté par l’opportunité.
+                        {ecoVif.signesCrm > ecoVif.signes && (
+                          <> Le CRM en compte {ecoVif.signesCrm.toLocaleString('fr-FR')} sur la même période,
+                          pour {euro(ecoVif.caCrm)} : {ecoVif.signesCrm - ecoVif.signes > 1
+                            ? `les ${(ecoVif.signesCrm - ecoVif.signes).toLocaleString('fr-FR')} autres n’ont aucune attribution et ne se mettent`
+                            : 'l’autre n’a aucune attribution et ne se met'} pas au crédit de la dépense.</>
+                        )}
+                        {' '}Le ROI se calcule sur la marge
                         {settings.productMarginPct ? ` (${settings.productMarginPct} %)` : ''}, pas sur le
                         chiffre d’affaires.
                       </p>
@@ -698,7 +711,8 @@ export default function BrandSettingsPage() {
                           </div>
                           <p className="text-[11px] text-gray-500 leading-snug mt-2">
                             Taux et coût sont rapportés aux <strong>{ecoVif.leadsMeta.toLocaleString('fr-FR')} prospects
-                            comptés par Meta</strong>, puisque c’est à ce coût-là que le seuil sera comparé.
+                            comptés par Meta</strong>, puisque c’est à ce coût-là que le seuil sera comparé, et
+                            aux seules affaires rattachées à une publicité.
                           </p>
                         </>
                       )}

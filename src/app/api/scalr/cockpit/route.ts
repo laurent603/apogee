@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       // et sur la précédente pour que chaque chiffre porte son évolution.
       prisma.ghlDaily.aggregate({
         where: { adAccountId: dbAccountId, date: { gte: since, lte: until } },
-        _sum: { leads: true, rdv: true, devis: true, signes: true, ca: true },
+        _sum: { leads: true, rdv: true, devis: true, signes: true, ca: true, signesMeta: true },
       }),
       prisma.ghlDaily.aggregate({
         where: { adAccountId: dbAccountId, date: { gte: prev.since, lte: prev.until } },
@@ -184,7 +184,9 @@ export async function GET(req: NextRequest) {
         margePct: reglages.productMarginPct ?? null,
         partAcquisitionPct: reglages.partAcquisition ?? null,
         leads: Number(crmCur._sum.leads ?? 0),
-        signes: Number(crmCur._sum.signes ?? 0),
+        // Seules les signatures rattachées à une publicité : le seuil doit être
+        // le même ici et dans Brand Settings.
+        signes: Number(crmCur._sum.signesMeta ?? 0),
         leadsMeta: leadsMetaFenetre,
         depense: depenseFenetre,
       })
