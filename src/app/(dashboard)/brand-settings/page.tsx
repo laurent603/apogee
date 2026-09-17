@@ -1,9 +1,10 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 import type { BrandSettings } from '@/types'
 import { clsx } from 'clsx'
+import { economie, verdictSignature } from '@/lib/scalr/economie'
 
 // ── Composants extraits EN DEHORS du composant parent ──
 // (si définis à l'intérieur, React les recrée à chaque render → perte de focus)
@@ -275,6 +276,44 @@ export default function BrandSettingsPage() {
   }, [selectedAccount?.id])
 
   useEffect(() => { if (tab === 2) loadEco() }, [tab, loadEco])
+
+  /**
+   * L'aperçu recalculé pendant la frappe.
+   *
+   * Le serveur mesure — dépense, prospects, signatures, chiffre d'affaires —
+   * mais il relit la valeur client et la marge en base. Changer une marge ne
+   * montrait donc rien tant qu'on n'avait pas enregistré puis rechargé la page.
+   * Les mesures restent celles du serveur, les hypothèses viennent du
+   * formulaire, et le calcul est le même des deux côtés.
+   *
+   * Le retour sur dépense s'ajoute ici plutôt que côté serveur parce qu'il
+   * dépend lui aussi de la marge saisie. Le ROI se calcule sur la marge, pas
+   * sur le chiffre d'affaires : encaisser 3 € pour 1 € dépensé n'est un gain
+   * que si ce qui reste dessus dépasse la dépense.
+   */
+  const ecoVif = useMemo(() => {
+    if (!eco) return null
+    const calc = economie({
+      valeurClient: settings.averageOrderValue ?? null,
+      margePct: settings.productMarginPct ?? null,
+      partAcquisitionPct: settings.partAcquisition ?? null,
+      leads: eco.leadsCrm,
+      signes: eco.signes,
+      leadsMeta: eco.leadsMeta,
+      depense: eco.depense,
+    })
+    const marge = settings.productMarginPct
+    const roas = eco.depense > 0 && eco.caSigne > 0 ? eco.caSigne / eco.depense : null
+    return {
+      ...eco,
+      ...calc,
+      verdict: verdictSignature(calc.coutParSignature, calc.margeParClient),
+      roas,
+      roi: roas != null && marge
+        ? ((eco.caSigne * (marge / 100) - eco.depense) / eco.depense) * 100
+        : null,
+    }
+  }, [eco, settings.averageOrderValue, settings.productMarginPct, settings.partAcquisition])
 
   /** Un compte de génération de prospects n'a ni ROAS, ni MER, ni catalogue :
    *  ces champs resteraient vides et encombreraient l'écran. */
@@ -573,22 +612,23 @@ export default function BrandSettingsPage() {
                   </div>
                 </div>
 
-                {eco && (
+                {ecoVif && (
                   <div className="bg-[#f8f9fc] border border-[#E5E7EB] rounded-xl p-3 space-y-3">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                      Sur {eco.periode.jours} jours · {euro(eco.depense)} dépensés
+                      Sur {ecoVif.periode.jours} jours · {euro(ecoVif.depense)} dépensés
                     </p>
 
-                    {/* Le rapport qui ne dépend d'aucun comptage de prospects. */}
+                    {/* Ce que la dépense a rapporté, avant tout calcul par unité. */}
                     <div>
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                        Coût d’acquisition d’un client
+                        Retour sur la dépense
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          ['Coût / signature', euro(eco.coutParSignature)],
-                          ['Marge par client', euro(eco.margeParClient)],
-                          ['Reste par client', euro(eco.margeRestante)],
+                          ['CA signé', euro(ecoVif.caSigne)],
+                          ['ROAS', ecoVif.roas != null ? `${ecoVif.roas.toFixed(2)}×` : '—'],
+                          ['ROI sur marge', ecoVif.roi != null
+                            ? `${ecoVif.roi > 0 ? '+' : ''}${Math.round(ecoVif.roi)} %` : '—'],
                         ].map(([l, v]) => (
                           <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
                             <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
@@ -596,12 +636,38 @@ export default function BrandSettingsPage() {
                           </div>
                         ))}
                       </div>
-                      {eco.verdict && (
+                      <p className="text-[11px] text-gray-500 leading-snug mt-2">
+                        Le chiffre d’affaires vient du <strong>CRM</strong> : il compte toutes les affaires
+                        signées sur la période, <strong>y compris celles saisies à la main</strong>, sans lien
+                        avec une publicité — le ROAS est donc une borne haute. Le ROI se calcule sur la marge
+                        {settings.productMarginPct ? ` (${settings.productMarginPct} %)` : ''}, pas sur le
+                        chiffre d’affaires.
+                      </p>
+                    </div>
+
+                    {/* Le rapport qui ne dépend d'aucun comptage de prospects. */}
+                    <div className="border-t border-[#E5E7EB] pt-3">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+                        Coût d’acquisition d’un client
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          ['Coût / signature', euro(ecoVif.coutParSignature)],
+                          ['Marge par client', euro(ecoVif.margeParClient)],
+                          ['Reste par client', euro(ecoVif.margeRestante)],
+                        ].map(([l, v]) => (
+                          <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
+                            <p className="text-base font-bold text-[#0d0d12] tabular-nums">{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {ecoVif.verdict && (
                         <p className={clsx('text-xs leading-snug mt-2 px-2.5 py-2 rounded-lg border',
-                          eco.verdict.niveau === 'bon' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            : eco.verdict.niveau === 'attention' ? 'bg-amber-50 border-amber-200 text-amber-800'
+                          ecoVif.verdict.niveau === 'bon' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : ecoVif.verdict.niveau === 'attention' ? 'bg-amber-50 border-amber-200 text-amber-800'
                             : 'bg-red-50 border-red-200 text-red-800')}>
-                          {eco.verdict.texte}
+                          {ecoVif.verdict.texte}
                         </p>
                       )}
                     </div>
@@ -611,18 +677,18 @@ export default function BrandSettingsPage() {
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
                         Seuil par prospect
                       </p>
-                      {eco.manquant.length ? (
+                      {ecoVif.manquant.length ? (
                         <p className="text-xs text-gray-500 leading-snug">
-                          Il manque {eco.manquant.join(', ')} pour déduire la cible.
+                          Il manque {ecoVif.manquant.join(', ')} pour déduire la cible.
                         </p>
                       ) : (
                         <>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {[
-                              ['CPL au point mort', euro(eco.cplPointMort)],
-                              ['CPL cible déduit', euro(eco.cplCible)],
-                              ['CPL réel', euro(eco.cplMeta)],
-                              ['Taux de signature', eco.tauxSignatureMedia != null ? `${eco.tauxSignatureMedia.toFixed(2)}%` : '—'],
+                              ['CPL au point mort', euro(ecoVif.cplPointMort)],
+                              ['CPL cible déduit', euro(ecoVif.cplCible)],
+                              ['CPL réel', euro(ecoVif.cplMeta)],
+                              ['Taux de signature', ecoVif.tauxSignatureMedia != null ? `${ecoVif.tauxSignatureMedia.toFixed(2)}%` : '—'],
                             ].map(([l, v]) => (
                               <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
@@ -631,7 +697,7 @@ export default function BrandSettingsPage() {
                             ))}
                           </div>
                           <p className="text-[11px] text-gray-500 leading-snug mt-2">
-                            Taux et coût sont rapportés aux <strong>{eco.leadsMeta.toLocaleString('fr-FR')} prospects
+                            Taux et coût sont rapportés aux <strong>{ecoVif.leadsMeta.toLocaleString('fr-FR')} prospects
                             comptés par Meta</strong>, puisque c’est à ce coût-là que le seuil sera comparé.
                           </p>
                         </>
@@ -639,13 +705,13 @@ export default function BrandSettingsPage() {
                     </div>
 
                     {/* L'écart de comptage est une information, pas un détail. */}
-                    {eco.couverture != null && eco.couverture < 90 && (
+                    {ecoVif.couverture != null && ecoVif.couverture < 90 && (
                       <div className="border-t border-[#E5E7EB] pt-3">
                         <p className="text-xs text-gray-600 leading-snug">
-                          <strong className="text-[#0d0d12]">{eco.couverture.toFixed(0)}% des prospects Meta
-                          arrivent au CRM</strong> — {eco.leadsCrm.toLocaleString('fr-FR')} sur {eco.leadsMeta.toLocaleString('fr-FR')}.
+                          <strong className="text-[#0d0d12]">{ecoVif.couverture.toFixed(0)}% des prospects Meta
+                          arrivent au CRM</strong> — {ecoVif.leadsCrm.toLocaleString('fr-FR')} sur {ecoVif.leadsMeta.toLocaleString('fr-FR')}.
                           Doublons de la CAPI, formulaires abandonnés ou attribution perdue : tant que l’écart
-                          est là, le taux mesuré côté CRM ({eco.tauxSignature?.toFixed(2)}%) flatte la réalité,
+                          est là, le taux mesuré côté CRM ({ecoVif.tauxSignature?.toFixed(2)}%) flatte la réalité,
                           et c’est le taux sur base Meta qui sert de seuil.
                         </p>
                       </div>
@@ -659,9 +725,9 @@ export default function BrandSettingsPage() {
                     className="w-4 h-4 mt-0.5 rounded border-gray-300 accent-[#3434ef] flex-shrink-0" />
                   <span className="text-xs text-gray-600 leading-snug">
                     <strong className="text-[#0d0d12]">Caler les verdicts sur le CPL déduit</strong> plutôt que
-                    sur le CPA cible saisi{eco?.cplSaisi ? ` (${euro(eco.cplSaisi)})` : ''}. Sans cette case,
+                    sur le CPA cible saisi{ecoVif?.cplSaisi ? ` (${euro(ecoVif.cplSaisi)})` : ''}. Sans cette case,
                     le calcul reste indicatif et rien ne change dans Media buying.
-                    {eco && eco.manquant.length > 0 && ' La saisie sert de repli tant que la déduction est incomplète.'}
+                    {ecoVif && ecoVif.manquant.length > 0 && ' La saisie sert de repli tant que la déduction est incomplète.'}
                   </span>
                 </label>
               </div>
