@@ -47,7 +47,7 @@ export const METRICS: MetricDef[] = [
   /** Prospects ÷ clics sur un lien : le taux de transformation du formulaire,
    *  bout en bout depuis le clic. Portait l'étiquette « CVR », qui ne disait
    *  pas de quelle conversion il s'agissait. */
-  { key: 'convRate', group: 'CONVERSION', label: 'Transfo form.', format: 'pct', good: 'high', defaut: true, dec: 1 },
+  { key: 'convRate', group: 'CONVERSION', label: 'Taux de transfo', format: 'pct', good: 'high', defaut: true, dec: 1 },
   /**
    * Les trois maillons que le coût par prospect écrase en un seul chiffre.
    *
@@ -59,7 +59,7 @@ export const METRICS: MetricDef[] = [
    * prospects rapportés aux clics, c'est le taux de transformation du
    * formulaire, bout en bout depuis le clic.
    */
-  { key: 'lpvRate', group: 'CONVERSION', label: 'Clic → arrivée', format: 'pct', good: 'high', dec: 1 },
+  { key: 'lpvRate', group: 'CONVERSION', label: 'LPVR', format: 'pct', good: 'high', dec: 1 },
   { key: 'leadRate', group: 'CONVERSION', label: 'Arrivée → lead', format: 'pct', good: 'high', dec: 1 },
 
   // COST — une hausse est toujours une mauvaise nouvelle
