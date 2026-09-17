@@ -19,15 +19,8 @@ export type MetricDef = {
   group: MetricGroup
   label: string
   format: MetricFormat
-  /**
-   * Sens de lecture d'une hausse.
-   *
-   * `neutre` existe pour les métriques qui n'en ont pas : DEP× monte parce que
-   * la dépense monte, ce qui n'est ni bon ni mauvais tant qu'on ne l'a pas lu
-   * à côté du nombre de conversions. La colorer commettrait, à l'envers, le
-   * travers que ce fichier corrige plus haut.
-   */
-  good: 'high' | 'low' | 'neutre'
+  /** Sens de lecture d'une hausse. */
+  good: 'high' | 'low'
   /** Colonnes affichées par défaut, dans l'ordre des captures Scalr. */
   defaut?: boolean
   /** Décimales à l'affichage. */
@@ -65,18 +58,6 @@ export const METRICS: MetricDef[] = [
 
   // COST — une hausse est toujours une mauvaise nouvelle
   { key: 'costPerResult', group: 'COST', label: 'Coût/rés.', format: 'eur', good: 'low', defaut: true, dec: 2 },
-  /**
-   * La dépense exprimée en multiples du CPL cible.
-   *
-   * Lue à côté du nombre de prospects, elle applique la règle de fermeture
-   * sans calcul mental : DEP× ≥ 2 sans conversion, on ferme. C'est déjà la
-   * règle du moteur de verdicts (`facteurRegardable`), mais elle s'y applique
-   * en coulisse — affichée, elle rend le verdict vérifiable.
-   *
-   * Ailleurs la formule oblige à taper le coût cible en dur, et elle périme
-   * au premier changement de marge. Ici la cible est déduite, donc vivante.
-   */
-  { key: 'depX', group: 'COST', label: 'DEP×', format: 'x', good: 'neutre', dec: 2 },
   { key: 'cpl', group: 'COST', label: 'CPL', format: 'eur', good: 'low', defaut: true, dec: 2 },
   { key: 'cpm', group: 'COST', label: 'CPM', format: 'eur', good: 'low', defaut: true, dec: 2 },
   { key: 'cpc', group: 'COST', label: 'CPC', format: 'eur', good: 'low', defaut: true, dec: 2 },
@@ -122,7 +103,7 @@ export const PRESETS: Preset[] = [
     id: 'pilotage',
     label: 'Pilotage',
     quand: 'Tous les matins, au niveau ad set',
-    colonnes: ['spend', 'depX', 'frequency', 'cpm', 'linkCtr', 'leads', 'cpl'],
+    colonnes: ['spend', 'frequency', 'cpm', 'linkCtr', 'leads', 'cpl'],
   },
   {
     id: 'decomposition',
@@ -175,7 +156,6 @@ export function senseVariation(
   def: MetricDef,
 ): 'bon' | 'mauvais' | 'neutre' | null {
   if (variation == null || !Number.isFinite(variation)) return null
-  if (def.good === 'neutre') return 'neutre'
   if (Math.abs(variation) < 1) return 'neutre'
   const hausse = variation > 0
   return (def.good === 'high') === hausse ? 'bon' : 'mauvais'

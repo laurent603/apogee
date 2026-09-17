@@ -302,16 +302,6 @@ export async function GET(req: NextRequest) {
       variation(l[cle as keyof typeof l] as number | null, l.precedent[cle] as number | null)
     return {
       ...l,
-      /**
-       * La dépense en multiples du coût cible.
-       *
-       * Se calcule ici et non dans l'agrégation : la cible vient des réglages
-       * du compte, que `computeMetrics` ne connaît pas — et ne doit pas
-       * connaître, sous peine de rendre une fonction pure dépendante d'une
-       * base. Sans cible, la colonne reste vide plutôt que de se rabattre sur
-       * un seuil inventé.
-       */
-      depX: goals.targetCpl ? Math.round((l.spend / goals.targetCpl) * 100) / 100 : null,
       decision: d,
       variations: {
         spend: varie('spend'), impressions: varie('impressions'), clicks: varie('clicks'),
