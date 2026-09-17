@@ -41,6 +41,8 @@ type EcoApercu = {
   signesCrm: number
   caCrm: number
   depense: number
+  /** Dépense des trente derniers jours clos — le rythme, pas le cumul. */
+  depense30: number
   cplSaisi: number | null
   actif: boolean
   verdict: { niveau: 'bon' | 'attention' | 'mauvais'; texte: string } | null
@@ -154,11 +156,17 @@ function SelectField({ label, field, options, settings, onChange }: SelectProps)
  * dans « Seuils ». « Votre Marché » abritait surtout du réglage technique,
  * sous un nom qui ne l'annonçait pas.
  *
- * Tout l'argent tient désormais dans un seul onglet, dans l'ordre de la
- * chaîne : ce qu'un client rapporte, ce qu'on accepte de payer, ce qui
- * déclenche les verdicts.
+ * L'argent a ensuite tenu dans un seul onglet, « Économie & seuils ». Il a
+ * fini par en porter trop : la valeur d'un client, le coût d'acquisition, le
+ * retour sur dépense, la projection budgétaire et onze réglages de verdict,
+ * côte à côte en deux colonnes. On ne cherchait plus, on fouillait.
+ *
+ * Les deux moitiés répondent à des questions différentes — « qu'est-ce que ce
+ * compte rapporte » d'un côté, « à partir de quand l'outil crie » de l'autre —
+ * et n'ont pas la même fréquence de consultation. Elles ont donc chacune leur
+ * onglet, et chacune toute la largeur.
  */
-const TABS = ['Le client', 'L’audience', 'Économie & seuils', 'Technique & CRM', 'Référentiel créatif']
+const TABS = ['Le client', 'L’audience', 'Économie du compte', 'Seuils des verdicts', 'Technique & CRM', 'Référentiel créatif']
 
 type GhlState = {
   hasToken: boolean
@@ -322,6 +330,10 @@ export default function BrandSettingsPage() {
      * Au CPL cible, pas au CPL réel : c'est le plancher que la règle impose.
      * Le coût réel, plus bas, est montré à côté — l'écart entre les deux est
      * la marge de manœuvre, et elle ne se voit qu'en comparant.
+     *
+     * Le rythme se lit sur trente jours : la moyenne sur quatre-vingt-dix
+     * écrase la montée en puissance et fait passer un compte à 93 % de son
+     * budget pour un compte à 67 %.
      */
     const budget = settings.monthlyAdBudget
     const projection = budget && calc.cplCible && calc.tauxSignatureMedia != null && calc.margeParClient != null
@@ -330,7 +342,7 @@ export default function BrandSettingsPage() {
           signatures: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100),
           margeNette: (budget / calc.cplCible) * (calc.tauxSignatureMedia / 100) * calc.margeParClient - budget,
           prospectsAuReel: calc.cplMeta ? budget / calc.cplMeta : null,
-          depenseMensuelle: eco.periode.jours > 0 ? (eco.depense / eco.periode.jours) * 30 : null,
+          depenseMensuelle: eco.depense30 > 0 ? (eco.depense30 / 30) * 30.44 : null,
         }
       : null
 
@@ -425,13 +437,14 @@ export default function BrandSettingsPage() {
 
       {selectedAccount && (
         <div className="card">
-          {/* Tabs */}
-          <div className="flex gap-1 mb-6 border-b border-[#E5E7EB] -mx-5 px-5 overflow-x-auto">
+          {/* Les onglets reviennent à la ligne plutôt que de défiler : un onglet
+              hors écran n'existe pas, et rien ici ne justifie de le chercher. */}
+          <div className="flex flex-wrap gap-x-1 mb-6 border-b border-[#E5E7EB] -mx-5 px-5">
             {TABS.map((t, i) => (
               <button
                 key={t}
                 onClick={() => setTab(i)}
-                className={`pb-3 px-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
+                className={`pb-3 px-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                   tab === i
                     ? 'border-[#3434ef] text-[#3434ef]'
                     : 'border-transparent text-gray-500 hover:text-[#0d0d12]'
@@ -564,10 +577,10 @@ export default function BrandSettingsPage() {
             </div>
           )}
 
-          {tab === 2 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+          {tab === 3 && (
+            <div>
 
-              <div className="border border-[#E5E7EB] rounded-2xl p-4">
+              <div className="border border-[#E5E7EB] rounded-2xl p-4 max-w-3xl">
                 <p className="text-sm font-semibold text-[#0d0d12]">Seuils des verdicts</p>
                 <p className="text-xs text-gray-400 mt-0.5 mb-3 leading-snug">
                   Ils décident de ce qui s’affiche Winner, Fatigue ou À couper dans Media buying.
@@ -609,6 +622,11 @@ export default function BrandSettingsPage() {
                   aide="Cible distincte sur audience chaude. Non appliquée tant que la détection froid/chaud n’existe pas."
                   field="cpaCibleRetargeting" settings={settings} onChange={handleChange} />
               </div>
+            </div>
+          )}
+
+          {tab === 2 && (
+            <div>
 
               <div className="border border-[#E5E7EB] rounded-2xl p-4">
                 <p className="text-sm font-semibold text-[#0d0d12]">Économie du compte</p>
@@ -617,7 +635,7 @@ export default function BrandSettingsPage() {
                   et du <strong>taux de signature mesuré dans le CRM</strong> — pas d’une estimation.
                 </p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 mb-3">
                   <Field label="Valeur client (€)" field="averageOrderValue" type="number"
                     placeholder="ex : 8000" settings={settings} onChange={handleChange} />
                   <Field label="Marge brute (%)" field="productMarginPct" type="number"
@@ -635,7 +653,7 @@ export default function BrandSettingsPage() {
                 {/* La saisie manuelle reste le repli quand la déduction ne tient pas. */}
                 <div className="border-t border-[#E5E7EB] pt-3 mb-3">
                   <p className="text-xs font-semibold text-[#0d0d12] mb-2">Saisie manuelle et budget</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                     <Field label="Budget mensuel (€)" field="monthlyAdBudget" type="number" placeholder="ex : 5000" settings={settings} onChange={handleChange} />
                     <Field label="CPA cible (€)" field="targetCpa" type="number" placeholder="ex : 25" settings={settings} onChange={handleChange} />
                     <Field label="CPA max (€)" field="maxCpa" type="number" placeholder="ex : 40" settings={settings} onChange={handleChange} />
@@ -655,7 +673,7 @@ export default function BrandSettingsPage() {
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
                         Ce que la publicité a produit
                       </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                         {[
                           ['Prospects', ecoVif.leadsMeta.toLocaleString('fr-FR')],
                           ['Affaires gagnées', ecoVif.signes.toLocaleString('fr-FR')],
@@ -756,7 +774,7 @@ export default function BrandSettingsPage() {
                             ['Prospects / mois', Math.round(ecoVif.projection.prospects).toLocaleString('fr-FR')],
                             ['Signatures / mois', ecoVif.projection.signatures.toFixed(1)],
                             ['Marge nette / mois', euro(ecoVif.projection.margeNette)],
-                            ['Dépensé / mois', euro(ecoVif.projection.depenseMensuelle)],
+                            ['Rythme réel / mois', euro(ecoVif.projection.depenseMensuelle)],
                           ].map(([l, v]) => (
                             <div key={l} className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-2">
                               <p className="text-[10px] text-gray-400 uppercase tracking-wide">{l}</p>
@@ -772,8 +790,10 @@ export default function BrandSettingsPage() {
                             L’écart entre les deux est votre marge de manœuvre.</>
                           )}
                           {ecoVif.projection.depenseMensuelle != null && settings.monthlyAdBudget && (
-                            <> Vous dépensez aujourd’hui <strong>{Math.round((ecoVif.projection.depenseMensuelle / settings.monthlyAdBudget) * 100)} %</strong> du
-                            budget annoncé.</>
+                            <> Le rythme réel est mesuré sur les <strong>30 derniers jours clos</strong>, soit
+                            {' '}<strong>{Math.round((ecoVif.projection.depenseMensuelle / settings.monthlyAdBudget) * 100)} %</strong> du
+                            budget annoncé — et non sur les 90 jours du reste du panneau, qui écraseraient
+                            une montée en puissance.</>
                           )}
                           {' '}Projection à taux de signature constant : elle vaut ce que vaut cette hypothèse.
                         </p>
@@ -843,7 +863,7 @@ export default function BrandSettingsPage() {
             </div>
           )}
 
-          {tab === 3 && (
+          {tab === 4 && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
 
               <div className="space-y-5">
@@ -1054,7 +1074,7 @@ export default function BrandSettingsPage() {
             </div>
           )}
 
-          {tab === 4 && (
+          {tab === 5 && (
             <div className="space-y-5">
               <div>
                 <p className="text-sm font-semibold text-[#0d0d12] mb-1">Référentiel créatif Notion</p>

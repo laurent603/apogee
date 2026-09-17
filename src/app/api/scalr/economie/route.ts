@@ -29,7 +29,22 @@ export async function GET(req: NextRequest) {
   const until = new Date(); until.setUTCHours(0, 0, 0, 0)
   const since = new Date(until); since.setUTCDate(since.getUTCDate() - JOURS)
 
-  const [reglages, crm, media] = await Promise.all([
+  /**
+   * Le rythme de dépense se lit sur trente jours, pas sur quatre-vingt-dix.
+   *
+   * La fenêtre longue existe pour le taux de signature, qui met des semaines à
+   * se former. Appliquée à la dépense, elle écrase la montée en puissance : un
+   * compte passé de 2 880 € en juillet à 4 632 € aujourd'hui s'affichait à
+   * 3 348 €, et semblait dépenser un tiers de moins que son budget alors qu'il
+   * en était à 93 %.
+   *
+   * La borne est la veille : la journée en cours est partielle, la synchro ayant
+   * lieu en cours de journée, et elle tirerait le rythme vers le bas.
+   */
+  const hier = new Date(until); hier.setUTCDate(hier.getUTCDate() - 1)
+  const debut30 = new Date(hier); debut30.setUTCDate(debut30.getUTCDate() - 29)
+
+  const [reglages, crm, media, media30] = await Promise.all([
     prisma.brandSettings.findUnique({
       where: { adAccountId: dbAccountId },
       select: {
@@ -44,6 +59,10 @@ export async function GET(req: NextRequest) {
     prisma.metaDailyAd.aggregate({
       where: { adAccountId: dbAccountId, attribution: 'default', date: { gte: since, lte: until } },
       _sum: { spend: true, formLeads: true, pixelLeads: true, totalLeads: true },
+    }),
+    prisma.metaDailyAd.aggregate({
+      where: { adAccountId: dbAccountId, attribution: 'default', date: { gte: debut30, lte: hier } },
+      _sum: { spend: true },
     }),
   ])
 
@@ -90,6 +109,8 @@ export async function GET(req: NextRequest) {
     caSigne: Math.round(Number(crm._sum.caMeta ?? 0) * 100) / 100,
     signesCrm,
     caCrm,
+    /** Dépense des trente derniers jours clos — le rythme, pas le cumul. */
+    depense30: Math.round(Number(media30._sum.spend ?? 0) * 100) / 100,
     cplSaisi: reglages?.targetCpa ?? null,
     actif: Boolean(reglages?.cplDerive),
     verdict: verdictSignature(eco.coutParSignature, eco.margeParClient),
