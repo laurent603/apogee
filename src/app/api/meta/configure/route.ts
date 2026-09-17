@@ -203,6 +203,72 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    /**
+     * Recherche de villes. Le rayon autour d'une ville est le ciblage réel de
+     * la quasi-totalité des comptes : un artisan ne vend pas à la France.
+     *
+     * `country_code` est indispensable : sans lui, « 69000 » remonte des codes
+     * postaux turcs et japonais avant le moindre résultat français.
+     */
+    if (type === 'geo') {
+      const q = searchParams.get('q')?.trim()
+      if (!q || q.length < 2) return NextResponse.json([])
+      const pays = searchParams.get('pays') || 'FR'
+      const data = await metaFetch('/search', token, {
+        type: 'adgeolocation',
+        location_types: JSON.stringify(['city']),
+        country_code: pays,
+        q, locale: 'fr_FR', limit: '15',
+      })
+      return NextResponse.json(
+        (data.data as Record<string, unknown>[] || []).map(x => ({
+          key: String(x.key),
+          nom: String(x.name ?? ''),
+          region: String(x.region ?? ''),
+          pays: String(x.country_code ?? pays),
+        })),
+      )
+    }
+
+    /**
+     * Validité des centres d'intérêt. Meta en retire régulièrement — une
+     * audience enregistrée il y a un an en contient souvent deux ou trois qui
+     * n'existent plus, et un seul suffit à faire refuser l'ensemble entier
+     * (sous-code 1870247). Cette réponse est exactement celle de
+     * `validate_only`, vérifié intérêt par intérêt.
+     */
+    if (type === 'interests_valid') {
+      const ids = (searchParams.get('ids') || '').split(',').map(x => x.trim()).filter(Boolean)
+      if (!ids.length) return NextResponse.json([])
+      const data = await metaFetch('/search', token, {
+        type: 'adinterestvalid',
+        interest_fbid_list: JSON.stringify(ids.slice(0, 200)),
+        locale: 'fr_FR',
+      })
+      return NextResponse.json(
+        (data.data as Record<string, unknown>[] || []).map(x => ({
+          id: String(x.id), name: String(x.name ?? ''), valid: x.valid !== false,
+        })),
+      )
+    }
+
+    /**
+     * Les audiences enregistrées de l'Ads Manager — distinctes des audiences
+     * personnalisées ci-dessous. Une audience enregistrée porte un ciblage
+     * complet (lieux, âge, centres d'intérêt) ; c'est elle qui correspond à
+     * « une audience à tester », et elle s'importe dans le constructeur.
+     *
+     * Meta ne permet pas de rattacher une audience enregistrée à un ensemble
+     * par son identifiant : c'est son `targeting` qu'on recopie.
+     */
+    if (type === 'saved_audiences') {
+      const data = await metaFetch(`/${accountId}/saved_audiences`, token, {
+        fields: 'id,name,targeting,approximate_count_lower_bound',
+        limit: '100',
+      })
+      return NextResponse.json(data.data || [])
+    }
+
     if (type === 'audiences') {
       // Les similaires étaient exclues ici. Le stade 3 de la méthode J7 demande
       // explicitement de tester « similaire valeur vie » et « similaire acheteurs

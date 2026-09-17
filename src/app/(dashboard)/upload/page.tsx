@@ -25,12 +25,26 @@ type TestStructure = 'one-ad-one-adset' | 'one-concept-one-adset' | 'all-in-one'
  * de suivi quand il faudra dire laquelle a gagné.
  */
 type Interet = { id: string; name: string; type: string; taille?: number; chemin?: string }
+/**
+ * Une ville et le rayon autour d'elle. Meta borne ce rayon à 17-80 km — mesuré
+ * borne par borne en `validate_only`, sous-code 1487110 au-delà.
+ */
+type Ville = { key: string; nom: string; region?: string; pays?: string; rayon: number }
+const RAYON_MIN = 17
+const RAYON_MAX = 80
+const RAYON_DEFAUT = 25
 type Audience = {
   uid: string
   nom: string
   /** `advantage_audience`. À 1 Meta déborde de la cible : les intérêts ne sont plus qu'une suggestion. */
   advantagePlus: boolean
+  /**
+   * Pays entiers ou villes avec rayon — jamais les deux. Meta refuse le mélange :
+   * « Supprimez un lieu en conflit » (sous-code 1487756).
+   */
+  zone: 'pays' | 'villes'
   pays: string[]
+  villes: Ville[]
   ageMin: number
   ageMax: number
   genre: 'ALL' | 'MALE' | 'FEMALE'
@@ -39,11 +53,25 @@ type Audience = {
   exclus: string[]
   /** En euros. La méthode demande 2× le coût cible, par ensemble et par jour. */
   budget: string
+  /**
+   * Ce que le constructeur ne sait pas montrer d'une audience importée de
+   * l'Ads Manager — langues, lieux exclus. Sans ce report, une audience
+   * importée ne serait pas celle que le compte a enregistrée.
+   */
+  cibleHeritee?: Record<string, unknown>
+  /**
+   * Les critères de `flexible_spec` qui ne sont pas des intérêts : niveau
+   * d'études, situation amoureuse. Meta les code en entiers — `[3, 4]` — là où
+   * un intérêt est un `{ id, name }`. Les confondre fait répondre à Meta
+   * « type integer attendu, array reçu ».
+   */
+  flexHerite?: Record<string, unknown>
 }
 
 const audienceVierge = (nom = ''): Audience => ({
   uid: `aud_${Math.random().toString(36).slice(2, 9)}`,
-  nom, advantagePlus: false, pays: ['FR'], ageMin: 18, ageMax: 65,
+  nom, advantagePlus: false, zone: 'pays', pays: ['FR'], villes: [],
+  ageMin: 18, ageMax: 65,
   genre: 'ALL', interets: [], inclus: [], exclus: [], budget: '',
 })
 
@@ -63,21 +91,103 @@ const AUDIENCES_STADE_3 = [
  * dépasse 18 (sous-code 1870188).
  */
 function cibleDe(a: Audience): Record<string, unknown> {
+  const zone = a.zone === 'villes' && a.villes.length
+    ? {
+        cities: a.villes.map(v => ({
+          key: v.key,
+          radius: Math.min(RAYON_MAX, Math.max(RAYON_MIN, Math.round(v.rayon) || RAYON_DEFAUT)),
+          distance_unit: 'kilometer',
+        })),
+      }
+    : { countries: a.pays.length ? a.pays : ['FR'] }
   const t: Record<string, unknown> = {
-    geo_locations: { countries: a.pays.length ? a.pays : ['FR'] },
+    geo_locations: zone,
     age_min: a.ageMin,
     age_max: a.ageMax,
     genders: a.genre === 'ALL' ? [1, 2] : a.genre === 'MALE' ? [1] : [2],
     targeting_automation: { advantage_audience: a.advantagePlus ? 1 : 0 },
   }
-  if (a.interets.length) {
-    const parType: Record<string, { id: string; name: string }[]> = {}
-    for (const i of a.interets) (parType[i.type] ||= []).push({ id: i.id, name: i.name })
-    t.flexible_spec = [parType]
-  }
+  const parType: Record<string, { id: string; name: string }[]> = {}
+  for (const i of a.interets) (parType[i.type] ||= []).push({ id: i.id, name: i.name })
+  const bloc = { ...(a.flexHerite || {}), ...parType }
+  if (Object.keys(bloc).length) t.flexible_spec = [bloc]
   if (a.inclus.length) t.custom_audiences = a.inclus.map(id => ({ id }))
   if (a.exclus.length) t.excluded_custom_audiences = a.exclus.map(id => ({ id }))
-  return t
+  // Les clés héritées passent sous les réglages du constructeur : une
+  // modification à l'écran l'emporte toujours sur la valeur importée.
+  return { ...(a.cibleHeritee || {}), ...t }
+}
+
+/** Les clés d'une audience enregistrée que le constructeur reporte sans les montrer. */
+const CLES_HERITEES = ['locales', 'excluded_geo_locations'] as const
+
+/**
+ * Une audience enregistrée de l'Ads Manager, traduite vers le constructeur.
+ *
+ * Meta ne permet pas de rattacher une audience enregistrée à un ensemble par
+ * son identifiant : c'est son ciblage qu'on recopie, champ par champ.
+ */
+function audienceDepuisMeta(sa: MetaSavedAudience): Audience {
+  const t = sa.targeting || {}
+  const g = (t.geo_locations || {}) as Record<string, unknown>
+  const villesMeta = (g.cities as Record<string, unknown>[] | undefined) || []
+  const genres = (t.genders as number[] | undefined) || []
+
+  const interets: Interet[] = []
+  const flexHerite: Record<string, unknown> = {}
+  for (const bloc of (t.flexible_spec as Record<string, unknown>[] | undefined) || []) {
+    for (const [type, liste] of Object.entries(bloc)) {
+      const items = Array.isArray(liste) ? liste : []
+      // Un intérêt est un objet portant un identifiant ; le reste — niveau
+      // d'études, situation amoureuse — est une liste d'entiers qu'on reporte
+      // telle quelle plutôt que de la déformer.
+      if (items.length && items.every(x => x && typeof x === 'object' && 'id' in x)) {
+        for (const i of items as { id: string; name?: string }[]) {
+          interets.push({ id: String(i.id), name: String(i.name ?? ''), type })
+        }
+      } else if (items.length) {
+        flexHerite[type] = liste
+      }
+    }
+  }
+
+  const heritee: Record<string, unknown> = {}
+  for (const cle of CLES_HERITEES) {
+    if (t[cle] === undefined) continue
+    if (cle === 'excluded_geo_locations') {
+      // Meta refuse un rayon sur une ville exclue (sous-code 3858788), alors
+      // même qu'il en renvoie un sur l'audience enregistrée.
+      const ex = { ...(t[cle] as Record<string, unknown>) }
+      if (Array.isArray(ex.cities)) {
+        ex.cities = (ex.cities as Record<string, unknown>[]).map(c => ({ key: c.key }))
+      }
+      heritee[cle] = ex
+    } else {
+      heritee[cle] = t[cle]
+    }
+  }
+
+  return {
+    ...audienceVierge(sa.name),
+    advantagePlus: (t.targeting_automation as { advantage_audience?: number } | undefined)?.advantage_audience === 1,
+    zone: villesMeta.length ? 'villes' : 'pays',
+    pays: ((g.countries as string[] | undefined) || ['FR']),
+    villes: villesMeta.map(v => ({
+      key: String(v.key),
+      nom: String(v.name ?? v.key),
+      region: String(v.region ?? ''),
+      pays: String(v.country ?? ''),
+      rayon: Math.min(RAYON_MAX, Math.max(RAYON_MIN, Number(v.radius) || RAYON_DEFAUT)),
+    })),
+    ageMin: Number(t.age_min) || 18,
+    ageMax: Number(t.age_max) || 65,
+    genre: genres.length === 1 ? (genres[0] === 1 ? 'MALE' : 'FEMALE') : 'ALL',
+    interets,
+    inclus: ((t.custom_audiences as { id: string }[] | undefined) || []).map(c => String(c.id)),
+    exclus: ((t.excluded_custom_audiences as { id: string }[] | undefined) || []).map(c => String(c.id)),
+    cibleHeritee: Object.keys(heritee).length ? heritee : undefined,
+    flexHerite: Object.keys(flexHerite).length ? flexHerite : undefined,
+  }
 }
 type LaunchStatus = 'SCHEDULED_PAUSED' | 'SCHEDULED_LIVE' | 'CREATED_PAUSED' | 'LIVE_NOW'
 
@@ -101,6 +211,12 @@ interface MetaAd {
 interface MetaPage { id: string; name: string }
 interface MetaPixel { id: string; name: string }
 interface MetaAudience { id: string; name: string; approximate_count_lower_bound?: number }
+/** Une audience enregistrée de l'Ads Manager : un ciblage complet, pas une liste de personnes. */
+interface MetaSavedAudience {
+  id: string; name: string
+  approximate_count_lower_bound?: number
+  targeting?: Record<string, unknown>
+}
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -1289,13 +1405,50 @@ function CreateAdModal({ onSave, onClose, pages, isLeadGen, accountId, onApplyTo
 
 const PAYS_COURANTS = [['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['LU', 'Luxembourg'], ['CA', 'Canada']]
 
-function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
+function ConstructeurAudiences({ audiences, setAudiences, accountId, custom, enregistrees }: {
   audiences: Audience[]
   setAudiences: React.Dispatch<React.SetStateAction<Audience[]>>
   accountId?: string
   custom: MetaAudience[]
+  enregistrees: MetaSavedAudience[]
 }) {
   const [ouverte, setOuverte] = useState<string | null>(null)
+  const [importOuvert, setImportOuvert] = useState(false)
+  const [aImporter, setAImporter] = useState<string[]>([])
+  const [importEnCours, setImportEnCours] = useState(false)
+  const [retires, setRetires] = useState<string[]>([])
+
+  /**
+   * Importe les audiences cochées, en écartant au passage les centres d'intérêt
+   * que Meta a retirés depuis. Un seul intérêt obsolète fait refuser l'ensemble
+   * entier au lancement (sous-code 1870247) : autant le voir ici, où il reste
+   * quelque chose à faire, plutôt qu'au moment de publier.
+   */
+  async function importer() {
+    const choisies = enregistrees.filter(sa => aImporter.includes(sa.id))
+    if (!choisies.length) return
+    setImportEnCours(true)
+    let nouvelles = choisies.map(audienceDepuisMeta)
+    const ids = [...new Set(nouvelles.flatMap(a => a.interets.map(i => i.id)))]
+    const morts = new Map<string, string>()
+    if (ids.length && accountId) {
+      try {
+        const r = await fetch(`/api/meta/configure?accountId=${accountId}&type=interests_valid&ids=${ids.join(',')}`)
+        const d = await r.json()
+        if (Array.isArray(d)) {
+          for (const i of d as { id: string; name: string; valid: boolean }[]) {
+            if (!i.valid) morts.set(String(i.id), i.name)
+          }
+        }
+      } catch { /* Meta injoignable : on importe tel quel, le lancement dira. */ }
+    }
+    if (morts.size) {
+      nouvelles = nouvelles.map(a => ({ ...a, interets: a.interets.filter(i => !morts.has(i.id)) }))
+    }
+    setAudiences(prev => [...prev, ...nouvelles])
+    setRetires([...morts.values()])
+    setAImporter([]); setImportOuvert(false); setImportEnCours(false)
+  }
   const maj = (uid: string, p: Partial<Audience>) =>
     setAudiences(prev => prev.map(a => (a.uid === uid ? { ...a, ...p } : a)))
   // Une audience sans nom ne produit pas d'ensemble : c'est son nom qui nomme
@@ -1323,7 +1476,13 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
             </p>
           )}
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 shrink-0">
+          {enregistrees.length > 0 && (
+            <button onClick={() => setImportOuvert(o => !o)}
+              className="btn-secondary text-xs py-1 px-2.5">
+              Ads Manager ({enregistrees.length})
+            </button>
+          )}
           {audiences.length === 0 && (
             <button
               onClick={() => setAudiences(AUDIENCES_STADE_3.map(n => audienceVierge(n)))}
@@ -1335,6 +1494,74 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
             className="btn-primary text-xs py-1 px-2.5">+ Audience</button>
         </div>
       </div>
+
+      {/* Import des audiences enregistrées du compte. Un compte qui travaille
+          par ville en a souvent des dizaines, déjà réglées — les ressaisir à la
+          main serait le plus sûr moyen de ne jamais s'en servir. */}
+      {importOuvert && enregistrees.length > 0 && (
+        <div className="border border-[#E5E7EB] rounded-lg p-3 bg-gray-50/60 space-y-2">
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Audiences enregistrées dans l’Ads Manager de ce compte. Leur ciblage est
+            recopié dans le constructeur : il reste modifiable ici, et l’original n’est pas touché.
+          </p>
+          <div className="border border-[#E5E7EB] rounded-lg bg-white max-h-52 overflow-y-auto divide-y divide-[#F3F4F6]">
+            {enregistrees.map(sa => {
+              const t = (sa.targeting || {}) as Record<string, unknown>
+              const g = (t.geo_locations || {}) as Record<string, unknown>
+              const villes = (g.cities as Record<string, unknown>[] | undefined) || []
+              const nbInterets = ((t.flexible_spec as Record<string, unknown>[] | undefined) || [])
+                .reduce((n, b) => n + Object.values(b)
+                  .reduce<number>((m, l) => m + ((l as unknown[] | undefined)?.length || 0), 0), 0)
+              const lieu = villes.length
+                ? villes.map(v => `${v.name} ${v.radius ?? RAYON_DEFAUT} km`).join(', ')
+                : ((g.countries as string[] | undefined) || []).join(', ') || 'lieu non précisé'
+              return (
+                <label key={sa.id} className="flex items-start gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-gray-50">
+                  <input type="checkbox" className="w-3.5 h-3.5 mt-0.5 rounded accent-[#3434ef] shrink-0"
+                    checked={aImporter.includes(sa.id)}
+                    onChange={e => setAImporter(prev => e.target.checked ? [...prev, sa.id] : prev.filter(x => x !== sa.id))} />
+                  <div className="min-w-0">
+                    <p className="text-xs text-[#0d0d12] truncate">{sa.name}</p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {lieu} · {Number(t.age_min) || 18}-{Number(t.age_max) || 65} ans
+                      {nbInterets > 0 && ` · ${nbInterets} intérêt${nbInterets > 1 ? 's' : ''}`}
+                    </p>
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={!aImporter.length || importEnCours}
+              onClick={importer}
+              className="btn-primary text-xs py-1 px-2.5 disabled:opacity-40">
+              {importEnCours ? 'Import…' : `Importer ${aImporter.length || ''}`}
+            </button>
+            <button onClick={() => setAImporter(aImporter.length === enregistrees.length ? [] : enregistrees.map(sa => sa.id))}
+              className="btn-secondary text-xs py-1 px-2.5">
+              {aImporter.length === enregistrees.length ? 'Tout décocher' : 'Tout cocher'}
+            </button>
+            <button onClick={() => { setImportOuvert(false); setAImporter([]) }}
+              className="text-xs text-gray-400 hover:text-gray-600 px-1.5">Fermer</button>
+          </div>
+        </div>
+      )}
+
+      {retires.length > 0 && (
+        <div className="flex items-start gap-2 text-xs border border-amber-200 bg-amber-50/60 rounded-lg p-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-amber-800 font-medium">
+              {retires.length} intérêt{retires.length > 1 ? 's' : ''} retiré{retires.length > 1 ? 's' : ''} à l’import
+            </p>
+            <p className="text-amber-700 leading-relaxed mt-0.5">
+              Meta ne les propose plus : {retires.join(', ')}. Gardés, ils auraient fait
+              refuser l’ensemble au lancement.
+            </p>
+          </div>
+          <button onClick={() => setRetires([])} className="text-amber-500 hover:text-amber-700 px-1 shrink-0">×</button>
+        </div>
+      )}
 
       {audiences.length === 0 && (
         <p className="text-xs text-gray-400 border border-dashed border-[#E5E7EB] rounded-lg p-3 text-center">
@@ -1379,17 +1606,37 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
                   </label>
 
                   <div>
-                    <label className="label">Pays</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PAYS_COURANTS.map(([code, nom]) => (
-                        <button key={code}
-                          onClick={() => maj(a.uid, { pays: a.pays.includes(code) ? a.pays.filter(c => c !== code) : [...a.pays, code] })}
-                          className={clsx('text-xs px-2.5 py-1 rounded-full transition-colors',
-                            a.pays.includes(code) ? 'bg-[#f0f0ff] text-[#3434ef] font-medium' : 'bg-gray-100 text-gray-500 hover:text-gray-700')}>
-                          {nom}
+                    <label className="label">Zone</label>
+                    {/* Deux onglets et non deux champs : Meta refuse un pays et
+                        une ville dans le même ensemble (sous-code 1487756). */}
+                    <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg mb-2">
+                      {([['pays', 'Pays entiers'], ['villes', 'Villes + rayon']] as const).map(([id, lib]) => (
+                        <button key={id}
+                          onClick={() => maj(a.uid, { zone: id })}
+                          className={clsx('flex-1 text-xs py-1 rounded-md transition-colors',
+                            a.zone === id ? 'bg-white text-[#0d0d12] font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700')}>
+                          {lib}
                         </button>
                       ))}
                     </div>
+
+                    {a.zone === 'pays' ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {PAYS_COURANTS.map(([code, nom]) => (
+                          <button key={code}
+                            onClick={() => maj(a.uid, { pays: a.pays.includes(code) ? a.pays.filter(c => c !== code) : [...a.pays, code] })}
+                            className={clsx('text-xs px-2.5 py-1 rounded-full transition-colors',
+                              a.pays.includes(code) ? 'bg-[#f0f0ff] text-[#3434ef] font-medium' : 'bg-gray-100 text-gray-500 hover:text-gray-700')}>
+                            {nom}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <RechercheVilles
+                        accountId={accountId}
+                        choisies={a.villes}
+                        onChange={villes => maj(a.uid, { villes })} />
+                    )}
                   </div>
 
                   <div className="flex items-end gap-2">
@@ -1449,6 +1696,98 @@ function ConstructeurAudiences({ audiences, setAudiences, accountId, custom }: {
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Recherche de villes et rayon autour de chacune.
+ *
+ * C'est le ciblage réel de la plupart des comptes : on vend dans un périmètre
+ * de déplacement, pas dans un pays. Le rayon est borné à 17-80 km par Meta —
+ * la valeur est ramenée dans ces bornes à la sortie du champ plutôt que
+ * refusée au lancement.
+ */
+function RechercheVilles({ accountId, choisies, onChange }: {
+  accountId?: string
+  choisies: Ville[]
+  onChange: (v: Ville[]) => void
+}) {
+  const [q, setQ] = useState('')
+  const [pays, setPays] = useState('FR')
+  const [res, setRes] = useState<Omit<Ville, 'rayon'>[]>([])
+  const [charge, setCharge] = useState(false)
+
+  useEffect(() => {
+    if (!accountId || q.trim().length < 2) { setRes([]); return }
+    const t = setTimeout(async () => {
+      setCharge(true)
+      try {
+        const r = await fetch(`/api/meta/configure?accountId=${accountId}&type=geo&pays=${pays}&q=${encodeURIComponent(q.trim())}`)
+        const d = await r.json()
+        setRes(Array.isArray(d) ? d : [])
+      } catch { setRes([]) }
+      setCharge(false)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [q, pays, accountId])
+
+  const majRayon = (key: string, valeur: number) =>
+    onChange(choisies.map(v => (v.key === key ? { ...v, rayon: valeur } : v)))
+
+  return (
+    <div>
+      {choisies.length > 0 && (
+        <div className="border border-[#E5E7EB] rounded-lg divide-y divide-[#F3F4F6] mb-2">
+          {choisies.map(v => (
+            <div key={v.key} className="flex items-center gap-2 px-2.5 py-1.5">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-[#0d0d12] truncate">{v.nom}</p>
+                {v.region && <p className="text-xs text-gray-400 truncate">{v.region}</p>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <input
+                  className="input text-xs py-1 w-14 text-right"
+                  type="number" min={RAYON_MIN} max={RAYON_MAX} value={v.rayon}
+                  onChange={e => majRayon(v.key, Number(e.target.value))}
+                  onBlur={e => majRayon(v.key, Math.min(RAYON_MAX, Math.max(RAYON_MIN, Number(e.target.value) || RAYON_DEFAUT)))} />
+                <span className="text-xs text-gray-400">km</span>
+              </div>
+              <button onClick={() => onChange(choisies.filter(x => x.key !== v.key))}
+                className="text-gray-300 hover:text-red-500 px-1 shrink-0" title="Retirer">×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-1.5">
+        <select className="select text-xs py-1 w-24 shrink-0" value={pays} onChange={e => setPays(e.target.value)}>
+          {PAYS_COURANTS.map(([code, nom]) => <option key={code} value={code}>{nom}</option>)}
+        </select>
+        <input className="input text-xs py-1 flex-1 min-w-0" placeholder="Rechercher une ville…"
+          value={q} onChange={e => setQ(e.target.value)} />
+      </div>
+      {charge && <p className="text-xs text-gray-400 mt-1">Recherche…</p>}
+      {res.length > 0 && (
+        <div className="mt-1.5 border border-[#E5E7EB] rounded-lg max-h-44 overflow-y-auto divide-y divide-[#F3F4F6]">
+          {res.filter(r => !choisies.some(c => c.key === r.key)).map(r => (
+            <button key={r.key}
+              onClick={() => { onChange([...choisies, { ...r, rayon: RAYON_DEFAUT }]); setQ('') }}
+              className="w-full text-left px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+              <p className="text-xs text-[#0d0d12]">{r.nom}</p>
+              <p className="text-xs text-gray-400">{r.region}{r.pays ? ` · ${r.pays}` : ''}</p>
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-gray-400 mt-1">
+        Rayon de {RAYON_MIN} à {RAYON_MAX} km — la borne de Meta.
+      </p>
+      {choisies.length === 0 && !charge && !res.length && (
+        <p className="text-xs text-amber-600 mt-1">
+          Aucune ville : l’ensemble ciblerait le pays entier.
+        </p>
+      )}
     </div>
   )
 }
@@ -1651,6 +1990,7 @@ export default function UploadPage() {
   const [metaPages, setMetaPages] = useState<MetaPage[]>([])
   const [metaPixels, setMetaPixels] = useState<MetaPixel[]>([])
   const [metaAudiences, setMetaAudiences] = useState<MetaAudience[]>([])
+  const [savedAudiences, setSavedAudiences] = useState<MetaSavedAudience[]>([])
   const [loadingMeta, setLoadingMeta] = useState(false)
 
   const [launching, setLaunching] = useState(false)
@@ -1738,6 +2078,10 @@ export default function UploadPage() {
     if (!metaId || metaAudiences.length > 0) return
     try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=audiences`); const d = await r.json(); setMetaAudiences(Array.isArray(d) ? d : []) } catch {}
   }
+  async function fetchSavedAudiences() {
+    if (!metaId || savedAudiences.length > 0) return
+    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=saved_audiences`); const d = await r.json(); setSavedAudiences(Array.isArray(d) ? d : []) } catch {}
+  }
 
   const [createAdModalInitialTab, setCreateAdModalInitialTab] = useState(0)
 
@@ -1747,7 +2091,7 @@ export default function UploadPage() {
   // comprises. Elles n'étaient chargées qu'à l'ouverture du modal d'ensemble :
   // sans ce déclenchement, le sélecteur annonçait « aucune audience ».
   useEffect(() => {
-    if (testStructure === 'audience-test') fetchAudiences()
+    if (testStructure === 'audience-test') { fetchAudiences(); fetchSavedAudiences() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testStructure, metaId])
   function openCreateAd(adsetIndex?: number, initialTab = 0) {
@@ -2691,7 +3035,8 @@ export default function UploadPage() {
                   audiences={audiences}
                   setAudiences={setAudiences}
                   accountId={metaId}
-                  custom={metaAudiences} />
+                  custom={metaAudiences}
+                  enregistrees={savedAudiences} />
               </div>
             )}
 

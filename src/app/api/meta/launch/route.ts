@@ -51,11 +51,21 @@ interface LaunchAdset {
   daily_budget?: string
   targeting?: {
     age_min?: number; age_max?: number; genders?: number[]
-    geo_locations?: { countries?: string[] }
+    /**
+     * Pays entiers, ou villes avec rayon — le ciblage local du stade 3.
+     * Les deux ne cohabitent pas : Meta refuse le mélange (sous-code 1487756).
+     */
+    geo_locations?: {
+      countries?: string[]
+      cities?: { key: string; radius?: number; distance_unit?: string }[]
+    }
     custom_audiences?: { id: string; name: string }[]
     excluded_custom_audiences?: { id: string; name?: string }[]
     flexible_spec?: Record<string, unknown>[]
     targeting_automation?: { advantage_audience?: number }
+    /** Hérités d'une audience enregistrée de l'Ads Manager, reportés tels quels. */
+    locales?: number[]
+    excluded_geo_locations?: Record<string, unknown>
   }
   promoted_object?: { pixel_id?: string; custom_event_type?: string; page_id?: string }
   _isNew?: boolean
@@ -162,6 +172,14 @@ function cleanTargeting(
    * de stade 3 — et non hérité d'un adset Meta par « Select from Meta ».
    */
   indicateurRequis = false,
+  /**
+   * Le ciblage vient du constructeur d'audiences du stade 3, et non d'un
+   * modèle Meta. Seul ce cas reporte les critères que le constructeur ne
+   * montre pas — langues, lieux exclus — hérités d'une audience enregistrée
+   * de l'Ads Manager. Les lancements « Choisir dans Meta » gardent le
+   * comportement qu'ils ont toujours eu : ces clés y restent écartées.
+   */
+  depuisConstructeur = false,
 ): Record<string, unknown> {
   if (!t) return { geo_locations: { countries: ['FR'] }, age_min: 18, age_max: 65 }
   const out: Record<string, unknown> = {}
@@ -181,6 +199,11 @@ function cleanTargeting(
   // pas seulement le tableau vide — d'où le filtre sur chaque entrée.
   const flex = (t.flexible_spec || []).filter(b => b && Object.keys(b).length > 0)
   if (flex.length > 0) out.flexible_spec = flex
+
+  if (depuisConstructeur) {
+    if (t.locales?.length) out.locales = t.locales
+    if (t.excluded_geo_locations) out.excluded_geo_locations = t.excluded_geo_locations
+  }
 
   /**
    * `targeting_automation` n'est transmis que là où Meta l'exige.
@@ -506,6 +529,7 @@ export async function POST(req: NextRequest) {
               targeting: cleanTargeting(
                 node._audience?.targeting ?? adsetTemplate?.targeting,
                 !!node._audience?.targeting || !!adsetTemplate?._isNew,
+                !!node._audience?.targeting,
               ),
             }
 
