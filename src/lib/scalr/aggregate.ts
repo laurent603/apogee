@@ -176,21 +176,6 @@ export function computeMetrics(t: Totals, objective?: string | null) {
      */
     lpvRate: pct(t.landingPageViews, t.linkClicks),
 
-    /**
-     * Ce que la page convertit : les prospects nés **sur la page**, rapportés
-     * aux arrivées sur cette page.
-     *
-     * Le numérateur exclut les prospects de formulaire natif — ils n'ont jamais
-     * vu la page. Les compter donnait 68,6 % sur un compte Lead Ads là où le
-     * taux réel de la page était de 15,9 % : un numérateur et un dénominateur
-     * prélevés sur deux populations différentes, le travers que décrit
-     * `economie.ts`, appliqué au tunnel.
-     *
-     * Vide quand la ligne n'a aucune vue de page. Une campagne Messenger n'a
-     * pas un taux de conversion de zéro : elle n'en a pas, et l'afficher à 0 %
-     * la ferait passer pour un échec alors qu'elle ne visait pas la page.
-     */
-    leadRate: t.landingPageViews > 0 ? pct(t.pixelLeads, t.landingPageViews) : null,
 
     // Tunnel du clic à l'achat
     funnel: {

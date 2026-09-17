@@ -311,7 +311,7 @@ export async function GET(req: NextRequest) {
         ctr: varie('ctr'), linkCtr: varie('linkCtr'), frequency: varie('frequency'),
         hookRate: varie('hookRate'), holdRate: varie('holdRate'), thruplays: varie('thruplays'),
         reachSum: varie('reachSum'),
-        lpvRate: varie('lpvRate'), leadRate: varie('leadRate'),
+        lpvRate: varie('lpvRate'),
         coutRepetition: varie('coutRepetition'),
       },
       precedent: undefined,
