@@ -730,6 +730,39 @@ export default function BrandSettingsPage() {
                         </p>
                       </div>
                     )}
+
+                    {/* Repliée : ces règles se relisent rarement, mais quand on en a
+                        besoin, les chercher ailleurs coûte plus cher que la place ici. */}
+                    <details className="border-t border-[#E5E7EB] pt-3 group">
+                      <summary className="text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600 list-none">
+                        Comment lire ces chiffres <span className="group-open:hidden">▸</span><span className="hidden group-open:inline">▾</span>
+                      </summary>
+                      <div className="text-[11px] text-gray-500 leading-relaxed mt-2 space-y-2">
+                        <p>
+                          <strong className="text-[#0d0d12]">Le CPL au point mort</strong> est le prix maximum
+                          d’un prospect avant de perdre de l’argent : la marge par client multipliée par le taux
+                          de signature. <strong className="text-[#0d0d12]">Le CPL cible</strong> en est la
+                          fraction que vous acceptez de dépenser — la part acquisition. C’est lui, pas le point
+                          mort, que les verdicts comparent au CPL réel.
+                        </p>
+                        <p>
+                          <strong className="text-[#0d0d12]">La part acquisition ne rend rien rentable : elle
+                          décide du partage.</strong> À 50 %, vous reversez la moitié de votre marge pour aller
+                          chercher du volume. À 10 %, vous vous interdisez une croissance que le compte supporte
+                          peut-être : doubler un budget renchérit couramment le CPL de 30 à 60 %, et un plafond
+                          trop proche du CPL actuel se heurte au premier essai. Entre 15 et 25 %, il reste de la
+                          marge de manœuvre et le seuil mord toujours bien avant le point mort.
+                        </p>
+                        <p>
+                          <strong className="text-[#0d0d12]">Deux choses tirent le calcul vers le bas.</strong> Les
+                          prospects récents n’ont pas encore eu le temps de signer, donc le taux mesuré est plus
+                          bas que celui d’une cohorte mûre. Et une valeur client saisie en dessous de ce que le
+                          CRM constate rabaisse la marge, donc le point mort. Le seuil réel est plutôt au-dessus
+                          de celui affiché — d’où l’intérêt de vérifier la valeur client contre le CA signé
+                          divisé par les affaires gagnées.
+                        </p>
+                      </div>
+                    </details>
                   </div>
                 )}
 
