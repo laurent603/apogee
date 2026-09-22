@@ -62,7 +62,7 @@ function fenetreDemandee(p: URLSearchParams) {
 }
 
 const SUM = {
-  spend: true, impressions: true, reach: true, clicks: true, linkClicks: true,
+  spend: true, impressions: true, reach: true, clicks: true, linkClicks: true, uniqueLinkClicks: true,
   outboundClicks: true, landingPageViews: true, addToCart: true, initiateCheckout: true,
   purchases: true, revenue: true, formLeads: true, pixelLeads: true, totalLeads: true,
   directions: true, postEngagement: true, videoStarts: true, video3s: true,
@@ -231,6 +231,11 @@ export async function GET(req: NextRequest) {
       coutRepetition: reach && reach > 0 && m.impressions > 0
         ? Math.round(((m.spend / reach) * 1000 - (m.spend / m.impressions) * 1000) * 100) / 100
         : m.coutRepetition,
+      /** Même rattrapage : le CTR unique se rapporte à la couverture, que
+       *  l'agrégation n'a pas dédoublonnée sur plusieurs jours. */
+      uniqueLinkCtr: reach && reach > 0
+        ? Math.round((m.uniqueLinkClicks / reach) * 10000) / 100
+        : m.uniqueLinkCtr,
       precedent: mPrev,
     }
   })
@@ -311,7 +316,8 @@ export async function GET(req: NextRequest) {
         ctr: varie('ctr'), linkCtr: varie('linkCtr'), frequency: varie('frequency'),
         hookRate: varie('hookRate'), holdRate: varie('holdRate'), thruplays: varie('thruplays'),
         reachSum: varie('reachSum'),
-        lpvRate: varie('lpvRate'),
+        lpvRate: varie('lpvRate'), uniqueLinkCtr: varie('uniqueLinkCtr'),
+        cpcLink: varie('cpcLink'), costPerLpv: varie('costPerLpv'),
         coutRepetition: varie('coutRepetition'),
       },
       precedent: undefined,

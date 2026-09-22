@@ -398,6 +398,10 @@ model MetaDailyAd {
   reach          Int   @default(0)
   clicks         Int   @default(0)
   linkClicks     Int   @default(0)
+  /// Clics sur un lien dédoublonnés par personne. Sert le « CTR unique », que
+  /// Meta rapporte à la couverture et non aux impressions — vérifié contre
+  /// `unique_inline_link_click_ctr` sur trois publicités.
+  uniqueLinkClicks Int @default(0)
   outboundClicks Int   @default(0)
 
   // Tunnel du clic à l'achat

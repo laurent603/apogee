@@ -29,6 +29,7 @@ export type InsightRow = {
   clicks?: string | number
   frequency?: string | number
   inline_link_clicks?: string | number
+  unique_inline_link_clicks?: string | number
   outbound_clicks?: MetaAction[]
   actions?: MetaAction[]
   conversions?: MetaAction[]
@@ -66,7 +67,7 @@ export type ActionReportTime = 'conversion' | 'impression'
  */
 export const INSIGHT_FIELDS = [
   'spend', 'impressions', 'reach', 'frequency', 'clicks',
-  'inline_link_clicks', 'outbound_clicks', 'ctr', 'cpm', 'cpc',
+  'inline_link_clicks', 'unique_inline_link_clicks', 'outbound_clicks', 'ctr', 'cpm', 'cpc',
   'actions', 'conversions', 'action_values', 'conversion_values', 'purchase_roas',
   'video_play_actions',
   'video_15_sec_watched_actions',

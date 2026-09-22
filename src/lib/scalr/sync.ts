@@ -134,6 +134,7 @@ function toDailyRow(r: InsightRow, ctx: { adAccountId: string; metaAccountId: st
     reach: num(r.reach),
     clicks: num(r.clicks),
     linkClicks: num(r.inline_link_clicks) || extractActionValue(r, ['link_click']),
+    uniqueLinkClicks: num(r.unique_inline_link_clicks),
     outboundClicks: extractOutboundClicks(r),
 
     landingPageViews: extractActionValue(r, ['landing_page_view', 'omni_landing_page_view']),

@@ -74,10 +74,18 @@ export const METRICS: MetricDef[] = [
   { key: 'cpl', group: 'COST', label: 'CPL', format: 'eur', good: 'low', defaut: true, dec: 2 },
   { key: 'cpm', group: 'COST', label: 'CPM', format: 'eur', good: 'low', defaut: true, dec: 2 },
   { key: 'cpc', group: 'COST', label: 'CPC', format: 'eur', good: 'low', defaut: true, dec: 2 },
+  { key: 'cpcLink', group: 'COST', label: 'CPC lien', format: 'eur', good: 'low', dec: 2 },
+  /** À côté du CPC lien : l'écart entre les deux est ce que la perte au
+   *  chargement coûte réellement, en euros et non en pourcentage. */
+  { key: 'costPerLpv', group: 'COST', label: 'Coût / vue LP', format: 'eur', good: 'low', dec: 2 },
 
   // ENGAGEMENT
   { key: 'ctr', group: 'ENGAGEMENT', label: 'CTR', format: 'pct', good: 'high', defaut: true, dec: 2 },
   { key: 'linkCtr', group: 'ENGAGEMENT', label: 'Link CTR', format: 'pct', good: 'high', defaut: true, dec: 2 },
+  /** Clics uniques rapportés à la **couverture**, comme Meta le calcule. Un
+   *  CTR unique très au-dessus du Link CTR dit que peu de gens cliquent mais
+   *  souvent — audience étroite, ou déjà sur-sollicitée. */
+  { key: 'uniqueLinkCtr', group: 'ENGAGEMENT', label: 'CTR unique', format: 'pct', good: 'high', dec: 2 },
   { key: 'clicks', group: 'ENGAGEMENT', label: 'Clicks', format: 'int', good: 'high' },
   { key: 'linkClicks', group: 'ENGAGEMENT', label: 'Clics lien', format: 'int', good: 'high' },
   { key: 'outboundClicks', group: 'ENGAGEMENT', label: 'Clics sortants', format: 'int', good: 'high' },
@@ -133,44 +141,38 @@ export const PRESETS: Preset[] = [
   },
 
   /**
-   * Les trois stades de test de la méthode J7, à part des trois vues du haut.
+   * Les trois stades de test de la méthode J7, repris de ses fiches KPI.
    *
-   * Celles-là servent à piloter un compte qui tourne ; celles-ci à conduire un
-   * cycle de test, où **une seule variable bouge** et où tout le reste est
-   * gelé — c'est ce qui rend la réponse attribuable à quelque chose.
+   * Ces listes sont volontairement **proches les unes des autres** : c'est la
+   * méthode qui est ainsi, et une version « améliorée » de ma main n'aurait
+   * plus été celle que l'agence applique. Stade 1 juge le clic ; Stade 2 lui
+   * ajoute le hook rate et les prospects, une fois qu'on juge la conversion.
+   * Stade 3 porte exactement les mêmes colonnes que Stade 2 — seul change ce
+   * qu'on fait varier, l'audience, la créa étant désormais figée.
    *
-   * Stade 1, HTT : hook, titre, vignette. La question est « mérite-t-elle le
-   * clic », la décision se prend au CTR lien, seuil 4 % en génération de
-   * prospects. Stade 2, RTDF : rédaction, tagline, design, format — ce qui se
-   * passe après le clic, décision au coût par prospect. Stade 3 : la créa est
-   * figée et l'audience varie, donc tout écart vient du ciblage.
+   * Le réglage d'attribution, premier de chaque fiche, n'est pas une colonne
+   * ici : c'est un sélecteur de la barre d'outils.
    */
   {
     id: 'stade1',
     label: 'Stade 1',
-    quand: 'HTT — la créa mérite-t-elle le clic ? · décision au CTR lien, seuil 4 %',
-    colonnes: ['spend', 'impressions', 'frequency', 'cpm', 'hookRate',
-      'linkCtr', 'linkClicks', 'cpc', 'landingPageViews', 'lpvRate'],
+    quand: 'HTT — la créa mérite-t-elle le clic ?',
+    colonnes: ['spend', 'impressions', 'cpm', 'linkCtr', 'uniqueLinkCtr',
+      'landingPageViews', 'costPerLpv', 'linkClicks', 'cpcLink'],
   },
   {
     id: 'stade2',
     label: 'Stade 2',
     quand: 'RTDF — la rédaction convertit-elle ? · décision au coût par prospect',
-    colonnes: ['spend', 'cpm', 'frequency', 'linkCtr', 'linkClicks',
-      'landingPageViews', 'lpvRate', 'convRate', 'leads', 'cpl'],
+    colonnes: ['spend', 'impressions', 'cpm', 'linkCtr', 'uniqueLinkCtr',
+      'landingPageViews', 'costPerLpv', 'hookRate', 'linkClicks', 'cpcLink', 'leads', 'cpl'],
   },
-  /**
-   * La vue J7 du stade 3 s'appuie sur les trois classements d'enchères —
-   * qualité, engagement, conversion. Apogee ne les stocke pas : la synchro ne
-   * les demande pas à Meta. Restent la couverture, la fréquence et le CPM, qui
-   * disent déjà si l'audience s'use ou coûte cher, mais la lecture « la créa
-   * dérange, l'offre tient » n'est pas reproductible ici.
-   */
   {
     id: 'stade3',
     label: 'Stade 3',
-    quand: 'Audience — est-ce le ciblage ou la créa ? · ventiler par âge et sexe',
-    colonnes: ['spend', 'reachSum', 'frequency', 'cpm', 'linkCtr', 'convRate', 'leads', 'cpl'],
+    quand: 'Audience — la créa est figée, le ciblage varie · mêmes colonnes qu’au stade 2',
+    colonnes: ['spend', 'impressions', 'cpm', 'linkCtr', 'uniqueLinkCtr',
+      'landingPageViews', 'costPerLpv', 'hookRate', 'linkClicks', 'cpcLink', 'leads', 'cpl'],
   },
 ]
 

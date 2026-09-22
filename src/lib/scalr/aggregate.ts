@@ -19,6 +19,7 @@ export type Totals = {
   reachSum: number
   clicks: number
   linkClicks: number
+  uniqueLinkClicks: number
   outboundClicks: number
   landingPageViews: number
   addToCart: number
@@ -45,7 +46,7 @@ export type Totals = {
 }
 
 export const TOTAL_KEYS: (keyof Totals)[] = [
-  'spend', 'impressions', 'reachSum', 'clicks', 'linkClicks', 'outboundClicks',
+  'spend', 'impressions', 'reachSum', 'clicks', 'linkClicks', 'uniqueLinkClicks', 'outboundClicks',
   'landingPageViews', 'addToCart', 'initiateCheckout', 'purchases', 'revenue',
   'formLeads', 'pixelLeads', 'totalLeads', 'directions', 'postEngagement',
   'videoStarts', 'video3s', 'video15s', 'thruplays',
@@ -116,6 +117,7 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     impressions: t.impressions,
     clicks: t.clicks,
     linkClicks: t.linkClicks,
+    uniqueLinkClicks: t.uniqueLinkClicks,
 
     /** Somme des portées journalières. Sur plusieurs jours c'est une borne
      *  haute, pas une portée : les mêmes personnes sont recomptées. */
@@ -163,6 +165,21 @@ export function computeMetrics(t: Totals, objective?: string | null) {
     cpm: t.impressions > 0 ? r2((t.spend / t.impressions) * 1000) : null,
     cpc: per(t.spend, t.clicks),
     cpcLink: per(t.spend, t.linkClicks),
+
+    /**
+     * Le CTR unique de Meta se rapporte à la **couverture**, pas aux
+     * impressions — vérifié contre `unique_inline_link_click_ctr` sur trois
+     * publicités, à la quatrième décimale. Le diviser par les impressions
+     * donnerait un chiffre deux fois trop bas qui ressemblerait à un CTR.
+     *
+     * Écarté sur plusieurs jours, comme la fréquence : la portée y est une
+     * somme de portées journalières, donc surévaluée, et le taux s'en
+     * trouverait rapetissé. La route le recalcule avec la portée réelle.
+     */
+    uniqueLinkCtr: multiJours ? null : pct(t.uniqueLinkClicks, t.reachSum),
+    /** Le coût d'une arrivée réelle sur la page, à côté du coût d'un clic :
+     *  l'écart entre les deux est ce que la perte au chargement coûte. */
+    costPerLpv: per(t.spend, t.landingPageViews),
     convRate: pct(leads, t.linkClicks),
 
     /**
