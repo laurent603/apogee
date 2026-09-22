@@ -119,30 +119,10 @@ export const PRESETS: Preset[] = [
     colonnes: ['spend', 'frequency', 'cpm', 'linkCtr', 'leads', 'cpl'],
   },
   {
-    id: 'decomposition',
-    label: 'Décomposition',
-    quand: 'Une fois par semaine, au niveau publicité',
+    id: 'diagnostic',
+    label: 'Diagnostic',
+    quand: 'Une fois par semaine, au niveau publicité — pourquoi le CPL a bougé',
     colonnes: ['spend', 'cpm', 'hookRate', 'holdRate', 'linkCtr', 'lpvRate', 'convRate', 'cpl'],
-  },
-  /**
-   * Le stade 2 de la méthode J7 — RTDF : rédaction, tagline, design, format.
-   *
-   * Le stade 1 juge si la créa mérite le clic ; celui-ci juge ce qui se passe
-   * après. Les colonnes suivent donc le chemin du clic jusqu'au prospect, et
-   * la décision se prend sur le coût par prospect : on ferme un ad set à deux
-   * fois le coût cible sans conversion, on valide un gagnant à dix conversions
-   * au coût cible.
-   *
-   * Un quatrième préréglage alors que la note plus haut en défend trois : il
-   * ne répond pas à une question de plus, il répond à la même à un autre stade,
-   * et c'est ce découpage-là que l'agence utilise.
-   */
-  {
-    id: 'stade2',
-    label: 'Stade 2',
-    quand: 'RTDF — la rédaction convertit-elle ? · niveau publicité · ventiler par jour',
-    colonnes: ['spend', 'cpm', 'frequency', 'linkCtr', 'linkClicks',
-      'landingPageViews', 'lpvRate', 'convRate', 'leads', 'cpl'],
   },
   {
     id: 'crea',
@@ -150,6 +130,47 @@ export const PRESETS: Preset[] = [
     quand: 'À chaque cycle de test, au niveau publicité',
     colonnes: ['spend', 'impressions', 'cpm', 'hookRate', 'holdRate',
       'video25', 'video50', 'video75', 'video95', 'completionRate', 'linkCtr', 'cpl'],
+  },
+
+  /**
+   * Les trois stades de test de la méthode J7, à part des trois vues du haut.
+   *
+   * Celles-là servent à piloter un compte qui tourne ; celles-ci à conduire un
+   * cycle de test, où **une seule variable bouge** et où tout le reste est
+   * gelé — c'est ce qui rend la réponse attribuable à quelque chose.
+   *
+   * Stade 1, HTT : hook, titre, vignette. La question est « mérite-t-elle le
+   * clic », la décision se prend au CTR lien, seuil 4 % en génération de
+   * prospects. Stade 2, RTDF : rédaction, tagline, design, format — ce qui se
+   * passe après le clic, décision au coût par prospect. Stade 3 : la créa est
+   * figée et l'audience varie, donc tout écart vient du ciblage.
+   */
+  {
+    id: 'stade1',
+    label: 'Stade 1',
+    quand: 'HTT — la créa mérite-t-elle le clic ? · décision au CTR lien, seuil 4 %',
+    colonnes: ['spend', 'impressions', 'frequency', 'cpm', 'hookRate',
+      'linkCtr', 'linkClicks', 'cpc', 'landingPageViews', 'lpvRate'],
+  },
+  {
+    id: 'stade2',
+    label: 'Stade 2',
+    quand: 'RTDF — la rédaction convertit-elle ? · décision au coût par prospect',
+    colonnes: ['spend', 'cpm', 'frequency', 'linkCtr', 'linkClicks',
+      'landingPageViews', 'lpvRate', 'convRate', 'leads', 'cpl'],
+  },
+  /**
+   * La vue J7 du stade 3 s'appuie sur les trois classements d'enchères —
+   * qualité, engagement, conversion. Apogee ne les stocke pas : la synchro ne
+   * les demande pas à Meta. Restent la couverture, la fréquence et le CPM, qui
+   * disent déjà si l'audience s'use ou coûte cher, mais la lecture « la créa
+   * dérange, l'offre tient » n'est pas reproductible ici.
+   */
+  {
+    id: 'stade3',
+    label: 'Stade 3',
+    quand: 'Audience — est-ce le ciblage ou la créa ? · ventiler par âge et sexe',
+    colonnes: ['spend', 'reachSum', 'frequency', 'cpm', 'linkCtr', 'convRate', 'leads', 'cpl'],
   },
 ]
 
