@@ -147,8 +147,10 @@ export const PRESETS: Preset[] = [
    * méthode qui est ainsi, et une version « améliorée » de ma main n'aurait
    * plus été celle que l'agence applique. Stade 1 juge le clic ; Stade 2 lui
    * ajoute le hook rate et les prospects, une fois qu'on juge la conversion.
-   * Stade 3 porte exactement les mêmes colonnes que Stade 2 — seul change ce
-   * qu'on fait varier, l'audience, la créa étant désormais figée.
+   *
+   * Le stade 3 n'a pas de préréglage : sa fiche KPI porte exactement les mêmes
+   * colonnes que le stade 2, seul changeant ce qu'on fait varier — l'audience,
+   * la créa étant figée. Deux boutons identiques ne valaient pas la place.
    *
    * Le réglage d'attribution, premier de chaque fiche, n'est pas une colonne
    * ici : c'est un sélecteur de la barre d'outils.
@@ -164,13 +166,6 @@ export const PRESETS: Preset[] = [
     id: 'stade2',
     label: 'Stade 2',
     quand: 'RTDF — la rédaction convertit-elle ? · décision au coût par prospect',
-    colonnes: ['spend', 'impressions', 'cpm', 'linkCtr', 'uniqueLinkCtr',
-      'landingPageViews', 'costPerLpv', 'hookRate', 'linkClicks', 'cpcLink', 'leads', 'cpl'],
-  },
-  {
-    id: 'stade3',
-    label: 'Stade 3',
-    quand: 'Audience — la créa est figée, le ciblage varie · mêmes colonnes qu’au stade 2',
     colonnes: ['spend', 'impressions', 'cpm', 'linkCtr', 'uniqueLinkCtr',
       'landingPageViews', 'costPerLpv', 'hookRate', 'linkClicks', 'cpcLink', 'leads', 'cpl'],
   },
