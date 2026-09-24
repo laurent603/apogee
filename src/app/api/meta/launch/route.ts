@@ -48,6 +48,10 @@ interface LaunchCampaign {
 }
 interface LaunchAdset {
   id: string; name: string; status: string; optimization_goal: string
+  /** `ON_AD` pour un formulaire natif ; `UNDEFINED` ou absent quand l'annonce
+   *  envoie sur un site. Servi par `getAdSets`, il dit la destination réelle
+   *  là où l'objectif de campagne ne la dit pas. */
+  destination_type?: string
   daily_budget?: string
   targeting?: {
     age_min?: number; age_max?: number; genders?: number[]
@@ -533,8 +537,18 @@ export async function POST(req: NextRequest) {
               ),
             }
 
-            // OUTCOME_LEADS / LEAD_GENERATION adsets must declare ON_AD destination
-            if (isLeadGenObjective) {
+            /**
+             * La destination ne se déduit pas de l'objectif.
+             *
+             * Une campagne `OUTCOME_LEADS` a deux destinations possibles : le
+             * formulaire natif — `ON_AD` — ou le site, la conversion étant
+             * alors comptée par le pixel. Déclarer `ON_AD` pour toute campagne
+             * Prospects créait un ad set que l'annonce envoyait pourtant sur
+             * une page : deux configurations contradictoires.
+             *
+             * C'est la présence d'un formulaire qui tranche, rien d'autre.
+             */
+            if (isLeadGenObjective && (node._adTemplateOverride ?? adTemplate)?._parsed?.lead_gen_form_id) {
               adsetBody.destination_type = 'ON_AD'
             }
 
@@ -681,11 +695,30 @@ export async function POST(req: NextRequest) {
             const description = resolvedParsed?.description || ''
             const ctaType = resolvedParsed?.cta_type || 'LEARN_MORE'
             let destinationUrl = resolvedParsed?.destination_url || ''
-            // Only use lead_gen_form_id for lead gen campaigns — ignore for Sales/Traffic
-            let leadGenFormId = isLeadGenObjective ? (resolvedParsed?.lead_gen_form_id || '') : ''
+            /**
+             * Le formulaire n'est exigé que si l'annonce va réellement sur un
+             * formulaire.
+             *
+             * L'objectif de la campagne ne le dit pas : sur un compte à tunnel
+             * web, un ad set Prospects déclare `destination_type: UNDEFINED`,
+             * optimise sur `OFFSITE_CONVERSIONS` et porte un pixel en
+             * `promoted_object`. Exiger un formulaire dès que l'objectif était
+             * Prospects rendait ces comptes-là impossibles à alimenter.
+             *
+             * Deux chemins mènent au formulaire, et il faut les deux. Un
+             * formulaire effectivement résolu en est un : s'en remettre au seul
+             * `destination_type` le jetterait en silence sur les ad sets
+             * `WEBSITE_AND_LEAD_FORM`, qui acceptent les deux destinations. Et
+             * un ad set strictement `ON_AD` en impose un même si rien n'a été
+             * résolu — c'est alors une erreur de saisie, qu'il vaut mieux dire.
+             */
+            const formulaireNatif =
+              (isLeadGenObjective && Boolean(resolvedParsed?.lead_gen_form_id))
+              || (useExistingAdset && adsetTemplate?.destination_type === 'ON_AD')
 
-            // For lead gen campaigns: fail with actionable message if form ID still missing
-            if (!leadGenFormId && isLeadGenObjective) {
+            let leadGenFormId = formulaireNatif ? (resolvedParsed?.lead_gen_form_id || '') : ''
+
+            if (formulaireNatif && !leadGenFormId) {
               throw new Error(`Campagne prospects : Lead Gen Form ID manquant pour "${ag.adName}". Sélectionnez un formulaire dans le panneau Campaign Structure.`)
             }
 
@@ -700,6 +733,14 @@ export async function POST(req: NextRequest) {
             }
             if (!destinationUrl && isLeadGenObjective && leadGenFormId) {
               throw new Error(`Campagne prospects "${ag.adName}" : URL du site web manquante. Renseignez-la dans la section "Site web" du panneau Campaign Structure.`)
+            }
+            /**
+             * Sans formulaire, l'URL est la destination : la laisser vide
+             * enverrait la publicité sur le `https://example.com` de repli du
+             * corps du créatif, en silence.
+             */
+            if (!destinationUrl && isLeadGenObjective && !formulaireNatif) {
+              throw new Error(`Campagne prospects "${ag.adName}" : cet ad set envoie sur un site, pas sur un formulaire natif. Renseignez l'URL de destination dans le panneau Campaign Structure.`)
             }
 
             console.log('[launch] leadGenFormId:', leadGenFormId, '| ctaType:', ctaType, '| destinationUrl:', destinationUrl)

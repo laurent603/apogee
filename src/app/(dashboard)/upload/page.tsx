@@ -197,6 +197,9 @@ interface MetaCampaign {
 }
 interface MetaAdset {
   id: string; name: string; campaign_id: string; status: string
+  /** `ON_AD` pour un formulaire natif, sinon l'annonce envoie sur un site.
+   *  Transmis tel quel au lancement, qui ne peut pas le déduire de l'objectif. */
+  destination_type?: string
   optimization_goal: string; daily_budget?: string
   targeting?: {
     age_min?: number; age_max?: number; genders?: number[]

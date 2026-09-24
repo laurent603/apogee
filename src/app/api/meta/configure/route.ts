@@ -30,6 +30,10 @@ export async function GET(req: NextRequest) {
       const data = await metaFetch(path, token, {
         fields: [
           'id', 'name', 'campaign_id', 'status',
+          // Dit si l'ad set envoie sur un formulaire natif (`ON_AD`) ou sur un
+          // site. Le lancement en a besoin : l'objectif de campagne ne le dit
+          // pas, et une campagne Prospects peut faire les deux.
+          'destination_type',
           'optimization_goal', 'billing_event', 'bid_strategy',
           'daily_budget', 'lifetime_budget',
           'targeting',
