@@ -2112,6 +2112,7 @@ export default function UploadPage() {
   const [campaignModal, setCampaignModal] = useState(false)
   const [adsetModal, setAdsetModal] = useState(false)
   const [adsetModalError, setAdsetModalError] = useState<string | null>(null)
+  const [campaignError, setCampaignError] = useState<string | null>(null)
   const [adModal, setAdModal] = useState(false)
 
   // Creation modals
@@ -2159,9 +2160,31 @@ export default function UploadPage() {
       ? (budgetLifetime ? 'lifetime' : isCBO ? 'cbo' : null)
       : null
 
+  /**
+   * `|| []` ne rattrape que `null` : en erreur, la route rend `{error: "…"}`,
+   * qui est vrai. L'état devenait donc un objet, le rendu appelait `.map`
+   * dessus, et toute la page tombait sur « a client-side exception has
+   * occurred » — pour un compte publicitaire dont Meta avait simplement révoqué
+   * l'accès.
+   *
+   * Une erreur d'API se dit, elle ne se mange pas : le `catch {}` vide laissait
+   * en plus une liste vide sans la moindre explication.
+   */
   async function fetchCampaigns() {
-    if (!metaId) return; setLoadingMeta(true)
-    try { const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=campaigns`); setMetaCampaigns(await r.json() || []) } catch {}
+    if (!metaId) return
+    setLoadingMeta(true); setCampaignError(null); setMetaCampaigns([])
+    try {
+      const r = await fetch(`/api/meta/configure?accountId=${metaId}&type=campaigns`)
+      const d = await r.json()
+      if (Array.isArray(d)) {
+        setMetaCampaigns(d)
+        if (d.length === 0) setCampaignError('Aucune campagne active ou en pause sur ce compte.')
+      } else {
+        setCampaignError(d?.error || 'Erreur inconnue de l’API Meta')
+      }
+    } catch (e) {
+      setCampaignError(e instanceof Error ? e.message : 'Erreur réseau')
+    }
     setLoadingMeta(false)
   }
   async function fetchAdsets(campaignId?: string) {
@@ -3339,7 +3362,18 @@ export default function UploadPage() {
       {/* SELECTION MODALS */}
       {campaignModal && (
         <Modal title="Choisir une campagne Meta" onClose={() => setCampaignModal(false)}>
-          {loadingMeta ? <Spinner /> : metaCampaigns.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">Aucune campagne active trouvée</p> : (
+          {loadingMeta ? <Spinner /> : campaignError ? (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-sm text-red-500">{campaignError}</p>
+              {campaignError.includes('ads_management') && (
+                <p className="text-xs text-gray-400">
+                  Meta refuse l’accès à ce compte publicitaire. Le propriétaire doit vous
+                  redonner l’autorisation, ou le compte est sorti du Business Manager.
+                </p>
+              )}
+              <button onClick={() => fetchCampaigns()} className="text-xs px-3 py-1.5 border border-[#3434ef] text-[#3434ef] rounded-lg hover:bg-[#f0f0ff]">Réessayer</button>
+            </div>
+          ) : metaCampaigns.length === 0 ? <p className="text-sm text-gray-400 text-center py-8">Aucune campagne active trouvée</p> : (
             <div className="space-y-1.5">{metaCampaigns.map(c => (
               <button key={c.id} onClick={() => { setSelectedCampaign(c); setCampaignModal(false) }}
                 className={clsx('w-full text-left p-3 rounded-xl border transition-all flex items-center gap-3 hover:border-[#3434ef] hover:bg-[#f0f0ff]', selectedCampaign?.id === c.id ? 'border-[#3434ef] bg-[#f0f0ff]' : 'border-[#E5E7EB]')}>
