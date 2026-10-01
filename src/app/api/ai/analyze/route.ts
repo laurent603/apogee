@@ -99,8 +99,12 @@ export async function POST(req: NextRequest) {
           getPreviousPeriod(accountId, token, datePreset, leadSource).catch(() => null),
         ])
 
-        // Un nom de publicité n'identifie rien : voir `etiqueter`.
-        const ads = etiqueter(adsBruts as Record<string, unknown>[])
+        // Un nom de publicité n'identifie rien : voir `etiqueter`. La campagne
+        // départage les homonymes, et contrairement à un identifiant elle se lit.
+        const nomDeCampagne = new Map(
+          (campaigns as Record<string, unknown>[]).map((c) => [String(c.id ?? ''), String(c.name ?? '')]),
+        )
+        const ads = etiqueter(adsBruts as Record<string, unknown>[], nomDeCampagne)
         const previousAds = previous ? etiqueter(previous.ads as Record<string, unknown>[]) : []
 
         /**

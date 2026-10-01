@@ -167,7 +167,11 @@ export async function GET(req: NextRequest) {
        */
       const depenseDe = (a: Record<string, unknown>) =>
         Number((a.insights as { data?: { spend?: string }[] } | undefined)?.data?.[0]?.spend ?? a.spend ?? 0)
-      const adsTriees = etiqueter(ads as Record<string, unknown>[])
+      // La campagne départage les homonymes, et elle se lit.
+      const nomDeCampagne = new Map(
+        (campaigns as Record<string, unknown>[]).map((c) => [String(c.id ?? ''), String(c.name ?? '')]),
+      )
+      const adsTriees = etiqueter(ads as Record<string, unknown>[], nomDeCampagne)
         .sort((a, b) => depenseDe(b) - depenseDe(a))
         .slice(0, 30)
       // Un nom de publicité n'identifie rien : voir `REGLE_NOMS`.

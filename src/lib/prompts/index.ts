@@ -64,16 +64,18 @@ Chaque ligne est **une** publicité, identifiée par son \`id\`. Deux lignes ne 
 jamais la même publicité, même mot pour mot sous le même nom. Raisonne, compare
 et agrège toujours sur \`id\`, jamais sur le nom.
 
-Mais ne cite jamais un \`id\` dans ta réponse : il ne dit rien à un lecteur. Cite
-le champ **\`_etiquette\`**, caractère pour caractère, copié-collé. Ne l'abrège
+Mais ne cite jamais un \`id\` dans le texte que lit un humain : dix-sept chiffres
+ne désignent rien pour lui. Les identifiants n'ont leur place que dans le bloc
+JSON final, lu par la machine. Dans la prose et dans les tableaux, cite le champ
+**\`_etiquette\`**, caractère pour caractère, copié-collé. Ne l'abrège
 pas, ne la reformule pas, ne la reconstruis pas de mémoire, n'ajoute ni ne retire
 un suffixe. Un nom que tu écris doit pouvoir être collé dans la barre de
 recherche d'Ads Manager et trouver la publicité.
 ${ambigus.length ? `
 ⚠️ Ce compte contient ${ambigus.length} nom${ambigus.length > 1 ? 's' : ''} ambigu${ambigus.length > 1 ? 's' : ''} : plusieurs publicités le portent, ou il est le
-début exact d'un autre nom. Pour ceux-là, \`_etiquette\` porte le rang, le statut
-et l'identifiant — garde-les, c'est la seule façon pour le lecteur de savoir
-laquelle tu désignes.
+début exact d'un autre nom. Pour ceux-là, \`_etiquette\` porte la campagne et le
+statut entre parenthèses — garde-les, c'est la seule façon pour le lecteur de
+savoir laquelle tu désignes.
 ${ambigus.map((n) => `- «${n}»`).join('\n')}
 ` : ''}
 Une publicité dont \`_computed\` est \`null\` n'a **rien** renvoyé sur la période —

@@ -273,11 +273,21 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
  * active à 118 € avec son homonyme en pause à 0 €, puis annoncé « éteinte à
  * tort » une créa qui tournait.
  *
- * Le rang et l'identifiant ne sont joints qu'aux lignes réellement ambiguës —
- * une étiquette porteuse d'un numéro là où le nom suffit se retrouverait citée
- * telle quelle dans le rapport, et un identifiant ne dit rien à personne.
+ * Le discriminant n'est joint qu'aux lignes réellement ambiguës — une étiquette
+ * porteuse d'un numéro là où le nom suffit se retrouverait citée telle quelle
+ * dans le rapport.
+ *
+ * Et ce discriminant est la campagne, pas l'identifiant. Un identifiant ne dit
+ * rien à personne : la première version joignait les dix-sept chiffres de
+ * l'ad id, et le rapport les a recopiés en pleine prose. Les homonymes vivent
+ * presque toujours dans deux campagnes différentes — c'est lisible, et ça se
+ * colle dans la barre de recherche d'Ads Manager. Le rang ne sert que de
+ * dernier recours, quand même la campagne et le statut ne départagent rien.
  */
-export function etiqueter<T extends Record<string, unknown>>(ads: T[]): T[] {
+export function etiqueter<T extends Record<string, unknown>>(
+  ads: T[],
+  nomDeCampagne?: Map<string, string>,
+): T[] {
   const nomDe = (a: T) => String(a.name ?? a.ad_name ?? '').trim()
   const total = new Map<string, number>()
   for (const a of ads) total.set(nomDe(a), (total.get(nomDe(a)) || 0) + 1)
@@ -287,13 +297,20 @@ export function etiqueter<T extends Record<string, unknown>>(ads: T[]): T[] {
     const nom = nomDe(a)
     const n = total.get(nom) || 1
     if (n === 1) return { ...a, _etiquette: nom }
+
     const rang = (rangs.get(nom) || 0) + 1
     rangs.set(nom, rang)
+    const campagne =
+      nomDeCampagne?.get(String(a.campaign_id ?? '')) || (a.campaign_name as string | undefined)
     const statut = a.status || a.effective_status
-    return {
-      ...a,
-      _etiquette: `${nom} (n° ${rang} sur ${n} publicités de ce nom${statut ? ` · ${statut}` : ''} · id ${a.id ?? a.ad_id})`,
-    }
+    const reperes = [
+      campagne ? `campagne « ${campagne} »` : null,
+      statut ? String(statut) : null,
+      // Deux publicités identiques jusqu'à la campagne et au statut : il ne
+      // reste que le rang, qui au moins ne les confond pas.
+      !campagne && !statut ? `n° ${rang} sur ${n}` : null,
+    ].filter(Boolean)
+    return { ...a, _etiquette: `${nom} (${reperes.join(' · ')})` }
   })
 }
 
