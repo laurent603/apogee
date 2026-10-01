@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
-import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
+import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, REGLE_NOMS, natureDuRapport } from '@/lib/prompts'
 import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getVentilations, getPreviousPeriod, getLifetimeAdSpend, etiqueter, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
@@ -248,29 +248,7 @@ ${JSON.stringify(campaigns, null, 2)}
 ${JSON.stringify(adsets, null, 2)}
 
 ## Ads
-
-### Comment désigner une publicité (règle absolue)
-Chaque ligne est **une** publicité, identifiée par son \`id\`. Deux lignes ne sont
-jamais la même publicité, même mot pour mot sous le même nom. Raisonne, compare
-et agrège toujours sur \`id\`, jamais sur le nom.
-
-Mais ne cite jamais un \`id\` dans ta réponse : il ne dit rien à un lecteur. Cite
-le champ **\`_etiquette\`**, caractère pour caractère, copié-collé. Ne l'abrège
-pas, ne la reformule pas, ne la reconstruis pas de mémoire, n'ajoute ni ne retire
-un suffixe. Un nom que tu écris doit pouvoir être collé dans la barre de
-recherche d'Ads Manager et trouver la publicité.
-${ambigus.length ? `
-⚠️ Ce compte contient ${ambigus.length} nom${ambigus.length > 1 ? 's' : ''} ambigu${ambigus.length > 1 ? 's' : ''} : plusieurs publicités le portent, ou il est le
-début exact d'un autre nom. Pour ceux-là, \`_etiquette\` porte le rang, le statut
-et l'identifiant — garde-les, c'est la seule façon pour le lecteur de savoir
-laquelle tu désignes.
-${ambigus.map(n => `- «${n}»`).join('\n')}
-` : ''}
-Enfin : une publicité dont \`_computed\` est \`null\` n'a **rien** renvoyé sur la
-période — Meta ne sert pas de ligne d'insight pour une publicité sans diffusion.
-Cela ne vaut pas 0 € : dis « pas de diffusion sur la période » et n'en tire aucun
-verdict. Ne qualifie jamais une publicité d'« éteinte à tort » sans avoir vérifié
-son \`status\` sur sa propre ligne.
+${REGLE_NOMS(ambigus)}
 ${needsCopy ? `
 Le champ _copy contient le texte réel de chaque publicité
 (texte_principal, titre, description, cta, variantes, cartes de carrousel).

@@ -42,6 +42,47 @@ indicatifs et non concluants ».
 
 Ne rends jamais un rapport vide si au moins une ad a dépensé sur la période.`
 
+/**
+ * Comment désigner une publicité — la règle qui manquait.
+ *
+ * Un nom de publicité n'identifie rien. Sur Aqualiss, 19 publicités sur 32
+ * portent un nom ambigu : cinq noms sont portés par deux publicités, sept sont
+ * le préfixe exact d'un autre (« …installation » et « …installation - Copie »).
+ * Sans cette règle, la revue mensuelle a fusionné une active à 118 € avec son
+ * homonyme en pause à 0 €, annoncé « éteinte à tort » une créa qui tournait, et
+ * nommé sa gagnante d'un nom qui n'existe dans aucun compte.
+ *
+ * Elle vit ici parce que deux routes construisent leur propre contexte — la
+ * route interactive et le cron des agents. C'est précisément cette duplication
+ * qui a laissé le rapport programmé sans garde-fou pendant que l'autre en avait
+ * un.
+ */
+export function REGLE_NOMS(ambigus: string[] = []): string {
+  return `
+## Comment désigner une publicité — impératif
+Chaque ligne est **une** publicité, identifiée par son \`id\`. Deux lignes ne sont
+jamais la même publicité, même mot pour mot sous le même nom. Raisonne, compare
+et agrège toujours sur \`id\`, jamais sur le nom.
+
+Mais ne cite jamais un \`id\` dans ta réponse : il ne dit rien à un lecteur. Cite
+le champ **\`_etiquette\`**, caractère pour caractère, copié-collé. Ne l'abrège
+pas, ne la reformule pas, ne la reconstruis pas de mémoire, n'ajoute ni ne retire
+un suffixe. Un nom que tu écris doit pouvoir être collé dans la barre de
+recherche d'Ads Manager et trouver la publicité.
+${ambigus.length ? `
+⚠️ Ce compte contient ${ambigus.length} nom${ambigus.length > 1 ? 's' : ''} ambigu${ambigus.length > 1 ? 's' : ''} : plusieurs publicités le portent, ou il est le
+début exact d'un autre nom. Pour ceux-là, \`_etiquette\` porte le rang, le statut
+et l'identifiant — garde-les, c'est la seule façon pour le lecteur de savoir
+laquelle tu désignes.
+${ambigus.map((n) => `- «${n}»`).join('\n')}
+` : ''}
+Une publicité dont \`_computed\` est \`null\` n'a **rien** renvoyé sur la période —
+Meta ne sert pas de ligne d'insight pour une publicité sans diffusion. Cela ne
+vaut pas 0 € : dis « pas de diffusion sur la période » et n'en tire aucun
+verdict. Ne qualifie jamais une publicité d'« éteinte à tort » sans avoir lu son
+\`status\` sur sa propre ligne.`
+}
+
 /** LLMs routinely flag a 300% improvement as an alert. This forbids it. */
 export const DIRECTION_GUARD = `
 ## Sens de variation — impératif
