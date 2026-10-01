@@ -263,6 +263,40 @@ export async function getAds(accountId: string, token: string, datePreset = 'las
   }))
 }
 
+/**
+ * Une étiquette unique par publicité, parce que le nom ne l'est pas.
+ *
+ * Sur Aqualiss, 19 publicités sur 32 portent un nom ambigu : cinq noms sont
+ * portés par deux publicités, sept sont le préfixe exact d'un autre
+ * (« …installation » et « …installation - Copie »). Le modèle recevait ces
+ * lignes sans rien pour les distinguer : la revue mensuelle a fusionné une
+ * active à 118 € avec son homonyme en pause à 0 €, puis annoncé « éteinte à
+ * tort » une créa qui tournait.
+ *
+ * Le rang et l'identifiant ne sont joints qu'aux lignes réellement ambiguës —
+ * une étiquette porteuse d'un numéro là où le nom suffit se retrouverait citée
+ * telle quelle dans le rapport, et un identifiant ne dit rien à personne.
+ */
+export function etiqueter<T extends Record<string, unknown>>(ads: T[]): T[] {
+  const nomDe = (a: T) => String(a.name ?? a.ad_name ?? '').trim()
+  const total = new Map<string, number>()
+  for (const a of ads) total.set(nomDe(a), (total.get(nomDe(a)) || 0) + 1)
+
+  const rangs = new Map<string, number>()
+  return ads.map((a) => {
+    const nom = nomDe(a)
+    const n = total.get(nom) || 1
+    if (n === 1) return { ...a, _etiquette: nom }
+    const rang = (rangs.get(nom) || 0) + 1
+    rangs.set(nom, rang)
+    const statut = a.status || a.effective_status
+    return {
+      ...a,
+      _etiquette: `${nom} (n° ${rang} sur ${n} publicités de ce nom${statut ? ` · ${statut}` : ''} · id ${a.id ?? a.ad_id})`,
+    }
+  })
+}
+
 /* ── Ad copy ──────────────────────────────────────────────────────────────
    The creative node's own `title`/`body` are empty on Advantage+ and
    multi-placement ads: the copy lives in asset_feed_spec, and on ordinary ads

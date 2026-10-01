@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
 import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, natureDuRapport } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getVentilations, getPreviousPeriod, getLifetimeAdSpend, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getVentilations, getPreviousPeriod, getLifetimeAdSpend, etiqueter, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
               }).catch(() => null))?.content
             )
           : null
-        const [overview, campaigns, adsets, ads, daily, ventilations, previous] = await Promise.all([
+        const [overview, campaigns, adsets, adsBruts, daily, ventilations, previous] = await Promise.all([
           getAccountOverview(accountId, token, datePreset, leadSource),
           getCampaigns(accountId, token, datePreset, leadSource),
           getAdSets(accountId, token, datePreset, leadSource),
@@ -98,6 +98,21 @@ export async function POST(req: NextRequest) {
           // Fatigue and trend prompts need a real baseline to subtract from
           getPreviousPeriod(accountId, token, datePreset, leadSource).catch(() => null),
         ])
+
+        // Un nom de publicité n'identifie rien : voir `etiqueter`.
+        const ads = etiqueter(adsBruts as Record<string, unknown>[])
+        const previousAds = previous ? etiqueter(previous.ads as Record<string, unknown>[]) : []
+
+        /**
+         * Les noms que le modèle ne peut pas distinguer les uns des autres :
+         * ceux portés par plusieurs publicités, et ceux qui sont le début exact
+         * d'un autre. Les seconds sont ce qui a produit « Vidéo C2_V1 -
+         * installation - Copie », un nom qui n'existe dans aucun compte.
+         */
+        const noms = ads.map(a => String(a.name ?? '').trim()).filter(Boolean)
+        const ambigus = [...new Set(noms.filter((n, i) =>
+          noms.indexOf(n) !== i || noms.some(m => m !== n && m.startsWith(n))
+        ))]
 
         const rolePersonas: Record<string, string> = {
           performance_manager: 'Tu es un Performance Manager Meta Ads expert. Tu analyses les données avec un focus sur le ROAS, CPM, CPA et la rentabilité globale. Tu prends des décisions data-driven et identifies les leviers de performance prioritaires.',
@@ -232,7 +247,32 @@ ${JSON.stringify(campaigns, null, 2)}
 ## Ad Sets
 ${JSON.stringify(adsets, null, 2)}
 
-## Ads${needsCopy ? ` — le champ _copy contient le texte réel de chaque publicité
+## Ads
+
+### Comment désigner une publicité (règle absolue)
+Chaque ligne est **une** publicité, identifiée par son \`id\`. Deux lignes ne sont
+jamais la même publicité, même mot pour mot sous le même nom. Raisonne, compare
+et agrège toujours sur \`id\`, jamais sur le nom.
+
+Mais ne cite jamais un \`id\` dans ta réponse : il ne dit rien à un lecteur. Cite
+le champ **\`_etiquette\`**, caractère pour caractère, copié-collé. Ne l'abrège
+pas, ne la reformule pas, ne la reconstruis pas de mémoire, n'ajoute ni ne retire
+un suffixe. Un nom que tu écris doit pouvoir être collé dans la barre de
+recherche d'Ads Manager et trouver la publicité.
+${ambigus.length ? `
+⚠️ Ce compte contient ${ambigus.length} nom${ambigus.length > 1 ? 's' : ''} ambigu${ambigus.length > 1 ? 's' : ''} : plusieurs publicités le portent, ou il est le
+début exact d'un autre nom. Pour ceux-là, \`_etiquette\` porte le rang, le statut
+et l'identifiant — garde-les, c'est la seule façon pour le lecteur de savoir
+laquelle tu désignes.
+${ambigus.map(n => `- «${n}»`).join('\n')}
+` : ''}
+Enfin : une publicité dont \`_computed\` est \`null\` n'a **rien** renvoyé sur la
+période — Meta ne sert pas de ligne d'insight pour une publicité sans diffusion.
+Cela ne vaut pas 0 € : dis « pas de diffusion sur la période » et n'en tire aucun
+verdict. Ne qualifie jamais une publicité d'« éteinte à tort » sans avoir vérifié
+son \`status\` sur sa propre ligne.
+${needsCopy ? `
+Le champ _copy contient le texte réel de chaque publicité
 (texte_principal, titre, description, cta, variantes, cartes de carrousel).
 Cite-le mot pour mot quand tu analyses une créa ; ne paraphrase pas et n'invente
 aucun texte. Une publicité dont _copy est null n'a pas de texte exploitable — dis-le
@@ -282,7 +322,8 @@ Toute variation (fatigue, tendance, évolution) doit être calculée entre cette
 ${JSON.stringify(previous.overview, null, 2)}
 
 ### Ads (période précédente)
-${JSON.stringify(previous.ads, null, 2)}`
+Même règle de désignation : \`ad_id\` identifie, \`_etiquette\` se cite.
+${JSON.stringify(previousAds, null, 2)}`
   : `Indisponible. N'affirme aucune variation, tendance ou fatigue : tu n'as qu'une seule période. Dis explicitement que la comparaison n'a pas pu être faite.`}
 `
 
