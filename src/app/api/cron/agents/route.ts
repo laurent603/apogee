@@ -131,13 +131,14 @@ export async function GET(req: NextRequest) {
         : null
 
       const isCreative = agent.role === 'creative_strategist' || agent.role === 'copywriter'
-      const knowledge = isCreative
-        ? renderKnowledgeForPrompt(
-            (await prisma.creativeKnowledge.findUnique({
-              where: { adAccountId: agent.adAccountId }, select: { content: true },
-            }).catch(() => null))?.content
-          )
-        : null
+      // Voir /api/ai/analyze : le référentiel se charge dès qu'il existe, quel
+      // que soit le rôle. Un agent dont les instructions parlent de créa sans
+      // porter le rôle `creative_strategist` l'ignorait en silence.
+      const knowledge = renderKnowledgeForPrompt(
+        (await prisma.creativeKnowledge.findUnique({
+          where: { adAccountId: agent.adAccountId }, select: { content: true },
+        }).catch(() => null))?.content
+      )
       const [overview, campaigns, adsets, ads, ventilations, previous] = await Promise.all([
         getAccountOverview(metaAccountId, token, datePreset, leadSource),
         getCampaigns(metaAccountId, token, datePreset, leadSource),

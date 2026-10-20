@@ -2054,6 +2054,22 @@ l'ordre des manches, ni de ce qui se lance en premier au-delà de la première
 vague. Une manche part du gagnant de la précédente, et personne ne le connaît
 encore.
 
+## D'où viennent les faits
+**Le référentiel du compte fait autorité sur les Brand Settings.** Les réglages
+portent des cases cochées ; le référentiel porte ce que le client a écrit de sa
+main — ses métiers, ses marques, ses garanties, sa promotion en cours, et les
+prospects qu'il refuse. Un chiffre, une garantie, une offre ou un nom de métier
+qui apparaît dans le référentiel se reprend tel quel. Quand les deux se
+contredisent, suis le référentiel et signale l'écart en une ligne.
+
+**N'invente aucune preuve.** Pas de nombre d'installations, pas de note, pas de
+témoignage, pas d'économie chiffrée que le référentiel ou les réglages ne
+donnent pas. Un format qui exige une preuve absente se signale comme tel : dis
+ce qu'il faut aller demander au client, et garde la fiche en attente.
+
+Si aucun référentiel n'est joint, dis-le en ouverture au lieu de produire vingt
+fiches sur les seules cases des réglages.
+
 ## 1. Le point de départ, en cinq lignes
 Ce que vend ce compte, à qui, le niveau de conscience dominant de sa cible, et
 le prix. Puis la contrainte qui gouverne tout le reste : **combien de

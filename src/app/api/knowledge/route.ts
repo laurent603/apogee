@@ -70,6 +70,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const { items, kind } = await fetchNotionKnowledge(k.notionSourceId, k.notionToken)
+
+    /**
+     * Une lecture vide ne remplace pas un référentiel qui existe.
+     *
+     * Notion répond 200 avec zéro ligne quand la base pointée a été vidée ou
+     * que l'intégration n'en voit plus les pages — pas une erreur, un succès
+     * sans contenu. Les référentiels de SB Aménagement et d'Egide, seize et
+     * trente-neuf entrées, ont été écrasés comme ça : les bases « Concepts »
+     * propres à chaque client ont été vidées au profit d'une base centrale, et
+     * la synchro a consciencieusement enregistré le vide.
+     *
+     * Le contenu vit dans Notion, donc rien d'irrécupérable — mais une synchro
+     * qui détruit en silence la seule copie exploitable par les prompts n'a
+     * aucune raison d'exister.
+     */
+    if (items.length === 0 && (k.itemCount > 0 || (k.content || '').length > 2)) {
+      const message = `Notion n'a renvoyé aucune entrée alors que le référentiel en contenait ${k.itemCount}. Rien n'a été remplacé : vérifiez que la source pointe toujours sur la bonne base et que l'intégration y a accès.`
+      await prisma.creativeKnowledge.update({
+        where: { adAccountId: dbAccountId },
+        data: { syncError: message.slice(0, 400) },
+      }).catch(() => {})
+      return NextResponse.json({ error: message }, { status: 409 })
+    }
+
     await prisma.creativeKnowledge.update({
       where: { adAccountId: dbAccountId },
       data: {

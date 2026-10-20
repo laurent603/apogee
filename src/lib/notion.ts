@@ -68,28 +68,58 @@ function propertyValue(prop: Record<string, unknown>): string {
   }
 }
 
-/** Reads a page's body, following one level of nesting. */
-async function pageText(pageId: string, token: string, depth = 0): Promise<string> {
+/**
+ * Reads a page's body, through the layout containers.
+ *
+ * Un seul niveau de descente ne suffit pas. Le référentiel de Nouvelle Énergie
+ * Française n'a aucune sous-page : tout vit dans la racine, imbriqué dans des
+ * conteneurs de mise en page — `column_list > column > callout`, et surtout
+ * `tab > paragraph > tab > paragraph > table > table_row`. La synchro
+ * s'arrêtait donc exactement sur les libellés d'onglets et rendait 134 signes :
+ * « Onboarding / Objectifs et KPI / Avatars / Lancement / Créa / Suivi », le
+ * sommaire et rien d'autre.
+ *
+ * Six niveaux couvrent cette structure. Le compteur d'appels borne le coût :
+ * Notion accepte environ trois requêtes par seconde, et une récursion profonde
+ * sur un espace chargé partirait pour plusieurs minutes.
+ */
+const PROFONDEUR_MAX = 6
+const APPELS_MAX = 400
+
+async function pageText(
+  pageId: string,
+  token: string,
+  depth = 0,
+  budget = { appels: 0 },
+): Promise<string> {
   const out: string[] = []
   let cursor: string | undefined
   do {
+    if (budget.appels >= APPELS_MAX) break
+    budget.appels++
     const q = new URLSearchParams({ page_size: '100' })
     if (cursor) q.set('start_cursor', cursor)
     const res = await notion(`/blocks/${pageId}/children?${q}`, token)
     for (const b of (res.results || []) as Record<string, unknown>[]) {
       const type = b.type as string
       const data = b[type] as Record<string, unknown> | undefined
-      const text = plain(data?.rich_text)
+      // Une ligne de tableau ne porte pas `rich_text` mais `cells`, un tableau
+      // de tableaux. Les réponses d'onboarding de NEF y sont toutes, et elles
+      // ressortaient vides.
+      const text = type === 'table_row'
+        ? ((data?.cells as unknown[]) || []).map((c) => plain(c)).filter(Boolean).join(' · ')
+        : plain(data?.rich_text)
       if (text) {
         if (type === 'heading_1') out.push(`# ${text}`)
         else if (type === 'heading_2') out.push(`## ${text}`)
         else if (type === 'heading_3') out.push(`### ${text}`)
         else if (type === 'bulleted_list_item' || type === 'numbered_list_item') out.push(`- ${text}`)
         else if (type === 'quote') out.push(`> ${text}`)
+        else if (type === 'table_row') out.push(`| ${text}`)
         else out.push(text)
       }
-      if (b.has_children && depth < 1 && type !== 'child_page') {
-        const nested = await pageText(b.id as string, token, depth + 1)
+      if (b.has_children && depth < PROFONDEUR_MAX && type !== 'child_page') {
+        const nested = await pageText(b.id as string, token, depth + 1, budget)
         if (nested) out.push(nested)
       }
     }
@@ -99,7 +129,13 @@ async function pageText(pageId: string, token: string, depth = 0): Promise<strin
 }
 
 const MAX_ITEMS = 150
-const MAX_CHARS_PER_ITEM = 4000
+/**
+ * Quatre mille signes suffisaient quand chaque page était un item. Un espace
+ * sans sous-page — tout dans la racine, en onglets — tient en un seul item, et
+ * le plafond coupait alors le référentiel entier. `renderKnowledgeForPrompt`
+ * borne de toute façon le total injecté dans le prompt.
+ */
+const MAX_CHARS_PER_ITEM = 20000
 
 /**
  * Fetches every entry under `sourceId`, whether it is a database or a page.

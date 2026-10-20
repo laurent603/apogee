@@ -75,9 +75,18 @@ export async function POST(req: NextRequest) {
         // Creative work needs the actual copy; everything else keeps the lighter
         // payload it already had
         const needsCopy = category === 'creativeStrategy' || agentRole === 'creative_strategist' || agentRole === 'copywriter'
-        // Reference copy the account's own strategist wrote — only worth loading
-        // for creative work, and only if it has been synced
-        const knowledge = needsCopy && dbAccountId
+        /**
+         * Le référentiel du compte, chargé dès qu'il existe.
+         *
+         * Il était conditionné à `needsCopy`, comme la copy des publicités et
+         * les visuels. Mais la discussion envoie `category: 'autopilot'` et un
+         * rôle qui vaut `performance_manager` par défaut : un prompt créatif
+         * tapé là n'a donc jamais vu la bibliothèque du compte, sans que rien ne
+         * le signale. Et le coût n'est pas comparable — une ligne en base contre
+         * un appel Meta de vingt-cinq secondes et des images dans le contexte.
+         * `renderKnowledgeForPrompt` borne déjà ce qui entre dans le prompt.
+         */
+        const knowledge = dbAccountId
           ? renderKnowledgeForPrompt(
               (await prisma.creativeKnowledge.findUnique({
                 where: { adAccountId: dbAccountId }, select: { content: true },
