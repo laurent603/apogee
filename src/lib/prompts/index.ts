@@ -3,6 +3,7 @@
  * around ROAS and basket size make the model invent metrics the data never had.
  */
 import { METHODE_J7, LECTURE_GAGNANTS, ELEMENTS_ECRITS } from './j7'
+import { MATRICE_CREAS } from './creas'
 
 export const TYPE_DETECTION = `
 ## Type de compte — à établir avant toute analyse
@@ -2025,6 +2026,89 @@ lourdement se marque *Fatigué*, même s'il est bon : il n'ouvre rien de neuf.
 Termine avec SYNTHÈSE : total, distribution par niveau de conscience, top 3 à
 briefer immédiatement avec le pourquoi de chacun, et **le manque le plus
 criant** — le niveau, l'émotion ou le persona que la banque ne couvre pas.`,
+
+    /**
+     * Le stock de production, et non un plan de test.
+     *
+     * `testPlan` interdit de planifier au-delà de la manche en cours, et cette
+     * règle reste juste : une manche part du gagnant de la précédente. Mais elle
+     * ne dit rien de la matière à tester, et un compte sans stock de concepts
+     * relance toujours la même chose sous un autre nom.
+     *
+     * Ce prompt remplit ce vide : il décline l'offre sur les six axes pour
+     * produire un stock de concepts distincts, chacun briefé assez précisément
+     * pour être produit ailleurs. Il ne décide pas de l'ordre des tests — c'est
+     * le travail de `testPlan`, et le document doit renvoyer vers lui.
+     */
+    matriceDiversite: `${SYSTEM_BASE}
+${MATRICE_CREAS}
+
+Construis le stock de production créative de ce compte à partir de la matrice
+ci-dessus et des Brand Settings.
+
+## Ce que ce document est, et ce qu'il n'est pas
+C'est un **stock de concepts** : vingt créas distinctes, chacune située sur les
+six axes et briefée assez précisément pour être produite par quelqu'un qui n'a
+pas lu ce document. Ce n'est **pas** un plan de test : tu ne décides ni de
+l'ordre des manches, ni de ce qui se lance en premier au-delà de la première
+vague. Une manche part du gagnant de la précédente, et personne ne le connaît
+encore.
+
+## 1. Le point de départ, en cinq lignes
+Ce que vend ce compte, à qui, le niveau de conscience dominant de sa cible, et
+le prix. Puis la contrainte qui gouverne tout le reste : **combien de
+conversions ce compte produit-il par mois ?** Rapproche le budget mensuel du
+coût par prospect visé, et dis le chiffre.
+
+S'il est faible, dis-le franchement : vingt créas ne se lisent pas sur un compte
+qui produit dix prospects par mois. Le stock reste utile — il évite de relancer
+la même idée — mais il se consomme sur plusieurs mois, pas en deux semaines.
+Donne alors la cadence réelle que le compte peut porter.
+
+## 2. La répartition
+Avant les fiches, un tableau de couverture :
+
+| Niveau de conscience | Nb de créas | Formats mobilisés | Angles |
+
+Sur un marché à éduquer, la majorité du volume va au haut de funnel. Si la
+répartition penche vers le bas de funnel, c'est un choix à justifier en une
+ligne, pas un défaut à cacher.
+
+Puis une ligne sur ce que la matrice **ne couvre pas** pour ce compte : les
+formats que tu as écartés, et pourquoi. Un format écarté en conscience vaut mieux
+qu'un format rempli pour faire le compte.
+
+## 3. Les vingt fiches
+Une fiche par créa, numérotée. Chacune porte :
+
+- **Nom de fichier** selon la nomenclature du compte, les six axes lisibles dedans
+- **Format** (parmi les 12) · **Univers visuel** · **Angle** · **Persona** · **Offre** · **Niveau de conscience**
+- **L'idée** en une phrase : ce que le lecteur comprend en une demi-seconde
+- **Le visuel** : ce qu'on voit, précisément. Cadrage, sujet, décor, ce qui est
+  écrit dans l'image et où. Assez précis pour être donné à un outil de génération
+  ou à un graphiste sans autre explication.
+- **Le texte incrusté**, mot pour mot
+- **L'accroche** (texte principal), mot pour mot
+- **Le titre** et la **description**, mot pour mot
+- **L'objection traitée**, reprise des Brand Settings
+- **Pourquoi cette créa existe** : ce qu'elle teste que les dix-neuf autres ne testent pas
+
+## 4. La première vague
+Les cinq à huit fiches à produire d'abord, et la variable que cette vague isole.
+Rien au-delà : la suite se décide au dépouillement.
+
+---
+
+Avant de rendre, relis les vingt fiches et vérifie deux choses.
+
+**Les doublons.** Deux fiches qui partagent le format, l'angle et le niveau de
+conscience n'en font qu'une, même si le visuel diffère : l'algorithme les lira
+comme une seule publicité. Remplace la seconde.
+
+**Les visuels impossibles.** Une fiche qui demande une photo de chantier que ce
+compte n'a pas, un client identifiable qui n'a rien signé, ou un chiffre que les
+Brand Settings ne donnent pas, n'est pas productible. Dis ce qu'il faut aller
+chercher, ou change de format.`,
 
     hooks: `${SYSTEM_BASE}
 

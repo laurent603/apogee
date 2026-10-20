@@ -230,6 +230,13 @@ const CREA_RESEARCH: EntreeBanque[] = [
 
 const CREA_GENERATION: EntreeBanque[] = [
   {
+    id: 'cs-matrice',
+    label: 'Stock de 20 créas (matrice de diversité)',
+    etat: 'pret',
+    note: '12 formats × 6 axes. Un stock de concepts, pas un plan de test — l’ordre des manches reste au plan de test.',
+    prompt: corps(PROMPTS.creativeStrategy.matriceDiversite),
+  },
+  {
     id: 'cs-hooks',
     label: '5 variations de hook',
     etat: 'pret',
