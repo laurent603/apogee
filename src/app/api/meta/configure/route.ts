@@ -34,6 +34,11 @@ export async function GET(req: NextRequest) {
           // site. Le lancement en a besoin : l'objectif de campagne ne le dit
           // pas, et une campagne Prospects peut faire les deux.
           'destination_type',
+          // Un ad set en créa dynamique n'accepte qu'une pub dynamique
+          // (subcode 1885702). Apogee ne sait pas en produire, et ne doit pas :
+          // le DCO mélange les assets entre les pubs, ce qui retire toute
+          // lecture à un test où une seule variable bouge.
+          'is_dynamic_creative',
           'optimization_goal', 'billing_event', 'bid_strategy',
           'daily_budget', 'lifetime_budget',
           'targeting',

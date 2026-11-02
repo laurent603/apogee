@@ -52,6 +52,8 @@ interface LaunchAdset {
    *  envoie sur un site. Servi par `getAdSets`, il dit la destination réelle
    *  là où l'objectif de campagne ne la dit pas. */
   destination_type?: string
+  /** Un ad set DCO n'accepte qu'une pub dynamique : voir le garde-fou plus bas. */
+  is_dynamic_creative?: boolean
   daily_budget?: string
   targeting?: {
     age_min?: number; age_max?: number; genders?: number[]
@@ -500,6 +502,28 @@ export async function POST(req: NextRequest) {
           testStructure === 'insert-in-adset' &&
           !adsetTemplate?._isNew &&
           !!adsetTemplate?.id
+
+        /**
+         * Un ad set en créa dynamique n'accepte aucune pub d'Apogee.
+         *
+         * Meta n'y autorise qu'une pub dynamique (subcode 1885702), et un
+         * créatif à `asset_customization_rules` n'en est pas une : le créatif
+         * passe, l'ad est refusée. Toutes les variantes de routage tombent donc
+         * pour le même motif, et le lancement s'arrêtait sur « aucune variante
+         * acceptée », qui ne dit pas quoi faire.
+         *
+         * Apogee ne produira pas de pub dynamique : le DCO mélange les assets
+         * entre les pubs, et un test où une seule variable bouge devient
+         * illisible. L'ad set doit être créé sans l'option.
+         */
+        if (useExistingAdset && adsetTemplate?.is_dynamic_creative) {
+          throw new Error(
+            `L'ad set « ${adsetTemplate!.name} » est en créa dynamique (Advantage+ creative). `
+            + `Meta n'y accepte qu'une publicité dynamique, et Apogee n'en produit pas : le DCO mélange `
+            + `les assets entre les pubs et retire toute lecture à un test. `
+            + `Créez un ad set sans l'option « Créa dynamique », ou choisissez-en un autre.`
+          )
+        }
 
         for (const node of treeNodes) {
           let adsetId: string

@@ -200,6 +200,9 @@ interface MetaAdset {
   /** `ON_AD` pour un formulaire natif, sinon l'annonce envoie sur un site.
    *  Transmis tel quel au lancement, qui ne peut pas le déduire de l'objectif. */
   destination_type?: string
+  /** Créa dynamique : Meta n'y accepte qu'une pub dynamique, qu'Apogee ne
+   *  produit pas. Signalé dans la liste pour ne pas le découvrir au lancement. */
+  is_dynamic_creative?: boolean
   optimization_goal: string; daily_budget?: string
   targeting?: {
     age_min?: number; age_max?: number; genders?: number[]
@@ -3409,6 +3412,7 @@ export default function UploadPage() {
                     {countries && <span className="badge-gray text-xs">{countries}</span>}
                     {a.optimization_goal && <span className="badge-blue text-xs">{a.optimization_goal.replace(/_/g, ' ')}</span>}
                     {pixel && <span className="badge-gray text-xs">Pixel ✓</span>}
+                    {a.is_dynamic_creative && <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">Créa dynamique — insertion impossible</span>}
                   </div>
                 </button>
               )
