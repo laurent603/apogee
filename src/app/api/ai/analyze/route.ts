@@ -348,8 +348,22 @@ ${JSON.stringify(previousAds, null, 2)}`
            * jetons par seconde cela ferait sept cents secondes, contre huit
            * cents avant que Vercel ne coupe la fonction — sans marge pour
            * l'appel Meta ni l'écriture en base. 56 000 tient dans le budget.
+           *
+           * Il n'y a plus deux plafonds. Le second, 24 000, servait les
+           * demandes jugées « diagnostic » — et « audit » comme « bilan » sont
+           * dans cette regex. L'audit complet Andromeda partait donc avec le
+           * budget d'une réponse de discussion, et se coupait à chaque fois,
+           * alors que le commentaire ci-dessus documentait déjà sa troncature
+           * à 40 000.
+           *
+           * Le départage n'a plus lieu d'être depuis que `RAPPORT_HTML` part
+           * avec **toutes** les demandes : une réponse de discussion est un
+           * document complet, pas un paragraphe. Et un plafond est une borne,
+           * pas une allocation — une question de deux lignes ne consomme pas
+           * 56 000 jetons parce qu'on les autorise. Ce qui borne réellement
+           * reste `maxDuration`.
            */
-          max_tokens: deep || chatProfond ? 56000 : 24000,
+          max_tokens: 56000,
           system: systemPrompt,
           messages: [
             /**
