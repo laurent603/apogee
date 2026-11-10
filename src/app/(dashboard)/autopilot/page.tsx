@@ -367,6 +367,8 @@ export default function AutopilotPage() {
   const [openCategory, setOpenCategory] = useState<CategorieBanque | null>(null)
   const [openDossier, setOpenDossier] = useState<DossierBanque | null>(null)
   const [chatRole, setChatRole] = useState('performance_manager')
+  /** Trente jours par défaut : voir le sélecteur sous la zone de saisie. */
+  const [chatPeriode, setChatPeriode] = useState('last_30d')
   const router = useRouter()
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -447,7 +449,7 @@ export default function AutopilotPage() {
           // type et un titre lisible, pour se distinguer dans l'historique.
           typeRapport: 'session',
           titre: `Discussion — ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
-          datePreset: 'last_7d',
+          datePreset: chatPeriode,
           brandSettings: bsData.settings,
           customPrompt: msg,
           agentRole: chatRole,
@@ -1096,6 +1098,27 @@ export default function AutopilotPage() {
                 className="text-xs text-gray-500 bg-transparent border-none focus:outline-none cursor-pointer hover:text-[#0d0d12]"
               >
                 {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+
+              {/**
+                * La période de la discussion, qui était figée à sept jours.
+                *
+                * Un audit de diversité créative, un bilan ou un top/flop sont
+                * des questions structurelles : les juger sur une semaine fait
+                * passer pour « jamais financé » un format qui tournait le mois
+                * d'avant. Trente jours par défaut.
+                *
+                * Elle reste réglable plutôt que simplement relevée : la banque
+                * porte une « Revue des 7 derniers jours », dont la semaine est
+                * la prémisse.
+                */}
+              <select
+                value={chatPeriode}
+                onChange={(e) => setChatPeriode(e.target.value)}
+                title="Période analysée"
+                className="text-xs text-gray-500 bg-transparent border-none focus:outline-none cursor-pointer hover:text-[#0d0d12]"
+              >
+                {PERIOD_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
 
               <span className="text-xs text-gray-300 ml-auto">Sonnet 5</span>

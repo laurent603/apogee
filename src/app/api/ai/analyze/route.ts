@@ -100,7 +100,10 @@ export async function POST(req: NextRequest) {
           needsCopy
             ? getAdsWithCopy(accountId, token, datePreset, leadSource)
             : getAds(accountId, token, datePreset, leadSource),
-          getDailyBreakdown(accountId, token, datePreset === 'last_7d' ? 7 : datePreset === 'last_14d' ? 14 : 30),
+          // La discussion laisse désormais choisir la période : `last_3d`
+          // tombait dans le défaut et servait trente jours de journalier.
+          getDailyBreakdown(accountId, token,
+            { last_3d: 3, last_7d: 7, last_14d: 14, last_30d: 30 }[datePreset as string] ?? 30),
           // Placement, âge × genre, appareil : l'interface les affiche depuis
           // longtemps sur une créa, le modèle ne les avait jamais reçues.
           getVentilations(accountId, token, datePreset, leadSource),
