@@ -583,6 +583,45 @@ chantier on ne feuillette pas, on ne remonte pas trois sections plus haut pour
 retrouver quel hook va avec le plan 1. Tout ce qu'il faut pour filmer un plan
 est sur la carte de ce plan. Un renvoi vers une autre section est un défaut.
 
+### La continuité, qui prime sur la forme
+
+**Un brief ne se fabrique jamais à partir de rien quand un stock existe déjà.**
+
+Si la conversation contient un stock de production, un plan de test ou une
+vague — avec ses créas nommées — alors les feuilles demandées **sont ces
+créas-là**, reprises une par une, sous leur nomenclature exacte. Pas des
+variantes, pas des idées voisines, pas six nouveaux concepts qui remplissent le
+même nombre.
+
+La chaîne qui va du stock au test puis à l'arbitrage ne tient que si l'objet
+reste le même d'un document à l'autre. Une feuille qui porte un concept absent
+du stock rompt cette chaîne : le test lancé ne tranche plus rien de ce qui
+avait été planifié, et le dépouillement suivant ne retrouve pas ses lignes.
+
+Si une créa demandée n'est dans aucun stock de la conversation, dis-le et
+demande de quoi partir, plutôt que d'en inventer une qui ressemble.
+
+### Le médium commande la forme
+
+Le gabarit ci-dessous décrit une feuille de **tournage**, et une feuille de
+tournage filme. Un visuel fixe n'a ni durée, ni texte prononcé, ni suite de
+plans : lui imposer des cartes minutées oblige à inventer une vidéo qui
+n'existe pas, et c'est exactement ce qui se produit.
+
+- **Créa vidéo** → feuille de tournage : une carte par temps, le texte
+  prononcé, la nature de la prise, l'image.
+- **Créa statique** → feuille de production : la scène décrite, le texte
+  incrusté mot pour mot, le style, la zone de sécurité, les pièges à éviter.
+  Pas de minutage, pas de « plan 1 ».
+
+Le médium se lit dans le premier segment du nom de la créa — \`Static\`,
+\`Video\`, \`Carrousel\`. Une demande de « feuilles » sur un stock entièrement
+statique rend donc des feuilles de production, et le document le dit en
+ouverture au lieu de se taire.
+
+Le reste du gabarit — l'en-tête, l'interdiction des renvois par code, la marche
+à suivre pour imprimer — vaut pour les deux.
+
 ### L'en-tête
 
 Le titre de la créa — son idée, pas son nom de code. En dessous, le nom

@@ -35,6 +35,63 @@ function getPrompt(category: PromptCategory, key: string): string {
   return cat[key] || Object.values(cat)[0]
 }
 
+/**
+ * Les tours précédents, débarrassés de leur habillage.
+ *
+ * Un rapport rendu dans la discussion est un document HTML complet : le stock
+ * de production de MC Energy pèse 87 000 signes, dont neuf mille de feuille de
+ * style avant le premier mot utile. Coupé à douze mille, il ne restait que la
+ * synthèse — ni la liste de la vague 1, ni les vingt nomenclatures.
+ *
+ * La demande suivante, « rédige les six briefs de la vague 1 », portait donc
+ * sur un document que le modèle n'avait plus. Il a inventé six concepts pour
+ * remplir le nombre, et la chaîne du stock au test s'est rompue sans que rien
+ * ne le signale.
+ *
+ * On retire donc le balisage plutôt que de couper le fond : le style, les
+ * scripts et les balises ne disent rien au modèle, et ils occupent la moitié
+ * du document. Ce qui reste est borné par tour et au total, les tours récents
+ * servis en premier.
+ *
+ * Soixante-dix mille signes par tour : le stock de MC Energy en fait 49 267
+ * une fois débalisé, contre 83 000 en HTML. Un rapport entier tient, ce qui
+ * est la condition pour que le suivant s'y rattache.
+ */
+const SIGNES_PAR_TOUR = 70_000
+const SIGNES_TOTAL = 160_000
+
+function texteSeul(html: string): string {
+  return html
+    .replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&(amp|lt|gt|quot|#39);/g, (_, e) =>
+      ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[e as string] || ' '))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function toursPrecedents(historique: unknown): { role: 'user' | 'assistant'; content: string }[] {
+  const tours = (Array.isArray(historique) ? historique : [])
+    .filter((m: { role?: string; content?: string }) =>
+      (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-10) as { role: 'user' | 'assistant'; content: string }[]
+
+  // Du plus récent au plus ancien : si le budget manque, c'est le vieux qui tombe.
+  const gardes: { role: 'user' | 'assistant'; content: string }[] = []
+  let budget = SIGNES_TOTAL
+  for (let i = tours.length - 1; i >= 0; i--) {
+    if (budget <= 0) break
+    const brut = /<[a-z!][^>]*>/i.test(tours[i].content) ? texteSeul(tours[i].content) : tours[i].content
+    const content = brut.slice(0, Math.min(SIGNES_PAR_TOUR, budget))
+    if (!content.trim()) continue
+    budget -= content.length
+    gardes.unshift({ role: tours[i].role, content })
+  }
+  return gardes
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.accessToken || !session.user?.id) {
@@ -397,14 +454,7 @@ ${JSON.stringify(previousAds, null, 2)}`
              * Les dix derniers échanges suffisent : au-delà, on paie un
              * contexte que la conversation n'exploite plus.
              */
-            ...(Array.isArray(historique) ? historique : [])
-              .filter((m: { role?: string; content?: string }) =>
-                (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-              .slice(-10)
-              .map((m: { role: string; content: string }) => ({
-                role: m.role as 'user' | 'assistant',
-                content: m.content.slice(0, 12000),
-              })),
+            ...toursPrecedents(historique),
             {
               role: 'user' as const,
               content: [
