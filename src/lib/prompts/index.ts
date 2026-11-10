@@ -2109,6 +2109,47 @@ Une fiche par créa, numérotée. Chacune porte :
 - **L'objection traitée**, reprise des Brand Settings
 - **Pourquoi cette créa existe** : ce qu'elle teste que les dix-neuf autres ne testent pas
 
+### Le bloc de production, obligatoire sur chaque fiche
+Chaque fiche se termine par un **bloc à copier** — \`<div class="copy">\` avec son
+\`<div class="content">\` et son bouton — qui contient un brief autonome, destiné
+à être collé tel quel dans un outil de génération d'image. Il s'adresse à une
+machine qui n'a pas lu le reste du document : tout ce dont elle a besoin est
+dedans, et rien d'autre.
+
+Il s'écrit en texte brut, dans cet ordre, sans balise ni Markdown :
+
+\`\`\`
+NOM DE FICHIER : <la nomenclature complète, exactement comme elle devra être
+uploadée — c'est la première ligne, pour qu'elle n'ait jamais à être recréée>
+
+FORMAT : <ratio>, <image fixe ou vidéo>, <où elle sera diffusée>
+RÔLE : <ce que le lecteur doit comprendre en une demi-seconde>
+
+SCÈNE : <ce qu'on voit, en trois à six phrases. Cadrage, sujet, décor,
+lumière, matière. Assez précis pour que deux personnes produisent le même
+visuel, assez ouvert pour ne pas décrire pixel par pixel.>
+
+TEXTE DANS L'IMAGE :
+"<mot pour mot, avec sa place — en haut, en bas, sur le produit>"
+
+STYLE : <traitement visuel, palette, typographie, ce qui doit être évité>
+ZONE DE SÉCURITÉ : <ce qui doit rester dans la bande centrale si le ratio
+est 9:16>
+
+À NE PAS FAIRE : <les deux ou trois pièges propres à cette créa — un logo
+trop gros, un visage souriant générique, un texte qui déborde>
+\`\`\`
+
+**Le nom de fichier est porté par la fiche, pas reconstruit après.** Il suit la
+nomenclature du compte et porte les axes lisibles : format, concept, niveau de
+conscience, version. C'est ce nom qui sera donné au fichier produit, puis lu à
+l'upload.
+
+Si la fiche attend une preuve que le compte ne fournit pas — une photo de
+chantier, une facture, un chiffre — le bloc le dit en tête, en une ligne
+commençant par \`PRÉALABLE :\`, et décrit le visuel tel qu'il sera une fois la
+preuve obtenue. Un brief incomplet se signale, il ne s'invente pas.
+
 ## 4. La première vague
 Les cinq à huit fiches à produire d'abord, et la variable que cette vague isole.
 Rien au-delà : la suite se décide au dépouillement.
@@ -2185,6 +2226,14 @@ le plus courant, et il ne se voit pas dans un classement de performance.
 Cinq à huit créas à produire, chacune avec son format, son ratio, son angle, son
 niveau de conscience, et **le trou précis qu'elle comble**. Une créa qui ne
 comble aucun trou identifié plus haut n'a pas sa place dans cette liste.
+
+Chacune porte un **bloc à copier** — \`<div class="copy">\` avec son
+\`<div class="content">\` et son bouton — contenant un brief autonome destiné à
+être collé dans un outil de génération d'image, et rédigé pour une machine qui
+n'a pas lu le document. Même structure que le stock de production : nom de
+fichier en première ligne, puis format, rôle, scène, texte dans l'image, style,
+zone de sécurité, à ne pas faire. Le nom de fichier suit la nomenclature du
+compte et porte les axes lisibles — il ne se recrée pas à la main après coup.
 
 Termine par la contrainte de volume : rapproche cette liste du nombre de
 conversions que le compte produit par mois. Un compte à dix prospects par mois

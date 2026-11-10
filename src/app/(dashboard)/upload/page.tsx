@@ -2320,7 +2320,31 @@ export default function UploadPage() {
           img.src = preview
         })
       } else {
-        newFiles.push({ id, file: f, preview, type: 'video', ...parsed, aiConfidence: 80 })
+        /**
+         * Une vidéo se mesure comme une image, et ne l'était pas.
+         *
+         * La branche image lisait `naturalWidth` depuis toujours ; la branche
+         * vidéo poussait le fichier sans ratio. Une créa vidéo arrivait donc
+         * sans format, et c'est précisément la part que Meta mesure — un ad set
+         * rend 7 % de CPA en moins au-delà de 20 % de 9:16.
+         *
+         * `loadedmetadata` suffit : les dimensions arrivent avant la première
+         * image. Le repli sans ratio existe parce qu'un conteneur que le
+         * navigateur ne sait pas ouvrir ne doit pas bloquer l'import.
+         */
+        await new Promise<void>(res => {
+          const v = document.createElement('video')
+          v.preload = 'metadata'
+          const pousser = (ratio?: string) => {
+            newFiles.push({ id, file: f, preview, type: 'video', ratio, ...parsed, aiConfidence: 80 })
+            res()
+          }
+          v.onloadedmetadata = () => pousser(
+            v.videoWidth && v.videoHeight ? detectRatio(v.videoWidth, v.videoHeight) : undefined
+          )
+          v.onerror = () => pousser()
+          v.src = preview
+        })
       }
     }
     setFiles(prev => [...prev, ...newFiles])
