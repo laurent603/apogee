@@ -2140,10 +2140,37 @@ est 9:16>
 trop gros, un visage souriant générique, un texte qui déborde>
 \`\`\`
 
-**Le nom de fichier est porté par la fiche, pas reconstruit après.** Il suit la
-nomenclature du compte et porte les axes lisibles : format, concept, niveau de
-conscience, version. C'est ce nom qui sera donné au fichier produit, puis lu à
-l'upload.
+### La nomenclature, huit segments séparés par des barres
+Le nom de fichier porte **les six axes**, pas un extrait. Un nom qui oblige à
+rouvrir la fiche pour savoir à qui la créa parle n'a pas fait son travail.
+
+\`\`\`
+<Média> | <Format> | <concept_en_slug> | <Persona> | <Offre> | <Conscience> | V<n> | <AAAA-MM-JJ>
+\`\`\`
+
+Par exemple :
+
+\`\`\`
+Static | Lofi | notes_calcul_mensuel | Gestionnaire | Simulation | unaware | V1 | 2026-11-10
+\`\`\`
+
+- **Média** : Static, Video, Carrousel
+- **Format** : le format de la matrice, en un mot — Lofi, Grille, Comparatif, Listicle, Chiffre, Capture, Echeance, Schema, Preuve, AvantApres, Resultat
+- **concept_en_slug** : trois ou quatre mots en minuscules reliés par \`_\`, qui disent l'idée et portent l'angle
+- **Persona** : un mot, celui de la fiche
+- **Offre** : un mot — Simulation, Devis, Audit, Rappel, Etude, Aucune
+- **Conscience** : unaware, problem_aware, solution_aware, product_aware, most_aware
+- **V\\<n\\>** : la version, pour les itérations qui suivront
+- **Date** : le jour de production, en \`AAAA-MM-JJ\`
+
+Les barres sont entourées d'une espace de chaque côté. Pas d'accent, pas de
+caractère accentué ni de ponctuation dans les segments : ce nom devient un nom
+de fichier, puis le nom de la publicité.
+
+**Les deux fichiers d'une même créa — un pour le fil, un pour les stories —
+portent le même nom.** Le ratio ne s'écrit pas dedans : il se mesure sur les
+pixels à l'import, et c'est ce nom identique qui les regroupe en une seule
+publicité.
 
 Si la fiche attend une preuve que le compte ne fournit pas — une photo de
 chantier, une facture, un chiffre — le bloc le dit en tête, en une ligne
@@ -2232,8 +2259,18 @@ Chacune porte un **bloc à copier** — \`<div class="copy">\` avec son
 être collé dans un outil de génération d'image, et rédigé pour une machine qui
 n'a pas lu le document. Même structure que le stock de production : nom de
 fichier en première ligne, puis format, rôle, scène, texte dans l'image, style,
-zone de sécurité, à ne pas faire. Le nom de fichier suit la nomenclature du
-compte et porte les axes lisibles — il ne se recrée pas à la main après coup.
+zone de sécurité, à ne pas faire.
+
+Le nom suit la même nomenclature à huit segments, qui porte les six axes :
+
+\`\`\`
+<Média> | <Format> | <concept_en_slug> | <Persona> | <Offre> | <Conscience> | V<n> | <AAAA-MM-JJ>
+Static | Lofi | notes_calcul_mensuel | Gestionnaire | Simulation | unaware | V1 | 2026-11-10
+\`\`\`
+
+Sans accent ni ponctuation dans les segments, et sans ratio : celui-ci se mesure
+sur les pixels à l'import. Les deux fichiers d'une même créa, fil et stories,
+portent le même nom — c'est ce qui les regroupe en une publicité.
 
 Termine par la contrainte de volume : rapproche cette liste du nombre de
 conversions que le compte produit par mois. Un compte à dix prospects par mois

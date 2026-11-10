@@ -246,8 +246,37 @@ const ITER_RE = /^([HhVvAa]\d+|v\d+|\d+|angle\d+|version\d+|iter\d+|it\d+|var\d+
 const FMT_RE = /^(\d+[x:]\d+|square|portrait|landscape|story|reel|banner|feed|carousel)$/i
 const SEP = /[_\-\.]/
 
+/** Les deux segments de la nomenclature à barres qui ne sont pas le concept. */
+const PIPE_VERSION = /^v\d+$/i
+const PIPE_DATE = /^\d{4}[-/]\d{2}[-/]\d{2}$/
+
 function parseFilename(name: string): { concept: string; iteration: string; format: string } {
   const noExt = name.replace(/\.[^/.]+$/, '')
+
+  /**
+   * La nomenclature à barres, posée par les briefs de production.
+   *
+   * Chaque fiche ouvre son bloc à copier par le nom de fichier, qui porte les
+   * six axes — `Static | Lofi | notes_calcul_mensuel | Gestionnaire |
+   * Simulation | unaware | V1 | 2026-11-10`. C'est aussi la convention des
+   * noms de publicités du compte.
+   *
+   * Le découpage ordinaire la hacherait : `-` est un séparateur, donc la date
+   * seule partirait en trois morceaux dont `2026`, que `ITER_RE` prendrait
+   * pour une itération.
+   *
+   * Le concept garde ses barres : c'est lui qui devient le nom de la
+   * publicité, et les deux fichiers d'une même créa — un pour le fil, un pour
+   * les stories — portent le même, donc se regroupent. Le ratio ne se lit plus
+   * dans le nom, il se mesure sur les pixels.
+   */
+  if (noExt.includes('|')) {
+    const seg = noExt.split('|').map((s) => s.trim()).filter(Boolean)
+    const iteration = seg.find((s) => PIPE_VERSION.test(s)) || ''
+    const concept = seg.filter((s) => !PIPE_VERSION.test(s) && !PIPE_DATE.test(s)).join(' | ')
+    return { concept: concept || noExt, iteration, format: '' }
+  }
+
   const parts = noExt.split(SEP).filter(Boolean)
   let iteration = ''; let format = ''; const rest: string[] = []
   for (const p of parts) {
