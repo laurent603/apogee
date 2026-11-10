@@ -70,4 +70,60 @@ Tester large, et mettre l'argent sur ce qui gagne. Sur un compte sain, le haut d
 classement prend 40 à 50 % du budget. Un budget partagé à parts égales entre
 douze formats ne donne à aucun assez de conversions pour que Meta sache lequel
 pousser.
+
+## Le mix de ratios, mesuré par Meta
+
+Le playbook créatif de Meta (Creative Shop, 2026) publie les seules règles de
+diversité adossées à une mesure causale — inférence par double machine learning,
+sur des échantillons de 200 000 à un million d'ad sets.
+
+| Règle, au niveau de l'ad set | Effet mesuré |
+|---|---|
+| Contenir **à la fois** une image (1:1 ou 4:5), une vidéo (1:1 ou 4:5) et une vidéo 9:16 avec audio | −9,1 % de CPA |
+| **Au moins 20 %** des assets en 9:16 avec audio | −7 % de CPA |
+| Mix dominé par le 9:16 audio, puis l'image, puis les autres vidéos | +3 % de conversions incrémentales |
+| 9:16 + audio + zone de sécurité, contre une image, en Reels | −34,5 % de CPA |
+| Au moins un élément créatif en plus : accroche dans les 2 premières secondes, technique sonore, dynamisme visuel, texte incrusté, présence humaine | −16 % de CPA, +29 % de taux de conversion |
+| Advantage+ placements, ou six placements manuels au minimum | condition des règles ci-dessus |
+
+**Trois formats différents par ad set au minimum**, vidéo et image présentes.
+
+Une précaution de lecture : l'API ne dit pas si une vidéo porte une piste son.
+La part de 9:16 se mesure ; « 9:16 avec audio » ne se mesure pas. Ne conclus
+jamais sur la seconde en ayant calculé la première.
+
+## Motivateur plutôt que démographie
+
+Meta oppose deux façons de décrire une cible. La **démographie** est externe et
+large — « dirigeant de 50 ans dans l'industrie ». Le **motivateur** est
+intrinsèque et précis — « j'ai besoin d'une preuve chiffrée sur ma propre
+facture avant d'engager 12 000 € ». Le second produit des créas distinctes, le
+premier produit la même créa déclinée.
+
+La chaîne de conception va du motivateur au concept, sans sauter d'étape :
+
+**motivateur ou barrière → bénéfice de l'offre → thème de message → accroche
+texte → concept créatif**
+
+Pour trouver les cases vides, place les créas qui fonctionnent sur deux axes —
+léché contre lo-fi, émotionnel contre fonctionnel, produit contre personne — et
+regarde où il n'y a rien. Ce qui manque se voit mieux que ce qui manque à une
+liste.
+
+## Tester et diversifier sont deux moments, pas un seul
+
+C'est la contradiction apparente entre ce document et la méthode J7, et elle se
+résout par la chronologie.
+
+**Pendant le test**, une seule variable bouge, les autres sont tenues
+identiques. Un ad set qui mélange trois formats et cinq messages ne se lit pas :
+on ne saura pas lequel a gagné. La diversité y est un bruit.
+
+**Pendant le scale**, on empile dans un même ad set les gagnants déjà tranchés,
+diversifiés sur les six axes et sur les ratios, pour que l'enchère personnalise
+à l'impression. La diversité y est le levier.
+
+Un stock de concepts alimente le premier moment ; les règles de mix gouvernent
+le second. Ne prescris jamais les deux pour le même ad set au même moment —
+et dis toujours de quel moment tu parles.
 `

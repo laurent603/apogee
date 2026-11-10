@@ -717,3 +717,111 @@ export function computeVideoMetrics(ad: Record<string, unknown>) {
     },
   }
 }
+
+/* ── Formats d'affichage ──────────────────────────────────────────────────
+   Le playbook créatif de Meta fait du mix de ratios la règle la plus
+   actionnable qu'il publie : un ad set qui contient une image (1:1 ou 4:5),
+   une vidéo (1:1 ou 4:5) et une vidéo 9:16 avec audio rend 9,1 % de CPA en
+   moins ; au-delà de 20 % d'assets en 9:16, 7 % de moins.
+
+   Apogee en était aveugle, et le disait — « Tu ne vois pas le ratio
+   d'affichage (1:1, 4:5, 9:16) » est écrit dans le prompt de comparaison des
+   formats. Deux edges suffisent pourtant : `advideos` porte les dimensions
+   source dans son entrée `native`, `adimages` les porte directement.
+
+   **L'audio reste invisible.** Aucun champ de l'API ne dit si une vidéo porte
+   une piste son. La règle des 20 % ne se vérifie donc qu'à moitié, et tout ce
+   qui est rendu ici le précise plutôt que de laisser croire le contraire. */
+
+/** Le ratio nommé le plus proche, ou les dimensions quand rien ne colle. */
+function nommerRatio(w: number, h: number): string {
+  if (!w || !h) return 'inconnu'
+  const r = w / h
+  const connus: [string, number][] = [
+    ['9:16', 0.5625], ['4:5', 0.8], ['1:1', 1], ['16:9', 1.7778], ['1.91:1', 1.91],
+  ]
+  let meilleur = connus[0]
+  for (const c of connus) if (Math.abs(r - c[1]) < Math.abs(r - meilleur[1])) meilleur = c
+  // 3 % de tolérance : un 1080×1349 est un 4:5, un 1000×1400 n'en est pas un.
+  return Math.abs(r - meilleur[1]) / meilleur[1] <= 0.03 ? meilleur[0] : `${w}×${h}`
+}
+
+type AssetCrea = { type: 'video' | 'image'; ratio: string }
+
+/**
+ * Les formats d'affichage de chaque publicité du compte.
+ *
+ * Une publicité lancée par Apogee porte deux images — `leadscore_feed` et
+ * `leadscore_story` — donc deux ratios. On rend la liste, pas une valeur.
+ */
+export async function getFormatsCreas(
+  accountId: string,
+  token: string,
+): Promise<{ adId: string; adName: string; assets: AssetCrea[] }[]> {
+  const [images, ads] = await Promise.all([
+    metaFetch(`/${accountId}/adimages`, token, { fields: 'hash,width,height', limit: '500' }, 25000)
+      .catch(() => ({ data: [] })),
+    metaFetch(`/${accountId}/ads`, token, {
+      fields: 'id,name,creative{video_id,image_hash,object_story_spec{link_data{image_hash},video_data{video_id,image_hash}},asset_feed_spec{videos,images}}',
+      limit: '200',
+    }, 25000).catch(() => ({ data: [] })),
+  ])
+
+  const ratioImage = new Map<string, string>()
+  for (const i of (images.data || []) as { hash?: string; width?: number; height?: number }[]) {
+    if (i.hash && i.width && i.height) ratioImage.set(i.hash, nommerRatio(i.width, i.height))
+  }
+
+  const lignes = ((ads.data || []) as Record<string, unknown>[]).map((a) => {
+    const cr = (a.creative || {}) as Record<string, unknown>
+    const oss = (cr.object_story_spec || {}) as Record<string, Record<string, string>>
+    const afs = (cr.asset_feed_spec || {}) as Record<string, Record<string, string>[]>
+
+    const videoIds = [
+      cr.video_id as string | undefined,
+      oss.video_data?.video_id,
+      ...(afs.videos || []).map((v) => v.video_id),
+    ].filter(Boolean) as string[]
+    const hashes = [
+      cr.image_hash as string | undefined,
+      oss.link_data?.image_hash,
+      oss.video_data?.image_hash,
+      ...(afs.images || []).map((i) => i.hash),
+    ].filter(Boolean) as string[]
+
+    return {
+      adId: String(a.id),
+      adName: String(a.name || ''),
+      videoIds: [...new Set(videoIds)],
+      hashes: [...new Set(hashes)],
+    }
+  })
+
+  /**
+   * Les vidéos se résolvent une par une, et non par l'edge `advideos`.
+   *
+   * Celui-ci ne liste que la vidéothèque du compte publicitaire : sur MC
+   * energy, 21 des 23 vidéos diffusées appartiennent à la Page et n'y figurent
+   * pas — elles ressortaient toutes « inconnu ». Une requête par vidéo les
+   * résout, et leur nombre est borné par celui des publicités.
+   */
+  const distinctes = [...new Set(lignes.flatMap((l) => l.videoIds))].slice(0, 200)
+  const ratioVideo = new Map<string, string>()
+  for (let i = 0; i < distinctes.length; i += 20) {
+    await Promise.all(distinctes.slice(i, i + 20).map(async (id) => {
+      const d = await metaFetch(`/${id}`, token, { fields: 'format' }, 20000).catch(() => null)
+      const f = ((d?.format || []) as { filter?: string; width?: number; height?: number }[])
+      const nat = f.find((x) => x.filter === 'native') || f[f.length - 1]
+      if (nat?.width && nat?.height) ratioVideo.set(id, nommerRatio(nat.width, nat.height))
+    }))
+  }
+
+  return lignes.map((l) => ({
+    adId: l.adId,
+    adName: l.adName,
+    assets: [
+      ...l.videoIds.map((id) => ({ type: 'video' as const, ratio: ratioVideo.get(id) || 'inconnu' })),
+      ...l.hashes.map((h) => ({ type: 'image' as const, ratio: ratioImage.get(h) || 'inconnu' })),
+    ] as AssetCrea[],
+  }))
+}

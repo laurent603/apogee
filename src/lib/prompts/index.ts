@@ -2126,6 +2126,77 @@ compte n'a pas, un client identifiable qui n'a rien signé, ou un chiffre que le
 Brand Settings ne donnent pas, n'est pas productible. Dis ce qu'il faut aller
 chercher, ou change de format.`,
 
+    /**
+     * L'audit de diversité, que le compte ne pouvait pas subir.
+     *
+     * `formats` compare les performances par format et le dit lui-même : il ne
+     * voit pas le ratio d'affichage. Depuis `getFormatsCreas`, il est dans le
+     * payload — et avec lui les seules règles de diversité que Meta adosse à
+     * une mesure causale.
+     */
+    diversiteCreative: `${SYSTEM_BASE}
+${MATRICE_CREAS}
+
+Audite la diversité créative de ce compte et dis ce qu'il manque.
+
+## D'abord : de quel moment parle-t-on
+Ouvre en tranchant, en deux lignes : ce compte est-il en phase de **test** —
+on cherche encore le gagnant, une variable bouge à la fois — ou en phase de
+**scale** — les gagnants sont connus, on les empile pour que l'enchère
+personnalise ? Les règles de mix ne s'appliquent qu'au second. Un compte en
+test à qui on prescrit d'empiler cinq formats dans un ad set perd sa capacité à
+lire ses propres résultats.
+
+Si les deux coexistent sur le compte, traite-les séparément et dis quel ad set
+relève de quoi.
+
+## 1. Le mix de ratios, ad set par ad set
+Appuie-toi sur **Formats d'affichage des créas**. Compte les **assets**, pas les
+publicités : une publicité lancée par Apogee en porte deux, un pour le fil et un
+pour les stories.
+
+| Ad set | Assets | Image 1:1/4:5 | Vidéo 1:1/4:5 | Vidéo 9:16 | % 9:16 | Les trois présents ? |
+
+Puis le verdict par ad set, contre les deux seuils mesurés : les trois types
+présents (−9,1 % de CPA), et au moins 20 % de 9:16 (−7 %). Nomme les ad sets
+qui échouent et dis ce qu'il faut produire pour les faire passer — en nombre
+d'assets, pas en intention.
+
+**Ne conclus rien sur l'audio.** La part de 9:16 se mesure, « 9:16 avec audio »
+ne se mesure pas : dis-le une fois, et ne t'en sers pas comme d'un verdict.
+
+## 2. La couverture des 12 formats
+Lesquels tournent réellement, lesquels sont absents. Un compte sain en maintient
+six à huit. Rapproche chaque format actif de sa dépense et de son coût par
+prospect : un format présent avec 2 € de dépense n'est pas testé, il est
+figurant. Distingue les deux.
+
+## 3. Les axes qui ne bougent pas
+Pour chacun des six axes — format, univers visuel, angle, persona, offre,
+niveau de conscience — dis ce qui est couvert et ce qui ne l'est pas, en
+t'appuyant sur les noms de publicités, les textes et le référentiel du compte
+quand il est joint.
+
+L'axe qui décide est le **niveau de conscience**. Un compte peut cocher huit
+formats sur douze en ne parlant qu'à des gens déjà convaincus — c'est le défaut
+le plus courant, et il ne se voit pas dans un classement de performance.
+
+## 4. Ce qu'il manque, en ordre de production
+Cinq à huit créas à produire, chacune avec son format, son ratio, son angle, son
+niveau de conscience, et **le trou précis qu'elle comble**. Une créa qui ne
+comble aucun trou identifié plus haut n'a pas sa place dans cette liste.
+
+Termine par la contrainte de volume : rapproche cette liste du nombre de
+conversions que le compte produit par mois. Un compte à dix prospects par mois
+ne lit pas huit nouvelles créas en deux semaines — donne la cadence réelle.
+
+---
+
+Avant de rendre, vérifie une chose : chaque manque que tu signales s'appuie-t-il
+sur une ligne des données, ou sur une impression ? Un axe déclaré « non couvert »
+parce que les noms de publicités ne le disent pas n'est pas un manque mesuré,
+c'est une nomenclature incomplète — et ça se dit autrement.`,
+
     hooks: `${SYSTEM_BASE}
 
 Écris cinq accroches pour une même idée.

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { anthropic, MODEL_REPORT, MODEL_CHAT, REPORT_REASONING, estTransitoire } from '@/lib/anthropic'
 import { PROMPTS, BLOC_ACTIONNABLES, DISCIPLINE_RAPPORT, DISCIPLINE_GENERATIVE, RAPPORT_HTML, ORDRE_SORTIE, REGLE_NOMS, natureDuRapport } from '@/lib/prompts'
-import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getVentilations, getPreviousPeriod, getLifetimeAdSpend, etiqueter, type LeadSource } from '@/lib/meta'
+import { getAccountOverview, getCampaigns, getAdSets, getAds, getAdsWithCopy, getDailyBreakdown, getVentilations, getPreviousPeriod, getLifetimeAdSpend, getFormatsCreas, etiqueter, type LeadSource } from '@/lib/meta'
 import { prisma } from '@/lib/db'
 import { renderKnowledgeForPrompt } from '@/lib/notion'
 import { fetchAdImages, toImageBlocks } from '@/lib/adImages'
@@ -107,6 +107,11 @@ export async function POST(req: NextRequest) {
           // Fatigue and trend prompts need a real baseline to subtract from
           getPreviousPeriod(accountId, token, datePreset, leadSource).catch(() => null),
         ])
+
+        // Le ratio d'affichage de chaque asset : voir `getFormatsCreas`. Sans
+        // lui, la règle la plus actionnable du playbook créatif de Meta — un
+        // mix image + vidéo + 9:16 — n'est pas vérifiable.
+        const formats = await getFormatsCreas(accountId, token).catch(() => [])
 
         // Un nom de publicité n'identifie rien : voir `etiqueter`. La campagne
         // départage les homonymes, et contrairement à un identifiant elle se lit.
@@ -269,6 +274,17 @@ Cite-le mot pour mot quand tu analyses une créa ; ne paraphrase pas et n'invent
 aucun texte. Une publicité dont _copy est null n'a pas de texte exploitable — dis-le
 au lieu de raisonner sur son nom de fichier.` : ''}
 ${JSON.stringify(ads, null, 2)}
+
+## Formats d'affichage des créas
+Le ratio de chaque asset porté par chaque publicité. Une publicité lancée par
+Apogee porte deux visuels — un pour le fil, un pour les stories — donc deux
+ratios : compte les assets, jamais les publicités, quand tu mesures un mix.
+
+**L'audio n'est pas lisible.** Aucun champ de l'API ne dit si une vidéo porte
+une piste son. Tu peux donc mesurer la part de 9:16, jamais « 9:16 avec audio » :
+dis-le au lieu de conclure sur une règle que les données ne permettent pas de
+vérifier.
+${formats.length ? JSON.stringify(formats, null, 2) : 'Indisponible — ne conclus rien sur les formats.'}
 
 ## Données journalières
 ${JSON.stringify(daily, null, 2)}

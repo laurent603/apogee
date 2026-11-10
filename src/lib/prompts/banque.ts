@@ -277,6 +277,13 @@ const CREA_ANALYSE: EntreeBanque[] = [
     etat: 'pret',
     prompt: corps(PROMPTS.creativeStrategy.formats),
   },
+  {
+    id: 'cs-diversite',
+    label: 'Audit de diversité créative',
+    etat: 'pret',
+    note: 'Mix de ratios contre les seuils mesurés par Meta, couverture des 12 formats, axes qui ne bougent pas',
+    prompt: corps(PROMPTS.creativeStrategy.diversiteCreative),
+  },
 ]
 
 const CREA_STRATEGY: EntreeBanque[] = [
