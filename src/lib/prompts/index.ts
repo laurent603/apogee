@@ -390,7 +390,7 @@ Assemble à partir de ceux-là. Ils existent déjà dans la feuille de base.
 <div class="wrap" style="padding-bottom:0">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,var(--accent),var(--accent-2))">🔱</div>
+      <div style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;letter-spacing:.5px;background:linear-gradient(135deg,var(--accent),var(--accent-2))">SB</div>
       <div><h1>Andromeda Meta Ads Audit</h1>
         <p style="font-size:12px;color:var(--encre-4)">SB Piscine · Lead Gen · Occitanie / PACA</p></div>
     </div>
@@ -401,6 +401,9 @@ Assemble à partir de ceux-là. Ils existent déjà dans la feuille de base.
   </div>
 </div>
 \`\`\`
+Dans la pastille, les **initiales du compte** — jamais d'emoji. Un soleil, une
+maison ou une piscine dans l'en-tête d'un livrable client le fait descendre
+d'un cran.
 
 **Score en anneau** — pour un verdict noté. Trois colonnes : jauge, explication, note.
 \`\`\`html
@@ -613,6 +616,10 @@ n'existe pas, et c'est exactement ce qui se produit.
 - **Créa statique** → feuille de production : la scène décrite, le texte
   incrusté mot pour mot, le style, la zone de sécurité, les pièges à éviter.
   Pas de minutage, pas de « plan 1 ».
+
+Dans les deux cas, **une feuille par ligne, sur toute la largeur** — jamais deux
+côte à côte. Une feuille est un document qu'on imprime et qu'on tient, pas une
+tuile dans une grille.
 
 Le médium se lit dans le premier segment du nom de la créa — \`Static\`,
 \`Video\`, \`Carrousel\`. Une demande de « feuilles » sur un stock entièrement
@@ -2133,11 +2140,22 @@ Puis une ligne sur ce que la matrice **ne couvre pas** pour ce compte : les
 formats que tu as écartés, et pourquoi. Un format écarté en conscience vaut mieux
 qu'un format rempli pour faire le compte.
 
-## 3. Les vingt fiches
+## 3. Les vingt fiches, rangées par niveau de conscience
 
 Une fiche par créa, numérotée. Elle porte d'abord son identité — nom de
 fichier, les six axes, l'idée en une phrase, l'objection traitée, et ce qu'elle
 teste que les dix-neuf autres ne testent pas.
+
+**Les vingt fiches ne tiennent pas dans une seule section.** Elles se
+répartissent en **un onglet par niveau de conscience**, dans l'ordre du funnel,
+chacun titré par son niveau et son compte : « Unaware — 4 fiches »,
+« Problem aware — 6 fiches ». C'est ainsi que le document se travaille — on
+produit un niveau à la fois. Un onglet unique qui empile les vingt oblige à le
+relire pour retrouver celles qui vont ensemble.
+
+**Une fiche par ligne, sur toute la largeur.** Jamais deux fiches côte à côte :
+chacune porte deux blocs à copier, et un bloc à copier sur une demi-largeur ne
+se lit plus.
 
 ### Puis **deux** blocs à copier, dans cet ordre, sur chaque fiche
 
