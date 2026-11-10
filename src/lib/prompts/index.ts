@@ -2095,32 +2095,25 @@ formats que tu as écartés, et pourquoi. Un format écarté en conscience vaut 
 qu'un format rempli pour faire le compte.
 
 ## 3. Les vingt fiches
-Une fiche par créa, numérotée. Chacune porte :
 
-- **Nom de fichier** selon la nomenclature du compte, les six axes lisibles dedans
-- **Format** (parmi les 12) · **Univers visuel** · **Angle** · **Persona** · **Offre** · **Niveau de conscience**
-- **L'idée** en une phrase : ce que le lecteur comprend en une demi-seconde
-- **Le visuel** : ce qu'on voit, précisément. Cadrage, sujet, décor, ce qui est
-  écrit dans l'image et où. Assez précis pour être donné à un outil de génération
-  ou à un graphiste sans autre explication.
-- **Le texte incrusté**, mot pour mot
-- **L'accroche** (texte principal), mot pour mot
-- **Le titre** et la **description**, mot pour mot
-- **L'objection traitée**, reprise des Brand Settings
-- **Pourquoi cette créa existe** : ce qu'elle teste que les dix-neuf autres ne testent pas
+Une fiche par créa, numérotée. Elle porte d'abord son identité — nom de
+fichier, les six axes, l'idée en une phrase, l'objection traitée, et ce qu'elle
+teste que les dix-neuf autres ne testent pas.
 
-### Le bloc de production, obligatoire sur chaque fiche
-Chaque fiche se termine par un **bloc à copier** — \`<div class="copy">\` avec son
-\`<div class="content">\` et son bouton — qui contient un brief autonome, destiné
-à être collé tel quel dans un outil de génération d'image. Il s'adresse à une
-machine qui n'a pas lu le reste du document : tout ce dont elle a besoin est
-dedans, et rien d'autre.
+### Puis **deux** blocs à copier, dans cet ordre, sur chaque fiche
 
-Il s'écrit en texte brut, dans cet ordre, sans balise ni Markdown :
+C'est la partie qui compte : ces deux blocs sont ce que l'utilisateur emporte.
+Chacun est un \`<div class="copy">\` contenant un \`<div class="content">\` et son
+bouton, précédé d'un titre qui dit où il va. **Deux blocs, pas un.** Ils
+servent deux outils différents et ne se remplacent pas l'un l'autre.
+
+**Bloc 1 — « Brief de génération »**, à coller dans un outil d'image. Il
+s'adresse à une machine qui n'a pas lu le document : tout est dedans, rien
+d'autre. En texte brut, sans balise ni Markdown, dans cet ordre :
 
 \`\`\`
-NOM DE FICHIER : <la nomenclature complète, exactement comme elle devra être
-uploadée — c'est la première ligne, pour qu'elle n'ait jamais à être recréée>
+NOM DE FICHIER : <la nomenclature complète des huit segments, première ligne,
+pour qu'elle n'ait jamais à être recréée à la main>
 
 FORMAT : <ratio>, <image fixe ou vidéo>, <où elle sera diffusée>
 RÔLE : <ce que le lecteur doit comprendre en une demi-seconde>
@@ -2139,6 +2132,13 @@ est 9:16>
 À NE PAS FAIRE : <les deux ou trois pièges propres à cette créa — un logo
 trop gros, un visage souriant générique, un texte qui déborde>
 \`\`\`
+
+**Bloc 2 — « Copy de l'annonce »**, à coller dans Ads Manager. Le texte
+principal mot pour mot, puis \`TITRE :\` et \`DESCRIPTION :\`. Rien d'autre : pas
+de commentaire, pas de justification, c'est du texte à coller.
+
+Une fiche qui ne porte qu'un seul de ces deux blocs est incomplète. Avant de
+rendre, compte-les : vingt fiches font **quarante blocs**.
 
 ### La nomenclature, huit segments séparés par des barres
 Le nom de fichier porte **les six axes**, pas un extrait. Un nom qui oblige à
@@ -2183,7 +2183,16 @@ Rien au-delà : la suite se décide au dépouillement.
 
 ---
 
-Avant de rendre, relis les vingt fiches et vérifie deux choses.
+Avant de rendre, relis les vingt fiches et vérifie quatre choses.
+
+**Les deux blocs.** Chaque fiche porte un « Brief de génération » et une
+« Copy de l'annonce ». Vingt fiches font quarante blocs. Une fiche qui n'en a
+qu'un est à compléter, pas à rendre.
+
+**Les huit segments.** Compte les barres de chaque nom de fichier : il en faut
+sept, donc huit segments. Un nom qui a perdu le persona, l'offre ou la date est
+à refaire — ce sont précisément les axes qu'on cherche à rendre lisibles sans
+rouvrir la fiche.
 
 **Les doublons.** Deux fiches qui partagent le format, l'angle et le niveau de
 conscience n'en font qu'une, même si le visuel diffère : l'algorithme les lira
