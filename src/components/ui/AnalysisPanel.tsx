@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
+import { RapportSections } from '@/components/scalr/RapportSections'
 
 interface AnalysisPanelProps {
   title: string
@@ -135,14 +136,20 @@ export function AnalysisPanel({ title, description, category, analysisType, date
               Copier
             </button>
           </div>
-          <div
-            className="report-content prose max-w-none"
-            dangerouslySetInnerHTML={{
-              __html: result.startsWith('<')
-                ? result
-                : result.replace(/\n/g, '<br/>'),
-            }}
-          />
+          {/**
+            * Une réponse arrive en deux morceaux — une synthèse en Markdown,
+            * la marque `<!--rapport-->`, puis un document HTML complet. Ce
+            * panneau les injectait ensemble, en remplaçant les retours à la
+            * ligne par des `<br/>` : le Markdown s'affichait avec ses
+            * astérisques, et le document déversait sa feuille sombre et ses
+            * panneaux `display:none` dans la page — d'où l'écran vide, le
+            * « /100 » flottant et les onglets inertes.
+            *
+            * `RapportSections` sépare les deux et rend le document dans un
+            * cadre isolé, comme partout ailleurs. Ce panneau était le dernier
+            * à ne pas le faire.
+            */}
+          <RapportSections markdown={result} />
         </div>
       )}
     </div>
