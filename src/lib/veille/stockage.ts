@@ -8,10 +8,12 @@
 const BUCKET = 'veille'
 
 function config() {
-  const url = process.env.SUPABASE_URL
-  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !cle) throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquant')
-  return { url: url.replace(/\/$/, ''), cle }
+  // Saisie à la main dans Vercel : guillemets et « https:// » oubliés y
+  // passent sans erreur, et cassaient chaque envoi (« unknown scheme »).
+  const brute = process.env.SUPABASE_URL?.trim().replace(/^["']|["']$/g, '').replace(/\/$/, '')
+  const cle = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim().replace(/^["']|["']$/g, '')
+  if (!brute || !cle) throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquant')
+  return { url: /^https?:\/\//.test(brute) ? brute : `https://${brute}`, cle }
 }
 
 const EXTENSIONS: Record<string, string> = {
