@@ -107,12 +107,24 @@ function BarresPourcent({ libelles, total }: { libelles: { libelle: string; n: n
   )
 }
 
-export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom: string }; dossiers: Dossier[] }) {
+export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom: string; suivie?: boolean }; dossiers: Dossier[] }) {
   const [pubs, setPubs] = useState<PubVeille[] | null>(null)
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
   const [ouverte, setOuverte] = useState<PubVeille | null>(null)
   const [analyse, setAnalyse] = useState<AnalyseMarque | null>(null)
   const [analyseEnCours, setAnalyseEnCours] = useState(false)
+  const [suivie, setSuivie] = useState(!!marque.suivie)
+
+  async function basculerSuivi() {
+    const r = await fetch('/api/veille/suivi', {
+      method: suivie ? 'DELETE' : 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ marqueId: marque.id }),
+    })
+    if (!r.ok) return void toast.error('Changement impossible')
+    setSuivie(!suivie)
+    toast.success(suivie ? 'Marque retirée de la veille' : 'Marque sous veille : vérifiée chaque jour')
+  }
 
   useEffect(() => {
     setAnalyse(null)
@@ -168,6 +180,10 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
             {r.periode && <> · diffusion de {date(r.periode.de)} à {date(r.periode.a)}</>}
           </p>
         </div>
+        <button type="button" onClick={basculerSuivi} title={suivie ? 'Ne plus surveiller cette marque' : undefined}
+          className={suivie ? 'btn-secondary' : 'btn-primary'}>
+          {suivie ? 'Veille active ✓' : 'Activer la veille'}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

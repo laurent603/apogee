@@ -16,6 +16,10 @@
       try { parcourir(JSON.parse(ligne)) } catch {}
     }
     if (pubs.length) window.postMessage({ source: 'apogee-veille', pubs }, location.origin)
+    // Le total annoncé : la Veille ne conclut qu'une pub est arrêtée que si
+    // elle a tout lu.
+    const total = texte.match(/"search_results_connection":\{"count":(\d+)/)
+    if (total) window.postMessage({ source: 'apogee-veille', total: Number(total[1]) }, location.origin)
   }
 
   // La fiche « Voir les détails » d'une pub (AdLibraryV3AdDetailsQuery) :

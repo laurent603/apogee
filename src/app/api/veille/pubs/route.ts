@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true } } },
     }),
     prisma.veillePub.count({ where }),
-    prisma.veilleMarque.findMany({ select: { id: true, nom: true }, orderBy: { nom: 'asc' } }),
+    prisma.veilleMarque.findMany({ select: { id: true, nom: true, suivie: true }, orderBy: { nom: 'asc' } }),
   ])
 
   const pubs = lignes.map((l) => ({

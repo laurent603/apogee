@@ -2,9 +2,11 @@
 // et envoie la pub correspondante, reçue de interception.js.
 const pubs = new Map()
 const details = new Map()
+let total = null
 window.addEventListener('message', (e) => {
   if (e.source !== window || e.data?.source !== 'apogee-veille') return
   if (e.data.detail) return void details.set(e.data.detail.id, e.data.detail.reponse)
+  if (typeof e.data.total === 'number') return void (total = Math.max(total ?? 0, e.data.total))
   for (const p of e.data.pubs) pubs.set(String(p.ad_archive_id), p)
 })
 
@@ -80,8 +82,10 @@ chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
       avant = pubs.size
     }
     const retenues = [...pubs.values()].slice(0, msg.max)
-    await lireDetails(retenues.map((p) => String(p.ad_archive_id)))
-    repondre({ pubs: retenues, details: Object.fromEntries(details) })
+    // La Veille connaît déjà la plupart des pubs : elle ne lit que la fiche des nouvelles.
+    const connus = new Set(msg.connus ?? [])
+    await lireDetails(retenues.map((p) => String(p.ad_archive_id)).filter((id) => !connus.has(id)))
+    repondre({ pubs: retenues, details: Object.fromEntries(details), complet: total !== null && pubs.size >= total })
   })()
   return true
 })

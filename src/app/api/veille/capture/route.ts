@@ -1,29 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { timingSafeEqual } from 'node:crypto'
 import { prisma } from '@/lib/db'
 import { normaliserPub, normaliserTransparence, type PubNormalisee } from '@/lib/veille/adLibrary'
 import { copierMedia } from '@/lib/veille/stockage'
+import { cleExtensionValide } from '@/lib/veille/cle'
 
 /**
  * Reçoit une pub sauvegardée depuis l'extension Chrome, sur la Meta Ad
  * Library : la range en base, recopie ses médias, l'ajoute à la bibliothèque.
  * Avec `scan: true` (Espion), la pub entre seulement dans la veille, sans
  * passer par la bibliothèque, et sa vidéo est prise en définition standard.
- *
- * L'extension n'a pas la session Apogee (elle tourne sur facebook.com) : elle
- * s'authentifie avec la clé partagée VEILLE_EXTENSION_KEY.
  */
 
 // Une vidéo de 50 Mo se télécharge puis se renvoie au stockage.
 export const maxDuration = 120
-
-function cleValide(recue: string | null): boolean {
-  const attendue = process.env.VEILLE_EXTENSION_KEY
-  if (!attendue || !recue) return false
-  const a = Buffer.from(recue)
-  const b = Buffer.from(attendue)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
 
 type MediaStocke = { type: 'image' | 'video'; chemin: string; apercu?: string }
 
@@ -40,7 +29,7 @@ async function copierMedias(pub: PubNormalisee): Promise<MediaStocke[]> {
 }
 
 export async function POST(req: NextRequest) {
-  if (!cleValide(req.headers.get('x-veille-cle'))) {
+  if (!cleExtensionValide(req)) {
     return NextResponse.json({ erreur: 'Clé de l’extension refusée' }, { status: 401 })
   }
 

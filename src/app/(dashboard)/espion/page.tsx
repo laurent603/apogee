@@ -37,8 +37,8 @@ export default function EspionPage() {
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
   const [pubs, setPubs] = useState<PubVeille[]>([])
   // La marque dont le rapport s'affiche : choisie après un scan ou dans la liste.
-  const [choisie, setChoisie] = useState<{ id: string; nom: string } | null>(null)
-  const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string }[]>([])
+  const [choisie, setChoisie] = useState<{ id: string; nom: string; suivie?: boolean } | null>(null)
+  const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string; suivie: boolean }[]>([])
   const [dossiers, setDossiers] = useState<Dossier[]>([])
 
   useEffect(() => {
@@ -57,8 +57,8 @@ export default function EspionPage() {
         const n = new Map<string, number>()
         for (const p of scannees) n.set(p.marque.id, (n.get(p.marque.id) ?? 0) + 1)
         const premier = [...n.entries()].sort((a, b) => b[1] - a[1])[0]
-        setChoisie(premier ? scannees.find((p) => p.marque.id === premier[0])!.marque : null)
         if (d?.marques) setToutesMarques(d.marques)
+        setChoisie(premier ? d.marques.find((x: { id: string }) => x.id === premier[0]) ?? scannees.find((p) => p.marque.id === premier[0])!.marque : null)
         setEtat({ etape: 'fini', trouvees: m.ids.length, erreurs: m.erreurs, premiereErreur: m.premiereErreur })
       }
     }
@@ -66,7 +66,14 @@ export default function EspionPage() {
     window.postMessage({ source: 'apogee-page', type: 'ping' }, location.origin)
     const delai = setTimeout(() => setExtension((v) => v ?? false), 1500)
     fetch('/api/veille/dossiers').then((r) => (r.ok ? r.json() : null)).then((d) => d && setDossiers(d.dossiers))
-    fetch('/api/veille/pubs?n=1').then((r) => (r.ok ? r.json() : null)).then((d) => d && setToutesMarques(d.marques))
+    fetch('/api/veille/pubs?n=1').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d) return
+      setToutesMarques(d.marques)
+      // ?marque=… : arrivée depuis la page Veille.
+      const id = new URLSearchParams(location.search).get('marque')
+      const m = id && d.marques.find((x: { id: string }) => x.id === id)
+      if (m) setChoisie(m)
+    })
     return () => {
       window.removeEventListener('message', ecoute)
       clearTimeout(delai)
@@ -157,7 +164,7 @@ export default function EspionPage() {
           {annonceurs.length > 1 && (
             <div className="flex flex-wrap gap-2">
               {annonceurs.map((a) => (
-                <button key={a.id} type="button" onClick={() => setChoisie(a)}
+                <button key={a.id} type="button" onClick={() => setChoisie(toutesMarques.find((m) => m.id === a.id) ?? a)}
                   className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
                     choisie?.id === a.id ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
                   {a.nom} <span className={choisie?.id === a.id ? 'text-white/70' : 'text-gray-400'}>{a.n}</span>

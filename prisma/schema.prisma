@@ -616,6 +616,9 @@ model VeilleMarque {
   categorie     String?
   /// Suivie = vérifiée chaque nuit, avec alerte sur les nouvelles pubs.
   suivie        Boolean     @default(false)
+  /// Début du suivi : les pubs vues après sont des nouveautés, celles
+  /// d'avant forment la base de départ.
+  suivieDepuis  DateTime?
   derniereVerif DateTime?
   /// Analyse IA de la marque (Gemini) : synthèse, angles, concepts, personas.
   analyse       Json?

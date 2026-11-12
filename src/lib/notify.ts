@@ -201,6 +201,28 @@ export async function notifyLaunchSuccess(o: {
   })
 }
 
+/** Veille : une marque suivie a de nouvelles pubs. Un mail par marque et par vérification. */
+export async function notifyVeille(o: {
+  marque: string
+  nouvelles: { titre: string | null; texte: string | null; adArchiveId: string }[]
+  arretees: number
+}): Promise<void> {
+  const n = o.nouvelles.length
+  const lien = process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL.replace(/\/$/, '')}/veille` : null
+  await sendAlertEmail({
+    subject: `Veille — ${o.marque} : ${n} nouvelle${n > 1 ? 's' : ''} pub${n > 1 ? 's' : ''}`,
+    headline: `${n} nouvelle${n > 1 ? 's' : ''} pub${n > 1 ? 's' : ''} chez ${o.marque}`,
+    accent: '#3434ef',
+    body: [
+      ...o.nouvelles.slice(0, 10).map((p) =>
+        `- **${p.titre || (p.texte ?? '').slice(0, 80) || 'Sans titre'}** — [voir dans la Ad Library](https://www.facebook.com/ads/library/?id=${p.adArchiveId})`),
+      n > 10 ? `- … et ${n - 10} autre${n - 10 > 1 ? 's' : ''}` : '',
+      o.arretees ? `\n${o.arretees} pub${o.arretees > 1 ? 's' : ''} arrêtée${o.arretees > 1 ? 's' : ''} depuis la dernière vérification.` : '',
+      lien ? `\n[Ouvrir la Veille dans Apogee](${lien})` : '',
+    ].filter(Boolean).join('\n'),
+  })
+}
+
 /* ─── Envoi ─────────────────────────────────────────────────────────────── */
 
 async function sendAlertEmail(o: {
