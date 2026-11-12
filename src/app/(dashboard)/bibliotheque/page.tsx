@@ -274,7 +274,7 @@ export default function BibliothequePage() {
       </div>
 
       {ouverte && (
-        <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} fermer={() => setOuverte(null)} actions={
+        <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} fermer={() => setOuverte(null)} apresMasquage={() => { chargerPubs(); chargerDossiers() }} actions={
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Classer dans un dossier</p>
             <div className="flex flex-wrap gap-1.5">
@@ -341,7 +341,7 @@ function Importer({ dossiers, vue, fermer, fini }: {
         <textarea value={texte} onChange={(e) => setTexte(e.target.value)} rows={5} className="input font-mono text-xs" aria-label="Liens ou ID à importer"
           placeholder={'https://www.facebook.com/ads/library/?id=1123972317269386\n2124918468134275'} />
         <div className="flex items-center gap-2">
-          <select aria-label="Dossier de destination" value={dossierId} onChange={(e) => setDossierId(e.target.value)} className="select flex-1">
+          <select aria-label="Dossier de destination" value={dossierId} onChange={(e) => setDossierId(e.target.value)} className="select select-chevron flex-1">
             <option value="">Sans dossier</option>
             {dossiers.map((d) => <option key={d.id} value={d.id}>{'\u00a0\u00a0'.repeat(d.niveau)}{d.nom}</option>)}
           </select>

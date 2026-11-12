@@ -22,16 +22,16 @@ export async function GET() {
     await Promise.all(
       marques.map((m) =>
         prisma.veillePub.findMany({
-          where: { marqueId: m.id, premiereVue: { gt: m.suivieDepuis ?? new Date() } },
+          where: { marqueId: m.id, masquee: false, premiereVue: { gt: m.suivieDepuis ?? new Date() } },
           orderBy: { premiereVue: 'desc' },
           take: 100,
-          include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true } } },
+          include: { marque: { select: { id: true, nom: true, categorie: true } }, sauvegardes: { select: { id: true, dossierId: true } } },
         }),
       ),
     )
   ).flat()
 
-  const actives = await prisma.veillePub.groupBy({ by: ['marqueId'], where: { marqueId: { in: marques.map((m) => m.id) }, active: true }, _count: true })
+  const actives = await prisma.veillePub.groupBy({ by: ['marqueId'], where: { marqueId: { in: marques.map((m) => m.id) }, active: true, masquee: false }, _count: true })
   const nbActives = new Map(actives.map((a) => [a.marqueId, a._count]))
 
   const lignes = marques.map((m) => {
@@ -41,6 +41,7 @@ export async function GET() {
     return {
       id: m.id,
       nom: m.nom,
+      categorie: m.categorie,
       pageId: m.pageId,
       suivieDepuis: m.suivieDepuis,
       derniereVerif: m.derniereVerif,

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   const p = req.nextUrl.searchParams
   const n = Math.min(Math.max(Number(p.get('n')) || PAR_PAGE, 1), MAX)
-  const where: Prisma.VeillePubWhereInput = {}
+  const where: Prisma.VeillePubWhereInput = { masquee: false, marque: { masquee: false } }
 
   const q = p.get('q')?.trim()
   if (q) where.id = { in: await idsCorrespondant(q) }
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   if (p.get('statut') === 'active') where.active = true
   if (p.get('statut') === 'inactive') where.active = false
   if (p.get('marque')) where.marqueId = p.get('marque')!
-  if (p.get('categorie')) where.marque = { categorie: p.get('categorie')! }
+  if (p.get('categorie')) where.marque = { masquee: false, categorie: p.get('categorie')! }
   const jours = Number(p.get('duree'))
   if (jours > 0) where.debut = { lte: new Date(Date.now() - jours * 86_400_000) }
 
@@ -70,11 +70,11 @@ export async function GET(req: NextRequest) {
       include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true, createdAt: true } } },
     }),
     prisma.veillePub.count({ where }),
-    prisma.veilleMarque.findMany({ select: { id: true, nom: true, suivie: true, categorie: true }, orderBy: { nom: 'asc' } }),
+    prisma.veilleMarque.findMany({ where: { masquee: false }, select: { id: true, nom: true, suivie: true, categorie: true }, orderBy: { nom: 'asc' } }),
   ])
 
   // Les puces de Discovery : nombre de pubs par catégorie, sur toute la base.
-  const parMarque = await prisma.veillePub.groupBy({ by: ['marqueId'], _count: true })
+  const parMarque = await prisma.veillePub.groupBy({ by: ['marqueId'], where: { masquee: false, marque: { masquee: false } }, _count: true })
   const categorieDe = new Map(marques.map((m) => [m.id, m.categorie ?? 'Autre']))
   const nParCategorie = new Map<string, number>()
   for (const g of parMarque) {
@@ -93,4 +93,13 @@ export async function GET(req: NextRequest) {
   }))
 
   return NextResponse.json({ pubs, total, marques, categories })
+}
+
+/** Masquer une pub : elle disparaît partout et n'est plus réimportée. */
+export async function PATCH(req: NextRequest) {
+  if (!(await getServerSession(authOptions))) return NextResponse.json({ erreur: 'Non connecté' }, { status: 401 })
+  const corps = await req.json().catch(() => null)
+  if (typeof corps?.id !== 'string' || corps.masquee !== true) return NextResponse.json({ erreur: 'Pub invalide' }, { status: 400 })
+  await prisma.veillePub.update({ where: { id: corps.id }, data: { masquee: true } })
+  return NextResponse.json({ ok: true })
 }

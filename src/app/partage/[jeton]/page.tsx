@@ -22,7 +22,7 @@ export default async function PagePartage({ params }: { params: { jeton: string 
   for (let i = 0; i < branche.length; i++) for (const d of tous) if (d.parentId === branche[i]) branche.push(d.id)
 
   const lignes = await prisma.veillePub.findMany({
-    where: { sauvegardes: { some: { dossierId: { in: branche } } } },
+    where: { masquee: false, marque: { masquee: false }, sauvegardes: { some: { dossierId: { in: branche } } } },
     orderBy: { premiereVue: 'desc' },
     include: { marque: { select: { id: true, nom: true } } },
   })

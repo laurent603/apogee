@@ -74,10 +74,10 @@ model AdAccount {
   copyGenerations CopyGeneration[]
   ghl             GhlConnection?
   createdAt       DateTime           @default(now())
-
-  @@unique([userId, metaAccountId])
   briefs          Brief[]
   audienceSets    AudienceSet[]
+
+  @@unique([userId, metaAccountId])
 }
 
 /// Une liste d'audiences à tester, enregistrée pour être rejouée.
@@ -216,53 +216,53 @@ model BrandSettings {
   /// exactement comme avant.
   /// Cible distincte sur audience chaude : juger un retargeting et une
   /// audience froide au même seuil en mal-classe forcément l'un des deux.
-  cpaCibleRetargeting   Float?
+  cpaCibleRetargeting Float?
   /// Une créa passe si son coût reste sous cible × ce facteur.
-  toleranceWinner       Float?
+  toleranceWinner     Float?
   /// Dépense minimale avant de juger, en multiples de la cible.
-  facteurRegardable     Float?
+  facteurRegardable   Float?
   /// Dépense qui valide un winner, en multiples de la cible.
-  facteurConfirme       Float?
+  facteurConfirme     Float?
   /// Résultats minimum pour conclure — publicités, puis campagnes et ad sets.
-  volumeMinWinner       Int?
-  volumeMinEntite       Int?
+  volumeMinWinner     Int?
+  volumeMinEntite     Int?
   /// Hook rate minimal exigé d'une vidéo pour être winner.
-  hookMinWinner         Float?
+  hookMinWinner       Float?
   /// Fréquence à partir de laquelle l'audience est jugée sous pression.
-  freqFatigue           Float?
+  freqFatigue         Float?
   /// En dessous, le clic est considéré comme décroché.
-  linkCtrFaible         Float?
-  ctrFaible             Float?
+  linkCtrFaible       Float?
+  ctrFaible           Float?
   /// Âge en deçà duquel une ligne sans signal reste un test, pas un problème.
-  joursNouveauTest      Int?
+  joursNouveauTest    Int?
 
   /// ── Économie du compte ───────────────────────────────────────────────
   /// Part de la marge par client qu'on accepte de consacrer à l'acquisition.
   /// Le reste est le profit. `averageOrderValue` et `productMarginPct`
   /// portent déjà la valeur client et la marge.
-  partAcquisition       Float?
+  partAcquisition    Float?
   /// Caler les verdicts sur le CPL déduit du tunnel plutôt que sur `targetCpa`.
-  cplDerive             Boolean   @default(false)
-  targetRoas            Float?
-  targetMer             Float?
-  priceRange            String?
+  cplDerive          Boolean  @default(false)
+  targetRoas         Float?
+  targetMer          Float?
+  priceRange         String?
   // Market
-  competitors           String?
-  seasonality           String?
-  peakMonths            String?
-  conversionChannel     String?
-  landingPageType       String?
-  trackingSetup         String?
-  crmIntegration        String?
+  competitors        String?
+  seasonality        String?
+  peakMonths         String?
+  conversionChannel  String?
+  landingPageType    String?
+  trackingSetup      String?
+  crmIntegration     String?
   // 'total' | 'meta' | 'website' — see LeadSource in src/lib/meta.ts
-  leadSource            String?   @default("total")
+  leadSource         String?  @default("total")
   /// Reports are emailed here for every agent on the account, so the address is
   /// entered once instead of on each agent
-  reportEmail           String?
-  reportEmailEnabled    Boolean   @default(false)
-  trackedEvents         String?
-  trustpilotUrl         String?
-  updatedAt             DateTime  @updatedAt
+  reportEmail        String?
+  reportEmailEnabled Boolean  @default(false)
+  trackedEvents      String?
+  trustpilotUrl      String?
+  updatedAt          DateTime @updatedAt
 }
 
 model AutopilotAgent {
@@ -305,22 +305,22 @@ model LaunchHistory {
 }
 
 model Report {
-  id          String          @id @default(cuid())
-  title       String
-  type        String // audit | performance | media_buying | creative | autopilot
-  content     String // HTML or Markdown
-  adAccountId String
-  adAccount   AdAccount       @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
-  agentId     String?
-  agent       AutopilotAgent? @relation(fields: [agentId], references: [id])
+  id           String          @id @default(cuid())
+  title        String
+  type         String // audit | performance | media_buying | creative | autopilot
+  content      String // HTML or Markdown
+  adAccountId  String
+  adAccount    AdAccount       @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  agentId      String?
+  agent        AutopilotAgent? @relation(fields: [agentId], references: [id])
   /// La publicité analysée, quand l'analyse en vise une.
   ///
   /// Sans elle, un rapport ne porte que le compte et un titre générique : on
   /// ne peut ni le retrouver depuis la créa, ni comparer deux analyses de la
   /// même créa à un mois d'écart. Le nom est copié plutôt que rejoint —
   /// il doit rester lisible même si la publicité disparaît de Meta.
-  adId        String?
-  adName      String?
+  adId         String?
+  adName       String?
   /// Quand le rapport a été téléchargé. Sert à le signaler dans la liste :
   /// sans trace en base, la marque disparaîtrait au rafraîchissement.
   downloadedAt DateTime?
@@ -331,8 +331,8 @@ model Report {
   /// l'historique n'en gardait que la dernière réponse. On enregistre donc les
   /// tours pour pouvoir reprendre la conversation là où elle s'est arrêtée.
   messages     Json?
-  isRead      Boolean         @default(false)
-  createdAt   DateTime        @default(now())
+  isRead       Boolean         @default(false)
+  createdAt    DateTime        @default(now())
 
   @@index([adAccountId, createdAt])
   @@index([adId])
@@ -393,16 +393,16 @@ model MetaDailyAd {
   campaignId    String?
   attribution   String   @default("default") // default | 1d_click | 7d_click | 1d_view
 
-  spend          Float @default(0)
-  impressions    Int   @default(0)
-  reach          Int   @default(0)
-  clicks         Int   @default(0)
-  linkClicks     Int   @default(0)
+  spend            Float @default(0)
+  impressions      Int   @default(0)
+  reach            Int   @default(0)
+  clicks           Int   @default(0)
+  linkClicks       Int   @default(0)
   /// Clics sur un lien dédoublonnés par personne. Sert le « CTR unique », que
   /// Meta rapporte à la couverture et non aux impressions — vérifié contre
   /// `unique_inline_link_click_ctr` sur trois publicités.
-  uniqueLinkClicks Int @default(0)
-  outboundClicks Int   @default(0)
+  uniqueLinkClicks Int   @default(0)
+  outboundClicks   Int   @default(0)
 
   // Tunnel du clic à l'achat
   landingPageViews Int   @default(0)
@@ -421,14 +421,14 @@ model MetaDailyAd {
   directions     Int @default(0)
   postEngagement Int @default(0)
 
-  videoStarts Int @default(0)
-  video3s     Int @default(0)
-  video15s    Int @default(0)
-  thruplays   Int @default(0)
-  video25     Int @default(0)
-  video50     Int @default(0)
-  video75     Int @default(0)
-  video95     Int @default(0)
+  videoStarts   Int   @default(0)
+  video3s       Int   @default(0)
+  video15s      Int   @default(0)
+  thruplays     Int   @default(0)
+  video25       Int   @default(0)
+  video50       Int   @default(0)
+  video75       Int   @default(0)
+  video95       Int   @default(0)
   // Le palier 100 % et la durée moyenne de vue, en secondes. Sans le premier,
   // le taux de complétion se lisait sur le palier 95 %, qui n'est pas la même
   // chose : une vidéo peut être coupée dans ses dernières secondes.
@@ -577,31 +577,28 @@ model Brief {
 
   /// La publicité dont il part. Le nom est copié : il doit rester lisible
   /// même si la publicité disparaît de Meta.
-  adId        String
-  adName      String
+  adId   String
+  adName String
 
-  title       String
-  content     String
+  title    String
+  content  String
   /// Le rapport d'analyse qui l'a nourri, quand il y en avait un.
-  reportId    String?
+  reportId String?
 
-  ton         String?
-  conscience  String?
-  format      String?
+  ton        String?
+  conscience String?
+  format     String?
 
   /// a_produire | produit | lance
-  statut      String    @default("a_produire")
+  statut String @default("a_produire")
 
   downloadedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([adAccountId, createdAt])
   @@index([adId])
 }
-
-
-
 
 // ─── Veille concurrentielle ──────────────────────────────────────────────
 // Les publicités des autres annonceurs, vues dans la Meta Ad Library. Rien
@@ -622,58 +619,70 @@ model VeilleMarque {
   derniereVerif DateTime?
   /// Analyse IA de la marque (Gemini) : synthèse, angles, concepts, personas.
   analyse       Json?
+  /// Masquée = retirée partout et jamais réimportée par les scans.
+  masquee       Boolean     @default(false)
   createdAt     DateTime    @default(now())
   pubs          VeillePub[]
 }
 
 model VeillePub {
-  id          String             @id @default(cuid())
+  id           String             @id @default(cuid())
   /// L'ID dans la bibliothèque publicitaire Meta.
-  adArchiveId String             @unique
-  marqueId    String
-  marque      VeilleMarque       @relation(fields: [marqueId], references: [id], onDelete: Cascade)
+  adArchiveId  String             @unique
+  marqueId     String
+  marque       VeilleMarque       @relation(fields: [marqueId], references: [id], onDelete: Cascade)
   /// IMAGE | VIDEO | CAROUSEL | DCO
-  format      String
-  texte       String?
-  titre       String?
-  description String?
-  cta         String?
-  lienUrl     String?
-  plateformes String[]
-  debut       DateTime?
-  fin         DateTime?
-  active      Boolean            @default(true)
+  format       String
+  texte        String?
+  titre        String?
+  description  String?
+  cta          String?
+  lienUrl      String?
+  plateformes  String[]
+  debut        DateTime?
+  fin          DateTime?
+  active       Boolean            @default(true)
   /// [{ type: 'image' | 'video', chemin, apercu? }] — chemins dans le stockage.
   /// Les liens Meta expirent en quelques jours : on ne garde que nos copies.
-  medias      Json               @default("[]")
+  medias       Json               @default("[]")
   /// extension | espion | api
-  source      String
+  source       String
   /// Personnes touchées dans l'UE (transparence DSA de la Ad Library).
-  reachUe     Int?
+  reachUe      Int?
   /// Répartition âge × sexe × pays, ciblage, payeur — voir Transparence.
   transparence Json?
   /// « Décortiquer cette pub » (Gemini) : accroche, angle, concept,
   /// structure, transcription. Gardé pour ne pas repayer l'analyse.
   analyse      Json?
-  premiereVue DateTime           @default(now())
-  derniereVue DateTime           @default(now())
-  sauvegardes VeilleSauvegarde[]
+  /// Masquée = retirée partout et jamais réimportée par les scans.
+  masquee      Boolean            @default(false)
+  premiereVue  DateTime           @default(now())
+  derniereVue  DateTime           @default(now())
+  sauvegardes  VeilleSauvegarde[]
 
   @@index([marqueId])
   @@index([premiereVue])
 }
 
+/// Le secteur d'un client (compte publicitaire Meta) : quand il est
+/// sélectionné, Veille, Discovery et Espion n'affichent que ce secteur.
+model VeilleSecteurClient {
+  metaAccountId String   @id
+  categorie     String
+  updatedAt     DateTime @updatedAt
+}
+
 model VeilleDossier {
-  id          String             @id @default(cuid())
-  nom         String
+  id           String             @id @default(cuid())
+  nom          String
   /// Lien public en lecture seule (/partage/<jeton>) ; null = non partagé.
   /// 18 octets tirés au hasard : une collision n'arrive pas en pratique.
   partageToken String?
-  parentId    String?
-  parent      VeilleDossier?     @relation("SousDossiers", fields: [parentId], references: [id], onDelete: Cascade)
-  enfants     VeilleDossier[]    @relation("SousDossiers")
-  sauvegardes VeilleSauvegarde[]
-  createdAt   DateTime           @default(now())
+  parentId     String?
+  parent       VeilleDossier?     @relation("SousDossiers", fields: [parentId], references: [id], onDelete: Cascade)
+  enfants      VeilleDossier[]    @relation("SousDossiers")
+  sauvegardes  VeilleSauvegarde[]
+  createdAt    DateTime           @default(now())
 
   @@index([partageToken])
 }

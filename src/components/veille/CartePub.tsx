@@ -3,7 +3,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { budgetEstime, type Transparence } from '@/lib/veille/adLibrary'
 import type { Decorticage } from '@/lib/veille/gemini'
-import { compact, FichePub } from './FichePub'
+import { compact, FichePub, masquerPub } from './FichePub'
 
 /** Une pub de la veille, telle que /api/veille/pubs la renvoie. */
 export type PubVeille = {
@@ -20,7 +20,7 @@ export type PubVeille = {
   fin: string | null
   active: boolean
   medias: { type: 'image' | 'video'; url: string; apercu: string | null }[]
-  marque: { id: string; nom: string }
+  marque: { id: string; nom: string; categorie?: string | null }
   sauvegardes: { id: string; dossierId: string | null; createdAt?: string }[]
   reachUe: number | null
   transparence: Transparence | null
@@ -54,8 +54,11 @@ export function dossiersEnArbre<D extends Dossier>(dossiers: D[], parentId: stri
     .flatMap((d) => [{ ...d, niveau }, ...dossiersEnArbre(dossiers, d.id, niveau + 1)])
 }
 
-export function CartePub({ pub, actions, lectureSeule }: { pub: PubVeille; actions?: React.ReactNode; lectureSeule?: boolean }) {
-  const [deplie, setDeplie] = useState(false)
+export function CartePub({ pub, actions, lectureSeule, retirer }: {
+  pub: PubVeille; actions?: React.ReactNode; lectureSeule?: boolean
+  /** Retire la carte de sa liste une fois la pub masquée ; sans lui, pas de lien « Masquer ». */
+  retirer?: () => void
+}) {
   const [fiche, setFiche] = useState(false)
   const media = pub.medias[0]
   const jours = joursDeDiffusion(pub)
@@ -63,32 +66,30 @@ export function CartePub({ pub, actions, lectureSeule }: { pub: PubVeille; actio
   const budget = budgetEstime(pub.reachUe)
 
   return (
-    <article className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
+    <article className="h-full bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
       <header className="flex items-center justify-between gap-2 px-3 py-2.5">
         <p className="text-sm font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
         <span className={pub.active ? 'badge-green' : 'badge-gray'}>{pub.active ? 'Active' : 'Inactive'}</span>
       </header>
 
-      <div className="relative bg-gray-100">
+      <button type="button" onClick={() => setFiche(true)} aria-label="Voir la fiche de la pub" className="relative block aspect-[4/5] bg-gray-100 overflow-hidden">
         {media?.type === 'video' ? (
           <video
             src={media.url}
             poster={media.apercu ?? undefined}
-            controls
             muted
+            loop
             playsInline
             preload="none"
-            className="w-full max-h-[460px] object-contain"
+            className="h-full w-full object-cover"
             onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})}
             onMouseLeave={(e) => e.currentTarget.pause()}
           />
         ) : media ? (
-          <button type="button" onClick={() => setFiche(true)} aria-label="Voir la fiche de la pub" className="block w-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={media.url} alt="" loading="lazy" className="w-full max-h-[460px] object-contain" />
-          </button>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={media.url} alt="" loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <div className="aspect-square flex items-center justify-center text-xs text-gray-400">Aucun média</div>
+          <span className="h-full flex items-center justify-center text-xs text-gray-400">Aucun média</span>
         )}
         <span className="badge-gray absolute top-2 left-2">
           {FORMATS[pub.format] ?? pub.format}
@@ -97,21 +98,13 @@ export function CartePub({ pub, actions, lectureSeule }: { pub: PubVeille; actio
         {budget !== null && (
           <span className="badge-green absolute top-2 right-2" title="Budget estimé à partir de la couverture UE">≈ {compact(budget)} €</span>
         )}
-      </div>
+      </button>
 
-      <div className="px-3 py-3 space-y-1.5 flex-1">
-        {pub.titre && <p className="text-sm font-semibold text-[#0d0d12]">{pub.titre}</p>}
-        {pub.texte && (
-          <button
-            type="button"
-            onClick={() => setDeplie(!deplie)}
-            className={`block text-left text-sm text-gray-600 whitespace-pre-line ${deplie ? '' : 'line-clamp-4'}`}
-          >
-            {pub.texte}
-          </button>
-        )}
+      <div className="px-3 pt-3 space-y-1 flex-1">
+        {pub.titre && <p className="text-sm font-semibold text-[#0d0d12] line-clamp-1">{pub.titre}</p>}
+        {pub.texte && <p className="text-xs text-gray-600 line-clamp-3">{pub.texte}</p>}
         {(pub.cta || site) && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 truncate">
             {pub.cta && <span className="font-medium text-[#0d0d12]">{pub.cta}</span>}
             {pub.cta && site && ' · '}
             {site}
@@ -119,26 +112,28 @@ export function CartePub({ pub, actions, lectureSeule }: { pub: PubVeille; actio
         )}
       </div>
 
-      <footer className="px-3 pb-3 space-y-2">
-        <p className="text-xs text-gray-400">
+      <footer className="px-3 pt-2 pb-3 space-y-2">
+        <p className="text-[11px] text-gray-400 truncate">
           {jours !== null && <>Diffusée depuis {jours} j</>}
-          {pub.reachUe !== null && <> · {compact(pub.reachUe)} personnes (UE)</>}
+          {pub.reachUe !== null && <> · {compact(pub.reachUe)} pers. (UE)</>}
           {pub.plateformes.length > 0 && <> · {pub.plateformes.join(', ')}</>}
         </p>
-        <button type="button" onClick={() => setFiche(true)} className="block text-xs font-medium text-[#3434ef] hover:underline">
-          Voir la fiche
-        </button>
-        <a
-          href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-[#3434ef] hover:underline"
-        >
-          Voir dans la Ad Library
-        </a>
+        <p className="text-xs">
+          <button type="button" onClick={() => setFiche(true)} className="font-medium text-[#3434ef] hover:underline">Voir la fiche</button>
+          <span className="text-gray-300"> · </span>
+          <a href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">
+            Ad Library
+          </a>
+          {retirer && !lectureSeule && (
+            <>
+              <span className="text-gray-300"> · </span>
+              <button type="button" onClick={async () => { if (await masquerPub(pub)) retirer() }} className="text-gray-400 hover:text-red-600">Masquer</button>
+            </>
+          )}
+        </p>
         {actions}
       </footer>
-      {fiche && <FichePub pub={pub} jours={jours} actions={actions} lectureSeule={lectureSeule} fermer={() => setFiche(false)} />}
+      {fiche && <FichePub pub={pub} jours={jours} actions={actions} lectureSeule={lectureSeule} apresMasquage={retirer} fermer={() => setFiche(false)} />}
     </article>
   )
 }
@@ -164,7 +159,7 @@ export function ChoixSauvegarde({ pub, dossiers }: { pub: PubVeille; dossiers: D
       aria-label="Sauvegarder dans un dossier"
       value=""
       onChange={(e) => sauvegarder(e.target.value === 'sans' ? null : e.target.value)}
-      className="select py-1.5 text-xs"
+      className="select select-chevron py-1.5 text-xs"
     >
       <option value="" disabled>{dedans ? 'Dans la bibliothèque · ajouter à…' : 'Sauvegarder dans…'}</option>
       <option value="sans">Sans dossier</option>

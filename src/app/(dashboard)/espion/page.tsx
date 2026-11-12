@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { type Dossier, type PubVeille } from '@/components/veille/CartePub'
 import { RapportMarque } from '@/components/veille/RapportMarque'
+import { ChoixSecteur, dansLeSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
 import { ComparaisonMarques } from '@/components/veille/ComparaisonMarques'
 
 /**
@@ -44,6 +45,9 @@ export default function EspionPage() {
   const [cochees, setCochees] = useState<string[] | null>(null)
   const [comparees, setComparees] = useState<{ id: string; nom: string }[] | null>(null)
   const [dossiers, setDossiers] = useState<Dossier[]>([])
+  const secteurClient = useSecteurClient()
+  const [voirTout, setVoirTout] = useState(false)
+  const visibles = toutesMarques.filter((m) => voirTout || dansLeSecteur(secteurClient.secteur, m.categorie))
 
   useEffect(() => {
     const ecoute = async (e: MessageEvent) => {
@@ -117,7 +121,7 @@ export default function EspionPage() {
           aria-label="Marque, produit ou lien Ad Library"
           className="input flex-1"
         />
-        <select aria-label="Pays" value={pays} onChange={(e) => setPays(e.target.value)} className="select sm:w-44">
+        <select aria-label="Pays" value={pays} onChange={(e) => setPays(e.target.value)} className="select select-chevron sm:w-44">
           {PAYS.map(([code, nom]) => <option key={code} value={code}>{nom}</option>)}
         </select>
         <button type="submit" disabled={!extension || enCours || !recherche.trim()} className="btn-primary disabled:opacity-50">
@@ -127,16 +131,17 @@ export default function EspionPage() {
 
       {toutesMarques.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select w-auto"
+          <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select select-chevron w-auto"
             onChange={(e) => { setComparees(null); setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null) }}>
             <option value="" disabled>Revoir une marque espionnée…</option>
-            {toutesMarques.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+            {visibles.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
           </select>
-          {toutesMarques.length > 1 && (
+          {visibles.length > 1 && (
             <button type="button" onClick={() => setCochees(cochees ? null : [])} className="text-sm text-[#3434ef] hover:underline">
               {cochees ? 'Annuler la comparaison' : 'Comparer plusieurs marques'}
             </button>
           )}
+          <div className="ml-auto"><ChoixSecteur s={secteurClient} voirTout={voirTout} setVoirTout={setVoirTout} /></div>
         </div>
       )}
 
@@ -144,7 +149,7 @@ export default function EspionPage() {
         <div className="card space-y-3">
           <p className="text-sm text-gray-600">Cochez de 2 à 6 marques à mettre côte à côte.</p>
           <div className="flex flex-wrap gap-2">
-            {toutesMarques.map((m) => {
+            {visibles.map((m) => {
               const coche = cochees.includes(m.id)
               return (
                 <button key={m.id} type="button" aria-pressed={coche}
@@ -214,7 +219,10 @@ export default function EspionPage() {
         <ComparaisonMarques marques={comparees} retour={() => setComparees(null)}
           ouvrir={(m) => { setComparees(null); setChoisie(toutesMarques.find((x) => x.id === m.id) ?? m) }} />
       ) : (
-        choisie && <RapportMarque key={choisie.id} marque={choisie} dossiers={dossiers} />
+        choisie && (
+          <RapportMarque key={choisie.id} marque={choisie} dossiers={dossiers}
+            retiree={() => { setToutesMarques((t) => t.filter((m) => m.id !== choisie.id)); setChoisie(null) }} />
+        )
       )}
     </div>
   )

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { ChoixSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
 
 /**
  * Toutes les pubs concurrentes collectées : celles sauvegardées avec
@@ -30,11 +31,18 @@ export default function DiscoveryPage() {
   const [filtres, setFiltres] = useState<Filtres>(AUCUN)
   const [n, setN] = useState(PAR_PAGE)
   const [donnees, setDonnees] = useState<{
-    pubs: PubVeille[]; total: number; marques: { id: string; nom: string }[]; categories: { libelle: string; n: number }[]
+    pubs: PubVeille[]; total: number; marques: { id: string; nom: string; categorie: string | null }[]; categories: { libelle: string; n: number }[]
   } | null>(null)
   const [rafraichir, setRafraichir] = useState(0)
   const [dossiers, setDossiers] = useState<Dossier[]>([])
   const [chargement, setChargement] = useState(true)
+  const secteurClient = useSecteurClient()
+  const { secteur } = secteurClient
+
+  // Le client sélectionné ouvre Discovery sur son secteur ; la puce « Toutes » montre le reste.
+  useEffect(() => {
+    if (secteur !== undefined) setFiltres((f) => ({ ...f, categorie: secteur ?? '' }))
+  }, [secteur])
 
   // La recherche part 300 ms après la dernière frappe.
   useEffect(() => {
@@ -43,14 +51,18 @@ export default function DiscoveryPage() {
   }, [q])
 
   useEffect(() => {
+    if (secteur === undefined) return
     const params = new URLSearchParams({ n: String(n), ...(recherche && { q: recherche }) })
     for (const [k, v] of Object.entries(filtres)) if (v) params.set(k, v)
     setChargement(true)
+    // Une réponse arrivée après une requête plus récente est ignorée.
+    let actuelle = true
     fetch(`/api/veille/pubs?${params}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setDonnees(d); setChargement(false) })
-      .catch(() => setChargement(false))
-  }, [recherche, filtres, n, rafraichir])
+      .then((d) => { if (actuelle) { setDonnees(d); setChargement(false) } })
+      .catch(() => actuelle && setChargement(false))
+    return () => { actuelle = false }
+  }, [recherche, filtres, n, rafraichir, secteur])
 
   useEffect(() => {
     fetch('/api/veille/dossiers').then((r) => (r.ok ? r.json() : null)).then((d) => d && setDossiers(d.dossiers))
@@ -86,6 +98,8 @@ export default function DiscoveryPage() {
         />
       </div>
 
+      <ChoixSecteur s={secteurClient} />
+
       {!!donnees?.categories.length && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Catégories">
           {[{ libelle: '', n: donnees.categories.reduce((s, c) => s + c.n, 0) }, ...donnees.categories].map((c) => (
@@ -99,12 +113,12 @@ export default function DiscoveryPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select aria-label="Marque" value={filtres.marque} onChange={(e) => filtrer('marque', e.target.value)} className="select w-auto">
+        <select aria-label="Marque" value={filtres.marque} onChange={(e) => filtrer('marque', e.target.value)} className="select select-chevron w-auto">
           <option value="">Toutes les marques</option>
-          {donnees?.marques.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+          {donnees?.marques.filter((m) => !filtres.categorie || m.categorie === filtres.categorie).map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
         </select>
         {(Object.keys(FILTRES) as (keyof typeof FILTRES)[]).map((cle) => (
-          <select key={cle} aria-label={LIBELLES[cle]} value={filtres[cle]} onChange={(e) => filtrer(cle, e.target.value)} className="select w-auto">
+          <select key={cle} aria-label={LIBELLES[cle]} value={filtres[cle]} onChange={(e) => filtrer(cle, e.target.value)} className="select select-chevron w-auto">
             {FILTRES[cle].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         ))}
@@ -127,12 +141,13 @@ export default function DiscoveryPage() {
       )}
 
       {pubs.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 items-start">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
           {pubs.map((pub) => (
             <CartePub
               key={pub.id}
               pub={pub}
               actions={<ChoixSauvegarde pub={pub} dossiers={dossiers} />}
+              retirer={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== pub.id), total: d.total - 1 })}
             />
           ))}
         </div>

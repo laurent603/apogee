@@ -10,14 +10,15 @@ async function connecte() {
   return !!(await getServerSession(authOptions))
 }
 const refus = () => NextResponse.json({ erreur: 'Non connecté' }, { status: 401 })
+const visible = { masquee: false, marque: { masquee: false } }
 
 export async function GET() {
   if (!(await connecte())) return refus()
   const [dossiers, comptes, sansDossier, total] = await Promise.all([
     prisma.veilleDossier.findMany({ orderBy: { nom: 'asc' }, select: { id: true, nom: true, parentId: true, partageToken: true } }),
-    prisma.veilleSauvegarde.groupBy({ by: ['dossierId'], _count: true }),
-    prisma.veilleSauvegarde.count({ where: { dossierId: null } }),
-    prisma.veilleSauvegarde.count(),
+    prisma.veilleSauvegarde.groupBy({ by: ['dossierId'], where: { pub: visible }, _count: true }),
+    prisma.veilleSauvegarde.count({ where: { dossierId: null, pub: visible } }),
+    prisma.veilleSauvegarde.count({ where: { pub: visible } }),
   ])
   const n = new Map(comptes.map((c) => [c.dossierId, c._count]))
   return NextResponse.json({

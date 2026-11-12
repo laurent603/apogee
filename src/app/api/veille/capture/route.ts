@@ -45,10 +45,11 @@ export async function POST(req: NextRequest) {
   // La seconde passe d'Espion : la fiche détaillée de la pub, quand elle a été lue.
   const transparence = normaliserTransparence(corps?.transparence)
 
-  const existante = await prisma.veillePub.findUnique({
-    where: { adArchiveId: pub.adArchiveId },
-    select: { medias: true },
-  })
+  const [existante, marqueConnue] = await Promise.all([
+    prisma.veillePub.findUnique({ where: { adArchiveId: pub.adArchiveId }, select: { medias: true, masquee: true } }),
+    prisma.veilleMarque.findUnique({ where: { pageId: pub.pageId }, select: { masquee: true } }),
+  ])
+  if (existante?.masquee || marqueConnue?.masquee) return NextResponse.json({ ok: true, masquee: true })
   const dejaCopies = Array.isArray(existante?.medias) && existante.medias.length > 0
 
   let medias: MediaStocke[] | undefined

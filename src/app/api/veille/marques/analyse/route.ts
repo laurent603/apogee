@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   if (marque.analyse && corps.refaire !== true) return NextResponse.json(marque.analyse)
 
   const pubs = await prisma.veillePub.findMany({
-    where: { marqueId: marque.id, active: true },
+    where: { marqueId: marque.id, active: true, masquee: false },
     orderBy: [{ reachUe: { sort: 'desc', nulls: 'last' } }, { debut: 'asc' }],
     take: PUBS_MAX,
   })

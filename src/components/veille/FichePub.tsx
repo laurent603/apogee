@@ -33,8 +33,8 @@ export function Barre({ libelle, valeur, total }: { libelle: string; valeur: num
 
 export function Section({ titre, children }: { titre: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-1.5">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{titre}</h3>
+    <section className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{titre}</h3>
       {children}
     </section>
   )
@@ -88,14 +88,14 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
 
   if (!analyse) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-gray-50 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-[#E5E7EB] bg-gray-50 px-5 py-4">
         <div>
           <p className="text-sm font-semibold text-[#0d0d12]">Décortiquer cette pub</p>
           <p className="text-xs text-gray-500">
             {chargement ? 'Analyse en cours… jusqu’à une minute pour une vidéo.' : 'Accroche, angle, concept, structure et transcription.'}
           </p>
         </div>
-        <button type="button" onClick={() => lancer()} disabled={chargement} className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50">
+        <button type="button" onClick={() => lancer()} disabled={chargement} className="btn-primary disabled:opacity-50">
           {chargement ? 'Analyse…' : 'Lancer'}
         </button>
       </div>
@@ -107,7 +107,7 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
   const video = pub.medias.some((m) => m.type === 'video')
 
   return (
-    <div className="rounded-lg border border-[#E5E7EB] px-3 py-3 space-y-3">
+    <div className="rounded-xl border border-[#E5E7EB] px-5 py-5 space-y-5">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-[#0d0d12]">Pub décortiquée</p>
@@ -176,11 +176,29 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
   )
 }
 
+/** Masque la pub partout, après confirmation. Vrai si c'est fait. */
+export async function masquerPub(pub: PubVeille) {
+  if (!confirm(`Masquer cette pub de ${pub.marque.nom} ? Elle disparaît de Discovery, Veille, Espion et de la Bibliothèque, et ne sera plus réimportée.`)) return false
+  const r = await fetch('/api/veille/pubs', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id: pub.id, masquee: true }),
+  })
+  if (!r.ok) {
+    toast.error('Masquage impossible')
+    return false
+  }
+  toast.success('Pub masquée')
+  return true
+}
+
 /** La fiche d'une pub : média, budget estimé, textes, diffusion, audience UE. */
-export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
+export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasquage }: {
   pub: PubVeille; jours: number | null; actions?: React.ReactNode; fermer: () => void
   /** Page publique d'un dossier partagé : pas d'analyse à lancer. */
   lectureSeule?: boolean
+  /** Retire la pub de la liste qui a ouvert la fiche ; sans lui, pas de bouton « Masquer ». */
+  apresMasquage?: () => void
 }) {
   const [index, setIndex] = useState(0)
   const media = pub.medias[index]
@@ -208,12 +226,12 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
         aria-modal="true"
         aria-label={`Pub de ${pub.marque.nom}`}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-xl"
       >
-        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[#E5E7EB]">
+        <header className="flex items-center justify-between gap-3 px-6 py-4 border-b border-[#E5E7EB]">
           <div className="min-w-0">
-            <p className="font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
-            {jours !== null && <p className="text-xs text-[#3434ef]">{jours} jours de diffusion</p>}
+            <p className="text-lg font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
+            {jours !== null && <p className="text-sm text-[#3434ef] mt-0.5">{jours} jours de diffusion</p>}
           </div>
           <div className="flex items-center gap-2">
             <span className={pub.active ? 'badge-green' : 'badge-gray'}>{pub.active ? 'Active' : 'Inactive'}</span>
@@ -221,7 +239,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
           </div>
         </header>
 
-        <div className="overflow-y-auto px-4 py-4 space-y-4">
+        <div className="overflow-y-auto px-6 py-6 space-y-7">
           <div className="relative bg-gray-100 rounded-lg overflow-hidden">
             {media?.type === 'video' ? (
               <video key={media.url} src={media.url} poster={media.apercu ?? undefined} controls playsInline className="w-full max-h-[420px] object-contain" />
@@ -257,7 +275,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
           {!lectureSeule && <Decortiquer pub={pub} />}
 
           {pub.titre && <Section titre="Titre"><p className="text-sm text-[#0d0d12]">{pub.titre}</p></Section>}
-          {pub.texte && <Section titre="Texte principal"><p className="text-sm text-gray-700 whitespace-pre-line">{pub.texte}</p></Section>}
+          {pub.texte && <Section titre="Texte principal"><p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{pub.texte}</p></Section>}
           {pub.description && <Section titre="Description"><p className="text-sm text-gray-700">{pub.description}</p></Section>}
           {(pub.cta || pub.lienUrl) && (
             <Section titre="Bouton">
@@ -293,16 +311,16 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
 
           {totalRepartition > 0 && (
             <Section titre="Qui a été touché">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Barre libelle="Hommes" valeur={somme((l) => l.hommes)} total={totalRepartition} />
                 <Barre libelle="Femmes" valeur={somme((l) => l.femmes)} total={totalRepartition} />
                 <Barre libelle="Non déterminé" valeur={somme((l) => l.inconnu)} total={totalRepartition} />
               </div>
-              <div className="space-y-1.5 pt-2">
+              <div className="space-y-2 pt-3">
                 {parAge.map((a) => <Barre key={a.age} libelle={a.age === 'Unknown' ? 'Âge inconnu' : `${a.age} ans`} valeur={a.n} total={totalRepartition} />)}
               </div>
               {parPays.length > 1 && (
-                <div className="space-y-1.5 pt-2">
+                <div className="space-y-2 pt-3">
                   {parPays.map((p) => <Barre key={p.pays} libelle={p.pays} valeur={p.n} total={totalRepartition} />)}
                 </div>
               )}
@@ -325,10 +343,17 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
           )}
         </div>
 
-        <footer className="flex items-center justify-between gap-3 px-4 py-3 border-t border-[#E5E7EB]">
-          <a href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`} target="_blank" rel="noreferrer" className="text-xs text-[#3434ef] hover:underline">
-            Voir dans la Ad Library
-          </a>
+        <footer className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[#E5E7EB]">
+          <div className="flex items-center gap-4 text-sm">
+            <a href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">
+              Voir dans la Ad Library
+            </a>
+            {apresMasquage && !lectureSeule && (
+              <button type="button" onClick={async () => { if (await masquerPub(pub)) { fermer(); apresMasquage() } }} className="text-gray-400 hover:text-red-600">
+                Masquer
+              </button>
+            )}
+          </div>
           <div className="w-56">{actions}</div>
         </footer>
       </div>

@@ -4,10 +4,14 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { estCategorie } from '@/lib/veille/categories'
 
-/** Corriger à la main la catégorie d'une marque. */
+/** Corriger à la main la catégorie d'une marque, ou la masquer (sa veille s'arrête). */
 export async function PATCH(req: NextRequest) {
   if (!(await getServerSession(authOptions))) return NextResponse.json({ erreur: 'Non connecté' }, { status: 401 })
   const corps = await req.json().catch(() => null)
+  if (typeof corps?.id === 'string' && corps.masquee === true) {
+    await prisma.veilleMarque.update({ where: { id: corps.id }, data: { masquee: true, suivie: false, suivieDepuis: null } })
+    return NextResponse.json({ ok: true })
+  }
   if (typeof corps?.id !== 'string' || !estCategorie(corps.categorie)) {
     return NextResponse.json({ erreur: 'Marque ou catégorie invalide' }, { status: 400 })
   }

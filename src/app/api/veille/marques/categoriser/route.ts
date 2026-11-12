@@ -17,7 +17,7 @@ const PAR_LOT = 30
 export async function POST() {
   if (!(await getServerSession(authOptions))) return NextResponse.json({ erreur: 'Non connecté' }, { status: 401 })
   const marques = await prisma.veilleMarque.findMany({
-    where: { categorie: null, pubs: { some: {} } },
+    where: { categorie: null, masquee: false, pubs: { some: {} } },
     take: PAR_LOT,
     select: { id: true, nom: true, pubs: { take: 4, orderBy: { premiereVue: 'desc' }, select: { titre: true, texte: true } } },
   })

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { clsx } from 'clsx'
 import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { ChoixSecteur, dansLeSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
 
 /**
  * Veille : les marques suivies, relues chaque jour par l'extension tant que
@@ -12,7 +13,7 @@ import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/compo
  */
 
 type Ligne = {
-  id: string; nom: string; pageId: string; suivieDepuis: string | null; derniereVerif: string | null
+  id: string; nom: string; categorie: string | null; pageId: string; suivieDepuis: string | null; derniereVerif: string | null
   actives: number; nouvelles30: number; arretees30: number; survie: number | null
 }
 type PubFil = PubVeille & { premiereVue: string }
@@ -36,6 +37,9 @@ export default function VeillePage() {
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
   const [marque, setMarque] = useState<string | null>(null)
+  const secteurClient = useSecteurClient()
+  const [voirTout, setVoirTout] = useState(false)
+  const duSecteur = (categorie: string | null | undefined) => voirTout || dansLeSecteur(secteurClient.secteur, categorie)
 
   const charger = useCallback(() => {
     fetch('/api/veille/fil').then((r) => (r.ok ? r.json() : null)).then(setDonnees)
@@ -66,6 +70,16 @@ export default function VeillePage() {
     }
   }, [charger])
 
+  async function arreter(m: Ligne) {
+    if (!confirm(`Arrêter la veille de ${m.nom} ? Elle ne sera plus vérifiée chaque jour ; ses pubs restent dans Discovery.`)) return
+    const r = await fetch('/api/veille/suivi', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ marqueId: m.id }),
+    })
+    if (r.ok) charger()
+  }
+
   function verifier() {
     setEtat({ etape: 'en-cours', texte: 'Ouverture de la Ad Library…' })
     window.postMessage({ source: 'apogee-page', type: 'veille' }, location.origin)
@@ -73,15 +87,16 @@ export default function VeillePage() {
 
   const maintenant = Date.now()
   const pubs = useMemo(() => {
-    const toutes = (donnees?.pubs ?? []).filter((p) => !marque || p.marque.id === marque)
+    const toutes = (donnees?.pubs ?? []).filter((p) => (marque ? p.marque.id === marque : duSecteur(p.marque.categorie)))
     if (onglet === 'Qui s’installent') {
       return toutes.filter((p) => p.active && maintenant - Date.parse(p.premiereVue) >= (donnees?.installeeApres ?? 7) * JOUR)
     }
     if (onglet === 'Arrêtées') return toutes.filter((p) => !p.active && p.fin)
     return toutes
-  }, [donnees, marque, onglet, maintenant])
+  }, [donnees, marque, onglet, maintenant, voirTout, secteurClient.secteur])
 
   const enCours = etat.etape === 'en-cours'
+  const lignes = (donnees?.marques ?? []).filter((m) => duSecteur(m.categorie))
   if (!donnees) return <div className="card text-center py-20 text-gray-400 text-sm">Chargement…</div>
 
   return (
@@ -100,6 +115,8 @@ export default function VeillePage() {
           </button>
         )}
       </div>
+
+      <ChoixSecteur s={secteurClient} voirTout={voirTout} setVoirTout={setVoirTout} />
 
       {extension === false && (
         <div className="card text-sm text-gray-600">
@@ -145,7 +162,10 @@ export default function VeillePage() {
                 </tr>
               </thead>
               <tbody>
-                {donnees.marques.map((m) => (
+                {lignes.length === 0 && (
+                  <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-400">Aucune marque suivie dans le secteur {secteurClient.secteur}.</td></tr>
+                )}
+                {lignes.map((m) => (
                   <tr key={m.id} className="border-b border-[#F3F4F6] last:border-0">
                     <td className="px-4 py-2.5 font-medium text-[#0d0d12]">{m.nom}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{m.actives}</td>
@@ -158,8 +178,9 @@ export default function VeillePage() {
                     </td>
                     <td className="px-3 py-2.5 text-gray-600">{date(m.suivieDepuis)}</td>
                     <td className="px-3 py-2.5 text-gray-600">{m.derniereVerif ? date(m.derniereVerif) : 'pas encore'}</td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap space-x-3">
                       <Link href={`/espion?marque=${m.id}`} className="text-xs text-[#3434ef] hover:underline">Rapport</Link>
+                      <button type="button" onClick={() => arreter(m)} className="text-xs text-gray-400 hover:text-red-600">Arrêter</button>
                     </td>
                   </tr>
                 ))}
@@ -176,10 +197,10 @@ export default function VeillePage() {
                 </button>
               ))}
             </nav>
-            {donnees.marques.length > 1 && (
-              <select aria-label="Filtrer par marque" value={marque ?? ''} onChange={(e) => setMarque(e.target.value || null)} className="select w-auto">
+            {lignes.length > 1 && (
+              <select aria-label="Filtrer par marque" value={marque ?? ''} onChange={(e) => setMarque(e.target.value || null)} className="select select-chevron w-auto">
                 <option value="">Toutes les marques</option>
-                {donnees.marques.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+                {lignes.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
               </select>
             )}
           </div>
@@ -193,11 +214,11 @@ export default function VeillePage() {
                   : `Aucune nouveauté ne tourne encore depuis plus de ${donnees.installeeApres} jours.`}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 items-start">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
               {pubs.map((p) => {
                 const vie = Math.max(1, Math.round(((p.active || !p.fin ? maintenant : Date.parse(p.fin)) - Date.parse(p.premiereVue)) / JOUR))
                 return (
-                  <CartePub key={p.id} pub={p} actions={
+                  <CartePub key={p.id} pub={p} retirer={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== p.id) })} actions={
                     <div className="space-y-2">
                       <p className="text-xs text-gray-500">
                         Détectée le {date(p.premiereVue)} ·{' '}
