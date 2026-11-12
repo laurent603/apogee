@@ -197,3 +197,30 @@ export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promi
     .filter((c: { pubId?: string }) => c.pubId && !vus.has(c.pubId) && vus.add(c.pubId))
   return { classement, personas: resultat.personas ?? [], nbPubs: pubs.length, modele, date: new Date().toISOString() }
 }
+
+// ─── Catégorie d'une marque ───────────────────────────────────────────────
+
+/**
+ * Range des marques dans une catégorie de Discovery, en un seul appel :
+ * nom de la marque et quelques textes de ses pubs suffisent.
+ */
+export async function classerMarques(marques: { nom: string; textes: string[] }[], categories: readonly string[]): Promise<string[]> {
+  if (!marques.length) return []
+  const schema = {
+    type: 'OBJECT',
+    properties: {
+      marques: {
+        type: 'ARRAY',
+        items: { type: 'OBJECT', properties: { numero: { type: 'INTEGER' }, categorie: { type: 'STRING', enum: [...categories] } }, required: ['numero', 'categorie'] },
+      },
+    },
+    required: ['marques'],
+  }
+  const liste = marques
+    .map((m, i) => `#${i + 1} · ${m.nom}\n${m.textes.map((t) => `- ${t.replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}`)
+    .join('\n\n')
+  const consigne = `Range chaque annonceur Meta ci-dessous dans UNE catégorie de la liste imposée, d'après son nom et les textes de ses pubs. « Énergie & rénovation » couvre le solaire, les pompes à chaleur, l'isolation, les fenêtres, la rénovation énergétique et les aides associées. « Autre » seulement si rien ne convient.\n\n${liste}`
+  const { resultat } = await appeler([{ text: consigne }], schema)
+  const parNumero = new Map<number, string>((resultat.marques ?? []).map((m: { numero: number; categorie: string }) => [m.numero, m.categorie]))
+  return marques.map((_, i) => parNumero.get(i + 1) ?? 'Autre')
+}

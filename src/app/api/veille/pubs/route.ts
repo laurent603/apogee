@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { urlPublique } from '@/lib/veille/stockage'
+import { CATEGORIES } from '@/lib/veille/categories'
 
 /**
  * Les pubs de la veille, filtrées — pour Discovery (toutes) et pour la
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
   if (p.get('statut') === 'active') where.active = true
   if (p.get('statut') === 'inactive') where.active = false
   if (p.get('marque')) where.marqueId = p.get('marque')!
+  if (p.get('categorie')) where.marque = { categorie: p.get('categorie')! }
   const jours = Number(p.get('duree'))
   if (jours > 0) where.debut = { lte: new Date(Date.now() - jours * 86_400_000) }
 
@@ -68,8 +70,18 @@ export async function GET(req: NextRequest) {
       include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true, createdAt: true } } },
     }),
     prisma.veillePub.count({ where }),
-    prisma.veilleMarque.findMany({ select: { id: true, nom: true, suivie: true }, orderBy: { nom: 'asc' } }),
+    prisma.veilleMarque.findMany({ select: { id: true, nom: true, suivie: true, categorie: true }, orderBy: { nom: 'asc' } }),
   ])
+
+  // Les puces de Discovery : nombre de pubs par catégorie, sur toute la base.
+  const parMarque = await prisma.veillePub.groupBy({ by: ['marqueId'], _count: true })
+  const categorieDe = new Map(marques.map((m) => [m.id, m.categorie ?? 'Autre']))
+  const nParCategorie = new Map<string, number>()
+  for (const g of parMarque) {
+    const c = categorieDe.get(g.marqueId) ?? 'Autre'
+    nParCategorie.set(c, (nParCategorie.get(c) ?? 0) + g._count)
+  }
+  const categories = CATEGORIES.filter((c) => nParCategorie.get(c)).map((c) => ({ libelle: c, n: nParCategorie.get(c)! }))
 
   const pubs = lignes.map((l) => ({
     ...l,
@@ -80,5 +92,5 @@ export async function GET(req: NextRequest) {
     })),
   }))
 
-  return NextResponse.json({ pubs, total, marques })
+  return NextResponse.json({ pubs, total, marques, categories })
 }

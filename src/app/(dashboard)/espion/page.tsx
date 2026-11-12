@@ -39,7 +39,7 @@ export default function EspionPage() {
   const [pubs, setPubs] = useState<PubVeille[]>([])
   // La marque dont le rapport s'affiche : choisie après un scan ou dans la liste.
   const [choisie, setChoisie] = useState<{ id: string; nom: string; suivie?: boolean } | null>(null)
-  const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string; suivie: boolean }[]>([])
+  const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string; suivie: boolean; categorie: string | null }[]>([])
   // Comparaison : null = fermée ; sinon les marques cochées, puis `comparer` les met en regard.
   const [cochees, setCochees] = useState<string[] | null>(null)
   const [comparees, setComparees] = useState<{ id: string; nom: string }[] | null>(null)
@@ -56,6 +56,8 @@ export default function EspionPage() {
         // Les plus touchées d'abord, comme dans la Ad Library.
         const d = m.ids.length ? await fetch(`/api/veille/pubs?ids=${m.ids.join(',')}&n=200&tri=couverture`).then((r) => (r.ok ? r.json() : null)) : null
         const scannees: PubVeille[] = d?.pubs ?? []
+        // Les marques découvertes par ce scan reçoivent leur catégorie de Discovery.
+        fetch('/api/veille/marques/categoriser', { method: 'POST' }).catch(() => {})
         setPubs(scannees)
         // Le rapport s'ouvre sur l'annonceur le plus présent dans le scan.
         const n = new Map<string, number>()

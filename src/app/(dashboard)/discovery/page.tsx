@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { clsx } from 'clsx'
 import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
 
 /**
@@ -20,15 +21,18 @@ const FILTRES = {
 
 const LIBELLES: Record<keyof typeof FILTRES, string> = { format: 'Format', plateforme: 'Plateforme', statut: 'Statut', duree: 'Durée de diffusion', tri: 'Tri' }
 
-type Filtres = Record<keyof typeof FILTRES | 'marque', string>
-const AUCUN: Filtres = { format: '', plateforme: '', statut: '', duree: '', tri: '', marque: '' }
+type Filtres = Record<keyof typeof FILTRES | 'marque' | 'categorie', string>
+const AUCUN: Filtres = { format: '', plateforme: '', statut: '', duree: '', tri: '', marque: '', categorie: '' }
 
 export default function DiscoveryPage() {
   const [q, setQ] = useState('')
   const [recherche, setRecherche] = useState('')
   const [filtres, setFiltres] = useState<Filtres>(AUCUN)
   const [n, setN] = useState(PAR_PAGE)
-  const [donnees, setDonnees] = useState<{ pubs: PubVeille[]; total: number; marques: { id: string; nom: string }[] } | null>(null)
+  const [donnees, setDonnees] = useState<{
+    pubs: PubVeille[]; total: number; marques: { id: string; nom: string }[]; categories: { libelle: string; n: number }[]
+  } | null>(null)
+  const [rafraichir, setRafraichir] = useState(0)
   const [dossiers, setDossiers] = useState<Dossier[]>([])
   const [chargement, setChargement] = useState(true)
 
@@ -46,10 +50,14 @@ export default function DiscoveryPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { setDonnees(d); setChargement(false) })
       .catch(() => setChargement(false))
-  }, [recherche, filtres, n])
+  }, [recherche, filtres, n, rafraichir])
 
   useEffect(() => {
     fetch('/api/veille/dossiers').then((r) => (r.ok ? r.json() : null)).then((d) => d && setDossiers(d.dossiers))
+    // Les marques pas encore classées le sont à l'ouverture ; on recharge si c'est le cas.
+    fetch('/api/veille/marques/categoriser', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.classees && setRafraichir((x) => x + 1))
   }, [])
 
   function filtrer(cle: keyof Filtres, valeur: string) {
@@ -77,6 +85,18 @@ export default function DiscoveryPage() {
           className="input w-auto min-w-[260px]"
         />
       </div>
+
+      {!!donnees?.categories.length && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Catégories">
+          {[{ libelle: '', n: donnees.categories.reduce((s, c) => s + c.n, 0) }, ...donnees.categories].map((c) => (
+            <button key={c.libelle || 'toutes'} type="button" aria-pressed={filtres.categorie === c.libelle} onClick={() => filtrer('categorie', c.libelle)}
+              className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                filtres.categorie === c.libelle ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
+              {c.libelle || 'Toutes'} <span className={filtres.categorie === c.libelle ? 'text-white/70' : 'text-gray-400'}>{c.n}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <select aria-label="Marque" value={filtres.marque} onChange={(e) => filtrer('marque', e.target.value)} className="select w-auto">

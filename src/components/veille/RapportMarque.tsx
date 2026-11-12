@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import type { AnalyseMarque } from '@/lib/veille/gemini'
+import { CATEGORIES } from '@/lib/veille/categories'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
 import { rapportMarque } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
@@ -107,13 +108,25 @@ function BarresPourcent({ libelles, total }: { libelles: { libelle: string; n: n
   )
 }
 
-export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom: string; suivie?: boolean }; dossiers: Dossier[] }) {
+export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom: string; suivie?: boolean; categorie?: string | null }; dossiers: Dossier[] }) {
   const [pubs, setPubs] = useState<PubVeille[] | null>(null)
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
   const [ouverte, setOuverte] = useState<PubVeille | null>(null)
   const [analyse, setAnalyse] = useState<AnalyseMarque | null>(null)
   const [analyseEnCours, setAnalyseEnCours] = useState(false)
   const [suivie, setSuivie] = useState(!!marque.suivie)
+  const [categorie, setCategorie] = useState(marque.categorie ?? '')
+
+  async function changerCategorie(valeur: string) {
+    const r = await fetch('/api/veille/marques', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: marque.id, categorie: valeur }),
+    })
+    if (!r.ok) return void toast.error('Changement impossible')
+    setCategorie(valeur)
+    toast.success(`Catégorie : ${valeur}`)
+  }
 
   async function basculerSuivi() {
     const r = await fetch('/api/veille/suivi', {
@@ -180,6 +193,10 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
             {r.periode && <> · diffusion de {date(r.periode.de)} à {date(r.periode.a)}</>}
           </p>
         </div>
+        <select aria-label="Catégorie de la marque" value={categorie} onChange={(e) => changerCategorie(e.target.value)} className="select w-auto text-xs py-1.5 ml-auto">
+          <option value="" disabled>Catégorie…</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
         <button type="button" onClick={basculerSuivi} title={suivie ? 'Ne plus surveiller cette marque' : undefined}
           className={suivie ? 'btn-secondary' : 'btn-primary'}>
           {suivie ? 'Veille active ✓' : 'Activer la veille'}
