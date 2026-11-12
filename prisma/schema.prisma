@@ -602,3 +602,75 @@ model Brief {
 
 
 
+
+// ─── Veille concurrentielle ──────────────────────────────────────────────
+// Les publicités des autres annonceurs, vues dans la Meta Ad Library. Rien
+// ici ne touche aux comptes publicitaires gérés : ce sont des tables à part,
+// partagées par toute l'équipe.
+
+model VeilleMarque {
+  id            String      @id @default(cuid())
+  /// L'identifiant de la page Facebook de l'annonceur.
+  pageId        String      @unique
+  nom           String
+  categorie     String?
+  /// Suivie = vérifiée chaque nuit, avec alerte sur les nouvelles pubs.
+  suivie        Boolean     @default(false)
+  derniereVerif DateTime?
+  createdAt     DateTime    @default(now())
+  pubs          VeillePub[]
+}
+
+model VeillePub {
+  id          String             @id @default(cuid())
+  /// L'ID dans la bibliothèque publicitaire Meta.
+  adArchiveId String             @unique
+  marqueId    String
+  marque      VeilleMarque       @relation(fields: [marqueId], references: [id], onDelete: Cascade)
+  /// IMAGE | VIDEO | CAROUSEL | DCO
+  format      String
+  texte       String?
+  titre       String?
+  description String?
+  cta         String?
+  lienUrl     String?
+  plateformes String[]
+  debut       DateTime?
+  fin         DateTime?
+  active      Boolean            @default(true)
+  /// [{ type: 'image' | 'video', chemin, apercu? }] — chemins dans le stockage.
+  /// Les liens Meta expirent en quelques jours : on ne garde que nos copies.
+  medias      Json               @default("[]")
+  /// extension | api
+  source      String
+  premiereVue DateTime           @default(now())
+  derniereVue DateTime           @default(now())
+  sauvegardes VeilleSauvegarde[]
+
+  @@index([marqueId])
+  @@index([premiereVue])
+}
+
+model VeilleDossier {
+  id          String             @id @default(cuid())
+  nom         String
+  parentId    String?
+  parent      VeilleDossier?     @relation("SousDossiers", fields: [parentId], references: [id], onDelete: Cascade)
+  enfants     VeilleDossier[]    @relation("SousDossiers")
+  sauvegardes VeilleSauvegarde[]
+  createdAt   DateTime           @default(now())
+}
+
+model VeilleSauvegarde {
+  id        String         @id @default(cuid())
+  pubId     String
+  pub       VeillePub      @relation(fields: [pubId], references: [id], onDelete: Cascade)
+  /// Null = « Sans dossier ».
+  dossierId String?
+  dossier   VeilleDossier? @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  note      String?
+  createdAt DateTime       @default(now())
+
+  @@index([pubId])
+  @@index([dossierId])
+}

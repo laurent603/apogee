@@ -10,11 +10,12 @@ type NavItem = { href: string; label: string; icon: React.ReactNode }
 type Section = { titre: string; items: NavItem[] }
 
 /**
- * Le menu, en quatre sections.
+ * Le menu, en cinq sections.
  *
  * Une liste plate de dix entrées ne dit pas à quoi sert l'application. Les
- * sections nomment les quatre métiers qu'elle couvre : piloter les comptes,
- * lancer des campagnes, produire de l'analyse, régler le contexte.
+ * sections nomment les cinq métiers qu'elle couvre : piloter les comptes,
+ * lancer des campagnes, produire de l'analyse, surveiller la concurrence,
+ * régler le contexte.
  *
  * Sept pages vivaient dans le code sans qu'aucun lien n'y mène. Cinq ont été
  * supprimées — elles refaisaient ce que Cockpit, Pilotage et la galerie Créas
@@ -74,6 +75,21 @@ const sections: Section[] = [
       { href: '/comment-analysis', label: 'Analyse commentaires', icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    ) },
+    ],
+  },
+  {
+    titre: 'Veille',
+    items: [
+      { href: '/discovery', label: 'Discovery', icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+      </svg>
+    ) },
+      { href: '/bibliotheque', label: 'Bibliothèque', icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
       </svg>
     ) },
     ],
