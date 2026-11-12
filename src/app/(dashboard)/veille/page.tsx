@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { clsx } from 'clsx'
 import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
-import { ChoixSecteur, dansLeSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
+import { ChoixSecteur, useSecteurClient, visiblePourClient } from '@/components/veille/SecteurClient'
 
 /**
  * Veille : les marques suivies, relues chaque jour par l'extension tant que
@@ -39,7 +39,7 @@ export default function VeillePage() {
   const [marque, setMarque] = useState<string | null>(null)
   const secteurClient = useSecteurClient()
   const [voirTout, setVoirTout] = useState(false)
-  const duSecteur = (categorie: string | null | undefined) => voirTout || dansLeSecteur(secteurClient.secteur, categorie)
+  const pourClient = (m: { id: string; categorie?: string | null }) => visiblePourClient(secteurClient, voirTout, m)
 
   const charger = useCallback(() => {
     fetch('/api/veille/fil').then((r) => (r.ok ? r.json() : null)).then(setDonnees)
@@ -87,16 +87,16 @@ export default function VeillePage() {
 
   const maintenant = Date.now()
   const pubs = useMemo(() => {
-    const toutes = (donnees?.pubs ?? []).filter((p) => (marque ? p.marque.id === marque : duSecteur(p.marque.categorie)))
+    const toutes = (donnees?.pubs ?? []).filter((p) => (marque ? p.marque.id === marque : pourClient(p.marque)))
     if (onglet === 'Qui s’installent') {
       return toutes.filter((p) => p.active && maintenant - Date.parse(p.premiereVue) >= (donnees?.installeeApres ?? 7) * JOUR)
     }
     if (onglet === 'Arrêtées') return toutes.filter((p) => !p.active && p.fin)
     return toutes
-  }, [donnees, marque, onglet, maintenant, voirTout, secteurClient.secteur])
+  }, [donnees, marque, onglet, maintenant, voirTout, secteurClient.secteur, secteurClient.cachees])
 
   const enCours = etat.etape === 'en-cours'
-  const lignes = (donnees?.marques ?? []).filter((m) => duSecteur(m.categorie))
+  const lignes = (donnees?.marques ?? []).filter(pourClient)
   if (!donnees) return <div className="card text-center py-20 text-gray-400 text-sm">Chargement…</div>
 
   return (
@@ -163,7 +163,7 @@ export default function VeillePage() {
               </thead>
               <tbody>
                 {lignes.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-400">Aucune marque suivie dans le secteur {secteurClient.secteur}.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-400">Aucune marque suivie pour {secteurClient.client}.</td></tr>
                 )}
                 {lignes.map((m) => (
                   <tr key={m.id} className="border-b border-[#F3F4F6] last:border-0">

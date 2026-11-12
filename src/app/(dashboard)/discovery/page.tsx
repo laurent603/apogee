@@ -52,7 +52,7 @@ export default function DiscoveryPage() {
 
   useEffect(() => {
     if (secteur === undefined) return
-    const params = new URLSearchParams({ n: String(n), ...(recherche && { q: recherche }) })
+    const params = new URLSearchParams({ n: String(n), ...(recherche && { q: recherche }), ...(secteurClient.compte && { compte: secteurClient.compte }) })
     for (const [k, v] of Object.entries(filtres)) if (v) params.set(k, v)
     setChargement(true)
     // Une réponse arrivée après une requête plus récente est ignorée.

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { type Dossier, type PubVeille } from '@/components/veille/CartePub'
 import { RapportMarque } from '@/components/veille/RapportMarque'
-import { ChoixSecteur, dansLeSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
+import { ChoixSecteur, useSecteurClient, visiblePourClient } from '@/components/veille/SecteurClient'
 import { ComparaisonMarques } from '@/components/veille/ComparaisonMarques'
 
 /**
@@ -47,7 +47,7 @@ export default function EspionPage() {
   const [dossiers, setDossiers] = useState<Dossier[]>([])
   const secteurClient = useSecteurClient()
   const [voirTout, setVoirTout] = useState(false)
-  const visibles = toutesMarques.filter((m) => voirTout || dansLeSecteur(secteurClient.secteur, m.categorie))
+  const visibles = toutesMarques.filter((m) => visiblePourClient(secteurClient, voirTout, m))
 
   useEffect(() => {
     const ecoute = async (e: MessageEvent) => {
@@ -134,7 +134,9 @@ export default function EspionPage() {
           <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select select-chevron w-auto"
             onChange={(e) => { setComparees(null); setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null) }}>
             <option value="" disabled>Revoir une marque espionnée…</option>
-            {visibles.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+            {visibles.map((m) => (
+              <option key={m.id} value={m.id}>{m.nom}{secteurClient.cachees.includes(m.id) ? ` (masquée pour ${secteurClient.client})` : ''}</option>
+            ))}
           </select>
           {visibles.length > 1 && (
             <button type="button" onClick={() => setCochees(cochees ? null : [])} className="text-sm text-[#3434ef] hover:underline">
@@ -221,7 +223,15 @@ export default function EspionPage() {
       ) : (
         choisie && (
           <RapportMarque key={choisie.id} marque={choisie} dossiers={dossiers}
-            retiree={() => { setToutesMarques((t) => t.filter((m) => m.id !== choisie.id)); setChoisie(null) }} />
+            retiree={() => { setToutesMarques((t) => t.filter((m) => m.id !== choisie.id)); setChoisie(null) }}
+            pourClient={secteurClient.client ? {
+              nom: secteurClient.client,
+              cachee: secteurClient.cachees.includes(choisie.id),
+              basculer: async () => {
+                const cachee = !secteurClient.cachees.includes(choisie.id)
+                if ((await secteurClient.cacher(choisie, cachee)) && cachee && !voirTout) setChoisie(null)
+              },
+            } : undefined} />
         )
       )}
     </div>

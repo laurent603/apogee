@@ -109,10 +109,12 @@ function BarresPourcent({ libelles, total }: { libelles: { libelle: string; n: n
   )
 }
 
-export function RapportMarque({ marque, dossiers, retiree }: {
+export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
   marque: { id: string; nom: string; suivie?: boolean; categorie?: string | null }; dossiers: Dossier[]
   /** Appelé une fois la marque masquée : la page la retire de ses listes. */
   retiree: () => void
+  /** Le client sélectionné : la marque peut être cachée pour lui seul. */
+  pourClient?: { nom: string; cachee: boolean; basculer: () => void }
 }) {
   const [pubs, setPubs] = useState<PubVeille[] | null>(null)
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
@@ -218,7 +220,12 @@ export function RapportMarque({ marque, dossiers, retiree }: {
           className={suivie ? 'btn-secondary' : 'btn-primary'}>
           {suivie ? 'Veille active ✓' : 'Activer la veille'}
         </button>
-        <button type="button" onClick={masquerMarque} className="text-sm text-gray-400 hover:text-red-600">Masquer la marque</button>
+        {pourClient && (
+          <button type="button" onClick={pourClient.basculer} className="text-sm text-gray-500 hover:text-[#0d0d12]">
+            {pourClient.cachee ? `Réafficher pour ${pourClient.nom}` : `Masquer pour ${pourClient.nom}`}
+          </button>
+        )}
+        <button type="button" onClick={masquerMarque} className="text-sm text-gray-400 hover:text-red-600">Masquer pour tous</button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -606,13 +606,13 @@ model Brief {
 // partagées par toute l'équipe.
 
 model VeilleMarque {
-  id            String      @id @default(cuid())
+  id            String               @id @default(cuid())
   /// L'identifiant de la page Facebook de l'annonceur.
-  pageId        String      @unique
+  pageId        String               @unique
   nom           String
   categorie     String?
   /// Suivie = vérifiée chaque nuit, avec alerte sur les nouvelles pubs.
-  suivie        Boolean     @default(false)
+  suivie        Boolean              @default(false)
   /// Début du suivi : les pubs vues après sont des nouveautés, celles
   /// d'avant forment la base de départ.
   suivieDepuis  DateTime?
@@ -620,9 +620,20 @@ model VeilleMarque {
   /// Analyse IA de la marque (Gemini) : synthèse, angles, concepts, personas.
   analyse       Json?
   /// Masquée = retirée partout et jamais réimportée par les scans.
-  masquee       Boolean     @default(false)
-  createdAt     DateTime    @default(now())
+  masquee       Boolean              @default(false)
+  createdAt     DateTime             @default(now())
   pubs          VeillePub[]
+  cacheePour    VeilleMarqueCachee[]
+}
+
+/// Une marque cachée pour un seul client (compte Meta) : les autres la voient toujours.
+model VeilleMarqueCachee {
+  metaAccountId String
+  marqueId      String
+  marque        VeilleMarque @relation(fields: [marqueId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@id([metaAccountId, marqueId])
 }
 
 model VeillePub {
