@@ -42,8 +42,9 @@ async function appel(etape: string, ...args: Parameters<typeof fetch>) {
   try {
     return await fetch(...args)
   } catch (e) {
-    const cause = (e as { cause?: { code?: string; message?: string } }).cause
-    throw new Error(`${etape} impossible (${cause?.code || cause?.message || (e as Error).message})`)
+    const cause = (e as { cause?: { code?: string; message?: string; hostname?: string } }).cause
+    const detail = [cause?.code || cause?.message || (e as Error).message, cause?.hostname].filter(Boolean).join(' ')
+    throw new Error(`${etape} impossible (${detail})`)
   }
 }
 
