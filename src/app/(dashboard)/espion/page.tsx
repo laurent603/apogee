@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
-import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { RapportMarque } from '@/components/veille/RapportMarque'
 
 /**
  * Espion : une marque, un produit ou un lien Ad Library, et ses pubs actives.
@@ -35,7 +36,9 @@ export default function EspionPage() {
   const [pays, setPays] = useState('FR')
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
   const [pubs, setPubs] = useState<PubVeille[]>([])
-  const [marque, setMarque] = useState<string | null>(null)
+  // La marque dont le rapport s'affiche : choisie après un scan ou dans la liste.
+  const [choisie, setChoisie] = useState<{ id: string; nom: string } | null>(null)
+  const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string }[]>([])
   const [dossiers, setDossiers] = useState<Dossier[]>([])
 
   useEffect(() => {
@@ -48,7 +51,14 @@ export default function EspionPage() {
       else if (m.type === 'fini') {
         // Les plus touchées d'abord, comme dans la Ad Library.
         const d = m.ids.length ? await fetch(`/api/veille/pubs?ids=${m.ids.join(',')}&n=200&tri=couverture`).then((r) => (r.ok ? r.json() : null)) : null
-        setPubs(d?.pubs ?? [])
+        const scannees: PubVeille[] = d?.pubs ?? []
+        setPubs(scannees)
+        // Le rapport s'ouvre sur l'annonceur le plus présent dans le scan.
+        const n = new Map<string, number>()
+        for (const p of scannees) n.set(p.marque.id, (n.get(p.marque.id) ?? 0) + 1)
+        const premier = [...n.entries()].sort((a, b) => b[1] - a[1])[0]
+        setChoisie(premier ? scannees.find((p) => p.marque.id === premier[0])!.marque : null)
+        if (d?.marques) setToutesMarques(d.marques)
         setEtat({ etape: 'fini', trouvees: m.ids.length, erreurs: m.erreurs, premiereErreur: m.premiereErreur })
       }
     }
@@ -56,6 +66,7 @@ export default function EspionPage() {
     window.postMessage({ source: 'apogee-page', type: 'ping' }, location.origin)
     const delai = setTimeout(() => setExtension((v) => v ?? false), 1500)
     fetch('/api/veille/dossiers').then((r) => (r.ok ? r.json() : null)).then((d) => d && setDossiers(d.dossiers))
+    fetch('/api/veille/pubs?n=1').then((r) => (r.ok ? r.json() : null)).then((d) => d && setToutesMarques(d.marques))
     return () => {
       window.removeEventListener('message', ecoute)
       clearTimeout(delai)
@@ -66,18 +77,17 @@ export default function EspionPage() {
     e.preventDefault()
     if (!recherche.trim()) return
     setPubs([])
-    setMarque(null)
+    setChoisie(null)
     setEtat({ etape: 'ouverture' })
     window.postMessage({ source: 'apogee-page', type: 'scanner', recherche: recherche.trim(), pays }, location.origin)
   }
 
   const enCours = ['ouverture', 'lecture', 'details', 'envoi'].includes(etat.etape)
-  const marques = useMemo(() => {
-    const n = new Map<string, number>()
-    for (const p of pubs) n.set(p.marque.nom, (n.get(p.marque.nom) ?? 0) + 1)
-    return [...n.entries()].sort((a, b) => b[1] - a[1])
+  const annonceurs = useMemo(() => {
+    const n = new Map<string, { id: string; nom: string; n: number }>()
+    for (const p of pubs) n.set(p.marque.id, { ...p.marque, n: (n.get(p.marque.id)?.n ?? 0) + 1 })
+    return [...n.values()].sort((a, b) => b.n - a.n)
   }, [pubs])
-  const visibles = marque ? pubs.filter((p) => p.marque.nom === marque) : pubs
 
   return (
     <div className="space-y-4">
@@ -101,6 +111,14 @@ export default function EspionPage() {
           {enCours ? 'Scan en cours…' : 'Scanner'}
         </button>
       </form>
+
+      {toutesMarques.length > 0 && (
+        <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select w-auto"
+          onChange={(e) => setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null)}>
+          <option value="" disabled>Revoir une marque espionnée…</option>
+          {toutesMarques.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+        </select>
+      )}
 
       {extension === false && (
         <div className="card text-sm text-gray-600 space-y-1">
@@ -128,7 +146,7 @@ export default function EspionPage() {
       {etat.etape === 'fini' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            {etat.trouvees} pub{etat.trouvees > 1 ? 's' : ''} de {marques.length} annonceur{marques.length > 1 ? 's' : ''}, aussi
+            {etat.trouvees} pub{etat.trouvees > 1 ? 's' : ''} de {annonceurs.length} annonceur{annonceurs.length > 1 ? 's' : ''}, aussi
             ajoutées à Discovery.
             {etat.erreurs > 0 && (
               <span className="text-amber-700">
@@ -136,24 +154,21 @@ export default function EspionPage() {
               </span>
             )}
           </p>
-          {marques.length > 1 && (
+          {annonceurs.length > 1 && (
             <div className="flex flex-wrap gap-2">
-              {[[null, pubs.length] as const, ...marques].map(([nom, n]) => (
-                <button key={nom ?? 'tous'} type="button" onClick={() => setMarque(nom)}
+              {annonceurs.map((a) => (
+                <button key={a.id} type="button" onClick={() => setChoisie(a)}
                   className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                    marque === nom ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
-                  {nom ?? 'Tous les annonceurs'} <span className={marque === nom ? 'text-white/70' : 'text-gray-400'}>{n}</span>
+                    choisie?.id === a.id ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
+                  {a.nom} <span className={choisie?.id === a.id ? 'text-white/70' : 'text-gray-400'}>{a.n}</span>
                 </button>
               ))}
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 items-start">
-            {visibles.map((pub) => (
-              <CartePub key={pub.id} pub={pub} actions={<ChoixSauvegarde pub={pub} dossiers={dossiers} />} />
-            ))}
-          </div>
         </div>
       )}
+
+      {choisie && <RapportMarque key={choisie.id} marque={choisie} dossiers={dossiers} />}
     </div>
   )
 }

@@ -18,7 +18,7 @@ export function compact(v: number) {
 const AGES = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+', 'Unknown']
 const pct = (n: number, total: number) => (total ? Math.round((100 * n) / total) : 0)
 
-function Barre({ libelle, valeur, total }: { libelle: string; valeur: number; total: number }) {
+export function Barre({ libelle, valeur, total }: { libelle: string; valeur: number; total: number }) {
   const p = pct(valeur, total)
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -31,7 +31,7 @@ function Barre({ libelle, valeur, total }: { libelle: string; valeur: number; to
   )
 }
 
-function Section({ titre, children }: { titre: string; children: React.ReactNode }) {
+export function Section({ titre, children }: { titre: string; children: React.ReactNode }) {
   return (
     <section className="space-y-1.5">
       <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{titre}</h3>

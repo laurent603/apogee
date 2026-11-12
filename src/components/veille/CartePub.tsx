@@ -41,7 +41,7 @@ function domaine(url: string | null) {
 }
 
 /** Jours de diffusion : jusqu'à aujourd'hui si la pub tourne encore. */
-function joursDeDiffusion(pub: PubVeille) {
+export function joursDeDiffusion(pub: PubVeille) {
   if (!pub.debut) return null
   const fin = pub.active || !pub.fin ? Date.now() : Date.parse(pub.fin)
   return Math.max(1, Math.round((fin - Date.parse(pub.debut)) / 86_400_000))
