@@ -32,17 +32,30 @@ async function creerBucket(url: string, cle: string) {
   if (!r.ok && r.status !== 409) throw new Error(`Création du bucket refusée (${r.status}) : ${await r.text()}`)
 }
 
+/**
+ * Une erreur réseau de fetch ne dit que « fetch failed » : la vraie cause
+ * (ECONNRESET, ENOTFOUND, délai…) est dans `cause`. On nomme l'étape avec.
+ */
+async function appel(etape: string, ...args: Parameters<typeof fetch>) {
+  try {
+    return await fetch(...args)
+  } catch (e) {
+    const cause = (e as { cause?: { code?: string; message?: string } }).cause
+    throw new Error(`${etape} impossible (${cause?.code || cause?.message || (e as Error).message})`)
+  }
+}
+
 /** Télécharge `source` et le range sous `prefixe.<ext>`. Renvoie le chemin. */
 export async function copierMedia(source: string, prefixe: string): Promise<string> {
   const { url, cle } = config()
-  const r = await fetch(source)
-  if (!r.ok) throw new Error(`Téléchargement du média refusé (${r.status})`)
+  const r = await appel('Téléchargement du média chez Meta', source)
+  if (!r.ok) throw new Error(`Téléchargement du média refusé par Meta (${r.status})`)
   const type = (r.headers.get('content-type') || '').split(';')[0].trim()
   const chemin = `${prefixe}.${EXTENSIONS[type] ?? 'bin'}`
   const corps = await r.arrayBuffer()
 
   const envoyer = () =>
-    fetch(`${url}/storage/v1/object/${BUCKET}/${chemin}`, {
+    appel('Envoi du média au stockage', `${url}/storage/v1/object/${BUCKET}/${chemin}`, {
       method: 'POST',
       headers: { authorization: `Bearer ${cle}`, 'content-type': type || 'application/octet-stream', 'x-upsert': 'true' },
       body: corps,

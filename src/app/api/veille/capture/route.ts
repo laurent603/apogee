@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       // Rien n'est enregistré : tant que la page est ouverte, les liens Meta
       // restent valides et un nouveau clic peut réussir.
+      console.error('[veille/capture]', pub.adArchiveId, (e as Error).message)
       return NextResponse.json({ erreur: (e as Error).message }, { status: 502 })
     }
   }
