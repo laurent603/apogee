@@ -1,0 +1,9 @@
+{
+  "name": "apogee-veille-mac",
+  "private": true,
+  "type": "module",
+  "description": "La veille quotidienne d'Apogee, lancée par launchd sur le Mac.",
+  "dependencies": {
+    "playwright-core": "1.65.0"
+  }
+}
