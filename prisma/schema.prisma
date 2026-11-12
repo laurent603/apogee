@@ -641,7 +641,7 @@ model VeillePub {
   /// [{ type: 'image' | 'video', chemin, apercu? }] — chemins dans le stockage.
   /// Les liens Meta expirent en quelques jours : on ne garde que nos copies.
   medias      Json               @default("[]")
-  /// extension | api
+  /// extension | espion | api
   source      String
   premiereVue DateTime           @default(now())
   derniereVue DateTime           @default(now())

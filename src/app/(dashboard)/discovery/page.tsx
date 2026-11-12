@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
-import { CartePub, dossiersEnArbre, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
 
 /**
  * Toutes les pubs concurrentes collectées : celles sauvegardées avec
@@ -58,26 +57,8 @@ export default function DiscoveryPage() {
     setN(PAR_PAGE)
   }
 
-  async function sauvegarder(pub: PubVeille, dossierId: string) {
-    const r = await fetch('/api/veille/sauvegardes', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pubId: pub.id, dossierId: dossierId || null }),
-    })
-    const j = await r.json().catch(() => ({}))
-    if (!r.ok) return void toast.error(j.erreur || 'Sauvegarde impossible')
-    toast.success(j.deja ? 'Déjà dans ce dossier' : 'Ajoutée à la bibliothèque')
-    if (!j.deja) {
-      setDonnees((d) => d && {
-        ...d,
-        pubs: d.pubs.map((p) => (p.id === pub.id ? { ...p, sauvegardes: [...p.sauvegardes, { id: j.id, dossierId: j.dossierId }] } : p)),
-      })
-    }
-  }
-
   const actifs = Object.values(filtres).some(Boolean) || !!recherche
   const pubs = donnees?.pubs ?? []
-  const arbre = dossiersEnArbre(dossiers)
 
   return (
     <div className="space-y-4">
@@ -131,24 +112,7 @@ export default function DiscoveryPage() {
             <CartePub
               key={pub.id}
               pub={pub}
-              actions={
-                <div className="flex items-center gap-2">
-                  <select
-                    aria-label="Sauvegarder dans un dossier"
-                    value=""
-                    onChange={(e) => sauvegarder(pub, e.target.value === 'sans' ? '' : e.target.value)}
-                    className="select py-1.5 text-xs"
-                  >
-                    <option value="" disabled>
-                      {pub.sauvegardes.length ? 'Dans la bibliothèque · ajouter à…' : 'Sauvegarder dans…'}
-                    </option>
-                    <option value="sans">Sans dossier</option>
-                    {arbre.map((d) => (
-                      <option key={d.id} value={d.id}>{'\u00a0\u00a0'.repeat(d.niveau)}{d.nom}</option>
-                    ))}
-                  </select>
-                </div>
-              }
+              actions={<ChoixSauvegarde pub={pub} dossiers={dossiers} />}
             />
           ))}
         </div>

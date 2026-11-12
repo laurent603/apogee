@@ -18,6 +18,7 @@ assert.equal(video.pageId, '237855009707806')
 assert.equal(video.medias[0].type, 'video')
 assert.match(video.medias[0].url, /AQO8V1HD/, 'la HD avant la SD')
 assert.ok(video.medias[0].apercu)
+assert.match(normaliserPub(ads[1], { videoSd: true }).medias[0].url, /AQMfJQCER/, 'la SD pour un scan')
 assert.equal(video.titre, null)
 
 assert.equal(carrousel.medias.length, 2)

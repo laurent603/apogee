@@ -63,3 +63,21 @@ const planifier = () => {
 }
 new MutationObserver(planifier).observe(document.documentElement, { childList: true, subtree: true })
 window.addEventListener('load', planifier)
+
+// Espion : fait défiler la recherche jusqu'à `max` pubs, ou jusqu'à ce que
+// trois défilements de suite n'en apportent plus aucune.
+chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
+  if (msg?.type !== 'collecter') return
+  ;(async () => {
+    let avant = -1
+    let immobile = 0
+    while (pubs.size < msg.max && immobile < 3) {
+      window.scrollTo(0, document.documentElement.scrollHeight)
+      await new Promise((r) => setTimeout(r, 2000))
+      immobile = pubs.size === avant ? immobile + 1 : 0
+      avant = pubs.size
+    }
+    repondre([...pubs.values()].slice(0, msg.max))
+  })()
+  return true
+})

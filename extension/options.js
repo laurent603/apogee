@@ -22,5 +22,10 @@ document.getElementById('enregistrer').addEventListener('click', async () => {
     return
   }
   await chrome.storage.sync.set({ url: origine, cle: cle.value.trim() })
-  etat.textContent = 'Enregistré'
+  // Le pont vers la page Espion n'est injecté que sur le domaine d'Apogee.
+  await chrome.scripting.unregisterContentScripts({ ids: ['pont-apogee'] }).catch(() => {})
+  await chrome.scripting.registerContentScripts([
+    { id: 'pont-apogee', matches: [`${origine}/*`], js: ['pont.js'], runAt: 'document_start' },
+  ])
+  etat.textContent = 'Enregistré — rechargez la page Espion d’Apogee si elle est ouverte'
 })

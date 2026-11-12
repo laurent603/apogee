@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
 /** Une pub de la veille, telle que /api/veille/pubs la renvoie. */
 export type PubVeille = {
@@ -121,5 +122,37 @@ export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.Rea
         {actions}
       </footer>
     </article>
+  )
+}
+
+/** « Sauvegarder dans… » : range la pub dans la bibliothèque, au dossier choisi. */
+export function ChoixSauvegarde({ pub, dossiers }: { pub: PubVeille; dossiers: Dossier[] }) {
+  const [dedans, setDedans] = useState(pub.sauvegardes.length > 0)
+
+  async function sauvegarder(dossierId: string | null) {
+    const r = await fetch('/api/veille/sauvegardes', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pubId: pub.id, dossierId }),
+    })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) return void toast.error(j.erreur || 'Sauvegarde impossible')
+    toast.success(j.deja ? 'Déjà dans ce dossier' : 'Ajoutée à la bibliothèque')
+    setDedans(true)
+  }
+
+  return (
+    <select
+      aria-label="Sauvegarder dans un dossier"
+      value=""
+      onChange={(e) => sauvegarder(e.target.value === 'sans' ? null : e.target.value)}
+      className="select py-1.5 text-xs"
+    >
+      <option value="" disabled>{dedans ? 'Dans la bibliothèque · ajouter à…' : 'Sauvegarder dans…'}</option>
+      <option value="sans">Sans dossier</option>
+      {dossiersEnArbre(dossiers).map((d) => (
+        <option key={d.id} value={d.id}>{'\u00a0\u00a0'.repeat(d.niveau)}{d.nom}</option>
+      ))}
+    </select>
   )
 }

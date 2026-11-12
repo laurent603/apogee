@@ -1,22 +1,38 @@
 {
   "manifest_version": 3,
   "name": "Apogee Veille",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sauvegarde les pubs de la Meta Ad Library dans Apogee.",
-  "permissions": ["storage"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
-  "background": { "service_worker": "arriere-plan.js" },
+  "permissions": [
+    "storage",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "arriere-plan.js"
+  },
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": ["https://www.facebook.com/ads/library/*"],
-      "js": ["interception.js"],
+      "matches": [
+        "https://www.facebook.com/ads/library/*"
+      ],
+      "js": [
+        "interception.js"
+      ],
       "world": "MAIN",
       "run_at": "document_start"
     },
     {
-      "matches": ["https://www.facebook.com/ads/library/*"],
-      "js": ["contenu.js"],
+      "matches": [
+        "https://www.facebook.com/ads/library/*"
+      ],
+      "js": [
+        "contenu.js"
+      ],
       "run_at": "document_start"
     }
   ]

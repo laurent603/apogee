@@ -48,6 +48,10 @@ export async function GET(req: NextRequest) {
   const jours = Number(p.get('duree'))
   if (jours > 0) where.debut = { lte: new Date(Date.now() - jours * 86_400_000) }
 
+  // Les pubs d'un scan Espion, quelle que soit la recherche texte.
+  const ids = p.get('ids')?.split(',').filter(Boolean).slice(0, 200)
+  if (ids?.length) where.AND = [{ id: { in: ids } }]
+
   const dossier = p.get('dossier')
   if (dossier === 'tous') where.sauvegardes = { some: {} }
   else if (dossier === 'sans') where.sauvegardes = { some: { dossierId: null } }

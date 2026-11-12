@@ -56,8 +56,10 @@ function date(v: unknown): Date | null {
 
 type Brut = Record<string, any>
 
-function mediaDe(m: Brut): MediaSource | null {
-  const video = urlMeta(m.video_hd_url) ?? urlMeta(m.video_sd_url)
+function mediaDe(m: Brut, videoSd: boolean): MediaSource | null {
+  const hd = urlMeta(m.video_hd_url)
+  const sd = urlMeta(m.video_sd_url)
+  const video = videoSd ? sd ?? hd : hd ?? sd
   if (video) {
     const apercu = urlMeta(m.video_preview_image_url)
     return apercu ? { type: 'video', url: video, apercu } : { type: 'video', url: video }
@@ -66,7 +68,11 @@ function mediaDe(m: Brut): MediaSource | null {
   return image ? { type: 'image', url: image } : null
 }
 
-export function normaliserPub(brut: unknown): PubNormalisee {
+/**
+ * `videoSd` : les scans Espion prennent la vidéo en définition standard,
+ * trois à quatre fois plus légère ; une sauvegarde garde la HD.
+ */
+export function normaliserPub(brut: unknown, { videoSd = false } = {}): PubNormalisee {
   const p = brut as Brut
   const s = (p?.snapshot ?? {}) as Brut
   const adArchiveId = String(p?.ad_archive_id ?? '')
@@ -81,7 +87,7 @@ export function normaliserPub(brut: unknown): PubNormalisee {
     ...(Array.isArray(s.images) ? s.images : []),
     ...cartes,
   ]
-    .map(mediaDe)
+    .map((m) => mediaDe(m, videoSd))
     .filter((m): m is MediaSource => m !== null)
     .slice(0, MEDIAS_MAX)
 

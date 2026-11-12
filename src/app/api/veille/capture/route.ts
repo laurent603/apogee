@@ -7,6 +7,8 @@ import { copierMedia } from '@/lib/veille/stockage'
 /**
  * Reçoit une pub sauvegardée depuis l'extension Chrome, sur la Meta Ad
  * Library : la range en base, recopie ses médias, l'ajoute à la bibliothèque.
+ * Avec `scan: true` (Espion), la pub entre seulement dans la veille, sans
+ * passer par la bibliothèque, et sa vidéo est prise en définition standard.
  *
  * L'extension n'a pas la session Apogee (elle tourne sur facebook.com) : elle
  * s'authentifie avec la clé partagée VEILLE_EXTENSION_KEY.
@@ -43,9 +45,10 @@ export async function POST(req: NextRequest) {
   }
 
   const corps = await req.json().catch(() => null)
+  const scan = corps?.scan === true
   let pub: PubNormalisee
   try {
-    pub = normaliserPub(corps?.pub)
+    pub = normaliserPub(corps?.pub, { videoSd: scan })
   } catch (e) {
     return NextResponse.json({ erreur: (e as Error).message }, { status: 400 })
   }
@@ -93,9 +96,11 @@ export async function POST(req: NextRequest) {
   }
   const enregistree = await prisma.veillePub.upsert({
     where: { adArchiveId: pub.adArchiveId },
-    create: { ...champs, adArchiveId: pub.adArchiveId, medias: medias ?? [], source: 'extension' },
+    create: { ...champs, adArchiveId: pub.adArchiveId, medias: medias ?? [], source: scan ? 'espion' : 'extension' },
     update: medias ? { ...champs, medias } : champs,
   })
+
+  if (scan) return NextResponse.json({ ok: true, id: enregistree.id })
 
   const deja = await prisma.veilleSauvegarde.findFirst({ where: { pubId: enregistree.id, dossierId } })
   if (!deja) await prisma.veilleSauvegarde.create({ data: { pubId: enregistree.id, dossierId } })
