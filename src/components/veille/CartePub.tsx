@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { budgetEstime, type Transparence } from '@/lib/veille/adLibrary'
+import type { Decorticage } from '@/lib/veille/gemini'
 import { compact, FichePub } from './FichePub'
 
 /** Une pub de la veille, telle que /api/veille/pubs la renvoie. */
@@ -23,6 +24,7 @@ export type PubVeille = {
   sauvegardes: { id: string; dossierId: string | null }[]
   reachUe: number | null
   transparence: Transparence | null
+  analyse: Decorticage | null
 }
 
 export type Dossier = { id: string; nom: string; parentId: string | null; n: number }

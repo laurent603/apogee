@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import { budgetEstime, EUROS_POUR_MILLE_PERSONNES } from '@/lib/veille/adLibrary'
 import type { PubVeille } from './CartePub'
+import type { Decorticage } from '@/lib/veille/gemini'
 
 /** 2 694 → « 2,7 K », 783 → « 780 » : deux chiffres significatifs, comme un ordre de grandeur. */
 export function compact(v: number) {
@@ -35,6 +37,142 @@ function Section({ titre, children }: { titre: string; children: React.ReactNode
       <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{titre}</h3>
       {children}
     </section>
+  )
+}
+
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+/** Sous-titres .srt : chaque phrase dure jusqu'à la suivante, trois secondes au plus. */
+function srt(segments: Decorticage['transcription']) {
+  const t = (s: number) => {
+    const ms = Math.round(s * 1000)
+    const p = (n: number, l = 2) => String(n).padStart(l, '0')
+    return `${p(Math.floor(ms / 3_600_000))}:${p(Math.floor(ms / 60_000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`
+  }
+  return segments
+    .map((g, i) => {
+      const fin = Math.min(segments[i + 1]?.debut ?? g.debut + 3, g.debut + 3)
+      return `${i + 1}\n${t(g.debut)} --> ${t(Math.max(fin, g.debut + 0.5))}\n${g.texte}\n`
+    })
+    .join('\n')
+}
+
+function telecharger(nom: string, contenu: string) {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([contenu], { type: 'application/x-subrip;charset=utf-8' }))
+  a.download = nom
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+/** « Décortiquer cette pub » : analyse Gemini du média, gardée sur la pub. */
+function Decortiquer({ pub }: { pub: PubVeille }) {
+  const [analyse, setAnalyse] = useState<Decorticage | null>(pub.analyse)
+  const [chargement, setChargement] = useState(false)
+  const [ouvert, setOuvert] = useState(true)
+  const [filtre, setFiltre] = useState<'tout' | 'voix' | 'ecran'>('tout')
+
+  async function lancer(refaire = false) {
+    setChargement(true)
+    const r = await fetch('/api/veille/decortiquer', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pubId: pub.id, refaire }),
+    })
+    const j = await r.json().catch(() => ({}))
+    setChargement(false)
+    if (!r.ok) return void toast.error(j.erreur || 'Analyse impossible')
+    setAnalyse(j)
+    setOuvert(true)
+  }
+
+  if (!analyse) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-gray-50 px-3 py-2.5">
+        <div>
+          <p className="text-sm font-semibold text-[#0d0d12]">Décortiquer cette pub</p>
+          <p className="text-xs text-gray-500">
+            {chargement ? 'Analyse en cours… jusqu’à une minute pour une vidéo.' : 'Accroche, angle, concept, structure et transcription.'}
+          </p>
+        </div>
+        <button type="button" onClick={() => lancer()} disabled={chargement} className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50">
+          {chargement ? 'Analyse…' : 'Lancer'}
+        </button>
+      </div>
+    )
+  }
+
+  const segments = analyse.transcription.filter((g) => filtre === 'tout' || g.source === filtre)
+  const voix = analyse.transcription.filter((g) => g.source === 'voix')
+  const video = pub.medias.some((m) => m.type === 'video')
+
+  return (
+    <div className="rounded-lg border border-[#E5E7EB] px-3 py-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-[#0d0d12]">Pub décortiquée</p>
+          <p className="text-xs text-gray-500">
+            {video ? 'Vidéo' : 'Image'} · {analyse.transcription.length} élément{analyse.transcription.length > 1 ? 's' : ''} transcrit{analyse.transcription.length > 1 ? 's' : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <button type="button" onClick={() => lancer(true)} disabled={chargement} className="text-gray-400 hover:text-[#0d0d12] disabled:opacity-50">
+            {chargement ? 'Analyse…' : 'Refaire'}
+          </button>
+          <button type="button" onClick={() => setOuvert(!ouvert)} className="text-[#3434ef] hover:underline">{ouvert ? 'Masquer' : 'Afficher'}</button>
+        </div>
+      </div>
+
+      {ouvert && (
+        <>
+          <Section titre="Accroche"><p className="text-sm text-[#0d0d12]">« {analyse.accroche} »</p></Section>
+          <div className="grid grid-cols-2 gap-3">
+            <Section titre="Angle"><p className="text-sm text-gray-700">{analyse.angle}</p></Section>
+            <Section titre="Concept"><p className="text-sm text-gray-700">{analyse.concept}</p></Section>
+          </div>
+          <Section titre="Promesse"><p className="text-sm text-gray-700">{analyse.promesse}</p></Section>
+          <Section titre="Appel à l’action"><p className="text-sm text-gray-700">{analyse.appelAction}</p></Section>
+          {analyse.structure.length > 0 && (
+            <Section titre="Structure">
+              <ol className="space-y-1.5">
+                {analyse.structure.map((e, i) => (
+                  <li key={i} className="flex gap-2 text-sm">
+                    <span className="h-5 w-5 shrink-0 rounded-full bg-[#f0f0ff] text-[#3434ef] text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                    <span><span className="font-medium text-[#0d0d12]">{e.type}</span> <span className="text-gray-600">— {e.resume}</span></span>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          )}
+          {analyse.transcription.length > 0 && (
+            <Section titre="Transcription">
+              <div className="flex gap-1.5">
+                {(['tout', 'voix', 'ecran'] as const).map((f) => (
+                  <button key={f} type="button" onClick={() => setFiltre(f)}
+                    className={`px-2 py-0.5 rounded-full text-xs border ${filtre === f ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB]'}`}>
+                    {f === 'tout' ? 'Tout' : f === 'voix' ? 'Voix off' : 'Écran'}
+                  </button>
+                ))}
+              </div>
+              <ul className="space-y-1">
+                {segments.map((g, i) => (
+                  <li key={i} className="flex gap-2 text-sm">
+                    <span className="w-10 shrink-0 tabular-nums text-xs text-gray-400 pt-0.5">{mmss(g.debut)}</span>
+                    <span className={g.source === 'ecran' ? 'font-medium uppercase text-xs tracking-wide text-gray-500 pt-0.5' : 'text-gray-700'}>{g.texte}</span>
+                  </li>
+                ))}
+              </ul>
+              {video && (
+                <button type="button" onClick={() => telecharger(`transcription-${pub.adArchiveId}.srt`, srt(voix.length ? voix : analyse.transcription))}
+                  className="text-xs text-[#3434ef] hover:underline">
+                  Télécharger la transcription .srt
+                </button>
+              )}
+            </Section>
+          )}
+        </>
+      )}
+    </div>
   )
 }
 
@@ -113,6 +251,8 @@ export function FichePub({ pub, jours, actions, fermer }: {
               ))}
             </div>
           )}
+
+          <Decortiquer pub={pub} />
 
           {pub.titre && <Section titre="Titre"><p className="text-sm text-[#0d0d12]">{pub.titre}</p></Section>}
           {pub.texte && <Section titre="Texte principal"><p className="text-sm text-gray-700 whitespace-pre-line">{pub.texte}</p></Section>}

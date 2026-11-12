@@ -647,6 +647,9 @@ model VeillePub {
   reachUe     Int?
   /// Répartition âge × sexe × pays, ciblage, payeur — voir Transparence.
   transparence Json?
+  /// « Décortiquer cette pub » (Gemini) : accroche, angle, concept,
+  /// structure, transcription. Gardé pour ne pas repayer l'analyse.
+  analyse      Json?
   premiereVue DateTime           @default(now())
   derniereVue DateTime           @default(now())
   sauvegardes VeilleSauvegarde[]
