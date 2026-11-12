@@ -42,3 +42,21 @@ assert.deepEqual(r.audience.sexe.map((s) => s.n), [60, 30, 10])
 assert.deepEqual(r.angles, [{ libelle: 'Économies chiffrées', n: 1 }])
 assert.equal(r.budget, null, 'deux pubs à couverture connue ne suffisent pas')
 console.log('rapportMarque : ok')
+
+// Comparaison de marques
+const { constatsComparaison } = await import('../src/lib/veille/rapport.ts')
+const L = (o) => ({ nom: 'X', pubsActives: 0, budgetMensuel: null, lancees30j: 0, installees: 0, video: 0, offre: 0, feminin: null, derniereVue: null, ...o })
+const constats = constatsComparaison([
+  L({ nom: 'Placier', pubsActives: 24, budgetMensuel: 3400, lancees30j: 6, installees: 80, video: 70, offre: 30 }),
+  L({ nom: 'Effy', pubsActives: 8, budgetMensuel: 9100, lancees30j: 2, installees: 40, video: 20, offre: 5 }),
+])
+assert.equal(constats[0], 'Placier a le plus gros parc actif : 24 pubs, 3,0 fois plus que Effy.')
+assert.equal(constats[1], 'Effy investit le plus : environ 9,1 K € par mois, contre 3,4 K € pour Placier.')
+assert.equal(constats[2], 'Placier teste le plus : 6 créas lancées sur 30 jours, contre 2 pour Effy.')
+assert.ok(constats.some((c) => c.startsWith('Placier laisse tourner ses pubs : 80 %')))
+assert.ok(constats.some((c) => c.startsWith('Placier mise sur la vidéo (70 %')))
+assert.ok(constats.some((c) => c.startsWith('Placier pousse des offres dans 30 %')))
+// Écarts faibles : pas de phrase inventée.
+const proches = constatsComparaison([L({ nom: 'A', pubsActives: 10, installees: 50, video: 50 }), L({ nom: 'B', pubsActives: 9, installees: 45, video: 40 })])
+assert.deepEqual(proches, ['A a le plus gros parc actif (10 pubs), mais les volumes restent proches.'])
+console.log('constatsComparaison : ok')

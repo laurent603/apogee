@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import { type Dossier, type PubVeille } from '@/components/veille/CartePub'
 import { RapportMarque } from '@/components/veille/RapportMarque'
+import { ComparaisonMarques } from '@/components/veille/ComparaisonMarques'
 
 /**
  * Espion : une marque, un produit ou un lien Ad Library, et ses pubs actives.
@@ -39,6 +40,9 @@ export default function EspionPage() {
   // La marque dont le rapport s'affiche : choisie après un scan ou dans la liste.
   const [choisie, setChoisie] = useState<{ id: string; nom: string; suivie?: boolean } | null>(null)
   const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string; suivie: boolean }[]>([])
+  // Comparaison : null = fermée ; sinon les marques cochées, puis `comparer` les met en regard.
+  const [cochees, setCochees] = useState<string[] | null>(null)
+  const [comparees, setComparees] = useState<{ id: string; nom: string }[] | null>(null)
   const [dossiers, setDossiers] = useState<Dossier[]>([])
 
   useEffect(() => {
@@ -120,11 +124,40 @@ export default function EspionPage() {
       </form>
 
       {toutesMarques.length > 0 && (
-        <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select w-auto"
-          onChange={(e) => setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null)}>
-          <option value="" disabled>Revoir une marque espionnée…</option>
-          {toutesMarques.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select w-auto"
+            onChange={(e) => { setComparees(null); setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null) }}>
+            <option value="" disabled>Revoir une marque espionnée…</option>
+            {toutesMarques.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+          </select>
+          {toutesMarques.length > 1 && (
+            <button type="button" onClick={() => setCochees(cochees ? null : [])} className="text-sm text-[#3434ef] hover:underline">
+              {cochees ? 'Annuler la comparaison' : 'Comparer plusieurs marques'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {cochees && (
+        <div className="card space-y-3">
+          <p className="text-sm text-gray-600">Cochez de 2 à 6 marques à mettre côte à côte.</p>
+          <div className="flex flex-wrap gap-2">
+            {toutesMarques.map((m) => {
+              const coche = cochees.includes(m.id)
+              return (
+                <button key={m.id} type="button" aria-pressed={coche}
+                  onClick={() => setCochees(coche ? cochees.filter((x) => x !== m.id) : cochees.length < 6 ? [...cochees, m.id] : cochees)}
+                  className={clsx('px-3 py-1.5 rounded-full text-xs font-medium border', coche ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB] hover:border-gray-300')}>
+                  {coche ? '✓ ' : ''}{m.nom}
+                </button>
+              )
+            })}
+          </div>
+          <button type="button" disabled={cochees.length < 2} className="btn-primary disabled:opacity-50"
+            onClick={() => { setComparees(toutesMarques.filter((m) => cochees.includes(m.id))); setCochees(null) }}>
+            Comparer {cochees.length >= 2 ? `(${cochees.length})` : ''}
+          </button>
+        </div>
       )}
 
       {extension === false && (
@@ -175,7 +208,12 @@ export default function EspionPage() {
         </div>
       )}
 
-      {choisie && <RapportMarque key={choisie.id} marque={choisie} dossiers={dossiers} />}
+      {comparees ? (
+        <ComparaisonMarques marques={comparees} retour={() => setComparees(null)}
+          ouvrir={(m) => { setComparees(null); setChoisie(toutesMarques.find((x) => x.id === m.id) ?? m) }} />
+      ) : (
+        choisie && <RapportMarque key={choisie.id} marque={choisie} dossiers={dossiers} />
+      )}
     </div>
   )
 }

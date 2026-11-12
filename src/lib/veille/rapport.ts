@@ -173,3 +173,81 @@ export function rapportMarque(pubs: PubRapport[], eurosPourMille: number, mainte
 }
 
 export type Rapport = ReturnType<typeof rapportMarque>
+
+// ─── Comparaison de marques ───────────────────────────────────────────────
+
+export type LigneComparaison = {
+  nom: string
+  pubsActives: number
+  budgetMensuel: number | null
+  lancees30j: number
+  installees: number // % des pubs actives diffusées depuis plus de 30 jours
+  video: number // % de vidéos
+  offre: number // % de pubs avec une offre
+  feminin: number | null // % de femmes dans la couverture UE
+  derniereVue: string | null
+}
+
+const pct = (x: number) => Math.round(100 * x)
+
+/** Les chiffres d'une marque pour la comparaison, tirés de son rapport. */
+export function ligneComparaison(nom: string, r: Rapport, derniereVue: string | null): LigneComparaison {
+  const femmes = r.audience?.sexe.find((s) => s.libelle === 'Femmes')?.n
+  return {
+    nom,
+    pubsActives: r.total,
+    budgetMensuel: r.budget?.mensuel ?? null,
+    lancees30j: r.lanceesCes30j,
+    installees: pct(r.depuisPlusDe30j),
+    video: r.total ? pct((r.formats.find((f) => f.libelle === 'VIDEO')?.n ?? 0) / r.total) : 0,
+    offre: pct(r.offres.part),
+    feminin: r.audience && femmes !== undefined ? pct(femmes / r.audience.total) : null,
+    derniereVue,
+  }
+}
+
+const euros = (v: number) => {
+  const a = Number(v.toPrecision(2))
+  return a >= 1000 ? `${(a / 1000).toLocaleString('fr-FR', { maximumFractionDigits: a < 10_000 ? 1 : 0 })} K €` : `${a.toLocaleString('fr-FR')} €`
+}
+
+/**
+ * Les phrases qui résument la comparaison, sur les seuils de Créabase : on
+ * ne signale un écart que s'il est net.
+ */
+export function constatsComparaison(lignes: LigneComparaison[]): string[] {
+  const tri = (f: (l: LigneComparaison) => number | null) =>
+    lignes.map((l) => ({ l, v: f(l) })).filter((x): x is { l: LigneComparaison; v: number } => typeof x.v === 'number').sort((a, b) => b.v - a.v)
+  const phrases: string[] = []
+
+  const parc = tri((l) => l.pubsActives)
+  if (parc.length >= 2 && parc[0].v > 0) {
+    const dernier = parc[parc.length - 1]
+    const rapport = dernier.v > 0 ? parc[0].v / dernier.v : null
+    phrases.push(rapport && rapport >= 1.5
+      ? `${parc[0].l.nom} a le plus gros parc actif : ${parc[0].v} pubs, ${rapport >= 10 ? Math.round(rapport) : rapport.toFixed(1).replace('.', ',')} fois plus que ${dernier.l.nom}.`
+      : `${parc[0].l.nom} a le plus gros parc actif (${parc[0].v} pubs), mais les volumes restent proches.`)
+  }
+  const budget = tri((l) => l.budgetMensuel)
+  if (budget.length >= 2) phrases.push(`${budget[0].l.nom} investit le plus : environ ${euros(budget[0].v)} par mois, contre ${euros(budget[1].v)} pour ${budget[1].l.nom}.`)
+  const tests = tri((l) => l.lancees30j)
+  if (tests.length >= 2 && tests[0].v >= 3 && tests[0].v >= 1.5 * tests[1].v) {
+    phrases.push(`${tests[0].l.nom} teste le plus : ${tests[0].v} créas lancées sur 30 jours, contre ${tests[1].v} pour ${tests[1].l.nom}.`)
+  }
+  const installees = tri((l) => l.installees)
+  if (installees.length >= 2 && installees[0].v - installees[installees.length - 1].v >= 15) {
+    const d = installees[installees.length - 1]
+    phrases.push(`${installees[0].l.nom} laisse tourner ses pubs : ${installees[0].v} % ont plus de 30 jours, contre ${d.v} % chez ${d.l.nom}, qui renouvelle davantage.`)
+  }
+  const video = tri((l) => l.video)
+  if (video.length >= 2 && video[0].v - video[video.length - 1].v >= 30) {
+    const d = video[video.length - 1]
+    phrases.push(`${video[0].l.nom} mise sur la vidéo (${video[0].v} % de ses pubs), ${d.l.nom} beaucoup moins (${d.v} %).`)
+  }
+  const offre = tri((l) => l.offre)
+  if (offre.length >= 2 && offre[0].v >= 20 && offre[0].v - offre[offre.length - 1].v >= 20) {
+    const d = offre[offre.length - 1]
+    phrases.push(`${offre[0].l.nom} pousse des offres dans ${offre[0].v} % de ses pubs, contre ${d.v} % pour ${d.l.nom}.`)
+  }
+  return phrases
+}
