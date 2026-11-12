@@ -643,6 +643,10 @@ model VeillePub {
   medias      Json               @default("[]")
   /// extension | espion | api
   source      String
+  /// Personnes touchées dans l'UE (transparence DSA de la Ad Library).
+  reachUe     Int?
+  /// Répartition âge × sexe × pays, ciblage, payeur — voir Transparence.
+  transparence Json?
   premiereVue DateTime           @default(now())
   derniereVue DateTime           @default(now())
   sauvegardes VeilleSauvegarde[]

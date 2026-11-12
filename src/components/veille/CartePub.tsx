@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
+import { budgetEstime, type Transparence } from '@/lib/veille/adLibrary'
+import { compact, FichePub } from './FichePub'
 
 /** Une pub de la veille, telle que /api/veille/pubs la renvoie. */
 export type PubVeille = {
@@ -19,6 +21,8 @@ export type PubVeille = {
   medias: { type: 'image' | 'video'; url: string; apercu: string | null }[]
   marque: { id: string; nom: string }
   sauvegardes: { id: string; dossierId: string | null }[]
+  reachUe: number | null
+  transparence: Transparence | null
 }
 
 export type Dossier = { id: string; nom: string; parentId: string | null; n: number }
@@ -50,9 +54,11 @@ export function dossiersEnArbre(dossiers: Dossier[], parentId: string | null = n
 
 export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.ReactNode }) {
   const [deplie, setDeplie] = useState(false)
+  const [fiche, setFiche] = useState(false)
   const media = pub.medias[0]
   const jours = joursDeDiffusion(pub)
   const site = domaine(pub.lienUrl)
+  const budget = budgetEstime(pub.reachUe)
 
   return (
     <article className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
@@ -75,8 +81,10 @@ export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.Rea
             onMouseLeave={(e) => e.currentTarget.pause()}
           />
         ) : media ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={media.url} alt="" loading="lazy" className="w-full max-h-[460px] object-contain" />
+          <button type="button" onClick={() => setFiche(true)} aria-label="Voir la fiche de la pub" className="block w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={media.url} alt="" loading="lazy" className="w-full max-h-[460px] object-contain" />
+          </button>
         ) : (
           <div className="aspect-square flex items-center justify-center text-xs text-gray-400">Aucun média</div>
         )}
@@ -84,6 +92,9 @@ export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.Rea
           {FORMATS[pub.format] ?? pub.format}
           {pub.medias.length > 1 && ` · ${pub.medias.length}`}
         </span>
+        {budget !== null && (
+          <span className="badge-green absolute top-2 right-2" title="Budget estimé à partir de la couverture UE">≈ {compact(budget)} €</span>
+        )}
       </div>
 
       <div className="px-3 py-3 space-y-1.5 flex-1">
@@ -109,8 +120,12 @@ export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.Rea
       <footer className="px-3 pb-3 space-y-2">
         <p className="text-xs text-gray-400">
           {jours !== null && <>Diffusée depuis {jours} j</>}
+          {pub.reachUe !== null && <> · {compact(pub.reachUe)} personnes (UE)</>}
           {pub.plateformes.length > 0 && <> · {pub.plateformes.join(', ')}</>}
         </p>
+        <button type="button" onClick={() => setFiche(true)} className="block text-xs font-medium text-[#3434ef] hover:underline">
+          Voir la fiche
+        </button>
         <a
           href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`}
           target="_blank"
@@ -121,6 +136,7 @@ export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.Rea
         </a>
         {actions}
       </footer>
+      {fiche && <FichePub pub={pub} jours={jours} actions={actions} fermer={() => setFiche(false)} />}
     </article>
   )
 }

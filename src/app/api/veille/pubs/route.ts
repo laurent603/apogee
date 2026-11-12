@@ -60,7 +60,10 @@ export async function GET(req: NextRequest) {
   const [lignes, total, marques] = await Promise.all([
     prisma.veillePub.findMany({
       where,
-      orderBy: p.get('tri') === 'duree' ? [{ debut: 'asc' }, { id: 'asc' }] : [{ premiereVue: 'desc' }, { id: 'asc' }],
+      orderBy:
+        p.get('tri') === 'duree' ? [{ debut: 'asc' }, { id: 'asc' }]
+        : p.get('tri') === 'couverture' ? [{ reachUe: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }]
+        : [{ premiereVue: 'desc' }, { id: 'asc' }],
       take: n,
       include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true } } },
     }),

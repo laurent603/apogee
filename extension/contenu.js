@@ -1,8 +1,10 @@
 // Ajoute « Sauvegarder dans Apogee » sous chaque « ID dans la bibliothèque »
 // et envoie la pub correspondante, reçue de interception.js.
 const pubs = new Map()
+const details = new Map()
 window.addEventListener('message', (e) => {
   if (e.source !== window || e.data?.source !== 'apogee-veille') return
+  if (e.data.detail) return void details.set(e.data.detail.id, e.data.detail.reponse)
   for (const p of e.data.pubs) pubs.set(String(p.ad_archive_id), p)
 })
 
@@ -25,7 +27,7 @@ function creerBouton(id) {
     }
     b.disabled = true
     b.textContent = 'Sauvegarde…'
-    chrome.runtime.sendMessage({ type: 'sauvegarder', pub }, (r) => {
+    chrome.runtime.sendMessage({ type: 'sauvegarder', pub, transparence: details.get(id) }, (r) => {
       b.disabled = false
       if (chrome.runtime.lastError || !r) b.textContent = 'Erreur : extension injoignable'
       else if (r.erreur) b.textContent = `Erreur : ${r.erreur}`
@@ -77,7 +79,52 @@ chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
       immobile = pubs.size === avant ? immobile + 1 : 0
       avant = pubs.size
     }
-    repondre([...pubs.values()].slice(0, msg.max))
+    const retenues = [...pubs.values()].slice(0, msg.max)
+    await lireDetails(retenues.map((p) => String(p.ad_archive_id)))
+    repondre({ pubs: retenues, details: Object.fromEntries(details) })
   })()
   return true
 })
+
+const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** Le bouton « Voir les détails » de la carte qui porte cet ID, hors popup. */
+function boutonDetails(id) {
+  const marcheur = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  while (marcheur.nextNode()) {
+    const m = marcheur.currentNode.nodeValue.match(ETIQUETTE)
+    if (m?.[1] !== id || marcheur.currentNode.parentElement.closest('[role="dialog"]')) continue
+    for (let el = marcheur.currentNode.parentElement; el && el !== document.body; el = el.parentElement) {
+      const boutons = [...el.querySelectorAll('div[role="button"]')].filter((b) => /^Voir les détails/.test(b.textContent.trim()))
+      if (boutons.length) return boutons.find((b) => !boutons.some((o) => o !== b && b.contains(o)))
+    }
+  }
+  return null
+}
+
+function fermerPopup() {
+  const b = [...document.querySelectorAll('[role="dialog"] div[role="button"], [role="dialog"] [aria-label="Fermer"], [role="dialog"] [aria-label="Close"]')]
+    .find((x) => ['Fermer', 'Close'].includes(x.textContent.trim()) || ['Fermer', 'Close'].includes(x.getAttribute('aria-label')))
+  if (b) b.click()
+  else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }))
+}
+
+/**
+ * Seconde passe : ouvre la fiche détaillée de chaque pub pour lire sa
+ * couverture UE et son audience, puis la referme. Une fiche qui ne répond
+ * pas en quatre secondes est laissée de côté.
+ */
+async function lireDetails(ids) {
+  let fait = 0
+  for (const id of ids) {
+    chrome.runtime.sendMessage({ type: 'progression', etape: 'details', fait, total: ids.length }).catch(() => {})
+    const bouton = !details.has(id) && boutonDetails(id)
+    if (bouton) {
+      bouton.click()
+      for (let t = 0; t < 20 && !details.has(id); t++) await attendre(200)
+      fermerPopup()
+      await attendre(400)
+    }
+    fait++
+  }
+}

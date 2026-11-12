@@ -38,3 +38,21 @@ assert.throws(() => normaliserPub({ ...ads[0], ad_archive_id: '../x' }), /ad_arc
 assert.throws(() => normaliserPub(null), /ad_archive_id/)
 
 console.log('normaliserPub : ok')
+
+// Transparence UE (réponse AdLibraryV3AdDetailsQuery réelle)
+const { normaliserTransparence, budgetEstime } = await import('../src/lib/veille/adLibrary.ts')
+const detail = JSON.parse(readFileSync(new URL('./fixtures/adlibrary-detail.json', import.meta.url)))
+const tr = normaliserTransparence(detail)
+assert.equal(tr.reachUe, 7158470)
+assert.equal(tr.repartition.length, 6)
+assert.deepEqual(tr.repartition.find((l) => l.age === '25-34'), { pays: 'FR', age: '25-34', hommes: 565568, femmes: 537534, inconnu: 33089 })
+assert.deepEqual(tr.ciblage, { ageMin: 25, ageMax: 65, sexe: 'Tous', lieux: ['France'] })
+assert.equal(tr.payeur, 'Velux France SAS')
+assert.equal(normaliserTransparence({ data: {} }), null)
+assert.equal(normaliserTransparence(null), null)
+// Les trois pubs Placier Energie relevées chez Créabase : 2,7 K, 1,0 K, 780 €.
+assert.equal(Math.round(budgetEstime(296_000)), 2694)
+assert.equal(Math.round(budgetEstime(110_000)), 1001)
+assert.equal(Math.round(budgetEstime(86_000)), 783)
+assert.equal(budgetEstime(null), null)
+console.log('normaliserTransparence et budgetEstime : ok')

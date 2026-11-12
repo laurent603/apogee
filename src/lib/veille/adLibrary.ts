@@ -112,3 +112,67 @@ export function normaliserPub(brut: unknown, { videoSd = false } = {}): PubNorma
     medias,
   }
 }
+
+/**
+ * Ce que la Ad Library publie sur une pub diffusée dans l'UE (transparence
+ * DSA), lu dans la réponse `AdLibraryV3AdDetailsQuery` : couverture, qui a
+ * été touché, qui était ciblé, qui paie.
+ */
+export type Transparence = {
+  reachUe: number | null
+  /** Personnes touchées par pays, tranche d'âge et sexe. */
+  repartition: { pays: string; age: string; hommes: number; femmes: number; inconnu: number }[]
+  ciblage: { ageMin: number | null; ageMax: number | null; sexe: string | null; lieux: string[] }
+  payeur: string | null
+  beneficiaire: string | null
+}
+
+const entier = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0)
+
+/** Accepte la réponse entière ou seulement son `ad_details`. Null si rien d'exploitable. */
+export function normaliserTransparence(brut: unknown): Transparence | null {
+  const b = brut as Brut
+  const details: Brut = b?.data?.ad_library_main?.ad_details ?? b?.ad_details ?? b ?? {}
+  const ue: Brut = details.transparency_by_location?.eu_transparency ?? {}
+  const pb: Brut = (Array.isArray(details.aaa_info?.payer_beneficiary_data) && details.aaa_info.payer_beneficiary_data[0]) || {}
+
+  const repartition = (Array.isArray(ue.age_country_gender_reach_breakdown) ? ue.age_country_gender_reach_breakdown : [])
+    .flatMap((p: Brut) =>
+      (Array.isArray(p?.age_gender_breakdowns) ? p.age_gender_breakdowns : []).map((t: Brut) => ({
+        pays: String(p.country ?? ''),
+        age: String(t?.age_range ?? ''),
+        hommes: entier(t?.male),
+        femmes: entier(t?.female),
+        inconnu: entier(t?.unknown),
+      })),
+    )
+    .filter((l: { pays: string; age: string }) => l.pays && l.age)
+
+  const reachUe = typeof ue.eu_total_reach === 'number' && ue.eu_total_reach >= 0 ? Math.round(ue.eu_total_reach) : null
+  const resultat: Transparence = {
+    reachUe,
+    repartition,
+    ciblage: {
+      ageMin: typeof ue.age_audience?.min === 'number' ? ue.age_audience.min : null,
+      ageMax: typeof ue.age_audience?.max === 'number' ? ue.age_audience.max : null,
+      sexe: propre(ue.gender_audience),
+      lieux: (Array.isArray(ue.location_audience) ? ue.location_audience : [])
+        .filter((l: Brut) => !l?.excluded)
+        .map((l: Brut) => propre(l?.name))
+        .filter((n: string | null): n is string => !!n),
+    },
+    payeur: propre(pb.payer),
+    beneficiaire: propre(pb.beneficiary),
+  }
+  return reachUe === null && !repartition.length && !resultat.payeur ? null : resultat
+}
+
+/**
+ * Budget estimé, en euros : la couverture UE au coût pour mille personnes
+ * touchées. Meta ne publie pas la dépense ; c'est un ordre de grandeur.
+ * ponytail: 9,10 € est l'hypothèse de Créabase, à recaler sur le coût réel
+ * des comptes d'Apogee (MetaPeriodReach) si l'écart gêne.
+ */
+export const EUROS_POUR_MILLE_PERSONNES = 9.1
+export const budgetEstime = (reachUe: number | null | undefined) =>
+  typeof reachUe === 'number' && reachUe > 0 ? (reachUe * EUROS_POUR_MILLE_PERSONNES) / 1000 : null

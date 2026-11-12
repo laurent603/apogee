@@ -15,7 +15,7 @@ const FILTRES = {
   plateforme: [['', 'Toutes plateformes'], ['facebook', 'Facebook'], ['instagram', 'Instagram'], ['messenger', 'Messenger'], ['audience_network', 'Audience Network'], ['threads', 'Threads']],
   statut: [['', 'Actives et inactives'], ['active', 'Actives'], ['inactive', 'Inactives']],
   duree: [['', 'Toute durée'], ['7', 'Diffusée +1 semaine'], ['30', 'Diffusée +1 mois'], ['90', 'Diffusée +3 mois'], ['180', 'Diffusée +6 mois']],
-  tri: [['', 'Plus récentes'], ['duree', 'Diffusées le plus longtemps']],
+  tri: [['', 'Plus récentes'], ['couverture', 'Plus de personnes touchées (UE)'], ['duree', 'Diffusées le plus longtemps']],
 } as const
 
 const LIBELLES: Record<keyof typeof FILTRES, string> = { format: 'Format', plateforme: 'Plateforme', statut: 'Statut', duree: 'Durée de diffusion', tri: 'Tri' }

@@ -20,7 +20,7 @@ const PAYS = [
 type Etat =
   | { etape: 'attente' }
   | { etape: 'ouverture' | 'lecture' }
-  | { etape: 'envoi'; fait: number; total: number }
+  | { etape: 'details' | 'envoi'; fait: number; total: number }
   | { etape: 'erreur'; message: string }
   | { etape: 'fini'; trouvees: number; erreurs: number; premiereErreur: string | null }
 
@@ -43,10 +43,11 @@ export default function EspionPage() {
       const m = e.data
       if (e.source !== window || m?.source !== 'apogee-extension') return
       if (m.type === 'presente') setExtension(true)
-      else if (m.type === 'progression') setEtat(m.etape === 'envoi' ? { etape: 'envoi', fait: m.fait, total: m.total } : { etape: m.etape })
+      else if (m.type === 'progression') setEtat(m.etape === 'envoi' || m.etape === 'details' ? { etape: m.etape, fait: m.fait, total: m.total } : { etape: m.etape })
       else if (m.type === 'erreur') setEtat({ etape: 'erreur', message: m.message })
       else if (m.type === 'fini') {
-        const d = m.ids.length ? await fetch(`/api/veille/pubs?ids=${m.ids.join(',')}&n=200`).then((r) => (r.ok ? r.json() : null)) : null
+        // Les plus touchées d'abord, comme dans la Ad Library.
+        const d = m.ids.length ? await fetch(`/api/veille/pubs?ids=${m.ids.join(',')}&n=200&tri=couverture`).then((r) => (r.ok ? r.json() : null)) : null
         setPubs(d?.pubs ?? [])
         setEtat({ etape: 'fini', trouvees: m.ids.length, erreurs: m.erreurs, premiereErreur: m.premiereErreur })
       }
@@ -70,7 +71,7 @@ export default function EspionPage() {
     window.postMessage({ source: 'apogee-page', type: 'scanner', recherche: recherche.trim(), pays }, location.origin)
   }
 
-  const enCours = etat.etape === 'ouverture' || etat.etape === 'lecture' || etat.etape === 'envoi'
+  const enCours = ['ouverture', 'lecture', 'details', 'envoi'].includes(etat.etape)
   const marques = useMemo(() => {
     const n = new Map<string, number>()
     for (const p of pubs) n.set(p.marque.nom, (n.get(p.marque.nom) ?? 0) + 1)
@@ -114,7 +115,11 @@ export default function EspionPage() {
 
       {enCours && (
         <div className="card text-sm text-gray-600" role="status">
-          {etat.etape === 'envoi' ? `Enregistrement des pubs et de leurs médias : ${etat.fait} / ${etat.total}` : MESSAGES[etat.etape]}
+          {etat.etape === 'envoi'
+            ? `Enregistrement des pubs et de leurs médias : ${etat.fait} / ${etat.total}`
+            : etat.etape === 'details'
+              ? `Lecture de la couverture et de l’audience de chaque pub : ${etat.fait} / ${etat.total}`
+              : etat.etape === 'ouverture' || etat.etape === 'lecture' ? MESSAGES[etat.etape] : null}
         </div>
       )}
 

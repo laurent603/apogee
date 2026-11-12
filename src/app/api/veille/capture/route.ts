@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { prisma } from '@/lib/db'
-import { normaliserPub, type PubNormalisee } from '@/lib/veille/adLibrary'
+import { normaliserPub, normaliserTransparence, type PubNormalisee } from '@/lib/veille/adLibrary'
 import { copierMedia } from '@/lib/veille/stockage'
 
 /**
@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erreur: (e as Error).message }, { status: 400 })
   }
   const dossierId = typeof corps?.dossierId === 'string' ? corps.dossierId : null
+  // La seconde passe d'Espion : la fiche détaillée de la pub, quand elle a été lue.
+  const transparence = normaliserTransparence(corps?.transparence)
 
   const existante = await prisma.veillePub.findUnique({
     where: { adArchiveId: pub.adArchiveId },
@@ -94,6 +96,7 @@ export async function POST(req: NextRequest) {
     fin: pub.fin,
     active: pub.active,
     derniereVue: new Date(),
+    ...(transparence && { reachUe: transparence.reachUe, transparence }),
   }
   const enregistree = await prisma.veillePub.upsert({
     where: { adArchiveId: pub.adArchiveId },

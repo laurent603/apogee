@@ -18,16 +18,29 @@
     if (pubs.length) window.postMessage({ source: 'apogee-veille', pubs }, location.origin)
   }
 
+  // La fiche « Voir les détails » d'une pub (AdLibraryV3AdDetailsQuery) :
+  // couverture UE, audience, payeur. La réponse ne dit pas de quelle pub il
+  // s'agit ; la requête, si (variables.adArchiveID).
+  const transmettreDetail = (corps, texte) => {
+    if (typeof texte !== 'string' || !texte.includes('eu_transparency')) return
+    try {
+      const id = JSON.parse(new URLSearchParams(String(corps)).get('variables') || '{}').adArchiveID
+      if (id) window.postMessage({ source: 'apogee-veille', detail: { id: String(id), reponse: JSON.parse(texte.replace(/^for \(;;\);/, '')) } }, location.origin)
+    } catch {}
+  }
+
   const ouvrir = XMLHttpRequest.prototype.open
   const envoyer = XMLHttpRequest.prototype.send
   XMLHttpRequest.prototype.open = function (methode, url) {
     this.__apogeeUrl = String(url)
     return ouvrir.apply(this, arguments)
   }
-  XMLHttpRequest.prototype.send = function () {
+  XMLHttpRequest.prototype.send = function (corps) {
     if (this.__apogeeUrl?.includes('/api/graphql')) {
       this.addEventListener('load', () => {
-        if (this.responseType === '' || this.responseType === 'text') transmettre(this.responseText)
+        if (this.responseType !== '' && this.responseType !== 'text') return
+        transmettre(this.responseText)
+        transmettreDetail(corps, this.responseText)
       })
     }
     return envoyer.apply(this, arguments)

@@ -10,12 +10,12 @@ async function config() {
   return { url, cle }
 }
 
-async function envoyer(pub, scan) {
+async function envoyer(pub, scan, transparence) {
   const { url, cle } = await config()
   const r = await fetch(`${url}/api/veille/capture`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-veille-cle': cle },
-    body: JSON.stringify({ pub, scan }),
+    body: JSON.stringify({ pub, scan, transparence }),
   })
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j.erreur || `Apogee a répondu ${r.status}`)
@@ -23,9 +23,13 @@ async function envoyer(pub, scan) {
 }
 
 // Bouton « Sauvegarder dans Apogee » sur la Ad Library.
+// Progression de la seconde passe, relayée à la page Espion qui a lancé le scan.
+let progressionScan = null
+
 chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
+  if (msg?.type === 'progression') return void progressionScan?.(msg)
   if (msg?.type !== 'sauvegarder') return
-  envoyer(msg.pub, false).then(repondre, (e) => repondre({ erreur: e.message === 'Failed to fetch' ? 'Apogee injoignable' : e.message }))
+  envoyer(msg.pub, false, msg.transparence).then(repondre, (e) => repondre({ erreur: e.message === 'Failed to fetch' ? 'Apogee injoignable' : e.message }))
   return true
 })
 
@@ -58,11 +62,14 @@ async function scanner({ recherche, pays }, ongletApogee, progression) {
   // Actif : un onglet en arrière-plan ne charge pas la suite des résultats.
   const onglet = await chrome.tabs.create({ url: cible, active: true, openerTabId: ongletApogee?.id })
   let pubs
+  let details = {}
   try {
     await attendreChargement(onglet.id)
     progression({ etape: 'lecture' })
-    pubs = await chrome.tabs.sendMessage(onglet.id, { type: 'collecter', max: PUBS_PAR_SCAN })
+    progressionScan = ({ etape, fait, total }) => progression({ etape, fait, total })
+    ;({ pubs, details } = await chrome.tabs.sendMessage(onglet.id, { type: 'collecter', max: PUBS_PAR_SCAN }))
   } finally {
+    progressionScan = null
     chrome.tabs.remove(onglet.id).catch(() => {})
     if (ongletApogee?.id) chrome.tabs.update(ongletApogee.id, { active: true }).catch(() => {})
   }
@@ -78,7 +85,7 @@ async function scanner({ recherche, pays }, ongletApogee, progression) {
       while (file.length) {
         const pub = file.shift()
         try {
-          ids.push((await envoyer(pub, true)).id)
+          ids.push((await envoyer(pub, true, details[String(pub.ad_archive_id)])).id)
         } catch (e) {
           erreurs.push(e.message)
         }
