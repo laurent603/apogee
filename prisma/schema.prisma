@@ -617,6 +617,8 @@ model VeilleMarque {
   /// Suivie = vérifiée chaque nuit, avec alerte sur les nouvelles pubs.
   suivie        Boolean     @default(false)
   derniereVerif DateTime?
+  /// Analyse IA de la marque (Gemini) : synthèse, angles, concepts, personas.
+  analyse       Json?
   createdAt     DateTime    @default(now())
   pubs          VeillePub[]
 }

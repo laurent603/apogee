@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
+import toast from 'react-hot-toast'
+import type { AnalyseMarque } from '@/lib/veille/gemini'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
 import { rapportMarque } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
@@ -13,7 +15,8 @@ import { Barre, FichePub, compact } from './FichePub'
  * 0.3.0 et suivantes).
  */
 
-const ONGLETS = ['Vue d’ensemble', 'Stratégie créa', 'Offre & landing', 'Diffusion'] as const
+// « Vue d’ensemble » montre tout le rapport ; les autres onglets, leur partie.
+const ONGLETS = ['Vue d’ensemble', 'Stratégie créa', 'Offre & landing', 'Diffusion', 'Analyse IA'] as const
 const FORMATS: Record<string, string> = { IMAGE: 'Image', VIDEO: 'Vidéo', CAROUSEL: 'Carrousel', DCO: 'Dynamique' }
 const pourcent = (x: number) => `${Math.round(100 * x)} %`
 const mois = (aaaamm: string) => new Date(`${aaaamm}-01T00:00:00`).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
@@ -85,10 +88,49 @@ function Classement({ libelles, total }: { libelles: { libelle: string; n: numbe
   )
 }
 
+/** Une barre par libellé, en part du total. */
+function BarresPourcent({ libelles, total }: { libelles: { libelle: string; n: number }[]; total: number }) {
+  return (
+    <div className="space-y-2">
+      {libelles.map((l) => (
+        <div key={l.libelle} className="rounded-lg border border-[#E5E7EB] px-3 py-2 space-y-1.5">
+          <div className="flex justify-between text-sm">
+            <span className="text-[#0d0d12]">{l.libelle}</span>
+            <span className="text-gray-600 tabular-nums" title={`${l.n} pub${l.n > 1 ? 's' : ''}`}>{pourcent(l.n / total)}</span>
+          </div>
+          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full bg-[#3434ef]" style={{ width: `${(100 * l.n) / total}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom: string }; dossiers: Dossier[] }) {
   const [pubs, setPubs] = useState<PubVeille[] | null>(null)
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
   const [ouverte, setOuverte] = useState<PubVeille | null>(null)
+  const [analyse, setAnalyse] = useState<AnalyseMarque | null>(null)
+  const [analyseEnCours, setAnalyseEnCours] = useState(false)
+
+  useEffect(() => {
+    setAnalyse(null)
+    fetch(`/api/veille/marques/analyse?marqueId=${marque.id}`).then((r) => (r.ok ? r.json() : null)).then(setAnalyse)
+  }, [marque.id])
+
+  async function analyser(refaire = false) {
+    setAnalyseEnCours(true)
+    const r = await fetch('/api/veille/marques/analyse', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ marqueId: marque.id, refaire }),
+    })
+    const j = await r.json().catch(() => ({}))
+    setAnalyseEnCours(false)
+    if (!r.ok) return void toast.error(j.erreur || 'Analyse impossible')
+    setAnalyse(j)
+  }
 
   useEffect(() => {
     setPubs(null)
@@ -105,6 +147,16 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
   const pub = (p: { id: string }) => parId.get(p.id)!
   const maxMois = Math.max(...r.parMois.map((m) => m.n))
   const sansCouverture = r.avecCouverture === 0
+  const tout = onglet === 'Vue d’ensemble'
+  // L'analyse de la marque, quand elle existe, remplace les comptes pub par pub.
+  const parClasse = (cle: 'angle' | 'concept') => {
+    const n = new Map<string, number>()
+    for (const c of analyse!.classement) n.set(c[cle], (n.get(c[cle]) ?? 0) + 1)
+    return [...n.entries()].map(([libelle, k]) => ({ libelle, n: k })).sort((a, b) => b.n - a.n)
+  }
+  const concepts = analyse ? parClasse('concept') : r.concepts
+  const angles = analyse ? parClasse('angle') : r.angles
+  const classees = analyse?.classement.length ?? 0
 
   return (
     <div className="space-y-4">
@@ -132,7 +184,7 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
       <section className="card space-y-3 bg-[#f0f0ff]">
         <h3 className="font-semibold text-[#0d0d12]">Ce qui marche chez {marque.nom}</h3>
         <div className="grid md:grid-cols-3 gap-3">
-          {([['Concepts', 'Comment il présente', r.concepts], ['Angles', 'Ce qu’il met en avant', r.angles], ['Produits poussés', 'Où il renvoie le trafic', r.produits]] as const).map(([titre, sous, liste]) => (
+          {([['Concepts', 'Comment il présente', concepts], ['Angles', 'Ce qu’il met en avant', angles], ['Produits poussés', 'Où il renvoie le trafic', r.produits]] as const).map(([titre, sous, liste]) => (
             <div key={titre} className="bg-white rounded-lg border border-[#E5E7EB] p-3 space-y-2">
               <div>
                 <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
@@ -148,7 +200,7 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
                   ))}
                 </ol>
               ) : (
-                <Vide>{titre === 'Produits poussés' ? 'Aucun lien de destination lisible.' : 'Décortiquez des pubs depuis leur fiche pour les voir ici.'}</Vide>
+                <Vide>{titre === 'Produits poussés' ? 'Aucun lien de destination lisible.' : 'Lancez l’analyse IA en bas du rapport.'}</Vide>
               )}
             </div>
           ))}
@@ -210,7 +262,7 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
         </div>
       )}
 
-      {onglet === 'Stratégie créa' && (
+      {(tout || onglet === 'Stratégie créa') && (
         <div className="space-y-4">
           <Bloc titre="Messages les plus utilisés" sousTitre="Un même titre et un même texte déclinés sur plusieurs créas.">
             <div className="grid md:grid-cols-2 gap-3">
@@ -233,17 +285,17 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
             </div>
           </Bloc>
           <div className="grid md:grid-cols-2 gap-4">
-            <Bloc titre="Angles" sousTitre={`D’après les ${r.decortiquees} pub${r.decortiquees > 1 ? 's' : ''} décortiquée${r.decortiquees > 1 ? 's' : ''}.`}>
-              {r.angles.length ? <Classement libelles={r.angles} total={r.decortiquees} /> : <Vide>Décortiquez des pubs depuis leur fiche pour voir leurs angles.</Vide>}
+            <Bloc titre="Angles" sousTitre={analyse ? `D’après l’analyse IA de ${classees} pubs.` : `D’après les ${r.decortiquees} pub${r.decortiquees > 1 ? 's' : ''} décortiquée${r.decortiquees > 1 ? 's' : ''}.`}>
+              {angles.length ? <Classement libelles={angles} total={analyse ? classees : r.decortiquees} /> : <Vide>Lancez l’analyse IA en bas du rapport.</Vide>}
             </Bloc>
-            <Bloc titre="Concepts" sousTitre="La forme créative de chaque pub décortiquée.">
-              {r.concepts.length ? <Classement libelles={r.concepts} total={r.decortiquees} /> : <Vide>Décortiquez des pubs depuis leur fiche pour voir leurs concepts.</Vide>}
+            <Bloc titre="Concepts" sousTitre="La forme créative des pubs.">
+              {concepts.length ? <Classement libelles={concepts} total={analyse ? classees : r.decortiquees} /> : <Vide>Lancez l’analyse IA en bas du rapport.</Vide>}
             </Bloc>
           </div>
         </div>
       )}
 
-      {onglet === 'Offre & landing' && (
+      {(tout || onglet === 'Offre & landing') && (
         <div className="grid md:grid-cols-2 gap-4">
           <Bloc titre="Présence d’offres" sousTitre="Réductions, remises, codes promo, promotions.">
             <p className="text-3xl font-bold text-[#0d0d12]">{pourcent(r.offres.part)}</p>
@@ -266,7 +318,7 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
         </div>
       )}
 
-      {onglet === 'Diffusion' && (
+      {(tout || onglet === 'Diffusion') && (
         <div className="space-y-4">
           <Bloc titre="Profil d’audience touchée" sousTitre={r.audience ? `Sur ${compact(r.audience.total)} personnes touchées dans l’UE (transparence DSA).` : undefined}>
             {r.audience ? (
@@ -293,6 +345,61 @@ export function RapportMarque({ marque, dossiers }: { marque: { id: string; nom:
             </Bloc>
           </div>
         </div>
+      )}
+
+      {(tout || onglet === 'Analyse IA') && (
+        <section className="card space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold text-[#0d0d12]">Analyse IA <span className="badge-gray ml-1">Gemini</span></h3>
+            {analyse && (
+              <div className="flex items-center gap-3 text-xs text-gray-400">
+                <span>
+                  D’après {analyse.nbPubs} pub{analyse.nbPubs > 1 ? 's' : ''}, le {new Date(analyse.date).toLocaleDateString('fr-FR')}
+                </span>
+                <button type="button" onClick={() => analyser(true)} disabled={analyseEnCours} className="hover:text-[#0d0d12] disabled:opacity-50">
+                  {analyseEnCours ? 'Analyse…' : 'Régénérer'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!analyse ? (
+            <div className="text-center py-6 space-y-3">
+              <p className="text-sm text-gray-600 max-w-lg mx-auto">
+                L’IA déduit les <strong>angles</strong>, les <strong>concepts publicitaires</strong> et les <strong>personas ciblés</strong> à
+                partir des pubs actives de {marque.nom}.
+              </p>
+              <button type="button" onClick={() => analyser()} disabled={analyseEnCours} className="btn-primary disabled:opacity-50">
+                {analyseEnCours ? 'Analyse en cours… une trentaine de secondes' : 'Générer l’analyse IA'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#0d0d12]">Angles les plus utilisés</p>
+                <p className="text-xs text-gray-500">Comment la marque tourne son message (l’argument).</p>
+                <BarresPourcent libelles={angles} total={classees} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#0d0d12]">Concepts les plus utilisés</p>
+                <p className="text-xs text-gray-500">Comment la marque présente son message (le format d’exécution).</p>
+                <BarresPourcent libelles={concepts} total={classees} />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#0d0d12]">Personas déduits des messages</p>
+                <p className="text-xs text-gray-500">Interprétation des textes publicitaires par l’IA, pas une donnée de ciblage fournie par Meta.</p>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {analyse.personas.map((p) => (
+                    <div key={p.nom} className="rounded-lg border border-[#E5E7EB] p-3 space-y-1">
+                      <p className="text-sm font-semibold text-[#0d0d12]">{p.nom}</p>
+                      <p className="text-sm text-gray-600">{p.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       {ouverte && (

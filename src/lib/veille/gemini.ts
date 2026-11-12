@@ -61,21 +61,13 @@ const CONSIGNE = `Tu es stratège créatif en publicité Meta à réponse direct
 
 const TYPES: Record<string, string> = { mp4: 'video/mp4', jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }
 
-export async function decortiquer(mediaUrl: string, annonce: { titre: string | null; texte: string | null }): Promise<Decorticage> {
+/** Un appel à Gemini en JSON contraint, avec repli sur le second modèle. */
+async function appeler(parts: unknown[], schema: object): Promise<{ resultat: any; modele: string }> {
   const cle = process.env.GEMINI_API_KEY?.trim().replace(/^["']|["']$/g, '')
   if (!cle) throw new Error('GEMINI_API_KEY manquant')
-  const mimeType = TYPES[mediaUrl.split('?')[0].split('.').pop()?.toLowerCase() ?? '']
-  if (!mimeType) throw new Error('Format de média non pris en charge')
-
-  const media = await fetch(mediaUrl)
-  if (!media.ok) throw new Error(`Média introuvable (${media.status})`)
-  const octets = Buffer.from(await media.arrayBuffer())
-  if (octets.length > TAILLE_MAX) throw new Error('Média trop lourd pour l’analyse (plus de 14 Mo)')
-
-  const contexte = `\n\nTitre de l'annonce : ${annonce.titre ?? '—'}\nTexte de l'annonce : ${annonce.texte ?? '—'}`
   const corps = JSON.stringify({
-    contents: [{ role: 'user', parts: [{ inlineData: { mimeType, data: octets.toString('base64') } }, { text: CONSIGNE + contexte }] }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.2 },
+    contents: [{ role: 'user', parts }],
+    generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.2 },
   })
   let r: Response | null = null
   let j: any = null
@@ -100,11 +92,108 @@ export async function decortiquer(mediaUrl: string, annonce: { titre: string | n
   if (!r?.ok) throw new Error(`Gemini a refusé l’analyse : ${r ? `${r.status} ${j?.error?.message ?? ''}` : erreur}`)
   const texte = j?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('')
   if (!texte) throw new Error('Gemini n’a rien renvoyé')
-  const brut = JSON.parse(texte)
+  return { resultat: JSON.parse(texte), modele: j.modelVersion ?? MODELES[0] }
+}
+
+export async function decortiquer(mediaUrl: string, annonce: { titre: string | null; texte: string | null }): Promise<Decorticage> {
+  const mimeType = TYPES[mediaUrl.split('?')[0].split('.').pop()?.toLowerCase() ?? '']
+  if (!mimeType) throw new Error('Format de média non pris en charge')
+
+  const media = await fetch(mediaUrl)
+  if (!media.ok) throw new Error(`Média introuvable (${media.status})`)
+  const octets = Buffer.from(await media.arrayBuffer())
+  if (octets.length > TAILLE_MAX) throw new Error('Média trop lourd pour l’analyse (plus de 14 Mo)')
+
+  const contexte = `\n\nTitre de l'annonce : ${annonce.titre ?? '—'}\nTexte de l'annonce : ${annonce.texte ?? '—'}`
+  const { resultat, modele } = await appeler([{ inlineData: { mimeType, data: octets.toString('base64') } }, { text: CONSIGNE + contexte }], SCHEMA)
   return {
-    ...brut,
-    transcription: [...(brut.transcription ?? [])].sort((a, b) => a.debut - b.debut),
-    modele: j.modelVersion ?? MODELES[0],
+    ...resultat,
+    transcription: [...(resultat.transcription ?? [])].sort((a, b) => a.debut - b.debut),
+    modele,
     date: new Date().toISOString(),
   }
+}
+
+// ─── Analyse d'une marque ─────────────────────────────────────────────────
+
+/** L'argument : comment la marque tourne son message. */
+export const ANGLES = [
+  'La marque', 'Bénéfices', 'Arguments & caractéristiques', 'Preuves', 'Fonctionnement produit', 'Problème cible',
+  'Pricing / offre', 'Comparaison', 'Urgence / rareté', 'Nouveauté', 'Autre',
+] as const
+
+/** Le format d'exécution : comment la marque présente son message. */
+export const CONCEPTS = [
+  'Mise en situation / lifestyle', 'Listicle / chiffres clés', 'Tagline / accroche', 'Points bénéfices',
+  'Avis client (capture / note)', 'Témoignage client', 'Face caméra / fondateur', 'Démonstration produit',
+  'Avant / après', 'Comparatif', 'Format éditorial / article', 'Capture d’écran produit / interface',
+  'Packshot produit', 'Mème / tendance', 'Autre',
+] as const
+
+export type AnalyseMarque = {
+  /** Une ligne par pub analysée : son angle et son concept, pris dans les listes ci-dessus. */
+  classement: { pubId: string; angle: string; concept: string }[]
+  personas: { nom: string; description: string }[]
+  nbPubs: number
+  modele: string
+  date: string
+}
+
+const SCHEMA_MARQUE = {
+  type: 'OBJECT',
+  properties: {
+    pubs: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { numero: { type: 'INTEGER' }, angle: { type: 'STRING', enum: [...ANGLES] }, concept: { type: 'STRING', enum: [...CONCEPTS] } },
+        required: ['numero', 'angle', 'concept'],
+      },
+    },
+    personas: {
+      type: 'ARRAY',
+      items: { type: 'OBJECT', properties: { nom: { type: 'STRING' }, description: { type: 'STRING' } }, required: ['nom', 'description'] },
+    },
+  },
+  required: ['pubs', 'personas'],
+}
+
+export type PubPourAnalyse = {
+  id: string
+  format: string
+  jours: number | null
+  reachUe: number | null
+  titre: string | null
+  texte: string | null
+  cta: string | null
+  lienUrl: string | null
+  analyse: { accroche: string; angle: string; concept: string; transcription: { texte: string }[] } | null
+}
+
+const CONSIGNE_MARQUE = (nom: string) => `Tu es stratège créatif en publicité Meta à réponse directe. Voici les pubs actives de la marque « ${nom} », numérotées. Pour chacune : format, jours de diffusion, personnes touchées dans l'UE quand on le sait, titre, texte, bouton, lien, et pour certaines l'accroche et la transcription déjà relevées.
+Réponds en français :
+- pubs : pour CHAQUE pub, son numéro, son angle (l'argument principal : comment la marque tourne son message) et son concept (le format d'exécution : comment elle présente ce message), chacun pris dans la liste imposée. « Autre » seulement si rien ne convient.
+- personas : 2 à 4 personas que ces messages visent ; nom court et parlant (ex. « Propriétaire résidentiel préoccupé par les coûts »), description de deux phrases : qui il est, ce qui le déclenche.`
+
+/** Classe chaque pub active (angle, concept) et déduit les personas visés — sur le texte seul. */
+export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promise<AnalyseMarque> {
+  const lignes = pubs.map((p, i) => {
+    const champs = [
+      `#${i + 1} · ${p.format}${p.jours !== null ? ` · ${p.jours} j de diffusion` : ''}${p.reachUe ? ` · ${p.reachUe} personnes touchées` : ''}`,
+      p.titre && `Titre : ${p.titre}`,
+      p.texte && `Texte : ${p.texte.slice(0, 600)}`,
+      p.cta && `Bouton : ${p.cta}`,
+      p.lienUrl && `Lien : ${p.lienUrl}`,
+      p.analyse && `Accroche relevée : ${p.analyse.accroche}`,
+      p.analyse?.transcription.length && `Transcription : ${p.analyse.transcription.map((t) => t.texte).join(' / ').slice(0, 600)}`,
+    ]
+    return champs.filter(Boolean).join('\n')
+  })
+  const { resultat, modele } = await appeler([{ text: `${CONSIGNE_MARQUE(nom)}\n\n${lignes.join('\n\n')}` }], SCHEMA_MARQUE)
+  // Les numéros (#1…) redeviennent des identifiants ; un numéro inventé ou répété tombe.
+  const vus = new Set<string>()
+  const classement = (resultat.pubs ?? [])
+    .map((c: { numero: number; angle: string; concept: string }) => ({ pubId: pubs[c.numero - 1]?.id, angle: c.angle, concept: c.concept }))
+    .filter((c: { pubId?: string }) => c.pubId && !vus.has(c.pubId) && vus.add(c.pubId))
+  return { classement, personas: resultat.personas ?? [], nbPubs: pubs.length, modele, date: new Date().toISOString() }
 }
