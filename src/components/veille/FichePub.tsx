@@ -177,8 +177,10 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
 }
 
 /** La fiche d'une pub : média, budget estimé, textes, diffusion, audience UE. */
-export function FichePub({ pub, jours, actions, fermer }: {
+export function FichePub({ pub, jours, actions, fermer, lectureSeule }: {
   pub: PubVeille; jours: number | null; actions?: React.ReactNode; fermer: () => void
+  /** Page publique d'un dossier partagé : pas d'analyse à lancer. */
+  lectureSeule?: boolean
 }) {
   const [index, setIndex] = useState(0)
   const media = pub.medias[index]
@@ -252,7 +254,7 @@ export function FichePub({ pub, jours, actions, fermer }: {
             </div>
           )}
 
-          <Decortiquer pub={pub} />
+          {!lectureSeule && <Decortiquer pub={pub} />}
 
           {pub.titre && <Section titre="Titre"><p className="text-sm text-[#0d0d12]">{pub.titre}</p></Section>}
           {pub.texte && <Section titre="Texte principal"><p className="text-sm text-gray-700 whitespace-pre-line">{pub.texte}</p></Section>}

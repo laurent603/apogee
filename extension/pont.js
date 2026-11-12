@@ -5,10 +5,12 @@ const signaler = (m) => window.postMessage({ source: 'apogee-extension', ...m },
 window.addEventListener('message', (e) => {
   if (e.source !== window || e.data?.source !== 'apogee-page') return
   if (e.data.type === 'ping') return signaler({ type: 'presente' })
-  if (e.data.type !== 'scanner' && e.data.type !== 'veille') return
-  const port = chrome.runtime.connect({ name: e.data.type === 'scanner' ? 'scan' : 'veille' })
+  const PORTS = { scanner: 'scan', veille: 'veille', importer: 'importer' }
+  if (!PORTS[e.data.type]) return
+  const port = chrome.runtime.connect({ name: PORTS[e.data.type] })
   port.onMessage.addListener(signaler)
-  port.postMessage({ recherche: e.data.recherche, pays: e.data.pays })
+  const { source, type, ...demande } = e.data
+  port.postMessage(demande)
 })
 
 signaler({ type: 'presente' })

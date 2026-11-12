@@ -10,12 +10,12 @@ async function config() {
   return { url, cle }
 }
 
-async function envoyer(pub, scan, transparence) {
+async function envoyer(pub, scan, transparence, dossierId) {
   const { url, cle } = await config()
   const r = await fetch(`${url}/api/veille/capture`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-veille-cle': cle },
-    body: JSON.stringify({ pub, scan, transparence }),
+    body: JSON.stringify({ pub, scan, transparence, dossierId }),
   })
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j.erreur || `Apogee a répondu ${r.status}`)
@@ -50,7 +50,7 @@ function attendreChargement(ongletId) {
  * inconnues, puis referme. `discret` : dans une fenêtre en arrière-plan, pour
  * la vérification quotidienne ; sinon dans un onglet à côté d'Apogee.
  */
-async function lireAdLibrary({ cible, max, connus = [], ongletApogee, discret, progression }) {
+async function lireAdLibrary({ cible, max, connus = [], cibles, ongletApogee, discret, progression }) {
   progression({ etape: 'ouverture' })
   // Un onglet caché ne charge pas la suite des résultats : onglet actif, ou fenêtre à part.
   const fenetre = discret ? await chrome.windows.create({ url: cible, focused: false, width: 1280, height: 900 }) : null
@@ -59,7 +59,7 @@ async function lireAdLibrary({ cible, max, connus = [], ongletApogee, discret, p
     await attendreChargement(onglet.id)
     progression({ etape: 'lecture' })
     progressionScan = ({ etape, fait, total }) => progression({ etape, fait, total })
-    return await chrome.tabs.sendMessage(onglet.id, { type: 'collecter', max, connus })
+    return await chrome.tabs.sendMessage(onglet.id, { type: 'collecter', max, connus, cibles })
   } finally {
     progressionScan = null
     if (fenetre) chrome.windows.remove(fenetre.id).catch(() => {})
@@ -142,6 +142,32 @@ async function verifierVeille({ ongletApogee, discret, progression }) {
   return { bilan }
 }
 
+/**
+ * Bibliothèque : importe des pubs par leur ID dans la Ad Library et les range
+ * dans le dossier choisi. La page de l'ID montre les pubs de l'annonceur ; on
+ * y garde seulement celle demandée.
+ */
+async function importer({ ids, dossierId }, ongletApogee, progression) {
+  await config()
+  const bilan = { importees: 0, introuvables: [], erreurs: [] }
+  for (const [i, id] of ids.entries()) {
+    progression({ etape: 'import', fait: i, total: ids.length })
+    try {
+      const { pubs, details } = await lireAdLibrary({
+        cible: `https://www.facebook.com/ads/library/?id=${id}`, max: 200, cibles: [id], ongletApogee, progression: () => {},
+      })
+      if (!pubs.length) bilan.introuvables.push(id)
+      else {
+        await envoyer(pubs[0], false, details[id], dossierId)
+        bilan.importees++
+      }
+    } catch (e) {
+      bilan.erreurs.push(`${id} : ${e.message}`)
+    }
+  }
+  return bilan
+}
+
 // Une fois par jour, tant que Chrome est ouvert.
 const VEILLE_TOUS_LES = 24 * 60
 chrome.runtime.onInstalled.addListener(() => chrome.alarms.create('veille', { delayInMinutes: 2, periodInMinutes: VEILLE_TOUS_LES }))
@@ -154,14 +180,16 @@ chrome.alarms.onAlarm.addListener(async (alarme) => {
 })
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== 'scan' && port.name !== 'veille') return
+  if (!['scan', 'veille', 'importer'].includes(port.name)) return
   port.onMessage.addListener(async (demande) => {
     const signaler = (m) => { try { port.postMessage(m) } catch {} }
     const progression = (m) => signaler({ type: 'progression', ...m })
     try {
       const resultat = port.name === 'scan'
         ? await scanner(demande, port.sender?.tab, progression)
-        : await verifierVeille({ ongletApogee: port.sender?.tab, discret: false, progression })
+        : port.name === 'importer'
+          ? await importer(demande, port.sender?.tab, progression)
+          : await verifierVeille({ ongletApogee: port.sender?.tab, discret: false, progression })
       signaler({ type: 'fini', ...resultat })
     } catch (e) {
       signaler({ type: 'erreur', message: e.message })

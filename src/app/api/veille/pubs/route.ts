@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
         : p.get('tri') === 'couverture' ? [{ reachUe: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }]
         : [{ premiereVue: 'desc' }, { id: 'asc' }],
       take: n,
-      include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true } } },
+      include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true, createdAt: true } } },
     }),
     prisma.veillePub.count({ where }),
     prisma.veilleMarque.findMany({ select: { id: true, nom: true, suivie: true }, orderBy: { nom: 'asc' } }),

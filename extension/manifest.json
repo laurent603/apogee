@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Apogee Veille",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Sauvegarde les pubs de la Meta Ad Library dans Apogee et vérifie chaque jour les marques suivies.",
   "permissions": [
     "storage",

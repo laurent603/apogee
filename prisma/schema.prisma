@@ -666,11 +666,16 @@ model VeillePub {
 model VeilleDossier {
   id          String             @id @default(cuid())
   nom         String
+  /// Lien public en lecture seule (/partage/<jeton>) ; null = non partagé.
+  /// 18 octets tirés au hasard : une collision n'arrive pas en pratique.
+  partageToken String?
   parentId    String?
   parent      VeilleDossier?     @relation("SousDossiers", fields: [parentId], references: [id], onDelete: Cascade)
   enfants     VeilleDossier[]    @relation("SousDossiers")
   sauvegardes VeilleSauvegarde[]
   createdAt   DateTime           @default(now())
+
+  @@index([partageToken])
 }
 
 model VeilleSauvegarde {

@@ -21,7 +21,7 @@ export type PubVeille = {
   active: boolean
   medias: { type: 'image' | 'video'; url: string; apercu: string | null }[]
   marque: { id: string; nom: string }
-  sauvegardes: { id: string; dossierId: string | null }[]
+  sauvegardes: { id: string; dossierId: string | null; createdAt?: string }[]
   reachUe: number | null
   transparence: Transparence | null
   analyse: Decorticage | null
@@ -48,13 +48,13 @@ export function joursDeDiffusion(pub: PubVeille) {
 }
 
 /** Les dossiers à plat, chaque sous-dossier indenté sous son parent. */
-export function dossiersEnArbre(dossiers: Dossier[], parentId: string | null = null, niveau = 0): (Dossier & { niveau: number })[] {
+export function dossiersEnArbre<D extends Dossier>(dossiers: D[], parentId: string | null = null, niveau = 0): (D & { niveau: number })[] {
   return dossiers
     .filter((d) => d.parentId === parentId)
     .flatMap((d) => [{ ...d, niveau }, ...dossiersEnArbre(dossiers, d.id, niveau + 1)])
 }
 
-export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.ReactNode }) {
+export function CartePub({ pub, actions, lectureSeule }: { pub: PubVeille; actions?: React.ReactNode; lectureSeule?: boolean }) {
   const [deplie, setDeplie] = useState(false)
   const [fiche, setFiche] = useState(false)
   const media = pub.medias[0]
@@ -138,7 +138,7 @@ export function CartePub({ pub, actions }: { pub: PubVeille; actions?: React.Rea
         </a>
         {actions}
       </footer>
-      {fiche && <FichePub pub={pub} jours={jours} actions={actions} fermer={() => setFiche(false)} />}
+      {fiche && <FichePub pub={pub} jours={jours} actions={actions} lectureSeule={lectureSeule} fermer={() => setFiche(false)} />}
     </article>
   )
 }

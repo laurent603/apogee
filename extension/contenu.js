@@ -75,16 +75,18 @@ chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
   ;(async () => {
     let avant = -1
     let immobile = 0
-    while (pubs.size < msg.max && immobile < 3) {
+    // Import : on s'arrête dès que les pubs demandées sont arrivées.
+    const trouvees = () => msg.cibles?.length && msg.cibles.every((id) => pubs.has(id))
+    while (pubs.size < msg.max && immobile < 3 && !trouvees()) {
       window.scrollTo(0, document.documentElement.scrollHeight)
       await new Promise((r) => setTimeout(r, 2000))
       immobile = pubs.size === avant ? immobile + 1 : 0
       avant = pubs.size
     }
-    const retenues = [...pubs.values()].slice(0, msg.max)
+    const retenues = msg.cibles ? msg.cibles.map((id) => pubs.get(id)).filter(Boolean) : [...pubs.values()].slice(0, msg.max)
     // La Veille connaît déjà la plupart des pubs : elle ne lit que la fiche des nouvelles.
     const connus = new Set(msg.connus ?? [])
-    await lireDetails(retenues.map((p) => String(p.ad_archive_id)).filter((id) => !connus.has(id)))
+    await lireDetails(msg.cibles ?? retenues.map((p) => String(p.ad_archive_id)).filter((id) => !connus.has(id)))
     repondre({ pubs: retenues, details: Object.fromEntries(details), complet: total !== null && pubs.size >= total })
   })()
   return true
