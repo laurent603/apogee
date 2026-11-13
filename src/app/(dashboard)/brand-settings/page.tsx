@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import type { BrandSettings } from '@/types'
 import { clsx } from 'clsx'
 import { economie, verdictSignature } from '@/lib/scalr/economie'
-import { KitVisuel } from '@/components/veille/KitVisuel'
+import { BrandKit } from '@/components/veille/BrandKit'
 
 // ── Composants extraits EN DEHORS du composant parent ──
 // (si définis à l'intérieur, React les recrée à chaque render → perte de focus)
@@ -175,7 +175,7 @@ function SelectField({ label, field, options, settings, onChange }: SelectProps)
  * « Seuils des verdicts » : un seuil est un nombre, une règle est ce qu'on en
  * fait — et c'est bien de cela qu'il s'agit ici.
  */
-const TABS = ['Le client', 'L’audience', 'Fondation financière', 'Règles de décision', 'Technique & CRM', 'Référentiel créatif']
+const TABS = ['Le client', 'L’audience', 'Fondation financière', 'Règles de décision', 'Technique & CRM', 'Référentiel créatif', 'Brand kit']
 
 type GhlState = {
   hasToken: boolean
@@ -204,6 +204,8 @@ type KnowledgeState = {
 export default function BrandSettingsPage() {
   const { selectedAccount } = useStore()
   const [tab, setTab] = useState(0)
+  // ?onglet=brand-kit : arrivée depuis « Recréer », qui renvoie compléter le kit.
+  useEffect(() => { if (new URLSearchParams(location.search).get('onglet') === 'brand-kit') setTab(TABS.indexOf('Brand kit')) }, [])
   const [eco, setEco] = useState<EcoApercu | null>(null)
   const [settings, setSettings] = useState<BrandSettings>({})
   const [saving, setSaving] = useState(false)
@@ -1106,10 +1108,10 @@ export default function BrandSettingsPage() {
             </div>
           )}
 
+          {tab === 6 && <BrandKit key={selectedAccount.id} dbAccountId={selectedAccount.id} apresIdentite={load} />}
+
           {tab === 5 && (
             <div className="space-y-5">
-              <KitVisuel key={selectedAccount.id} dbAccountId={selectedAccount.id} />
-              <div className="border-t border-[#F3F4F6]" />
               <div>
                 <p className="text-sm font-semibold text-[#0d0d12] mb-1">Référentiel créatif Notion</p>
                 <p className="text-xs text-gray-500 leading-relaxed">

@@ -331,7 +331,7 @@ export async function conceptsPour(
       ? `Angles imposés, un par concept : ${imposes.join(', ')}.${imposes.length < n ? ' Choisis les autres dans la liste.' : ''}`
       : 'Choisis dans la liste les angles qui servent le mieux ce message, tous différents.',
     `Angles possibles :\n${angles.map((a) => `- ${a.libelle} : ${a.consigne}`).join('\n')}`,
-    `Pour chaque concept : l'angle (libellé exact de la liste), l'idée en une phrase (ce que l'on voit), et 2 à 4 textes courts (accroche, sous-titre ou points, mention ou bouton), en français et sans faute.`,
+    `Pour chaque concept : l'angle (libellé exact de la liste), l'idée en une phrase (ce que l'on voit), et 2 à 4 textes courts (accroche, sous-titre ou points, mention ou bouton), en français et sans faute ; aucun texte ne reprend les mots d'un autre texte du même concept.`,
     offre?.trim() && `Offre commune, présente dans chaque concept : ${offre.trim()}`,
     'Règles :',
     ...reglesVerite(nom),

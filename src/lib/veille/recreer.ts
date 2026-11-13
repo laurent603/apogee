@@ -33,6 +33,10 @@ export type MarqueClient = {
   description: string | null
   proposition: string | null
   couleurs: string[]
+  /** Rôle de chaque couleur, même ordre (principale, accent…). */
+  couleursRoles?: string[]
+  /** Le produit mis en avant, choisi dans Recréer parmi ceux du Brand kit. */
+  produit?: { nom: string; description: string | null; prix: string | null } | null
   typoTitre?: string | null
   typoTexte?: string | null
   tonDeVoix?: string | null
@@ -59,8 +63,12 @@ export async function jointe(url: string, max = Infinity): Promise<Jointe | null
 
 export const jointePhoto = (url: string) => jointe(url, TAILLE_PHOTO_MAX)
 
-/** Ce que fait la marque, en une phrase, pour les consignes. */
-export const faits = (m: MarqueClient) => [m.secteur, m.description, m.proposition].filter(Boolean).join('. ') || 'voir son site'
+/** Ce que fait la marque, en une phrase, pour les consignes ; avec le produit mis en avant s'il y en a un. */
+export const faits = (m: MarqueClient) =>
+  [
+    [m.secteur, m.description, m.proposition].filter(Boolean).join('. ') || 'voir son site',
+    m.produit && `Produit mis en avant : ${m.produit.nom}${m.produit.description ? ` (${m.produit.description})` : ''}${m.produit.prix ? `, prix affiché « ${m.produit.prix} », à écrire tel quel` : ''}`,
+  ].filter(Boolean).join('. ')
 
 /** Les guidelines de la marque, une ligne chacune, pour les consignes texte et image. */
 export const guidelines = (m: MarqueClient) =>
@@ -73,7 +81,8 @@ export const guidelines = (m: MarqueClient) =>
 /** Un concept planifié par conceptsPour (gemini.ts) : son angle (et ce qu'il montre, d'après angles.ts), son idée, ses textes. */
 export type Concept = { angle: string; detail?: string; idee: string; textes: { role: string; texte: string }[] }
 
-type Kit = { logo: boolean; logoClair: boolean; photos: number }
+/** Ce qui est joint, dans cet ordre : logo, logo pour fonds sombres, photos, créas modèles (concepts seulement). */
+type Kit = { logo: boolean; logoClair: boolean; photos: number; modeles?: number }
 
 /** Les lignes communes : la marque, ses logos, couleurs, photos et guidelines. Les images suivent la référence éventuelle. */
 function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolean) {
@@ -84,13 +93,17 @@ function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolea
       ? `Image ${n++} : le logo de ${m.nom}. Pose-le tel quel, sans le redessiner ni changer ses couleurs.`
       : `Pas de logo fourni : écris « ${m.nom} » en texte sobre${copie ? ' là où le concurrent met le sien' : ', bien visible'}.`,
     kit.logoClair && `Image ${n++} : le même logo pour fonds sombres. Sur un fond sombre, pose celui-ci à la place.`,
-    m.couleurs.length > 0 && `Couleurs de marque, la principale d'abord : ${m.couleurs.join(', ')}.`,
+    m.couleurs.length > 0 && `Couleurs de marque, la principale d'abord : ${m.couleurs.map((c, i) => (m.couleursRoles?.[i] ? `${c} (${m.couleursRoles[i]})` : c)).join(', ')}.`,
     (m.typoTitre || m.typoTexte) &&
       `Typographies de la marque : ${[m.typoTitre && `titres en ${m.typoTitre}`, m.typoTexte && `textes en ${m.typoTexte}`].filter(Boolean).join(', ')} (ou la police la plus proche).`,
     kit.photos > 0 &&
-      `${kit.photos > 1 ? `Images ${n} à ${n + kit.photos - 1}` : `Image ${n}`} : des photos réelles de ${m.nom}, ${copie ? 'à mettre à la place des photos du concurrent' : 'à utiliser comme visuel principal quand l’angle s’y prête'}.`,
+      `${plage(n, kit.photos)} : des photos réelles de ${m.nom}${m.produit ? `, dont ${m.produit.nom}` : ''}, ${copie ? 'à mettre à la place des photos du concurrent' : 'à utiliser comme visuel principal quand l’angle s’y prête'}.`,
+    !!kit.modeles &&
+      `${plage((n += kit.photos), kit.modeles)} : des publicités de ${m.nom} qui marchent. Reprends leur style graphique (typographie, couleurs, traitement des photos, mise en forme des textes), pas leurs textes ni leur mise en page exacte.`,
   ]
 }
+
+const plage = (n: number, k: number) => (k > 1 ? `Images ${n} à ${n + k - 1}` : `Image ${n}`)
 
 const FIN = 'Format carré 1:1. Garde une petite marge entre les textes et les bords.'
 

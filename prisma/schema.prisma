@@ -73,6 +73,8 @@ model AdAccount {
   knowledge       CreativeKnowledge?
   copyGenerations CopyGeneration[]
   creasGenerees   CreaGeneree[]
+  produitsMarque  ProduitMarque[]
+  creasModeles    CreaModele[]
   ghl             GhlConnection?
   createdAt       DateTime           @default(now())
   briefs          Brief[]
@@ -268,6 +270,8 @@ model BrandSettings {
   logoChemin         String?
   /// Couleurs de marque en hexadécimal, la principale d'abord.
   couleurs           String[] @default([])
+  /// Le rôle de chaque couleur, même ordre : principale, secondaire, accent, fond ou texte.
+  couleursRoles      String[] @default([])
   /// Photos réelles (chantiers, produit, équipe), dans le stockage.
   photos             String[] @default([])
   /// Le logo pour fonds sombres, quand le logo principal ne s'y lit pas.
@@ -779,4 +783,34 @@ model CreaGeneree {
   createdAt   DateTime  @default(now())
 
   @@index([adAccountId, createdAt])
+}
+
+/// Un produit ou une offre du client (Brand kit) : repris par les nouveaux concepts quand il est mis en avant.
+model ProduitMarque {
+  id          String    @id @default(cuid())
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  nom         String
+  description String?
+  /// Tel qu'il s'affiche (« dès 79 €/mois »), jamais calculé.
+  prix        String?
+  /// Les photos, dans le stockage (bucket veille, dossier marques/).
+  photos      String[]  @default([])
+  createdAt   DateTime  @default(now())
+
+  @@index([adAccountId])
+}
+
+/// Une pub du client qui marche (Brand kit) : son style sert de modèle aux nouveaux concepts.
+model CreaModele {
+  id          String    @id @default(cuid())
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  /// L'image, dans le stockage (bucket veille, dossier marques/).
+  chemin      String
+  /// Pourquoi elle marche, ce qu'il faut en garder.
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  @@index([adAccountId])
 }

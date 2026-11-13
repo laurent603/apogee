@@ -4,7 +4,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useStore } from '@/lib/store'
-import { useKit } from './KitVisuel'
+import { useKit } from './BrandKit'
 import type { PubVeille } from './CartePub'
 import { ANGLES_VISUELS } from '@/lib/veille/angles'
 
@@ -22,6 +22,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
   const [formats, setFormats] = useState<string[]>(['1:1', '9:16'])
   const [variantes, setVariantes] = useState(1)
   const [angles, setAngles] = useState<string[]>([])
+  const [produitId, setProduitId] = useState('')
   const [precision, setPrecision] = useState('')
   const [chargement, setChargement] = useState(false)
   const [creas, setCreas] = useState<Crea[]>([])
@@ -42,7 +43,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
     const r = await fetch('/api/veille/recreer', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pubId: pub.id, dbAccountId: compte!.id, formats, variantes, angles: variantes > 1 ? angles : [], consigne: precision }),
+      body: JSON.stringify({ pubId: pub.id, dbAccountId: compte!.id, formats, variantes, angles: variantes > 1 ? angles : [], produitId: produitId || undefined, consigne: precision }),
     })
     const j = await r.json().catch(() => ({}))
     setChargement(false)
@@ -78,10 +79,11 @@ export function Recreer({ pub }: { pub: PubVeille }) {
               {kit.logo ? 'logo' : <span className="text-amber-700">pas de logo</span>} · {kit.couleurs.length} couleur{kit.couleurs.length > 1 ? 's' : ''} ·{' '}
               {kit.photos.length} photo{kit.photos.length > 1 ? 's' : ''}
               {' · '}{Object.values(kit.guidelines).some(Boolean) ? 'guidelines' : <span className="text-amber-700">pas de guidelines</span>}
+              {' · '}{kit.produits.length} produit{kit.produits.length > 1 ? 's' : ''} · {kit.modeles.length} créa{kit.modeles.length > 1 ? 's' : ''} modèle{kit.modeles.length > 1 ? 's' : ''}
             </>
           ) : '…'}
           {' · '}
-          <Link href="/brand-settings" className="text-[#3434ef] hover:underline">compléter dans Brand Settings › Référentiel créatif</Link>
+          <Link href="/brand-settings?onglet=brand-kit" className="text-[#3434ef] hover:underline">compléter le Brand kit</Link>
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -101,6 +103,16 @@ export function Recreer({ pub }: { pub: PubVeille }) {
             </select>
           </label>
         </div>
+
+        {kit && kit.produits.length > 0 && (
+          <label className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+            Produit mis en avant
+            <select value={produitId} onChange={(e) => setProduitId(e.target.value)} className="select select-chevron w-auto py-1 text-xs">
+              <option value="">Aucun en particulier</option>
+              {kit.produits.map((p) => <option key={p.id} value={p.id}>{p.nom}{p.prix ? ` · ${p.prix}` : ''}</option>)}
+            </select>
+          </label>
+        )}
 
         {!copie && (
           <div className="space-y-2">

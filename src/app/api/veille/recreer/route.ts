@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { compteDe } from '@/lib/veille/compte'
 import { deposer, urlPublique } from '@/lib/veille/stockage'
 import { consigne, consigneConcept, faits, FORMATS_CREA, genererImage, guidelines, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
 import { ANGLES_VISUELS } from '@/lib/veille/angles'
@@ -19,12 +18,9 @@ export const maxDuration = 120
 const VARIANTES_MAX = 6
 // Deux photos par image : assez pour un visuel réel, sans alourdir la requête.
 const PHOTOS_PAR_IMAGE = 2
+// Deux créas modèles suffisent à donner le style sans noyer la consigne.
+const MODELES_PAR_IMAGE = 2
 
-async function compteDe(dbAccountId: unknown) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id || typeof dbAccountId !== 'string') return null
-  return prisma.adAccount.findFirst({ where: { id: dbAccountId, userId: session.user.id }, select: { id: true, name: true } })
-}
 
 const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; concept: string | null; createdAt: Date }) => ({
   id: c.id, format: c.format, url: urlPublique(c.chemin), consigne: c.consigne, concept: c.concept, createdAt: c.createdAt,
@@ -60,7 +56,11 @@ export async function POST(req: NextRequest) {
   const reference = source ? await jointe(urlPublique(source)) : null
   if (!reference) return NextResponse.json({ erreur: 'Cette pub n’a pas d’image à reprendre' }, { status: 400 })
 
-  const reglages = await prisma.brandSettings.findUnique({ where: { adAccountId: compte.id } })
+  const [reglages, produit, modelesKit] = await Promise.all([
+    prisma.brandSettings.findUnique({ where: { adAccountId: compte.id } }),
+    typeof corps.produitId === 'string' ? prisma.produitMarque.findFirst({ where: { id: corps.produitId, adAccountId: compte.id } }) : null,
+    prisma.creaModele.findMany({ where: { adAccountId: compte.id }, orderBy: { createdAt: 'desc' }, take: MODELES_PAR_IMAGE }),
+  ])
   const marque = {
     nom: reglages?.companyName || compte.name,
     site: reglages?.websiteUrl ?? null,
@@ -68,11 +68,15 @@ export async function POST(req: NextRequest) {
     description: reglages?.productDescription ?? null,
     proposition: reglages?.uniqueValueProp ?? null,
     couleurs: reglages?.couleurs ?? [],
+    couleursRoles: reglages?.couleursRoles ?? [],
+    produit: produit && { nom: produit.nom, description: produit.description, prix: produit.prix },
     typoTitre: reglages?.typoTitre, typoTexte: reglages?.typoTexte, tonDeVoix: reglages?.tonDeVoix,
     motsAEmployer: reglages?.motsAEmployer, motsAEviter: reglages?.motsAEviter,
   }
   const [logo, logoClair] = await Promise.all([reglages?.logoChemin, reglages?.logoClairChemin].map((c) => (c ? jointe(urlPublique(c)) : null)))
-  const photos = (await Promise.all((reglages?.photos ?? []).map((c) => jointePhoto(urlPublique(c))))).filter((x) => x !== null)
+  // Les photos du produit mis en avant passent devant celles du kit.
+  const photos = (await Promise.all([...(produit?.photos ?? []), ...(reglages?.photos ?? [])].map((c) => jointePhoto(urlPublique(c))))).filter((x) => x !== null)
+  const modeles = (await Promise.all(modelesKit.map((m) => jointePhoto(urlPublique(m.chemin))))).filter((x) => x !== null)
   const lesFaits = `${faits(marque)}${marque.site ? `, ${marque.site}` : ''}`
 
   // Les textes avant les images : ceux de la copie (mot pour mot), ou le plan des concepts.
@@ -91,11 +95,11 @@ export async function POST(req: NextRequest) {
   const resultats = await Promise.allSettled(
     Array.from({ length: variantes === 1 ? 1 : concepts.length }, async (_, i) => {
       const choisies = photos.length ? Array.from({ length: Math.min(PHOTOS_PAR_IMAGE, photos.length) }, (_, k) => photos[(i * PHOTOS_PAR_IMAGE + k) % photos.length]) : []
-      const kit = { logo: !!logo, logoClair: !!logoClair, photos: choisies.length }
+      const kit = { logo: !!logo, logoClair: !!logoClair, photos: choisies.length, modeles: variantes === 1 ? 0 : modeles.length }
       const logos = [logo, logoClair].filter((x) => x !== null)
       const concept = variantes === 1 ? null : { ...concepts[i], detail: ANGLES_VISUELS.find((a) => a.libelle === concepts[i].angle)?.consigne }
       const image = concept
-        ? await genererImage([...logos, ...choisies], consigneConcept(marque, kit, concept))
+        ? await genererImage([...logos, ...choisies, ...modeles], consigneConcept(marque, kit, concept))
         : await genererImage([reference, ...logos, ...choisies], consigne(marque, kit, precision, textes))
       const fichiers: Record<FormatCrea, () => Promise<[string, Buffer]>> = {
         '1:1': async () => [image.mimeType, image.octets],

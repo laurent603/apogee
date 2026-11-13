@@ -51,4 +51,12 @@ assert.match(autre, /titres en Montserrat/)
 assert.doesNotMatch(autre, /concurrent|au lieu de/)
 assert.deepEqual(guidelines(g), ['Ton de voix : rassurant.', 'Mots à ne jamais écrire : gratuit.'])
 
+// Produit, rôles de couleurs et créas modèles : numérotés après les photos.
+const p = { ...g, couleursRoles: ['principale'], produit: { nom: 'Batterie X', description: null, prix: 'dès 30 €/mois' } }
+const avecModeles = consigneConcept(p, { logo: true, logoClair: false, photos: 2, modeles: 2 }, { angle: 'Produit seul', idee: 'I', textes: [{ role: 'accroche', texte: 'Y' }] })
+assert.match(avecModeles, /Images 2 à 3 : des photos réelles de MC Energy, dont Batterie X/)
+assert.match(avecModeles, /Images 4 à 5 : des publicités de MC Energy qui marchent/)
+assert.match(avecModeles, /#000f18 \(principale\)/)
+assert.match(avecModeles, /prix affiché « dès 30 €\/mois », à écrire tel quel/)
+
 console.log('veille-recreer : OK')
