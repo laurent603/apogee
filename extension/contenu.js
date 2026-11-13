@@ -69,23 +69,29 @@ new MutationObserver(planifier).observe(document.documentElement, { childList: t
 window.addEventListener('load', planifier)
 
 // Espion : fait défiler la recherche jusqu'à `max` pubs, ou jusqu'à ce que
-// trois défilements de suite n'en apportent plus aucune.
+// trois défilements de suite n'en apportent plus aucune. `nouvelles` (collecte
+// du matin) : `max` pubs absentes de `connus`, pour descendre plus bas chaque jour.
 chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
   if (msg?.type !== 'collecter') return
   ;(async () => {
     let avant = -1
     let immobile = 0
+    // La Veille connaît déjà la plupart des pubs : elle ne lit que la fiche des nouvelles.
+    const connus = new Set(msg.connus ?? [])
+    const inconnues = () => [...pubs.values()].filter((p) => !connus.has(String(p.ad_archive_id)))
+    // ponytail: plafond de 600 pubs parcourues, pour qu'une liste immense ne défile pas sans fin.
+    const assez = () => (msg.nouvelles ? inconnues().length >= msg.max || pubs.size >= 600 : pubs.size >= msg.max)
     // Import : on s'arrête dès que les pubs demandées sont arrivées.
     const trouvees = () => msg.cibles?.length && msg.cibles.every((id) => pubs.has(id))
-    while (pubs.size < msg.max && immobile < 3 && !trouvees()) {
+    while (!assez() && immobile < 3 && !trouvees()) {
       window.scrollTo(0, document.documentElement.scrollHeight)
       await new Promise((r) => setTimeout(r, 2000))
       immobile = pubs.size === avant ? immobile + 1 : 0
       avant = pubs.size
     }
-    const retenues = msg.cibles ? msg.cibles.map((id) => pubs.get(id)).filter(Boolean) : [...pubs.values()].slice(0, msg.max)
-    // La Veille connaît déjà la plupart des pubs : elle ne lit que la fiche des nouvelles.
-    const connus = new Set(msg.connus ?? [])
+    const retenues = msg.cibles ? msg.cibles.map((id) => pubs.get(id)).filter(Boolean)
+      : msg.nouvelles ? inconnues().slice(0, msg.max)
+      : [...pubs.values()].slice(0, msg.max)
     await lireDetails(msg.cibles ?? retenues.map((p) => String(p.ad_archive_id)).filter((id) => !connus.has(id)))
     repondre({ pubs: retenues, details: Object.fromEntries(details), complet: total !== null && pubs.size >= total })
   })()

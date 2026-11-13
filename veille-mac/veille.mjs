@@ -54,14 +54,14 @@ const CONTENU = `(() => {
   else document.addEventListener('readystatechange', demarrer, { once: true })
 })()`
 
-async function lirePage(contexte, cible, connus, max = PUBS_PAR_MARQUE) {
+async function lirePage(contexte, cible, connus, max = PUBS_PAR_MARQUE, nouvelles = false) {
   const page = await contexte.newPage()
   try {
     await page.goto(cible, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await page.waitForTimeout(3000)
     return await page.evaluate(
-      ({ max, connus }) => new Promise((ok) => window.__apogeeEcouteurs[0]({ type: 'collecter', max, connus }, null, ok)),
-      { max, connus },
+      ({ max, connus, nouvelles }) => new Promise((ok) => window.__apogeeEcouteurs[0]({ type: 'collecter', max, connus, nouvelles }, null, ok)),
+      { max, connus, nouvelles },
     )
   } finally {
     await page.close()
@@ -79,7 +79,8 @@ async function collecter(contexte) {
       const cible = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${encodeURIComponent(m.pays)}` +
         // Phrase exacte : sans elle, « pompe à chaleur » ramène aussi des iPad.
         `&q=${encodeURIComponent(`"${m.motCle}"`)}&search_type=keyword_exact_phrase&media_type=all`
-      const { pubs, details } = await lirePage(contexte, cible, [...connus], PUBS_PAR_MOT_CLE)
+      // 50 pubs encore inconnues : chaque matin, la lecture descend plus bas dans la liste.
+      const { pubs, details } = await lirePage(contexte, cible, [...connus], PUBS_PAR_MOT_CLE, true)
       const nouvelles = pubs.filter((p) => !connus.has(String(p.ad_archive_id)))
       let envoyees = 0
       if (!ESSAI) {
