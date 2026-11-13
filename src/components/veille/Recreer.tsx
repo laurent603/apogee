@@ -66,9 +66,8 @@ export function Recreer({ pub }: { pub: PubVeille }) {
         <div>
           <p className="text-sm font-semibold text-[#0d0d12]">Recréer pour {compte.name}</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            1 variante : la copie de cette pub au kit de {compte.name}, générée par l’IA. 2 et plus : autant de concepts nouveaux, chacun avec son angle
-            et son accroche, mis en page par Apogee (vraies polices, vrai logo, textes nets) sur une vraie photo du kit ou un visuel IA sans texte.
-            Jamais la marque, les personnes ni les phrases du concurrent.
+            1 variante : la copie de cette pub au kit de {compte.name}. 2 et plus : autant de concepts nouveaux, chacun avec son angle et son accroche,
+            pour que Meta les traite comme des pubs différentes. Jamais la marque, les personnes ni les phrases du concurrent.
             {video && ' Vidéo : son aperçu sert de modèle, le résultat est une image fixe.'}
           </p>
         </div>

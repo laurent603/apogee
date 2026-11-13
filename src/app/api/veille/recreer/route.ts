@@ -3,19 +3,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { compteDe } from '@/lib/veille/compte'
 import { deposer, urlPublique } from '@/lib/veille/stockage'
-import sharp from 'sharp'
-import { consigne, consigneVisuel, faits, FORMATS_CREA, genererImage, guidelines, jointe, jointePhoto, versStory, type FormatCrea, type Jointe } from '@/lib/veille/recreer'
+import { consigne, consigneConcept, faits, FORMATS_CREA, genererImage, guidelines, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
 import { ANGLES_VISUELS } from '@/lib/veille/angles'
-import { planHybride, textesPour, type PlanConcept } from '@/lib/veille/gemini'
-import { palette, rendre, type Gabarit } from '@/lib/veille/gabarits'
-import { polices } from '@/lib/veille/polices'
+import { conceptsPour, textesPour } from '@/lib/veille/gemini'
 
 /**
  * « Recréer pour ce client » : à partir d'une pub concurrente, des images au
  * kit visuel et à l'offre du client sélectionné. 1 variante : la copie de la
- * pub, entièrement générée. 2 et plus : autant de concepts nouveaux en rendu
- * hybride : l'IA ne fournit que le visuel (ou une vraie photo du kit est
- * reprise), titres, logo et couleurs sont posés en HTML par les gabarits.
+ * pub ; 2 et plus : autant de concepts nouveaux (angle et accroche différents).
  * Chaque image est gardée (CreaGeneree) pour ne pas la repayer.
  */
 
@@ -23,18 +18,8 @@ export const maxDuration = 120
 const VARIANTES_MAX = 6
 // Deux photos par image : assez pour un visuel réel, sans alourdir la requête.
 const PHOTOS_PAR_IMAGE = 2
-// Deux créas modèles suffisent à donner le ton sans noyer la consigne.
+// Deux créas modèles suffisent à donner le style sans noyer la consigne.
 const MODELES_PAR_IMAGE = 2
-// Six photos au plus montrées au plan : assez de choix, une requête légère.
-const PHOTOS_AU_PLAN = 6
-
-/** Une image en data URL pour les gabarits : PNG pour un logo (transparence), JPEG sinon ; le moteur ne lit ni WebP ni SVG. */
-async function enData(j: Jointe | null, logo = false) {
-  if (!j) return null
-  const image = sharp(Buffer.from(j.data, 'base64')).resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-  const octets = await (logo ? image.png() : image.jpeg({ quality: 88 })).toBuffer()
-  return `data:image/${logo ? 'png' : 'jpeg'};base64,${octets.toString('base64')}`
-}
 
 
 const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; concept: string | null; createdAt: Date }) => ({
@@ -96,53 +81,39 @@ export async function POST(req: NextRequest) {
 
   // Les textes avant les images : ceux de la copie (mot pour mot), ou le plan des concepts.
   let textes: Awaited<ReturnType<typeof textesPour>> = []
-  let concepts: PlanConcept[] = []
-  const auPlan = photos.slice(0, PHOTOS_AU_PLAN)
+  let concepts: Awaited<ReturnType<typeof conceptsPour>> = []
   try {
     if (variantes === 1) textes = await textesPour(reference, marque.nom, lesFaits, precision, guidelines(marque))
-    else concepts = await planHybride(reference, auPlan, modeles, marque.nom, lesFaits, variantes, [...ANGLES_VISUELS], anglesImposes, precision, guidelines(marque))
+    else concepts = await conceptsPour(reference, marque.nom, lesFaits, variantes, [...ANGLES_VISUELS], anglesImposes, precision, guidelines(marque))
   } catch (e) {
     return NextResponse.json({ erreur: (e as Error).message }, { status: 502 })
   }
   if (variantes > 1 && !concepts.length) return NextResponse.json({ erreur: 'Gemini n’a proposé aucun concept : réessayez.' }, { status: 502 })
 
-  const enregistrer = (format: FormatCrea, type: string, octets: Buffer, modele: string, concept: string | null) =>
-    deposer(`creas/${compte.id}/${randomUUID()}`, type, octets).then((chemin) =>
-      prisma.creaGeneree.create({ data: { adAccountId: compte.id, pubId: pub.id, format, chemin, modele, consigne: precision || null, concept } }),
-    )
-
-  // Copie : une image générée en entier, et sa Story tirée du même carré.
-  const copier = async () => {
-    const choisies = photos.slice(0, PHOTOS_PAR_IMAGE)
-    const image = await genererImage([reference, ...[logo, logoClair].filter((x) => x !== null), ...choisies], consigne(marque, { logo: !!logo, logoClair: !!logoClair, photos: choisies.length }, precision, textes))
-    return Promise.all(formats.map(async (format: FormatCrea) =>
-      format === '1:1' ? enregistrer(format, image.mimeType, image.octets, image.modele, null) : enregistrer(format, 'image/jpeg', await versStory(image.octets), image.modele, null),
-    ))
-  }
-
-  // Concept : le visuel (vraie photo, image IA sans texte, ou rien), habillé par son gabarit en 1:1 et en 9:16 natifs.
-  const [fonts, logoData, logoClairData] = variantes === 1 ? [null, null, null] : await Promise.all([polices(marque.typoTitre, marque.typoTexte), enData(logo, true), enData(logoClair, true)])
-  const habiller = async (c: PlanConcept, i: number) => {
-    const angle = ANGLES_VISUELS.find((a) => a.libelle === c.angle)
-    let visuel: Jointe | null = null
-    let modele = 'html'
-    if (c.visuel.source === 'photo' && c.visuel.photo >= 0) visuel = auPlan[c.visuel.photo]
-    else if (c.visuel.source === 'ia' || (c.visuel.source === 'photo' && c.visuel.description)) {
-      const refs = photos.length ? [photos[i % photos.length]] : []
-      const image = await genererImage(refs, consigneVisuel(marque, c.visuel.description || c.idee, refs.length), '3:4')
-      visuel = { mimeType: image.mimeType, data: image.octets.toString('base64') }
-      modele = `html + ${image.modele}`
-    }
-    const habillage = {
-      gabarit: (angle?.gabarit ?? 'photo') as Gabarit,
-      style: angle && 'style' in angle ? angle.style : undefined,
-      textes: c.textes, visuel: await enData(visuel), logo: logoData, logoClair: logoClairData, nom: marque.nom,
-      palette: palette(marque.couleurs, marque.couleursRoles), polices: fonts!,
-    }
-    return Promise.all(formats.map(async (format: FormatCrea) => enregistrer(format, 'image/png', await rendre(habillage, format), modele, c.angle)))
-  }
-
-  const resultats = await Promise.allSettled(variantes === 1 ? [copier()] : concepts.map(habiller))
+  // Une génération par créa : le carré, et la Story tirée du même carré (une pub Meta, deux placements).
+  // Chaque créa prend d'autres photos du kit : les images ne se ressemblent pas toutes.
+  const resultats = await Promise.allSettled(
+    Array.from({ length: variantes === 1 ? 1 : concepts.length }, async (_, i) => {
+      const choisies = photos.length ? Array.from({ length: Math.min(PHOTOS_PAR_IMAGE, photos.length) }, (_, k) => photos[(i * PHOTOS_PAR_IMAGE + k) % photos.length]) : []
+      const kit = { logo: !!logo, logoClair: !!logoClair, photos: choisies.length, modeles: variantes === 1 ? 0 : modeles.length }
+      const logos = [logo, logoClair].filter((x) => x !== null)
+      const concept = variantes === 1 ? null : { ...concepts[i], detail: ANGLES_VISUELS.find((a) => a.libelle === concepts[i].angle)?.consigne }
+      const image = concept
+        ? await genererImage([...logos, ...choisies, ...modeles], consigneConcept(marque, kit, concept))
+        : await genererImage([reference, ...logos, ...choisies], consigne(marque, kit, precision, textes))
+      const fichiers: Record<FormatCrea, () => Promise<[string, Buffer]>> = {
+        '1:1': async () => [image.mimeType, image.octets],
+        '9:16': async () => ['image/jpeg', await versStory(image.octets)],
+      }
+      return Promise.all(formats.map(async (format: FormatCrea) => {
+        const [type, octets] = await fichiers[format]()
+        const chemin = await deposer(`creas/${compte.id}/${randomUUID()}`, type, octets)
+        return prisma.creaGeneree.create({
+          data: { adAccountId: compte.id, pubId: pub.id, format, chemin, modele: image.modele, consigne: precision || null, concept: concept?.angle ?? null },
+        })
+      }))
+    }),
+  )
 
   const creas = resultats.flatMap((r) => (r.status === 'fulfilled' ? r.value.map(enClair) : []))
   const echecs = resultats.filter((r): r is PromiseRejectedResult => r.status === 'rejected')

@@ -2,7 +2,7 @@
 // node scripts/veille-recreer.check.mjs
 import assert from 'node:assert/strict'
 import sharp from 'sharp'
-import { consigne, consigneVisuel, guidelines, versStory } from '../src/lib/veille/recreer.ts'
+import { consigne, consigneConcept, guidelines, versStory } from '../src/lib/veille/recreer.ts'
 
 const m = { nom: 'MC Energy', site: null, secteur: 'Solaire', description: null, proposition: 'Sans apport', couleurs: ['#000f18'] }
 
@@ -39,21 +39,24 @@ const imposes = consigne(m, { logo: false, logoClair: false, photos: 0 }, '', [{
 assert.match(imposes, /mot pour mot/)
 assert.match(imposes, /titre : « Tout le monde parle de MC Energy » \(au lieu de « Tout le monde parle de Placier »\)/)
 
-// Guidelines, rôles de couleurs et produit mis en avant, repris par la copie.
-const g = { ...m, typoTitre: 'Montserrat', tonDeVoix: 'rassurant', motsAEviter: 'gratuit', couleursRoles: ['principale'], produit: { nom: 'Batterie X', description: null, prix: 'dès 30 €/mois' } }
+// Concept : pas de pub du concurrent jointe ; logo (image 1), logo pour fonds sombres (image 2), guidelines.
+const g = { ...m, typoTitre: 'Montserrat', tonDeVoix: 'rassurant', motsAEviter: 'gratuit' }
+const autre = consigneConcept(g, { logo: true, logoClair: true, photos: 1 }, { angle: 'Avant / après', detail: 'deux moitiés, avant et après', idee: 'Une toiture avant et après', textes: [{ role: 'accroche', texte: 'Y' }] })
+assert.match(autre, /Angle : Avant \/ après \(deux moitiés/)
+assert.match(autre, /accroche : « Y »/)
+assert.match(autre, /Image 1 : le logo de MC Energy/)
+assert.match(autre, /Image 2 : le même logo pour fonds sombres/)
+assert.match(autre, /Image 3 : des photos réelles/)
+assert.match(autre, /titres en Montserrat/)
+assert.doesNotMatch(autre, /concurrent|au lieu de/)
 assert.deepEqual(guidelines(g), ['Ton de voix : rassurant.', 'Mots à ne jamais écrire : gratuit.'])
-const copie = consigne(g, { logo: true, logoClair: true, photos: 2 })
-assert.match(copie, /Image 2 : le logo de MC Energy/)
-assert.match(copie, /Image 3 : le même logo pour fonds sombres/)
-assert.match(copie, /Images 4 à 5 : des photos réelles de MC Energy, dont Batterie X/)
-assert.match(copie, /#000f18 \(principale\)/)
-assert.match(copie, /prix affiché « dès 30 €\/mois », à écrire tel quel/)
-assert.match(copie, /titres en Montserrat/)
 
-// Visuel d'un concept hybride : une photo sans aucun texte, les photos du kit en référence.
-const visuel = consigneVisuel(g, 'une piscine au coucher du soleil', 1)
-assert.match(visuel, /Aucun texte, aucune lettre/)
-assert.match(visuel, /Image 1 : de vraies photos de MC Energy/)
-assert.doesNotMatch(consigneVisuel(g, 'x', 0), /vraies photos/)
+// Produit, rôles de couleurs et créas modèles : numérotés après les photos.
+const p = { ...g, couleursRoles: ['principale'], produit: { nom: 'Batterie X', description: null, prix: 'dès 30 €/mois' } }
+const avecModeles = consigneConcept(p, { logo: true, logoClair: false, photos: 2, modeles: 2 }, { angle: 'Produit seul', idee: 'I', textes: [{ role: 'accroche', texte: 'Y' }] })
+assert.match(avecModeles, /Images 2 à 3 : des photos réelles de MC Energy, dont Batterie X/)
+assert.match(avecModeles, /Images 4 à 5 : des publicités de MC Energy qui marchent/)
+assert.match(avecModeles, /#000f18 \(principale\)/)
+assert.match(avecModeles, /prix affiché « dès 30 €\/mois », à écrire tel quel/)
 
 console.log('veille-recreer : OK')
