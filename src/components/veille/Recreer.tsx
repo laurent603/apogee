@@ -13,8 +13,9 @@ const FORMATS = [['1:1', 'Carré 1:1 · fil'], ['9:16', 'Vertical 9:16 · Story'
 
 /**
  * L'onglet « Recréer » de la fiche : 1 variante copie la pub au kit du client
- * sélectionné ; 2 et plus donnent autant de concepts nouveaux, chacun sur un
- * angle et une accroche à lui (Andromeda range ensemble les pubs trop proches).
+ * sélectionné ; 2 et plus donnent autant de variations de cette copie (même
+ * message, textes condensés, offre commune), chacune dans un traitement visuel
+ * à elle : Andromeda range ensemble les pubs qui se ressemblent trop.
  */
 export function Recreer({ pub }: { pub: PubVeille }) {
   const compte = useStore((s) => s.selectedAccount)
@@ -66,8 +67,9 @@ export function Recreer({ pub }: { pub: PubVeille }) {
         <div>
           <p className="text-sm font-semibold text-[#0d0d12]">Recréer pour {compte.name}</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            1 variante : la copie de cette pub au kit de {compte.name}. 2 et plus : autant de concepts nouveaux, chacun avec son angle et son accroche,
-            pour que Meta les traite comme des pubs différentes. Jamais la marque, les personnes ni les phrases du concurrent.
+            1 variante : la copie de cette pub au kit de {compte.name}. 2 et plus : autant de variations de cette copie, même message et mêmes textes,
+            chacune dans un traitement visuel différent (smartphone, polaroïd, minimaliste…) pour que Meta les traite comme des pubs distinctes.
+            Jamais la marque, les personnes ni les phrases du concurrent.
             {video && ' Vidéo : son aperçu sert de modèle, le résultat est une image fixe.'}
           </p>
         </div>
@@ -99,7 +101,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
           <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600">
             Variantes
             <select value={variantes} onChange={(e) => { const n = Number(e.target.value); setVariantes(n); setAngles((a) => a.slice(0, n)) }} className="select select-chevron w-auto py-1 text-xs">
-              {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 1 ? '1 · copie de la pub' : `${n} · nouveaux concepts`}</option>)}
+              {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 1 ? '1 · copie de la pub' : `${n} · variations`}</option>)}
             </select>
           </label>
         </div>
@@ -117,7 +119,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
         {!copie && (
           <div className="space-y-2">
             <p className="text-xs text-gray-600">
-              Angles <span className="text-gray-400">· {!angles.length ? 'sans choix, l’IA prend les plus adaptés' : `${angles.length} / ${variantes} choisi${angles.length > 1 ? 's' : ''}${angles.length < variantes ? ', l’IA complète' : ''}`}</span>
+              Traitements <span className="text-gray-400">· {!angles.length ? 'sans choix : smartphone, minimaliste, polaroïd, mise en situation…' : `${angles.length} / ${variantes} choisi${angles.length > 1 ? 's' : ''}${angles.length < variantes ? ', les autres par défaut' : ''}`}</span>
             </p>
             <div className="flex flex-wrap gap-1.5">
               {ANGLES_VISUELS.map((a) => {
@@ -147,7 +149,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
               : 'Relisez le texte de chaque image : l’IA fait encore des fautes.'}
           </p>
           <button type="button" onClick={generer} disabled={chargement || !formats.length} className="btn-primary shrink-0 disabled:opacity-50">
-            {chargement ? 'Génération…' : copie ? 'Générer la copie' : `Générer ${total} concepts`}
+            {chargement ? 'Génération…' : copie ? 'Générer la copie' : `Générer ${total} variations`}
           </button>
         </div>
       </div>

@@ -288,7 +288,7 @@ export function BrandKit({ dbAccountId, apresIdentite }: { dbAccountId: string; 
         )}
       </Carte>
 
-      <Carte titre="Créas modèles" aide="Des pubs du client qui marchent : les nouveaux concepts reprennent leur style graphique, pas leurs textes. 6 au plus.">
+      <Carte titre="Créas modèles" aide="Des pubs du client qui marchent, gardées comme référence pour l’équipe : Recréer ne s’en sert pas encore. 6 au plus.">
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {kit.modeles.map((m) => (
             <div key={m.id} className="space-y-1.5">

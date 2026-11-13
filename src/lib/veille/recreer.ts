@@ -79,10 +79,11 @@ export const guidelines = (m: MarqueClient) =>
   ].filter((l): l is string => !!l)
 
 /** Un concept planifié par conceptsPour (gemini.ts) : son angle (et ce qu'il montre, d'après angles.ts), son idée, ses textes. */
-export type Concept = { angle: string; detail?: string; idee: string; textes: { role: string; texte: string }[] }
+/** Les textes d'une variation : ceux de la copie, condensés (textesCourts, dans gemini.ts), plus l'offre commune. */
+export type TextesCourts = { titre: string; sousTitre: string; points: string[]; offre: string; bouton: string }
 
 /** Ce qui est joint, dans cet ordre : logo, logo pour fonds sombres, photos, créas modèles (concepts seulement). */
-type Kit = { logo: boolean; logoClair: boolean; photos: number; modeles?: number }
+type Kit = { logo: boolean; logoClair: boolean; photos: number }
 
 /** Les lignes communes : la marque, ses logos, couleurs, photos et guidelines. Les images suivent la référence éventuelle. */
 function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolean) {
@@ -98,8 +99,6 @@ function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolea
       `Typographies de la marque : ${[m.typoTitre && `titres en ${m.typoTitre}`, m.typoTexte && `textes en ${m.typoTexte}`].filter(Boolean).join(', ')} (ou la police la plus proche).`,
     kit.photos > 0 &&
       `${plage(n, kit.photos)} : des photos réelles de ${m.nom}${m.produit ? `, dont ${m.produit.nom}` : ''}, ${copie ? 'à mettre à la place des photos du concurrent' : 'à utiliser comme visuel principal quand l’angle s’y prête'}.`,
-    !!kit.modeles &&
-      `${plage((n += kit.photos), kit.modeles)} : des publicités de ${m.nom} qui marchent. Reprends leur style graphique (typographie, couleurs, traitement des photos, mise en forme des textes), pas leurs textes ni leur mise en page exacte.`,
   ]
 }
 
@@ -131,14 +130,25 @@ export function consigne(m: MarqueClient, kit: Kit, precision?: string, textes: 
   return lignes.filter(Boolean).join('\n')
 }
 
-/** La consigne d'un nouveau concept : pas de pub de référence jointe, seulement son angle et ses textes. */
-export function consigneConcept(m: MarqueClient, kit: Kit, concept: Concept) {
+/**
+ * La consigne d'une variation (2 variantes et plus) : la pub du concurrent
+ * (image 1) garde son message et le produit, mais change de traitement
+ * visuel ; les textes de la copie, condensés, sont posés mot pour mot.
+ */
+export function consigneVariation(m: MarqueClient, kit: Kit, textes: TextesCourts, traitement: { libelle: string; consigne: string }) {
+  const ligne = (role: string, t: string) => (t.trim() ? `  · ${role} : « ${t.trim()} »` : null)
   const lignes = [
     'Tu es directeur artistique en publicité Meta à réponse directe.',
-    `Crée une publicité pour « ${m.nom} ». Angle : ${concept.angle}${concept.detail ? ` (${concept.detail})` : ''}. Idée : ${concept.idee}.`,
-    `Textes à écrire, mot pour mot, et aucun autre ; dans un encart d'avis ni prénom ni étoiles :\n${concept.textes.map((t) => `  · ${t.role} : « ${t.texte} »`).join('\n')}`,
-    kit.photos > 0 ? null : 'Personnes et lieux : nouveaux, crédibles, sans marque visible autre que celle-ci.',
-    ...lignesMarque(m, kit, 1, false),
+    `Image 1 : une publicité d'un concurrent, qui marche. Crée une VARIATION de cette publicité pour « ${m.nom} » : même message et même produit, mais en « ${traitement.libelle} » (${traitement.consigne}). La composition s'adapte à ce traitement ; ne recopie pas la mise en page de l'image 1.`,
+    'Interdit : le nom, le logo, les couleurs, les personnes, les photos et les phrases du concurrent.',
+    `Textes à écrire, mot pour mot, lisibles sur un téléphone, et aucun autre :\n${[
+      ligne('titre', textes.titre),
+      ligne('sous-titre', textes.sousTitre),
+      ...textes.points.map((p) => ligne('argument', p)),
+      ligne('offre, bien visible en bandeau ou en macaron', textes.offre),
+      ligne('bouton', textes.bouton),
+    ].filter(Boolean).join('\n')}`,
+    ...lignesMarque(m, kit, 2, false),
     FIN,
   ]
   return lignes.filter(Boolean).join('\n')

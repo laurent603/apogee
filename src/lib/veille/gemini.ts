@@ -5,7 +5,7 @@
  * fait en un seul appel.
  */
 
-import type { Concept, Jointe, TexteImpose } from './recreer'
+import type { Jointe, TexteImpose, TextesCourts } from './recreer'
 
 // Mesuré le 13/11/2026 : 3.5-flash, 3.6-flash et 3.5-flash-lite répondent en
 // 1 à 3 s quand 3.7 et 3.8 sont saturés ; l'alias gemini-flash-latest ne
@@ -316,50 +316,28 @@ export async function textesPour(reference: Jointe, nom: string, faits: string, 
 }
 
 /**
- * Les nouveaux concepts (2 variantes et plus) : la pub du concurrent donne le
- * message ; chaque concept change d'angle visuel ET d'accroche, sinon Meta
- * (Andromeda) les range ensemble comme une seule pub. L'offre est commune.
+ * Les textes des variations (2 variantes et plus) : ceux de la copie,
+ * condensés pour rester lisibles quel que soit le traitement visuel, avec
+ * l'offre commune. Rien n'est ajouté que ces textes ou l'offre ne disent.
  */
-export async function conceptsPour(
-  reference: Jointe, nom: string, faits: string, n: number,
-  angles: { libelle: string; consigne: string }[], imposes: string[], offre?: string, guidelines: string[] = [],
-): Promise<Concept[]> {
-  const libelles = angles.map((a) => a.libelle)
+export async function textesCourts(textes: TexteImpose[], nom: string, offre?: string, guidelines: string[] = []): Promise<TextesCourts> {
   const texte = [
-    `Voici une publicité d'un concurrent, qui marche : elle donne le message et le produit. Imagine ${n} nouvelles publicités pour « ${nom} » (${faits}), chacune sur un concept vraiment différent : Meta range ensemble les publicités trop proches. Chaque concept change donc à la fois d'angle visuel et d'accroche (bénéfice, émotion ou personne visée différents). Ne recopie pas la mise en page du concurrent.`,
-    imposes.length
-      ? `Angles imposés, un par concept : ${imposes.join(', ')}.${imposes.length < n ? ' Choisis les autres dans la liste.' : ''}`
-      : 'Choisis dans la liste les angles qui servent le mieux ce message, tous différents.',
-    `Angles possibles :\n${angles.map((a) => `- ${a.libelle} : ${a.consigne}`).join('\n')}`,
-    `Pour chaque concept : l'angle (libellé exact de la liste), l'idée en une phrase (ce que l'on voit), et 2 à 4 textes courts (accroche, sous-titre ou points, mention ou bouton), en français et sans faute ; aucun texte ne reprend les mots d'un autre texte du même concept.`,
-    offre?.trim() && `Offre commune, présente dans chaque concept : ${offre.trim()}`,
-    'Règles :',
-    ...reglesVerite(nom),
+    `Voici les textes d'une publicité pour « ${nom} » :`,
+    ...textes.map((t) => `- ${t.role} : ${t.remplacement}`),
+    'Condense-les pour des variations visuelles de cette publicité, en français et sans faute :',
+    '- titre : l’accroche, 60 caractères au plus, la plus proche possible du titre d’origine ;',
+    '- sousTitre : 90 caractères au plus, vide si inutile ;',
+    '- points : 3 arguments de 45 caractères au plus, tirés des textes ;',
+    `- offre : ${offre?.trim() ? `« ${offre.trim()} », raccourcie à 40 caractères si besoin` : 'vide'} ;`,
+    '- bouton : 22 caractères au plus, à l’impératif, vide si la publicité n’en a pas besoin.',
+    'N’ajoute aucune affirmation, aucun chiffre ni aucun avis que ces textes ou l’offre ne donnent pas.',
     ...guidelines,
-    'Avant de répondre, relis chaque texte : il doit être vrai pour cette marque et avoir un sens tel quel.',
-  ].filter(Boolean).join('\n')
-  const schema = {
+  ].join('\n')
+  const chaine = { type: 'STRING' }
+  const { resultat } = await appeler([{ text: texte }], {
     type: 'OBJECT',
-    properties: {
-      concepts: {
-        type: 'ARRAY',
-        items: {
-          type: 'OBJECT',
-          properties: {
-            angle: { type: 'STRING', enum: libelles },
-            idee: { type: 'STRING' },
-            textes: { type: 'ARRAY', items: { type: 'OBJECT', properties: { role: { type: 'STRING' }, texte: { type: 'STRING' } }, required: ['role', 'texte'] } },
-          },
-          required: ['angle', 'idee', 'textes'],
-        },
-      },
-    },
-    required: ['concepts'],
-  }
-  const { resultat } = await appeler([{ inlineData: reference }, { text: texte }], schema)
-  // Un angle par concept : un doublon serait la même pub pour Andromeda.
-  const vus = new Set<string>()
-  return (resultat.concepts ?? [])
-    .filter((c: Concept) => c.textes?.length && !vus.has(c.angle) && vus.add(c.angle))
-    .slice(0, n)
+    properties: { titre: chaine, sousTitre: chaine, points: { type: 'ARRAY', items: chaine }, offre: chaine, bouton: chaine },
+    required: ['titre', 'sousTitre', 'points', 'offre', 'bouton'],
+  })
+  return { ...resultat, points: (resultat.points ?? []).slice(0, 3) }
 }
