@@ -675,6 +675,18 @@ model VeillePub {
   @@index([premiereVue])
 }
 
+/// Un mot-clé lu chaque matin dans la Ad Library par la tâche du Mac : ses
+/// pubs remplissent Discovery sans qu'on ait à lancer de scan.
+model VeilleMotCle {
+  id               String    @id @default(cuid())
+  motCle           String    @unique
+  pays             String    @default("FR")
+  derniereCollecte DateTime?
+  /// « 50 lues, 12 nouvelles » : le résultat de la dernière collecte.
+  dernierBilan     String?
+  createdAt        DateTime  @default(now())
+}
+
 /// Le secteur d'un client (compte publicitaire Meta) : quand il est
 /// sélectionné, Veille, Discovery et Espion n'affichent que ce secteur.
 model VeilleSecteurClient {

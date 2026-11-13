@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
 import { ChoixSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
+import { MotsClesCollecte } from '@/components/veille/MotsClesCollecte'
 
 /**
  * Toutes les pubs concurrentes collectées : celles sauvegardées avec
@@ -99,6 +100,8 @@ export default function DiscoveryPage() {
       </div>
 
       <ChoixSecteur s={secteurClient} />
+
+      <MotsClesCollecte />
 
       {!!donnees?.categories.length && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Catégories">
