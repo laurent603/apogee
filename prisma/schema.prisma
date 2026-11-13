@@ -72,6 +72,7 @@ model AdAccount {
   reports         Report[]
   knowledge       CreativeKnowledge?
   copyGenerations CopyGeneration[]
+  creasGenerees   CreaGeneree[]
   ghl             GhlConnection?
   createdAt       DateTime           @default(now())
   briefs          Brief[]
@@ -262,6 +263,13 @@ model BrandSettings {
   reportEmailEnabled Boolean  @default(false)
   trackedEvents      String?
   trustpilotUrl      String?
+  // Kit visuel : ce que la génération d'images reprend pour rester à la marque du client
+  /// Le logo, dans le stockage (bucket veille, dossier marques/).
+  logoChemin         String?
+  /// Couleurs de marque en hexadécimal, la principale d'abord.
+  couleurs           String[] @default([])
+  /// Photos réelles (chantiers, produit, équipe), dans le stockage.
+  photos             String[] @default([])
   updatedAt          DateTime @updatedAt
 }
 
@@ -671,6 +679,7 @@ model VeillePub {
   derniereVue  DateTime           @default(now())
   sauvegardes  VeilleSauvegarde[]
   mesures      VeilleMesure[]
+  creas        CreaGeneree[]
 
   @@index([marqueId])
   @@index([premiereVue])
@@ -740,4 +749,24 @@ model VeilleSauvegarde {
 
   @@index([pubId])
   @@index([dossierId])
+}
+
+/// « Recréer pour ce client » : une image générée à partir d'une pub concurrente,
+/// gardée pour ne pas la repayer.
+model CreaGeneree {
+  id          String    @id @default(cuid())
+  adAccountId String
+  adAccount   AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  pubId       String
+  pub         VeillePub @relation(fields: [pubId], references: [id], onDelete: Cascade)
+  /// « 1:1 » ou « 9:16 ».
+  format      String
+  /// L'image, dans le stockage (bucket veille, dossier creas/).
+  chemin      String
+  modele      String
+  /// La précision donnée avant de générer (offre, angle…).
+  consigne    String?
+  createdAt   DateTime  @default(now())
+
+  @@index([adAccountId, createdAt])
 }

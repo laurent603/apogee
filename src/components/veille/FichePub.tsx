@@ -7,6 +7,7 @@ import { budgetEstime, EUROS_POUR_MILLE_PERSONNES } from '@/lib/veille/adLibrary
 import { courbesEstimees, courbesRelevees } from '@/lib/veille/rapport'
 import type { PubVeille } from './CartePub'
 import type { Decorticage } from '@/lib/veille/gemini'
+import { Recreer } from './Recreer'
 
 /** 2 694 → « 2,7 K », 783 → « 780 » : deux chiffres significatifs, comme un ordre de grandeur. */
 export function compact(v: number) {
@@ -386,7 +387,7 @@ export function voisines<T extends { id: string }>(liste: T[], courante: T, ouvr
   }
 }
 
-const ONGLETS_FICHE = ['Détails', 'Annonceur', 'Texte', 'Décortiquer', 'Transcription', 'Audience'] as const
+const ONGLETS_FICHE = ['Détails', 'Annonceur', 'Texte', 'Décortiquer', 'Recréer', 'Transcription', 'Audience'] as const
 
 function Chiffre({ libelle, valeur }: { libelle: string; valeur: string }) {
   return (
@@ -457,7 +458,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
     .map((pays) => ({ pays, n: somme((l) => (l.pays === pays ? l.hommes + l.femmes + l.inconnu : 0)) }))
     .sort((a, b) => b.n - a.n)
   // Page publique : ni analyse à lancer, ni données de l'annonceur (réservées aux comptes Apogee).
-  const onglets = ONGLETS_FICHE.filter((o) => !(lectureSeule && ['Annonceur', 'Décortiquer', 'Transcription'].includes(o)))
+  const onglets = ONGLETS_FICHE.filter((o) => !(lectureSeule && ['Annonceur', 'Décortiquer', 'Recréer', 'Transcription'].includes(o)))
   const dateLongue = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   const visuel = (
@@ -608,6 +609,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
 
             {onglet === 'Annonceur' && <Annonceur pub={pub} ouvrir={ouvrir} />}
             {onglet === 'Décortiquer' && <Decortiquer pub={pub} analyse={analyse} setAnalyse={setAnalyse} />}
+            {onglet === 'Recréer' && <Recreer pub={pub} />}
             {onglet === 'Transcription' && (
               <Transcription pub={pub} analyse={analyse} setAnalyse={setAnalyse} decortiquer={() => setOnglet('Décortiquer')} />
             )}

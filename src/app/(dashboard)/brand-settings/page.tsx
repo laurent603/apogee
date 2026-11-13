@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import type { BrandSettings } from '@/types'
 import { clsx } from 'clsx'
 import { economie, verdictSignature } from '@/lib/scalr/economie'
+import { KitVisuel } from '@/components/veille/KitVisuel'
 
 // ── Composants extraits EN DEHORS du composant parent ──
 // (si définis à l'intérieur, React les recrée à chaque render → perte de focus)
@@ -1107,6 +1108,8 @@ export default function BrandSettingsPage() {
 
           {tab === 5 && (
             <div className="space-y-5">
+              <KitVisuel key={selectedAccount.id} dbAccountId={selectedAccount.id} />
+              <div className="border-t border-[#F3F4F6]" />
               <div>
                 <p className="text-sm font-semibold text-[#0d0d12] mb-1">Référentiel créatif Notion</p>
                 <p className="text-xs text-gray-500 leading-relaxed">

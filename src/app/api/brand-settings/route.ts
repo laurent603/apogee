@@ -20,7 +20,8 @@ export async function PUT(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { dbAccountId, ...data } = body
+  // Le kit visuel s'écrit par /api/brand-settings/kit : une page ouverte avant un dépôt de logo ne doit pas l'effacer.
+  const { dbAccountId, logoChemin: _l, couleurs: _c, photos: _p, ...data } = body
 
   if (!dbAccountId) return NextResponse.json({ error: 'Missing dbAccountId' }, { status: 400 })
 
