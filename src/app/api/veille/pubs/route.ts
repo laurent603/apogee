@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { urlPublique } from '@/lib/veille/stockage'
@@ -89,8 +89,29 @@ export async function GET(req: NextRequest) {
   }
   const categories = CATEGORIES.filter((c) => nParCategorie.get(c)).map((c) => ({ libelle: c, n: nParCategorie.get(c)! }))
 
+  // Par pub active, parmi les pubs actives de sa marque : rang par couverture,
+  // pubs au même texte (créa réutilisée), pubs vers la même page de destination.
+  const marquesIds = [...new Set(lignes.map((l) => l.marqueId))]
+  const stats = marquesIds.length
+    ? await prisma.$queryRaw<{ id: string; rang: bigint; sur: bigint; variantes: bigint; memelien: bigint }[]>`
+        SELECT id,
+          rank() OVER (PARTITION BY "marqueId" ORDER BY "reachUe" DESC NULLS LAST) AS rang,
+          count(*) OVER (PARTITION BY "marqueId") AS sur,
+          count(*) OVER (PARTITION BY "marqueId", coalesce(nullif(concat(titre, texte), ''), id)) AS variantes,
+          count(*) OVER (PARTITION BY "marqueId", coalesce("lienUrl", id)) AS memelien
+        FROM "VeillePub"
+        WHERE masquee = false AND active = true AND "marqueId" IN (${Prisma.join(marquesIds)})`
+    : []
+  const statsDe = new Map(stats.map((s) => [s.id, s]))
+
   const pubs = lignes.map((l) => ({
     ...l,
+    ...(statsDe.has(l.id) && {
+      rang: l.reachUe ? Number(statsDe.get(l.id)!.rang) : null,
+      surMarque: Number(statsDe.get(l.id)!.sur),
+      variantes: Number(statsDe.get(l.id)!.variantes),
+      memeLien: Number(statsDe.get(l.id)!.memelien),
+    }),
     medias: (l.medias as { type: string; chemin: string; apercu?: string }[]).map((m) => ({
       type: m.type,
       url: urlPublique(m.chemin),

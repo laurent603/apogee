@@ -1,7 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { clsx } from 'clsx'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { budgetEstime, EUROS_POUR_MILLE_PERSONNES } from '@/lib/veille/adLibrary'
+import { courbesRelevees } from '@/lib/veille/rapport'
 import type { PubVeille } from './CartePub'
 import type { Decorticage } from '@/lib/veille/gemini'
 
@@ -38,6 +41,70 @@ export function Section({ titre, children }: { titre: string; children: React.Re
       {children}
     </section>
   )
+}
+
+const jourCourt = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+/** Une courbe en aire, au jour le jour. */
+export function Courbe({ id, titre, aide, donnees, cle, format }: {
+  id: string; titre: string; aide?: string; donnees: object[]; cle: string; format: (v: number) => string
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
+        {aide && <p className="text-xs text-gray-400">{aide}</p>}
+      </div>
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={donnees} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3434ef" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#3434ef" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="#F3F4F6" />
+            <XAxis dataKey="jour" tickFormatter={jourCourt} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} minTickGap={32} />
+            <YAxis tickFormatter={format} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={52} allowDecimals={false} />
+            <Tooltip formatter={(v) => [format(Number(v)), titre]} labelFormatter={(l) => jourCourt(String(l))}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }} />
+            <Area type="monotone" dataKey={cle} stroke="#3434ef" strokeWidth={2} fill={`url(#${id})`} isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+const dateCourte = (iso: string) => {
+  const d = new Date(iso)
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) })
+}
+
+/** « 406 j · 3 oct. 2025 → en cours », pastille verte si la pub tourne. */
+export function Duree({ pub, jours, grand }: { pub: PubVeille; jours: number | null; grand?: boolean }) {
+  return (
+    <p className={clsx('flex items-center gap-1.5 text-gray-500', grand ? 'text-sm' : 'text-[11px]')}>
+      <span className={clsx('h-1.5 w-1.5 shrink-0 rounded-full', pub.active ? 'bg-emerald-500' : 'bg-gray-300')} />
+      {jours !== null && pub.debut ? (
+        <>
+          <strong className="font-semibold text-[#0d0d12]">{jours} j</strong>
+          <span className="truncate">· {dateCourte(pub.debut)} → {pub.active || !pub.fin ? 'en cours' : dateCourte(pub.fin)}</span>
+        </>
+      ) : pub.active ? 'Active' : 'Inactive'}
+    </p>
+  )
+}
+
+/** Dépense estimée totale et par jour, pays touchés. */
+export function chiffresPub(pub: PubVeille, jours: number | null) {
+  const budget = budgetEstime(pub.reachUe)
+  return {
+    budget,
+    parJour: budget !== null && jours ? budget / jours : null,
+    pays: new Set((pub.transparence?.repartition ?? []).map((l) => l.pays)).size,
+  }
 }
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
@@ -192,24 +259,73 @@ export async function masquerPub(pub: PubVeille) {
   return true
 }
 
-/** La fiche d'une pub : média, budget estimé, textes, diffusion, audience UE. */
-export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasquage }: {
+/** ‹ › dans une liste : la pub d'avant et celle d'après, s'il y en a. */
+export function voisines<T extends { id: string }>(liste: T[], courante: T, ouvrir: (p: T) => void) {
+  const i = liste.findIndex((p) => p.id === courante.id)
+  return {
+    precedente: i > 0 ? () => ouvrir(liste[i - 1]) : undefined,
+    suivante: i >= 0 && i < liste.length - 1 ? () => ouvrir(liste[i + 1]) : undefined,
+  }
+}
+
+const ONGLETS_FICHE = ['Détails', 'Texte', 'Décortiquer', 'Audience'] as const
+
+function Chiffre({ libelle, valeur }: { libelle: string; valeur: string }) {
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] p-3.5">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{libelle}</p>
+      <p className="text-xl font-bold text-[#0d0d12] mt-1 tabular-nums">{valeur}</p>
+    </div>
+  )
+}
+
+function Ligne({ libelle, children }: { libelle: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-6 px-4 py-3 text-sm">
+      <dt className="text-gray-500 shrink-0">{libelle}</dt>
+      <dd className="text-right text-[#0d0d12] min-w-0">{children}</dd>
+    </div>
+  )
+}
+
+/**
+ * La fiche d'une pub, en deux volets : la pub à gauche (‹ › pour passer à la
+ * suivante de la liste), ses chiffres et son analyse à droite, en onglets.
+ */
+export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasquage, precedente, suivante }: {
   pub: PubVeille; jours: number | null; actions?: React.ReactNode; fermer: () => void
   /** Page publique d'un dossier partagé : pas d'analyse à lancer. */
   lectureSeule?: boolean
   /** Retire la pub de la liste qui a ouvert la fiche ; sans lui, pas de bouton « Masquer ». */
   apresMasquage?: () => void
+  /** Passer à la pub précédente ou suivante de la liste (flèches du clavier aussi). */
+  precedente?: () => void
+  suivante?: () => void
 }) {
   const [index, setIndex] = useState(0)
+  const [onglet, setOnglet] = useState<(typeof ONGLETS_FICHE)[number]>('Détails')
+  const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
   const media = pub.medias[index]
-  const budget = budgetEstime(pub.reachUe)
+  const c = chiffresPub(pub, jours)
   const t = pub.transparence
+  const relevees = useMemo(() => courbesRelevees(mesures, EUROS_POUR_MILLE_PERSONNES), [mesures])
 
   useEffect(() => {
-    const echap = (e: KeyboardEvent) => e.key === 'Escape' && fermer()
-    window.addEventListener('keydown', echap)
-    return () => window.removeEventListener('keydown', echap)
-  }, [fermer])
+    setIndex(0)
+    setMesures([])
+    if (!lectureSeule) fetch(`/api/veille/mesures?pub=${pub.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
+  }, [pub.id, lectureSeule])
+
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.('input, textarea, select')) return
+      if (e.key === 'Escape') fermer()
+      else if (e.key === 'ArrowLeft') precedente?.()
+      else if (e.key === 'ArrowRight') suivante?.()
+    }
+    window.addEventListener('keydown', touche)
+    return () => window.removeEventListener('keydown', touche)
+  }, [fermer, precedente, suivante])
 
   const repartition = t?.repartition ?? []
   const totalRepartition = repartition.reduce((s, l) => s + l.hommes + l.femmes + l.inconnu, 0)
@@ -218,6 +334,21 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
   const parPays = [...new Set(repartition.map((l) => l.pays))]
     .map((pays) => ({ pays, n: somme((l) => (l.pays === pays ? l.hommes + l.femmes + l.inconnu : 0)) }))
     .sort((a, b) => b.n - a.n)
+  const onglets = ONGLETS_FICHE.filter((o) => !(lectureSeule && o === 'Décortiquer'))
+  const dateLongue = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const visuel = (
+    <div className="relative w-full flex items-center justify-center">
+      {media?.type === 'video' ? (
+        <video key={media.url} src={media.url} poster={media.apercu ?? undefined} controls playsInline className="max-h-[68vh] w-auto max-w-full rounded-lg shadow-sm bg-black" />
+      ) : media ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={media.url} alt="" className="max-h-[68vh] w-auto max-w-full rounded-lg shadow-sm" />
+      ) : (
+        <div className="aspect-square w-full flex items-center justify-center text-xs text-gray-400">Aucun média</div>
+      )}
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={fermer}>
@@ -226,136 +357,161 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
         aria-modal="true"
         aria-label={`Pub de ${pub.marque.nom}`}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-xl"
+        className="bg-white rounded-2xl w-full max-w-6xl h-[90vh] flex overflow-hidden shadow-xl"
       >
-        <header className="flex items-center justify-between gap-3 px-6 py-4 border-b border-[#E5E7EB]">
-          <div className="min-w-0">
-            <p className="text-lg font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
-            {jours !== null && <p className="text-sm text-[#3434ef] mt-0.5">{jours} jours de diffusion</p>}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={pub.active ? 'badge-green' : 'badge-gray'}>{pub.active ? 'Active' : 'Inactive'}</span>
-            <button type="button" onClick={fermer} aria-label="Fermer" className="text-gray-400 hover:text-[#0d0d12] text-xl leading-none px-1">×</button>
-          </div>
-        </header>
-
-        <div className="overflow-y-auto px-6 py-6 space-y-7">
-          <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-            {media?.type === 'video' ? (
-              <video key={media.url} src={media.url} poster={media.apercu ?? undefined} controls playsInline className="w-full max-h-[420px] object-contain" />
-            ) : media ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={media.url} alt="" className="w-full max-h-[420px] object-contain" />
-            ) : (
-              <div className="aspect-square flex items-center justify-center text-xs text-gray-400">Aucun média</div>
-            )}
-            {budget !== null && (
-              <span className="badge-green absolute top-2 left-2" title="Estimation : couverture UE publiée par Meta × coût moyen pour 1 000 personnes touchées">
-                ≈ {compact(budget)} €
-              </span>
-            )}
-            {media && (
-              <a href={media.url} target="_blank" rel="noreferrer" className="badge-gray absolute top-2 right-2 hover:underline">
-                Ouvrir le média
-              </a>
-            )}
-          </div>
+        {/* Volet gauche : la pub, et le passage d'une pub à l'autre. */}
+        <div className="hidden md:flex w-[42%] shrink-0 flex-col bg-gray-50 border-r border-[#E5E7EB]">
+          <div className="flex-1 min-h-0 flex items-center justify-center p-6">{visuel}</div>
           {pub.medias.length > 1 && (
-            <div className="flex gap-1.5 overflow-x-auto">
+            <div className="flex justify-center gap-1.5 px-6 pb-3 overflow-x-auto">
               {pub.medias.map((m, i) => (
                 <button key={i} type="button" onClick={() => setIndex(i)} aria-label={`Média ${i + 1}`}
-                  className={`h-14 w-14 shrink-0 rounded-md overflow-hidden border-2 ${i === index ? 'border-[#3434ef]' : 'border-transparent'}`}>
+                  className={`h-12 w-12 shrink-0 rounded-md overflow-hidden border-2 ${i === index ? 'border-[#3434ef]' : 'border-transparent'}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={m.apercu ?? m.url} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
           )}
-
-          {!lectureSeule && <Decortiquer pub={pub} />}
-
-          {pub.titre && <Section titre="Titre"><p className="text-sm text-[#0d0d12]">{pub.titre}</p></Section>}
-          {pub.texte && <Section titre="Texte principal"><p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{pub.texte}</p></Section>}
-          {pub.description && <Section titre="Description"><p className="text-sm text-gray-700">{pub.description}</p></Section>}
-          {(pub.cta || pub.lienUrl) && (
-            <Section titre="Bouton">
-              <p className="text-sm text-[#0d0d12]">
-                {pub.cta}
-                {pub.lienUrl && (
-                  <> · <a href={pub.lienUrl} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline break-all">{pub.lienUrl}</a></>
-                )}
-              </p>
-            </Section>
-          )}
-
-          <Section titre="Diffusion">
-            <p className="text-sm text-gray-700">
-              {pub.plateformes.join(', ') || '—'}
-              {pub.debut && <> · depuis le {new Date(pub.debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>}
-              {!pub.active && pub.fin && <> · arrêtée le {new Date(pub.fin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>}
-            </p>
-          </Section>
-
-          {pub.reachUe !== null && (
-            <Section titre="Couverture dans l’UE">
-              <p className="text-sm text-[#0d0d12]">
-                <strong>{pub.reachUe.toLocaleString('fr-FR')}</strong> personnes touchées
-                {budget !== null && <> · budget estimé <strong>≈ {compact(budget)} €</strong></>}
-              </p>
-              <p className="text-xs text-gray-400">
-                Meta ne publie pas la dépense : estimation à {EUROS_POUR_MILLE_PERSONNES.toLocaleString('fr-FR')} € pour 1 000 personnes touchées.
-                L’écart avec le budget réel peut être fort.
-              </p>
-            </Section>
-          )}
-
-          {totalRepartition > 0 && (
-            <Section titre="Qui a été touché">
-              <div className="space-y-2">
-                <Barre libelle="Hommes" valeur={somme((l) => l.hommes)} total={totalRepartition} />
-                <Barre libelle="Femmes" valeur={somme((l) => l.femmes)} total={totalRepartition} />
-                <Barre libelle="Non déterminé" valeur={somme((l) => l.inconnu)} total={totalRepartition} />
-              </div>
-              <div className="space-y-2 pt-3">
-                {parAge.map((a) => <Barre key={a.age} libelle={a.age === 'Unknown' ? 'Âge inconnu' : `${a.age} ans`} valeur={a.n} total={totalRepartition} />)}
-              </div>
-              {parPays.length > 1 && (
-                <div className="space-y-2 pt-3">
-                  {parPays.map((p) => <Barre key={p.pays} libelle={p.pays} valeur={p.n} total={totalRepartition} />)}
-                </div>
-              )}
-            </Section>
-          )}
-
-          {t && (t.ciblage.ageMin !== null || t.ciblage.lieux.length > 0 || t.payeur) && (
-            <Section titre="Ciblage et annonceur">
-              <p className="text-sm text-gray-700">
-                {t.ciblage.ageMin !== null && <>{t.ciblage.ageMin}–{t.ciblage.ageMax ?? '65+'} ans</>}
-                {t.ciblage.sexe && <> · {t.ciblage.sexe}</>}
-                {t.ciblage.lieux.length > 0 && <> · {t.ciblage.lieux.join(', ')}</>}
-              </p>
-              {t.payeur && (
-                <p className="text-sm text-gray-700">
-                  Payé par {t.payeur}{t.beneficiaire && t.beneficiaire !== t.payeur && <>, pour {t.beneficiaire}</>}
-                </p>
-              )}
-            </Section>
-          )}
+          <div className="flex items-center justify-center gap-2 pb-5">
+            <button type="button" onClick={precedente} disabled={!precedente} aria-label="Pub précédente"
+              className="h-9 w-9 rounded-full bg-white border border-[#E5E7EB] text-gray-600 hover:text-[#0d0d12] disabled:opacity-30">‹</button>
+            <a href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`} target="_blank" rel="noreferrer"
+              className="px-3 py-2 rounded-full bg-white border border-[#E5E7EB] text-xs text-[#3434ef] hover:underline">Ad Library</a>
+            {media && (
+              <a href={media.url} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-full bg-white border border-[#E5E7EB] text-xs text-gray-600 hover:text-[#0d0d12]">Média</a>
+            )}
+            {apresMasquage && !lectureSeule && (
+              <button type="button" onClick={async () => { if (await masquerPub(pub)) { fermer(); apresMasquage() } }}
+                className="px-3 py-2 rounded-full bg-white border border-[#E5E7EB] text-xs text-gray-400 hover:text-red-600">Masquer</button>
+            )}
+            <button type="button" onClick={suivante} disabled={!suivante} aria-label="Pub suivante"
+              className="h-9 w-9 rounded-full bg-white border border-[#E5E7EB] text-gray-600 hover:text-[#0d0d12] disabled:opacity-30">›</button>
+          </div>
         </div>
 
-        <footer className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[#E5E7EB]">
-          <div className="flex items-center gap-4 text-sm">
-            <a href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">
-              Voir dans la Ad Library
-            </a>
-            {apresMasquage && !lectureSeule && (
-              <button type="button" onClick={async () => { if (await masquerPub(pub)) { fermer(); apresMasquage() } }} className="text-gray-400 hover:text-red-600">
-                Masquer
-              </button>
+        {/* Volet droit : chiffres et analyse. */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <header className="px-6 pt-5 border-b border-[#E5E7EB]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <p className="text-lg font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
+                <Duree pub={pub} jours={jours} grand />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={pub.active ? 'badge-green' : 'badge-gray'}>{pub.active ? 'Active' : 'Inactive'}</span>
+                <button type="button" onClick={fermer} aria-label="Fermer" className="text-gray-400 hover:text-[#0d0d12] text-2xl leading-none px-1">×</button>
+              </div>
+            </div>
+            <nav className="flex gap-1 mt-4" aria-label="Fiche de la pub">
+              {onglets.map((o) => (
+                <button key={o} type="button" onClick={() => setOnglet(o)}
+                  className={clsx('px-3 py-2.5 text-sm -mb-px border-b-2', onglet === o ? 'border-[#3434ef] text-[#3434ef] font-medium' : 'border-transparent text-gray-500 hover:text-[#0d0d12]')}>
+                  {o}
+                </button>
+              ))}
+            </nav>
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            <div className="md:hidden">{visuel}</div>
+
+            {onglet === 'Détails' && (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Chiffre libelle="Dépense / jour" valeur={c.parJour !== null ? `≈ ${compact(c.parJour)} €` : '—'} />
+                  <Chiffre libelle="Dépense totale" valeur={c.budget !== null ? `≈ ${compact(c.budget)} €` : '—'} />
+                  <Chiffre libelle="Couverture UE" valeur={pub.reachUe !== null ? compact(pub.reachUe) : '—'} />
+                  <Chiffre libelle="Rang" valeur={pub.rang ? `#${pub.rang}/${pub.surMarque}` : '—'} />
+                </div>
+                {relevees.jours.length > 0 ? (
+                  <Courbe id={`fiche-${pub.id}`} titre="Dépense relevée par jour" aide="écart de couverture d’un matin à l’autre"
+                    donnees={relevees.jours} cle="depense" format={(v) => `${compact(v)} €`} />
+                ) : (
+                  <p className="text-xs text-gray-400">
+                    {pub.reachUe === null
+                      ? 'Couverture inconnue : relancez un scan Espion de la marque pour lire la fiche Meta de cette pub.'
+                      : 'Courbe jour par jour : la couverture des marques suivies est relevée chaque matin ; elle apparaît après deux relevés.'}
+                  </p>
+                )}
+                <dl className="rounded-xl border border-[#E5E7EB] divide-y divide-[#F3F4F6]">
+                  {pub.lienUrl && (
+                    <Ligne libelle="Page de destination">
+                      <a href={pub.lienUrl} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline break-all">{pub.lienUrl.replace(/^https?:\/\/(www\.)?/, '').slice(0, 70)}</a>
+                    </Ligne>
+                  )}
+                  {(pub.memeLien ?? 0) > 1 && <Ligne libelle="Pubs vers cette page">{pub.memeLien} sur {pub.surMarque} actives</Ligne>}
+                  {(pub.variantes ?? 0) > 1 && <Ligne libelle="Créa réutilisée">{pub.variantes} pubs avec ce texte</Ligne>}
+                  {c.pays > 0 && <Ligne libelle="Pays touchés">{c.pays} · {parPays.slice(0, 4).map((p) => p.pays).join(', ')}</Ligne>}
+                  <Ligne libelle="Format">{pub.format === 'VIDEO' ? 'Vidéo' : pub.format === 'IMAGE' ? 'Image' : pub.format === 'CAROUSEL' ? 'Carrousel' : pub.format}</Ligne>
+                  {pub.cta && <Ligne libelle="Bouton">{pub.cta}</Ligne>}
+                  {pub.plateformes.length > 0 && <Ligne libelle="Plateformes">{pub.plateformes.join(', ')}</Ligne>}
+                  {pub.debut && (
+                    <Ligne libelle="Diffusion">
+                      depuis le {dateLongue(pub.debut)}{!pub.active && pub.fin && <>, arrêtée le {dateLongue(pub.fin)}</>}
+                    </Ligne>
+                  )}
+                  {t && (t.ciblage.ageMin !== null || t.ciblage.lieux.length > 0) && (
+                    <Ligne libelle="Ciblage">
+                      {t.ciblage.ageMin !== null && <>{t.ciblage.ageMin}–{t.ciblage.ageMax ?? '65+'} ans</>}
+                      {t.ciblage.sexe && <> · {t.ciblage.sexe}</>}
+                      {t.ciblage.lieux.length > 0 && <> · {t.ciblage.lieux.join(', ')}</>}
+                    </Ligne>
+                  )}
+                  {t?.payeur && <Ligne libelle="Payé par">{t.payeur}{t.beneficiaire && t.beneficiaire !== t.payeur && <>, pour {t.beneficiaire}</>}</Ligne>}
+                </dl>
+                <p className="text-xs text-gray-400">
+                  Meta ne publie pas la dépense : estimation à {EUROS_POUR_MILLE_PERSONNES.toLocaleString('fr-FR')} € pour 1 000 personnes touchées
+                  dans l’UE, répartie sur les jours de diffusion. L’écart avec le budget réel peut être fort.
+                </p>
+              </>
+            )}
+
+            {onglet === 'Texte' && (
+              <>
+                {pub.titre && <Section titre="Titre"><p className="text-sm text-[#0d0d12]">{pub.titre}</p></Section>}
+                {pub.texte && <Section titre="Texte principal"><p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{pub.texte}</p></Section>}
+                {pub.description && <Section titre="Description"><p className="text-sm text-gray-700">{pub.description}</p></Section>}
+                {(pub.cta || pub.lienUrl) && (
+                  <Section titre="Bouton">
+                    <p className="text-sm text-[#0d0d12]">
+                      {pub.cta}
+                      {pub.lienUrl && <> · <a href={pub.lienUrl} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline break-all">{pub.lienUrl}</a></>}
+                    </p>
+                  </Section>
+                )}
+              </>
+            )}
+
+            {onglet === 'Décortiquer' && <Decortiquer pub={pub} />}
+
+            {onglet === 'Audience' && (
+              totalRepartition > 0 ? (
+                <Section titre="Qui a été touché">
+                  <div className="space-y-2">
+                    <Barre libelle="Hommes" valeur={somme((l) => l.hommes)} total={totalRepartition} />
+                    <Barre libelle="Femmes" valeur={somme((l) => l.femmes)} total={totalRepartition} />
+                    <Barre libelle="Non déterminé" valeur={somme((l) => l.inconnu)} total={totalRepartition} />
+                  </div>
+                  <div className="space-y-2 pt-3">
+                    {parAge.map((a) => <Barre key={a.age} libelle={a.age === 'Unknown' ? 'Âge inconnu' : `${a.age} ans`} valeur={a.n} total={totalRepartition} />)}
+                  </div>
+                  {parPays.length > 1 && (
+                    <div className="space-y-2 pt-3">
+                      {parPays.map((p) => <Barre key={p.pays} libelle={p.pays} valeur={p.n} total={totalRepartition} />)}
+                    </div>
+                  )}
+                </Section>
+              ) : <p className="text-sm text-gray-400">Audience inconnue : Meta ne l’a pas publiée, ou la fiche n’a pas encore été lue.</p>
             )}
           </div>
-          <div className="w-56">{actions}</div>
-        </footer>
+
+          {actions && (
+            <footer className="flex justify-end px-6 py-4 border-t border-[#E5E7EB]">
+              <div className="w-56">{actions}</div>
+            </footer>
+          )}
+        </div>
       </div>
     </div>
   )

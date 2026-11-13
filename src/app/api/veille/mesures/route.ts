@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   if (!(await getServerSession(authOptions))) return NextResponse.json({ erreur: 'Non connecté' }, { status: 401 })
+  // ?marque= : toutes les pubs de la marque ; ?pub= : une seule (fiche d'une pub).
   const marque = req.nextUrl.searchParams.get('marque')
-  if (!marque) return NextResponse.json({ mesures: [] })
+  const pub = req.nextUrl.searchParams.get('pub')
+  if (!marque && !pub) return NextResponse.json({ mesures: [] })
   const lignes = await prisma.veilleMesure.findMany({
-    where: { pub: { marqueId: marque, masquee: false }, jour: { gte: new Date(Date.now() - 90 * 86_400_000) } },
+    where: { ...(pub ? { pubId: pub } : { pub: { marqueId: marque!, masquee: false } }), jour: { gte: new Date(Date.now() - 90 * 86_400_000) } },
     select: { pubId: true, jour: true, reachUe: true },
     orderBy: { jour: 'asc' },
   })

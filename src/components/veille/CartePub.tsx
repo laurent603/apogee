@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
+import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
-import { budgetEstime, type Transparence } from '@/lib/veille/adLibrary'
+import type { Transparence } from '@/lib/veille/adLibrary'
 import type { Decorticage } from '@/lib/veille/gemini'
-import { compact, FichePub, masquerPub } from './FichePub'
+import { chiffresPub, compact, Duree, FichePub, masquerPub } from './FichePub'
 import { suggererSimilaires } from './MotsClesCollecte'
 
 /** Une pub de la veille, telle que /api/veille/pubs la renvoie. */
@@ -26,6 +27,13 @@ export type PubVeille = {
   reachUe: number | null
   transparence: Transparence | null
   analyse: Decorticage | null
+  /** Parmi les pubs actives de la marque (route /api/veille/pubs seulement). */
+  rang?: number | null
+  surMarque?: number
+  /** Pubs de la marque au même texte, elle comprise. */
+  variantes?: number
+  /** Pubs de la marque vers la même page de destination, elle comprise. */
+  memeLien?: number
 }
 
 export type Dossier = { id: string; nom: string; parentId: string | null; n: number }
@@ -55,25 +63,47 @@ export function dossiersEnArbre<D extends Dossier>(dossiers: D[], parentId: stri
     .flatMap((d) => [{ ...d, niveau }, ...dossiersEnArbre(dossiers, d.id, niveau + 1)])
 }
 
-export function CartePub({ pub, actions, lectureSeule, retirer }: {
+export function CartePub({ pub, actions, lectureSeule, retirer, ouvrir }: {
   pub: PubVeille; actions?: React.ReactNode; lectureSeule?: boolean
   /** Retire la carte de sa liste une fois la pub masquée ; sans lui, pas de lien « Masquer ». */
   retirer?: () => void
+  /** La liste ouvre elle-même la fiche (avec ‹ › pour passer d'une pub à l'autre). */
+  ouvrir?: () => void
 }) {
   const [fiche, setFiche] = useState(false)
+  const voir = () => (ouvrir ? ouvrir() : setFiche(true))
   const media = pub.medias[0]
   const jours = joursDeDiffusion(pub)
   const site = domaine(pub.lienUrl)
-  const budget = budgetEstime(pub.reachUe)
+  const c = chiffresPub(pub, jours)
 
   return (
     <article className="h-full bg-white border border-[#E5E7EB] rounded-xl overflow-hidden flex flex-col">
-      <header className="flex items-center justify-between gap-2 px-3 py-2.5">
-        <p className="text-sm font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
-        <span className={pub.active ? 'badge-green' : 'badge-gray'}>{pub.active ? 'Active' : 'Inactive'}</span>
+      <header className="px-3 pt-2.5 pb-2 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-[#0d0d12] truncate">{pub.marque.nom}</p>
+          {pub.rang ? (
+            <span className="badge-blue shrink-0" title={`Rang par couverture parmi les ${pub.surMarque} pubs actives de la marque`}>#{pub.rang}/{pub.surMarque}</span>
+          ) : (
+            <span className={clsx('shrink-0', pub.active ? 'badge-green' : 'badge-gray')}>{pub.active ? 'Active' : 'Inactive'}</span>
+          )}
+        </div>
+        <Duree pub={pub} jours={jours} />
+        {c.budget !== null ? (
+          <p className="flex items-center justify-between gap-2 rounded-md bg-[#f0f0ff] px-2 py-1 text-[11px] text-[#3434ef]"
+            title="Estimation : couverture UE publiée par Meta × 9,10 € pour 1 000 personnes">
+            <span className="font-semibold truncate">{compact(c.parJour!)} €/j · {compact(c.budget)} € · {compact(pub.reachUe!)}</span>
+            {c.pays > 0 && <span className="shrink-0 opacity-70">{c.pays} pays</span>}
+          </p>
+        ) : (
+          // Même hauteur que le bandeau chiffré : les visuels restent alignés d'une carte à l'autre.
+          <p className="rounded-md bg-gray-50 px-2 py-1 text-[11px] text-gray-400" title="Meta n’a pas encore donné la couverture de cette pub : elle sera lue au prochain scan ou relevé">
+            Couverture inconnue
+          </p>
+        )}
       </header>
 
-      <button type="button" onClick={() => setFiche(true)} aria-label="Voir la fiche de la pub" className="relative block aspect-[4/5] bg-gray-100 overflow-hidden">
+      <button type="button" onClick={voir} aria-label="Voir la fiche de la pub" className="relative block aspect-[4/5] bg-gray-100 overflow-hidden">
         {media?.type === 'video' ? (
           <video
             src={media.url}
@@ -96,8 +126,8 @@ export function CartePub({ pub, actions, lectureSeule, retirer }: {
           {FORMATS[pub.format] ?? pub.format}
           {pub.medias.length > 1 && ` · ${pub.medias.length}`}
         </span>
-        {budget !== null && (
-          <span className="badge-green absolute top-2 right-2" title="Budget estimé à partir de la couverture UE">≈ {compact(budget)} €</span>
+        {(pub.variantes ?? 1) > 1 && (
+          <span className="badge-gray absolute top-2 right-2" title={`${pub.variantes} pubs actives de la marque avec ce texte : créa réutilisée`}>⧉ {pub.variantes}</span>
         )}
       </button>
 
@@ -114,13 +144,9 @@ export function CartePub({ pub, actions, lectureSeule, retirer }: {
       </div>
 
       <footer className="px-3 pt-2 pb-3 space-y-2">
-        <p className="text-[11px] text-gray-400 truncate">
-          {jours !== null && <>Diffusée depuis {jours} j</>}
-          {pub.reachUe !== null && <> · {compact(pub.reachUe)} pers. (UE)</>}
-          {pub.plateformes.length > 0 && <> · {pub.plateformes.join(', ')}</>}
-        </p>
+        {pub.plateformes.length > 0 && <p className="text-[11px] text-gray-400 truncate">{pub.plateformes.join(', ')}</p>}
         <p className="text-xs">
-          <button type="button" onClick={() => setFiche(true)} className="font-medium text-[#3434ef] hover:underline">Voir la fiche</button>
+          <button type="button" onClick={voir} className="font-medium text-[#3434ef] hover:underline">Voir la fiche</button>
           <span className="text-gray-300"> · </span>
           <a href={`https://www.facebook.com/ads/library/?id=${pub.adArchiveId}`} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">
             Ad Library

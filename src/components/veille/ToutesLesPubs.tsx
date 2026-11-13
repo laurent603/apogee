@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
-import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { CartePub, ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { FichePub, voisines } from '@/components/veille/FichePub'
 import { ChoixSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
 import { MotsClesCollecte } from '@/components/veille/MotsClesCollecte'
 
@@ -38,6 +39,7 @@ export function ToutesLesPubs() {
   const [rafraichir, setRafraichir] = useState(0)
   const [dossiers, setDossiers] = useState<Dossier[]>([])
   const [chargement, setChargement] = useState(true)
+  const [ouverte, setOuverte] = useState<PubVeille | null>(null)
   const secteurClient = useSecteurClient()
   const { secteur } = secteurClient
 
@@ -148,6 +150,7 @@ export function ToutesLesPubs() {
               key={pub.id}
               pub={pub}
               actions={<ChoixSauvegarde pub={pub} dossiers={dossiers} />}
+              ouvrir={() => setOuverte(pub)}
               retirer={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== pub.id), total: d.total - 1 })}
             />
           ))}
@@ -160,6 +163,11 @@ export function ToutesLesPubs() {
             {chargement ? 'Chargement…' : `Charger plus (${donnees.total - pubs.length} restantes)`}
           </button>
         </div>
+      )}
+      {ouverte && (
+        <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />}
+          fermer={() => setOuverte(null)} {...voisines(pubs, ouverte, setOuverte)}
+          apresMasquage={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== ouverte.id), total: d.total - 1 })} />
       )}
     </div>
   )

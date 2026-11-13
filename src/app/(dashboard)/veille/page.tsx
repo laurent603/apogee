@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { clsx } from 'clsx'
-import { CartePub, ChoixSauvegarde, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { CartePub, ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from '@/components/veille/CartePub'
+import { FichePub, voisines } from '@/components/veille/FichePub'
 import { ChoixSecteur, useSecteurClient, visiblePourClient } from '@/components/veille/SecteurClient'
 
 /**
@@ -37,6 +38,7 @@ export default function VeillePage() {
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
   const [marque, setMarque] = useState<string | null>(null)
+  const [ouverte, setOuverte] = useState<PubFil | null>(null)
   const secteurClient = useSecteurClient()
   const [voirTout, setVoirTout] = useState(false)
   const pourClient = (m: { id: string; categorie?: string | null }) => visiblePourClient(secteurClient, voirTout, m)
@@ -218,7 +220,7 @@ export default function VeillePage() {
               {pubs.map((p) => {
                 const vie = Math.max(1, Math.round(((p.active || !p.fin ? maintenant : Date.parse(p.fin)) - Date.parse(p.premiereVue)) / JOUR))
                 return (
-                  <CartePub key={p.id} pub={p} retirer={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== p.id) })} actions={
+                  <CartePub key={p.id} pub={p} ouvrir={() => setOuverte(p)} retirer={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== p.id) })} actions={
                     <div className="space-y-2">
                       <p className="text-xs text-gray-500">
                         Détectée le {date(p.premiereVue)} ·{' '}
@@ -232,6 +234,11 @@ export default function VeillePage() {
             </div>
           )}
         </>
+      )}
+      {ouverte && (
+        <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />}
+          fermer={() => setOuverte(null)} {...voisines(pubs, ouverte, setOuverte)}
+          apresMasquage={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== ouverte.id) })} />
       )}
     </div>
   )

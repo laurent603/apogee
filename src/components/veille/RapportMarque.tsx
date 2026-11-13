@@ -6,10 +6,9 @@ import type { AnalyseMarque } from '@/lib/veille/gemini'
 import { CATEGORIES } from '@/lib/veille/categories'
 import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { courbesEstimees, courbesRelevees, rapportMarque } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
-import { Barre, FichePub, compact } from './FichePub'
+import { Barre, Courbe, FichePub, compact, voisines } from './FichePub'
 
 /**
  * Le rapport Espion d'une marque : ses pubs actives en chiffres, comme le
@@ -71,40 +70,6 @@ function Vignette({ pub, etiquette, ouvrir }: { pub: PubVeille; etiquette: strin
         {pub.texte && <p className="text-xs text-gray-500 line-clamp-2">{pub.texte}</p>}
       </div>
     </button>
-  )
-}
-
-const jourCourt = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-
-/** Une courbe en aire, au jour le jour. */
-function Courbe({ id, titre, aide, donnees, cle, format }: {
-  id: string; titre: string; aide?: string; donnees: object[]; cle: string; format: (v: number) => string
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
-        {aide && <p className="text-xs text-gray-400">{aide}</p>}
-      </div>
-      <div className="h-52">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={donnees} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3434ef" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#3434ef" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} stroke="#F3F4F6" />
-            <XAxis dataKey="jour" tickFormatter={jourCourt} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} minTickGap={32} />
-            <YAxis tickFormatter={format} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={52} allowDecimals={false} />
-            <Tooltip formatter={(v) => [format(Number(v)), titre]} labelFormatter={(l) => jourCourt(String(l))}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }} />
-            <Area type="monotone" dataKey={cle} stroke="#3434ef" strokeWidth={2} fill={`url(#${id})`} isAnimationActive={false} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
   )
 }
 
@@ -585,7 +550,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
       {ouverte && (
         <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />} fermer={() => setOuverte(null)}
-          apresMasquage={() => setPubs((l) => l && l.filter((x) => x.id !== ouverte.id))} />
+          apresMasquage={() => setPubs((l) => l && l.filter((x) => x.id !== ouverte.id))} {...voisines(pubs ?? [], ouverte, setOuverte)} />
       )}
     </div>
   )
