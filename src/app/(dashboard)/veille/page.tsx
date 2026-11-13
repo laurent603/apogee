@@ -71,7 +71,7 @@ export default function VeillePage() {
   }, [charger])
 
   async function arreter(m: Ligne) {
-    if (!confirm(`Arrêter la veille de ${m.nom} ? Elle ne sera plus vérifiée chaque jour ; ses pubs restent dans Discovery.`)) return
+    if (!confirm(`Arrêter la veille de ${m.nom} ? Elle ne sera plus vérifiée chaque jour ; ses pubs restent dans la Bibliothèque.`)) return
     const r = await fetch('/api/veille/suivi', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },

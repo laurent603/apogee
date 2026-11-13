@@ -196,7 +196,7 @@ export default function EspionPage() {
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
             {etat.trouvees} pub{etat.trouvees > 1 ? 's' : ''} de {annonceurs.length} annonceur{annonceurs.length > 1 ? 's' : ''}, aussi
-            ajoutées à Discovery.
+            ajoutées à la Bibliothèque.
             {etat.erreurs > 0 && (
               <span className="text-amber-700">
                 {' '}{etat.erreurs} {etat.erreurs > 1 ? 'n’ont pas pu être enregistrées' : 'n’a pas pu être enregistrée'} ({etat.premiereErreur}).

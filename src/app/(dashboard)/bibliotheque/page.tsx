@@ -5,6 +5,7 @@ import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { dossiersEnArbre, joursDeDiffusion, type Dossier, type PubVeille } from '@/components/veille/CartePub'
 import { FichePub } from '@/components/veille/FichePub'
+import { ToutesLesPubs } from '@/components/veille/ToutesLesPubs'
 
 /**
  * Le swipe file de l'équipe : les pubs gardées, rangées en dossiers et
@@ -83,7 +84,7 @@ function Vignette({ pub, ouvrir }: { pub: PubVeille; ouvrir: () => void }) {
   )
 }
 
-export default function BibliothequePage() {
+function MesSauvegardes() {
   const [vue, setVue] = useState<Vue>('tous')
   const [dossiers, setDossiers] = useState<DossierBiblio[]>([])
   const [compteurs, setCompteurs] = useState({ total: 0, sansDossier: 0 })
@@ -206,7 +207,6 @@ export default function BibliothequePage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="page-title">Bibliothèque</h1>
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <input ref={champ} value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher une marque, un mot…"
             aria-label="Rechercher dans la bibliothèque" className="input pr-12" />
@@ -226,7 +226,7 @@ export default function BibliothequePage() {
       <div className="flex flex-col md:flex-row gap-4 items-start">
         <nav aria-label="Dossiers" className="card p-3 w-full md:w-60 flex-shrink-0 space-y-3 md:sticky md:top-4">
           <ul className="space-y-0.5">
-            {entree('tous', 'Toutes les pubs', compteurs.total)}
+            {entree('tous', 'Toutes mes sauvegardes', compteurs.total)}
             {entree('sans', 'Sans dossier', compteurs.sansDossier)}
             {arbre.map((d) => entree(d.id, d.nom, d.n, d.niveau, d))}
           </ul>
@@ -240,7 +240,7 @@ export default function BibliothequePage() {
         <section className="flex-1 min-w-0 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-gray-500">
-              {vue === 'tous' ? 'Toutes les pubs' : vue === 'sans' ? 'Sans dossier' : chemin.map((d, i) => (
+              {vue === 'tous' ? 'Toutes mes sauvegardes' : vue === 'sans' ? 'Sans dossier' : chemin.map((d, i) => (
                 <span key={d.id}>{i > 0 && ' / '}<button type="button" onClick={() => setVue(d.id)} className={i === chemin.length - 1 ? 'font-semibold text-[#0d0d12]' : 'hover:underline'}>{d.nom}</button></span>
               ))}
               {pubs && <span className="text-gray-400"> · {visibles.length} pub{visibles.length > 1 ? 's' : ''}</span>}
@@ -261,7 +261,7 @@ export default function BibliothequePage() {
             <div className="card text-center py-16">
               <p className="text-[#0d0d12] font-medium">{recherche || statut !== 'toutes' ? 'Aucune pub pour cette recherche.' : 'Aucune pub ici.'}</p>
               <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
-                Sauvegardez des pubs depuis Discovery, Espion ou la Meta Ad Library avec l’extension, ou importez-les par leur lien.
+                Sauvegardez des pubs depuis l’onglet « Toutes les pubs », Espion ou la Meta Ad Library avec l’extension, ou importez-les par leur lien.
               </p>
             </div>
           )}
@@ -352,6 +352,40 @@ function Importer({ dossiers, vue, fermer, fini }: {
         {extension === false && <p className="text-xs text-red-600">L’extension Apogee Veille (0.5.0) n’est pas détectée : elle seule peut lire la Ad Library.</p>}
         {etat && <p className="text-sm text-gray-600" role="status">{etat}</p>}
       </div>
+    </div>
+  )
+}
+
+const ONGLETS = [['toutes', 'Toutes les pubs'], ['sauvegardes', 'Mes sauvegardes']] as const
+
+/**
+ * La Bibliothèque : « Toutes les pubs » ramenées par les scans, la veille et
+ * la collecte, et « Mes sauvegardes » rangées en dossiers. ?onglet=sauvegardes
+ * ouvre la seconde.
+ */
+export default function BibliothequePage() {
+  const [onglet, setOnglet] = useState<(typeof ONGLETS)[number][0]>('toutes')
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('onglet') === 'sauvegardes') setOnglet('sauvegardes')
+  }, [])
+
+  function choisir(o: (typeof ONGLETS)[number][0]) {
+    setOnglet(o)
+    history.replaceState(null, '', o === 'sauvegardes' ? '?onglet=sauvegardes' : location.pathname)
+  }
+
+  return (
+    <div className="space-y-4">
+      <h1 className="page-title">Bibliothèque</h1>
+      <nav className="flex gap-2 border-b border-[#E5E7EB]" aria-label="Bibliothèque">
+        {ONGLETS.map(([cle, libelle]) => (
+          <button key={cle} type="button" onClick={() => choisir(cle)} aria-current={onglet === cle ? 'page' : undefined}
+            className={clsx('px-4 py-2.5 text-sm -mb-px border-b-2', onglet === cle ? 'border-[#3434ef] text-[#3434ef] font-medium' : 'border-transparent text-gray-500 hover:text-[#0d0d12]')}>
+            {libelle}
+          </button>
+        ))}
+      </nav>
+      {onglet === 'toutes' ? <ToutesLesPubs /> : <MesSauvegardes />}
     </div>
   )
 }

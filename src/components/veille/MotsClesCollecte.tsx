@@ -17,7 +17,7 @@ export function suggererSimilaires(marque: { id: string; nom: string }) {
     .then((d) => {
       const n = d?.ajoutes?.length ?? 0
       if (!n) return
-      toast.success(`${n} mot${n > 1 ? 's' : ''}-clé${n > 1 ? 's' : ''} proposé${n > 1 ? 's' : ''} d’après ${marque.nom}, à valider dans Discovery`)
+      toast.success(`${n} mot${n > 1 ? 's' : ''}-clé${n > 1 ? 's' : ''} proposé${n > 1 ? 's' : ''} d’après ${marque.nom}, à valider dans la Bibliothèque`)
       window.dispatchEvent(new Event(EVENEMENT))
     })
     .catch(() => {})

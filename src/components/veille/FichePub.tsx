@@ -178,7 +178,7 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
 
 /** Masque la pub partout, après confirmation. Vrai si c'est fait. */
 export async function masquerPub(pub: PubVeille) {
-  if (!confirm(`Masquer cette pub de ${pub.marque.nom} ? Elle disparaît de Discovery, Veille, Espion et de la Bibliothèque, et ne sera plus réimportée.`)) return false
+  if (!confirm(`Masquer cette pub de ${pub.marque.nom} ? Elle disparaît de la Bibliothèque, de Veille et d’Espion, et ne sera plus réimportée.`)) return false
   const r = await fetch('/api/veille/pubs', {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
