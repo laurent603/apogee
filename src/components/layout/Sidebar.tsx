@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import Image from 'next/image'
 import { clsx } from 'clsx'
 
 type NavItem = { href: string; label: string; icon: React.ReactNode }
@@ -154,6 +153,8 @@ export function Sidebar({ open = false, onNavigate, reduit = false, anime = fals
    * d'accord avec le rendu serveur, qui lui ne connaît pas le stockage local.
    */
   const [sombre, setSombre] = useState(false)
+  const [photoKo, setPhotoKo] = useState(false)
+  const initiales = (session?.user?.name ?? '').split(/\s+/).filter(Boolean).map((m) => m[0]).slice(0, 2).join('').toUpperCase()
   useEffect(() => {
     setSombre(document.documentElement.getAttribute('data-theme') === 'dark')
   }, [])
@@ -263,16 +264,19 @@ export function Sidebar({ open = false, onNavigate, reduit = false, anime = fals
       {/* User */}
       <div className={clsx('py-4', reduit ? 'md:px-2 px-3' : 'px-3')} style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}>
         <div className={clsx('flex items-center gap-3 py-2', reduit ? 'px-2 md:px-0 md:flex-col md:gap-2' : 'px-2')}>
-          {session?.user?.image && (
-            <Image
-              src={session.user.image}
-              alt="avatar"
-              width={32}
-              height={32}
+          {session?.user && (photoKo ? (
+            <span title={reduit ? session.user.name ?? undefined : undefined}
+              className="h-8 w-8 rounded-full flex-shrink-0 ring-2 ring-white/20 bg-white/15 text-white text-xs font-semibold flex items-center justify-center">
+              {initiales}
+            </span>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/api/moi/photo" alt="" width={32} height={32} onError={() => setPhotoKo(true)}
+              // Une erreur survenue avant l'hydratation n'atteint pas onError : on la relit au montage.
+              ref={(img) => { if (img?.complete && !img.naturalWidth) setPhotoKo(true) }}
               title={reduit ? session.user.name ?? undefined : undefined}
-              className="rounded-full flex-shrink-0 ring-2 ring-white/20"
-            />
-          )}
+              className="h-8 w-8 rounded-full flex-shrink-0 ring-2 ring-white/20 object-cover" />
+          ))}
           <div className={clsx('flex-1 min-w-0', reduit && 'md:hidden')}>
             <p className="text-sm font-medium text-white truncate">{session?.user?.name}</p>
             <button

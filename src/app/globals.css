@@ -5,7 +5,7 @@
 
 :root {
   --brand: #3434ef;
-  --sidebar-bg: #3434ef;
+  --sidebar-bg: #000f18;
   --content-bg: #f8f9fc;
   --text-primary: #0d0d12;
   --text-secondary: #6b7280;
@@ -43,7 +43,7 @@
     @apply bg-white border border-[#E5E7EB] rounded-xl p-5;
   }
   .btn-primary {
-    @apply bg-[#3434ef] hover:bg-[#2a2ad4] active:bg-[#2020b8] text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm;
+    @apply bg-[#0076ff] hover:bg-[#0066dd] active:bg-[#0056bb] text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm;
   }
   .btn-secondary {
     @apply bg-white hover:bg-gray-50 text-[#0d0d12] font-medium px-4 py-2 rounded-lg border border-[#E5E7EB] transition-colors text-sm;
