@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { deposer, urlPublique } from '@/lib/veille/stockage'
-import { consigne, faits, FORMATS_CREA, genererImage, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
+import { CONCEPTS_VARIANTES, consigne, faits, FORMATS_CREA, genererImage, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
 import { textesPour } from '@/lib/veille/gemini'
 
 /**
@@ -74,11 +74,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Une génération par variante : le carré, et la Story tirée du même carré (une pub Meta, deux placements).
+  // La première reproduit la pub ; les suivantes gardent ses textes dans un autre concept, sans la voir.
   // Chaque variante prend d'autres photos du kit : les images ne se ressemblent pas toutes.
   const resultats = await Promise.allSettled(
     Array.from({ length: variantes }, async (_, i) => {
       const choisies = photos.length ? Array.from({ length: Math.min(PHOTOS_PAR_IMAGE, photos.length) }, (_, k) => photos[(i * PHOTOS_PAR_IMAGE + k) % photos.length]) : []
-      const image = await genererImage([reference, ...(logo ? [logo] : []), ...choisies], consigne(marque, !!logo, choisies.length, precision, textes))
+      const concept = i ? CONCEPTS_VARIANTES[(i - 1) % CONCEPTS_VARIANTES.length] : undefined
+      const image = await genererImage(
+        [...(concept ? [] : [reference]), ...(logo ? [logo] : []), ...choisies],
+        consigne(marque, !!logo, choisies.length, precision, textes, concept),
+      )
       const fichiers: Record<FormatCrea, () => Promise<[string, Buffer]>> = {
         '1:1': async () => [image.mimeType, image.octets],
         '9:16': async () => ['image/jpeg', await versStory(image.octets)],

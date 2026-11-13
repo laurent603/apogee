@@ -88,7 +88,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
               </button>
             )
           })}
-          <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600">
+          <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600" title="La 1re reproduit la pub ; les suivantes gardent ses textes dans un autre concept : mise en situation, points bénéfices, format éditorial">
             Variantes
             <select value={variantes} onChange={(e) => setVariantes(Number(e.target.value))} className="select select-chevron w-auto py-1 text-xs">
               {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
@@ -103,7 +103,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
           <p className="text-xs text-gray-400">
             {chargement
               ? 'Génération en cours : 20 à 60 secondes.'
-              : 'La Story reprend le carré, posé entre 22 % et 78 % de la hauteur. Relisez le texte de chaque image : l’IA fait encore des fautes.'}
+              : `${variantes > 1 ? 'La 1re reproduit la pub, les suivantes changent de concept avec les mêmes textes. ' : ''}Relisez le texte de chaque image : l’IA fait encore des fautes.`}
           </p>
           <button type="button" onClick={generer} disabled={chargement || !formats.length} className="btn-primary shrink-0 disabled:opacity-50">
             {chargement ? 'Génération…' : `Générer ${total} créa${total > 1 ? 's' : ''}`}
