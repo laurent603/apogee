@@ -5,12 +5,13 @@
  * fait en un seul appel.
  */
 
-// Mesuré le 12/11/2026 : gemini-3.5-flash répond en 4 à 7 s (image, vidéo) ;
-// l'alias gemini-flash-latest était saturé (503, ou rien en 90 s) et
-// gemini-2.5-flash n'est plus ouvert aux nouveaux comptes. L'alias reste en
-// secours, avec 50 s par modèle pour tenir dans la limite Vercel de 120 s.
-const MODELES = ['gemini-3.5-flash', 'gemini-flash-latest']
-const DELAI_PAR_MODELE = 50_000
+// Mesuré le 13/11/2026 : 3.5-flash, 3.6-flash et 3.5-flash-lite répondent en
+// 1 à 3 s quand 3.7 et 3.8 sont saturés ; l'alias gemini-flash-latest ne
+// répondait pas en 40 s. gemini-2.5-flash n'est plus ouvert aux nouveaux comptes.
+const MODELES = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite']
+const DELAI_PAR_MODELE = 40_000
+// Sous les 120 s accordées aux routes : deux passages sur les modèles au plus.
+const BUDGET = 95_000
 // La requête inline plafonne à 20 Mo, base64 compris.
 const TAILLE_MAX = 14 * 1024 * 1024
 
@@ -71,25 +72,32 @@ async function appeler(parts: unknown[], schema: object): Promise<{ resultat: an
   })
   let r: Response | null = null
   let j: any = null
-  let erreur = ''
-  for (const modele of MODELES) {
-    try {
-      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modele}:generateContent`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': cle },
-        body: corps,
-        signal: AbortSignal.timeout(DELAI_PAR_MODELE),
-      })
-    } catch {
-      r = null
-      erreur = `${modele} n’a pas répondu en ${DELAI_PAR_MODELE / 1000} s`
-      continue
+  const debut = Date.now()
+  // Saturé (503, 429) ou muet : modèle suivant, puis un second passage trois secondes après.
+  essais: for (let passage = 0; passage < 2; passage++) {
+    if (passage) await new Promise((ok) => setTimeout(ok, 3000))
+    for (const modele of MODELES) {
+      const reste = BUDGET - (Date.now() - debut)
+      if (reste < 5000) break essais
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modele}:generateContent`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': cle },
+          body: corps,
+          signal: AbortSignal.timeout(Math.min(DELAI_PAR_MODELE, reste)),
+        })
+      } catch {
+        r = null
+        console.warn(`[gemini] ${modele} sans réponse`)
+        continue
+      }
+      j = await r.json().catch(() => null)
+      if (r.status !== 503 && r.status !== 429) break essais
+      console.warn(`[gemini] ${modele} saturé (${r.status})`)
     }
-    j = await r.json().catch(() => null)
-    if (r.status !== 503 && r.status !== 429) break
-    erreur = `${modele} saturé (${r.status})`
   }
-  if (!r?.ok) throw new Error(`Gemini a refusé l’analyse : ${r ? `${r.status} ${j?.error?.message ?? ''}` : erreur}`)
+  if (!r || r.status === 503 || r.status === 429) throw new Error('Gemini est saturé en ce moment : réessayez dans quelques minutes.')
+  if (!r.ok) throw new Error(`Gemini a refusé l’analyse : ${r.status} ${j?.error?.message ?? ''}`)
   const texte = j?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('')
   if (!texte) throw new Error('Gemini n’a rien renvoyé')
   return { resultat: JSON.parse(texte), modele: j.modelVersion ?? MODELES[0] }
