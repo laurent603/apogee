@@ -123,7 +123,8 @@ async function verifier(contexte) {
   for (const m of marques) {
     try {
       const cible = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&view_all_page_id=${m.pageId}&search_type=page&media_type=all`
-      const { pubs, details, complet } = await lirePage(contexte, cible, m.connus)
+      // Fiche de toutes les pubs, connues comprises : leur couverture du jour est relevée.
+      const { pubs, details, complet } = await lirePage(contexte, cible, [])
       const connus = new Set(m.connus)
       const nouvelles = pubs.filter((p) => !connus.has(String(p.ad_archive_id)))
       const lues = nouvelles.filter((p) => details[String(p.ad_archive_id)]).length
@@ -144,6 +145,10 @@ async function verifier(contexte) {
         body: JSON.stringify({ pageId: m.pageId, vus: pubs.map((p) => String(p.ad_archive_id)), nouvelles: envoyees, complet }),
       })
       log(`  → ${v.nouvelles} nouvelle${v.nouvelles > 1 ? 's' : ''} enregistrée${v.nouvelles > 1 ? 's' : ''}, ${v.arretees} arrêtée${v.arretees > 1 ? 's' : ''}`)
+      const fiches = pubs.filter((p) => details[String(p.ad_archive_id)])
+        .map((p) => ({ adArchiveId: String(p.ad_archive_id), transparence: details[String(p.ad_archive_id)] }))
+      const r = await appel('/api/veille/mesures', { method: 'POST', body: JSON.stringify({ pubs: fiches }) })
+      log(`  → couverture relevée pour ${r.relevees} pub${r.relevees > 1 ? 's' : ''}`)
     } catch (e) {
       log(`${m.nom} : échec — ${e.message}`)
     }

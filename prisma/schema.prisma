@@ -670,6 +670,7 @@ model VeillePub {
   premiereVue  DateTime           @default(now())
   derniereVue  DateTime           @default(now())
   sauvegardes  VeilleSauvegarde[]
+  mesures      VeilleMesure[]
 
   @@index([marqueId])
   @@index([premiereVue])
@@ -698,6 +699,18 @@ model VeilleSecteurClient {
   metaAccountId String   @id
   categorie     String
   updatedAt     DateTime @updatedAt
+}
+
+/// La couverture UE d'une pub relevée un matin par la tâche du Mac (marques
+/// suivies) : l'écart d'un relevé au suivant donne les personnes touchées et
+/// la dépense de chaque jour.
+model VeilleMesure {
+  pubId   String
+  pub     VeillePub @relation(fields: [pubId], references: [id], onDelete: Cascade)
+  jour    DateTime  @db.Date
+  reachUe Int
+
+  @@id([pubId, jour])
 }
 
 model VeilleDossier {

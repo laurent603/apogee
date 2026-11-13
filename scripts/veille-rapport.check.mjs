@@ -1,7 +1,7 @@
 // Vérifie les calculs du rapport Espion.
 // node scripts/veille-rapport.check.mjs
 import assert from 'node:assert/strict'
-import { budgetMensuel, rapportMarque } from '../src/lib/veille/rapport.ts'
+import { budgetMensuel, courbesEstimees, courbesRelevees, rapportMarque } from '../src/lib/veille/rapport.ts'
 
 const MAINTENANT = Date.parse('2026-11-12T12:00:00Z')
 const jours = (n) => new Date(MAINTENANT - n * 86_400_000).toISOString()
@@ -60,3 +60,23 @@ assert.ok(constats.some((c) => c.startsWith('Placier pousse des offres dans 30 %
 const proches = constatsComparaison([L({ nom: 'A', pubsActives: 10, installees: 50, video: 50 }), L({ nom: 'B', pubsActives: 9, installees: 45, video: 40 })])
 assert.deepEqual(proches, ['A a le plus gros parc actif (10 pubs), mais les volumes restent proches.'])
 console.log('constatsComparaison : ok')
+
+// Courbes estimées : 10 000 personnes en 11 jours (lancée il y a 10 jours) → 91 € répartis sur ces 11 jours.
+const ce = courbesEstimees([pub({ reachUe: 10_000, debut: jours(10) }), pub({ debut: jours(200) }), pub({ reachUe: 5000, debut: jours(20), active: false, fin: jours(15) })], 9.1, MAINTENANT)
+assert.equal(ce.length, 90)
+assert.ok(Math.abs(ce.reduce((s, j) => s + j.depense, 0) - (91 + 45.5)) < 1e-6, 'dépense totale')
+assert.equal(ce[89].actives, 2) // la pub arrêtée ne compte plus aujourd'hui
+assert.equal(ce[0].actives, 1) // seule la pub de 200 jours tournait il y a 89 jours
+assert.equal(ce[89 - 15].actives, 2) // la pub de 200 jours et celle arrêtée ce jour-là
+
+// Courbes relevées : +2 000 personnes en 2 jours (jours manquant comblé), puis +500.
+const cr = courbesRelevees([
+  { pubId: 'a', jour: '2026-11-10', reachUe: 1000 }, { pubId: 'a', jour: '2026-11-12', reachUe: 3000 }, { pubId: 'a', jour: '2026-11-13', reachUe: 3500 },
+  { pubId: 'b', jour: '2026-11-12', reachUe: 800 }, { pubId: 'b', jour: '2026-11-13', reachUe: 800 },
+], 9.1)
+assert.equal(cr.releves, 3)
+assert.deepEqual(cr.jours.map((j) => [j.jour, j.personnes]), [['2026-11-11', 1000], ['2026-11-12', 1000], ['2026-11-13', 500]])
+assert.ok(Math.abs(cr.jours[2].depense - 4.55) < 1e-9)
+assert.deepEqual(cr.accelerent.map((a) => a.pubId), ['a']) // b n'a rien gagné
+console.log('courbes : ok')
+

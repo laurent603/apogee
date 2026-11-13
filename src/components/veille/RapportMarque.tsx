@@ -6,7 +6,8 @@ import type { AnalyseMarque } from '@/lib/veille/gemini'
 import { CATEGORIES } from '@/lib/veille/categories'
 import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
-import { rapportMarque } from '@/lib/veille/rapport'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { courbesEstimees, courbesRelevees, rapportMarque } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
 import { Barre, FichePub, compact } from './FichePub'
 
@@ -70,6 +71,114 @@ function Vignette({ pub, etiquette, ouvrir }: { pub: PubVeille; etiquette: strin
         {pub.texte && <p className="text-xs text-gray-500 line-clamp-2">{pub.texte}</p>}
       </div>
     </button>
+  )
+}
+
+const jourCourt = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+/** Une courbe en aire, au jour le jour. */
+function Courbe({ id, titre, aide, donnees, cle, format }: {
+  id: string; titre: string; aide?: string; donnees: object[]; cle: string; format: (v: number) => string
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
+        {aide && <p className="text-xs text-gray-400">{aide}</p>}
+      </div>
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={donnees} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3434ef" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#3434ef" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="#F3F4F6" />
+            <XAxis dataKey="jour" tickFormatter={jourCourt} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} minTickGap={32} />
+            <YAxis tickFormatter={format} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={52} allowDecimals={false} />
+            <Tooltip formatter={(v) => [format(Number(v)), titre]} labelFormatter={(l) => jourCourt(String(l))}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E5E7EB' }} />
+            <Area type="monotone" dataKey={cle} stroke="#3434ef" strokeWidth={2} fill={`url(#${id})`} isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+function Mini({ libelle, valeur, note }: { libelle: string; valeur: string; note: string }) {
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{libelle}</p>
+      <p className="text-2xl font-bold text-[#0d0d12] mt-1.5 tabular-nums">{valeur}</p>
+      <p className="text-xs text-gray-400 mt-1">{note}</p>
+    </div>
+  )
+}
+
+/**
+ * Évolution sur 90 jours : courbes estimées à partir des pubs connues (actives
+ * et arrêtées), puis courbes relevées chaque matin pour les marques suivies.
+ */
+function Evolution({ marque, suivie, ouvrir }: { marque: { id: string }; suivie: boolean; ouvrir: (p: PubVeille) => void }) {
+  const [toutes, setToutes] = useState<PubVeille[] | null>(null)
+  const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
+
+  useEffect(() => {
+    fetch(`/api/veille/pubs?marque=${marque.id}&n=600`).then((r) => (r.ok ? r.json() : null)).then((d) => setToutes(d?.pubs ?? []))
+    fetch(`/api/veille/mesures?marque=${marque.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
+  }, [marque.id])
+
+  const estimees = useMemo(() => (toutes ? courbesEstimees(toutes, EUROS_POUR_MILLE_PERSONNES) : null), [toutes])
+  const relevees = useMemo(() => courbesRelevees(mesures, EUROS_POUR_MILLE_PERSONNES), [mesures])
+  if (!toutes || !estimees) return null
+
+  const somme = (de: number, a: number) => estimees.slice(de, a).reduce((s, j) => s + j.depense, 0)
+  const [semaine, precedente] = [somme(83, 90), somme(76, 83)]
+  const tendance = precedente > 0 ? Math.round((100 * (semaine - precedente)) / precedente) : null
+  const sansCouverture = toutes.filter((p) => !p.reachUe).length
+  const pubDe = new Map(toutes.map((p) => [p.id, p]))
+  const euros = (v: number) => `${compact(v)} €`
+
+  return (
+    <Bloc titre="Évolution sur 90 jours"
+      sousTitre="Estimation : chaque pub est supposée dépenser au même rythme de son lancement à aujourd’hui (ou à son arrêt).">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Mini libelle="Rythme de dépense" valeur={tendance === null ? '—' : `${tendance > 0 ? '+' : ''}${tendance} %`} note="7 derniers jours vs les 7 précédents" />
+        <Mini libelle="Pubs actives" valeur={String(estimees[89].actives)} note={`${estimees[59].actives} il y a 30 jours`} />
+        <Mini libelle="Pubs connues" valeur={String(toutes.length)} note={sansCouverture ? `${sansCouverture} sans couverture connue` : 'toutes à couverture connue'} />
+        <Mini libelle="Relevés quotidiens" valeur={String(relevees.releves)} note={suivie ? 'chaque matin à 8 h' : 'activez la veille pour relever'} />
+      </div>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Courbe id="courbe-depense" titre="Dépense estimée par jour" donnees={estimees} cle="depense" format={euros} />
+        <Courbe id="courbe-actives" titre="Pubs actives par jour" donnees={estimees} cle="actives" format={(v) => String(Math.round(v))} />
+      </div>
+      {relevees.jours.length > 0 ? (
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Courbe id="courbe-relevee" titre="Dépense relevée par jour" aide="écart de couverture d’un matin à l’autre"
+            donnees={relevees.jours} cle="depense" format={euros} />
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-[#0d0d12]">Pubs qui accélèrent</p>
+            {relevees.accelerent.length ? (
+              <div className="grid grid-cols-3 gap-3">
+                {relevees.accelerent.map((a) => pubDe.get(a.pubId)).filter((p): p is PubVeille => !!p).map((p) => (
+                  <Vignette key={p.id} pub={p} ouvrir={() => ouvrir(p)}
+                    etiquette={`+${compact(relevees.accelerent.find((a) => a.pubId === p.id)!.parJour)} pers./jour`} />
+                ))}
+              </div>
+            ) : <Vide>Aucune pub n’a gagné de couverture sur les derniers relevés.</Vide>}
+          </div>
+        </div>
+      ) : (
+        <Vide>
+          {suivie
+            ? 'Relevé quotidien en place : la couverture de chaque pub est notée chaque matin à 8 h. Les courbes réelles et les pubs qui accélèrent apparaissent après deux relevés.'
+            : 'Activez la veille de cette marque : sa couverture sera relevée chaque matin, pour des courbes réelles et les pubs qui accélèrent.'}
+        </Vide>
+      )}
+    </Bloc>
   )
 }
 
@@ -281,6 +390,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
       {onglet === 'Vue d’ensemble' && (
         <div className="space-y-6">
+          <Evolution marque={marque} suivie={suivie} ouvrir={setOuverte} />
           <Bloc titre="Pubs les plus diffusées" sousTitre="Classées par nombre de personnes touchées dans l’UE.">
             {r.plusDiffusees.length ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">

@@ -251,3 +251,68 @@ export function constatsComparaison(lignes: LigneComparaison[]): string[] {
   }
   return phrases
 }
+
+const jourIso = (n: number) => new Date(n * JOUR).toISOString().slice(0, 10)
+
+/**
+ * Courbes estimées sur `jours` jours, à partir des seules données en base :
+ * chaque pub à couverture connue est supposée dépenser au même rythme de son
+ * lancement à son arrêt (ou à aujourd'hui) ; « actives » compte les pubs
+ * connues qui tournaient ce jour-là.
+ */
+export function courbesEstimees(
+  pubs: { debut: string | null; fin?: string | null; active?: boolean; reachUe: number | null }[],
+  eurosPourMille: number,
+  maintenant = Date.now(),
+  jours = 90,
+) {
+  const aujourdhui = Math.floor(maintenant / JOUR)
+  const premier = aujourdhui - jours + 1
+  const serie = Array.from({ length: jours }, (_, i) => ({ jour: jourIso(premier + i), depense: 0, actives: 0 }))
+  for (const p of pubs) {
+    if (!p.debut) continue
+    const debut = Math.floor(Date.parse(p.debut) / JOUR)
+    const fin = p.active === false && p.fin ? Math.floor(Date.parse(p.fin) / JOUR) : aujourdhui
+    if (fin < debut) continue
+    const parJour = p.reachUe ? (eurosPourMille * p.reachUe) / 1000 / (fin - debut + 1) : 0
+    for (let j = Math.max(debut, premier); j <= Math.min(fin, aujourdhui); j++) {
+      serie[j - premier].actives++
+      serie[j - premier].depense += parJour
+    }
+  }
+  return serie
+}
+
+/**
+ * Courbes relevées : la couverture de chaque pub notée chaque matin. L'écart
+ * entre deux relevés (réparti sur les jours qui les séparent) donne les
+ * personnes touchées et la dépense de chaque jour ; « accélèrent » classe les
+ * pubs par personnes touchées par jour sur leurs 7 derniers jours relevés.
+ */
+export function courbesRelevees(mesures: { pubId: string; jour: string; reachUe: number }[], eurosPourMille: number) {
+  const parPub = new Map<string, { jour: number; reachUe: number }[]>()
+  for (const m of mesures) {
+    const l = parPub.get(m.pubId) ?? []
+    l.push({ jour: Math.floor(Date.parse(m.jour) / JOUR), reachUe: m.reachUe })
+    parPub.set(m.pubId, l)
+  }
+  const personnes = new Map<number, number>()
+  const accelerent: { pubId: string; parJour: number }[] = []
+  for (const [pubId, l] of parPub) {
+    l.sort((a, b) => a.jour - b.jour)
+    for (let i = 1; i < l.length; i++) {
+      const ecart = l[i].jour - l[i - 1].jour
+      const gain = Math.max(0, l[i].reachUe - l[i - 1].reachUe) / ecart
+      for (let j = l[i - 1].jour + 1; j <= l[i].jour; j++) personnes.set(j, (personnes.get(j) ?? 0) + gain)
+    }
+    const dernier = l[l.length - 1]
+    const depart = l.find((x) => x.jour >= dernier.jour - 7) ?? l[0]
+    if (dernier.jour > depart.jour) accelerent.push({ pubId, parJour: Math.max(0, dernier.reachUe - depart.reachUe) / (dernier.jour - depart.jour) })
+  }
+  const jours = [...personnes.keys()].sort((a, b) => a - b)
+  return {
+    releves: new Set(mesures.map((m) => m.jour)).size,
+    jours: jours.map((j) => ({ jour: jourIso(j), personnes: personnes.get(j)!, depense: (eurosPourMille * personnes.get(j)!) / 1000 })),
+    accelerent: accelerent.filter((a) => a.parJour > 0).sort((a, b) => b.parJour - a.parJour).slice(0, 6),
+  }
+}
