@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { budgetEstime, EUROS_POUR_MILLE_PERSONNES } from '@/lib/veille/adLibrary'
-import { courbesRelevees } from '@/lib/veille/rapport'
+import { courbesEstimees, courbesRelevees } from '@/lib/veille/rapport'
 import type { PubVeille } from './CartePub'
 import type { Decorticage } from '@/lib/veille/gemini'
 
@@ -133,11 +133,8 @@ function telecharger(nom: string, contenu: string) {
 }
 
 /** « Décortiquer cette pub » : analyse Gemini du média, gardée sur la pub. */
-function Decortiquer({ pub }: { pub: PubVeille }) {
-  const [analyse, setAnalyse] = useState<Decorticage | null>(pub.analyse)
+function Decortiquer({ pub, analyse, setAnalyse }: { pub: PubVeille; analyse: Decorticage | null; setAnalyse: (a: Decorticage) => void }) {
   const [chargement, setChargement] = useState(false)
-  const [ouvert, setOuvert] = useState(true)
-  const [filtre, setFiltre] = useState<'tout' | 'voix' | 'ecran'>('tout')
 
   async function lancer(refaire = false) {
     setChargement(true)
@@ -150,7 +147,6 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
     setChargement(false)
     if (!r.ok) return void toast.error(j.erreur || 'Analyse impossible')
     setAnalyse(j)
-    setOuvert(true)
   }
 
   if (!analyse) {
@@ -169,75 +165,197 @@ function Decortiquer({ pub }: { pub: PubVeille }) {
     )
   }
 
-  const segments = analyse.transcription.filter((g) => filtre === 'tout' || g.source === filtre)
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">
+          {pub.medias.some((m) => m.type === 'video') ? 'Vidéo' : 'Image'} décortiquée le {new Date(analyse.date).toLocaleDateString('fr-FR')} · transcription dans l’onglet du même nom
+        </p>
+        <button type="button" onClick={() => lancer(true)} disabled={chargement} className="text-xs text-gray-400 hover:text-[#0d0d12] disabled:opacity-50">
+          {chargement ? 'Analyse…' : 'Refaire'}
+        </button>
+      </div>
+      <Section titre="Accroche"><p className="text-sm text-[#0d0d12]">« {analyse.accroche} »</p></Section>
+      <div className="grid grid-cols-2 gap-4">
+        <Section titre="Angle"><p className="text-sm text-gray-700">{analyse.angle}</p></Section>
+        <Section titre="Concept"><p className="text-sm text-gray-700">{analyse.concept}</p></Section>
+      </div>
+      <Section titre="Promesse"><p className="text-sm text-gray-700">{analyse.promesse}</p></Section>
+      <Section titre="Appel à l’action"><p className="text-sm text-gray-700">{analyse.appelAction}</p></Section>
+      {analyse.structure.length > 0 && (
+        <Section titre="Structure">
+          <ol className="space-y-2">
+            {analyse.structure.map((e, i) => (
+              <li key={i} className="flex gap-2 text-sm">
+                <span className="h-5 w-5 shrink-0 rounded-full bg-[#f0f0ff] text-[#3434ef] text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                <span><span className="font-medium text-[#0d0d12]">{e.type}</span> <span className="text-gray-600">— {e.resume}</span></span>
+              </li>
+            ))}
+          </ol>
+        </Section>
+      )}
+    </div>
+  )
+}
+
+/** La transcription horodatée : recherche, voix ou écran, traduction en français, copie et .srt. */
+function Transcription({ pub, analyse, setAnalyse, decortiquer }: {
+  pub: PubVeille; analyse: Decorticage | null; setAnalyse: (a: Decorticage) => void; decortiquer: () => void
+}) {
+  const [filtre, setFiltre] = useState<'tout' | 'voix' | 'ecran'>('tout')
+  const [recherche, setRecherche] = useState('')
+  const [enFrancais, setEnFrancais] = useState(false)
+  const [traduction, setTraduction] = useState(false)
+
+  if (!analyse?.transcription.length) {
+    return (
+      <div className="rounded-xl border border-[#E5E7EB] bg-gray-50 px-5 py-4 flex items-center justify-between gap-4">
+        <p className="text-sm text-gray-600">{analyse ? 'Aucun texte relevé dans cette pub.' : 'Pas encore de transcription : décortiquez la pub, la transcription vient avec.'}</p>
+        {!analyse && <button type="button" onClick={decortiquer} className="btn-primary">Décortiquer</button>}
+      </div>
+    )
+  }
+
+  async function traduire() {
+    if (analyse!.traductionFr) return setEnFrancais(!enFrancais)
+    setTraduction(true)
+    const r = await fetch('/api/veille/traduire', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pubId: pub.id }) })
+    const j = await r.json().catch(() => ({}))
+    setTraduction(false)
+    if (!r.ok) return void toast.error(j.erreur || 'Traduction impossible')
+    setAnalyse({ ...analyse!, traductionFr: j.traduction })
+    setEnFrancais(true)
+  }
+
+  const lignes = analyse.transcription.map((g, i) => ({
+    ...g,
+    fin: analyse.transcription[i + 1]?.debut ?? null,
+    affiche: enFrancais && analyse.traductionFr ? analyse.traductionFr[i] : g.texte,
+  }))
+  const motif = recherche.trim().toLowerCase()
+  const visibles = lignes.filter((g) => (filtre === 'tout' || g.source === filtre) && (!motif || g.affiche.toLowerCase().includes(motif)))
+  const horodatage = (g: (typeof lignes)[number]) => `${mmss(g.debut)}${g.fin !== null && g.fin > g.debut ? `–${mmss(g.fin)}` : ''}`
   const voix = analyse.transcription.filter((g) => g.source === 'voix')
-  const video = pub.medias.some((m) => m.type === 'video')
+
+  function toutCopier() {
+    navigator.clipboard.writeText(visibles.map((g) => `${horodatage(g)}  ${g.affiche}`).join('\n')).then(() => toast.success('Transcription copiée'))
+  }
 
   return (
-    <div className="rounded-xl border border-[#E5E7EB] px-5 py-5 space-y-5">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[#0d0d12]">Pub décortiquée</p>
-          <p className="text-xs text-gray-500">
-            {video ? 'Vidéo' : 'Image'} · {analyse.transcription.length} élément{analyse.transcription.length > 1 ? 's' : ''} transcrit{analyse.transcription.length > 1 ? 's' : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          <button type="button" onClick={() => lancer(true)} disabled={chargement} className="text-gray-400 hover:text-[#0d0d12] disabled:opacity-50">
-            {chargement ? 'Analyse…' : 'Refaire'}
-          </button>
-          <button type="button" onClick={() => setOuvert(!ouvert)} className="text-[#3434ef] hover:underline">{ouvert ? 'Masquer' : 'Afficher'}</button>
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher dans la transcription" aria-label="Rechercher dans la transcription"
+          className="input flex-1 min-w-[200px] py-1.5" />
+        <button type="button" onClick={traduire} disabled={traduction} className="btn-secondary py-1.5 text-xs disabled:opacity-50">
+          {traduction ? 'Traduction…' : enFrancais ? 'Voir l’original' : 'Traduire en français'}
+        </button>
+        <button type="button" onClick={toutCopier} className="btn-secondary py-1.5 text-xs">Tout copier</button>
+        {pub.medias.some((m) => m.type === 'video') && (
+          <button type="button" onClick={() => telecharger(`transcription-${pub.adArchiveId}.srt`, srt(voix.length ? voix : analyse.transcription))}
+            className="btn-secondary py-1.5 text-xs">.srt</button>
+        )}
       </div>
+      <div className="flex gap-1.5">
+        {(['tout', 'voix', 'ecran'] as const).map((f) => (
+          <button key={f} type="button" onClick={() => setFiltre(f)}
+            className={`px-2.5 py-1 rounded-full text-xs border ${filtre === f ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB]'}`}>
+            {f === 'tout' ? 'Tout' : f === 'voix' ? 'Voix off' : 'Texte à l’écran'}
+          </button>
+        ))}
+      </div>
+      <ul className="space-y-3">
+        {visibles.map((g, i) => (
+          <li key={i} className="flex gap-4 text-sm">
+            <span className="w-20 shrink-0 tabular-nums text-xs text-gray-400 pt-0.5">{horodatage(g)}</span>
+            <span className={g.source === 'ecran' ? 'font-medium uppercase text-xs tracking-wide text-gray-500 pt-0.5' : 'text-gray-800 leading-relaxed'}>{g.affiche}</span>
+          </li>
+        ))}
+        {!visibles.length && <li className="text-sm text-gray-400">Aucune ligne ne correspond.</li>}
+      </ul>
+    </div>
+  )
+}
 
-      {ouvert && (
-        <>
-          <Section titre="Accroche"><p className="text-sm text-[#0d0d12]">« {analyse.accroche} »</p></Section>
-          <div className="grid grid-cols-2 gap-3">
-            <Section titre="Angle"><p className="text-sm text-gray-700">{analyse.angle}</p></Section>
-            <Section titre="Concept"><p className="text-sm text-gray-700">{analyse.concept}</p></Section>
-          </div>
-          <Section titre="Promesse"><p className="text-sm text-gray-700">{analyse.promesse}</p></Section>
-          <Section titre="Appel à l’action"><p className="text-sm text-gray-700">{analyse.appelAction}</p></Section>
-          {analyse.structure.length > 0 && (
-            <Section titre="Structure">
-              <ol className="space-y-1.5">
-                {analyse.structure.map((e, i) => (
-                  <li key={i} className="flex gap-2 text-sm">
-                    <span className="h-5 w-5 shrink-0 rounded-full bg-[#f0f0ff] text-[#3434ef] text-xs font-semibold flex items-center justify-center">{i + 1}</span>
-                    <span><span className="font-medium text-[#0d0d12]">{e.type}</span> <span className="text-gray-600">— {e.resume}</span></span>
-                  </li>
-                ))}
-              </ol>
-            </Section>
-          )}
-          {analyse.transcription.length > 0 && (
-            <Section titre="Transcription">
-              <div className="flex gap-1.5">
-                {(['tout', 'voix', 'ecran'] as const).map((f) => (
-                  <button key={f} type="button" onClick={() => setFiltre(f)}
-                    className={`px-2 py-0.5 rounded-full text-xs border ${filtre === f ? 'bg-[#3434ef] text-white border-[#3434ef]' : 'bg-white text-gray-600 border-[#E5E7EB]'}`}>
-                    {f === 'tout' ? 'Tout' : f === 'voix' ? 'Voix off' : 'Écran'}
-                  </button>
-                ))}
-              </div>
-              <ul className="space-y-1">
-                {segments.map((g, i) => (
-                  <li key={i} className="flex gap-2 text-sm">
-                    <span className="w-10 shrink-0 tabular-nums text-xs text-gray-400 pt-0.5">{mmss(g.debut)}</span>
-                    <span className={g.source === 'ecran' ? 'font-medium uppercase text-xs tracking-wide text-gray-500 pt-0.5' : 'text-gray-700'}>{g.texte}</span>
-                  </li>
-                ))}
-              </ul>
-              {video && (
-                <button type="button" onClick={() => telecharger(`transcription-${pub.adArchiveId}.srt`, srt(voix.length ? voix : analyse.transcription))}
-                  className="text-xs text-[#3434ef] hover:underline">
-                  Télécharger la transcription .srt
+const JOUR_MS = 86_400_000
+
+/** L'annonceur de la pub : ses chiffres, ses courbes, ses dernières pubs et ses pages de destination. */
+function Annonceur({ pub, ouvrir }: { pub: PubVeille; ouvrir?: (p: PubVeille) => void }) {
+  const [pubs, setPubs] = useState<PubVeille[] | null>(null)
+  const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
+
+  useEffect(() => {
+    setPubs(null)
+    fetch(`/api/veille/pubs?marque=${pub.marque.id}&n=600`).then((r) => (r.ok ? r.json() : null)).then((d) => setPubs(d?.pubs ?? []))
+    fetch(`/api/veille/mesures?marque=${pub.marque.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
+  }, [pub.marque.id])
+
+  const estimees = useMemo(() => (pubs ? courbesEstimees(pubs, EUROS_POUR_MILLE_PERSONNES) : null), [pubs])
+  const relevees = useMemo(() => courbesRelevees(mesures, EUROS_POUR_MILLE_PERSONNES), [mesures])
+  if (!pubs || !estimees) return <p className="text-sm text-gray-400">Chargement de l’annonceur…</p>
+
+  const maintenant = Date.now()
+  const actives = pubs.filter((p) => p.active)
+  const lancees = (j: number) => pubs.filter((p) => p.debut && maintenant - Date.parse(p.debut) <= j * JOUR_MS).length
+  const pays = new Set(actives.flatMap((p) => (p.transparence?.repartition ?? []).map((l) => l.pays))).size
+  const dernieres = pubs.filter((p) => p.debut).sort((a, b) => Date.parse(b.debut!) - Date.parse(a.debut!)).slice(0, 4)
+  const pages = new Map<string, number>()
+  for (const p of actives) {
+    if (!p.lienUrl) continue
+    const page = p.lienUrl.replace(/^https?:\/\/(www\.)?/, '').split(/[?#]/)[0].replace(/\/$/, '')
+    pages.set(page, (pages.get(page) ?? 0) + 1)
+  }
+  const euros = (v: number) => `${compact(v)} €`
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-base font-semibold text-[#0d0d12]">{pub.marque.nom}</p>
+        <a href={`/espion?marque=${pub.marque.id}`} className="btn-secondary py-1.5 text-xs">Rapport Espion complet</a>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Chiffre libelle="Pubs actives" valeur={`${actives.length}/${pubs.length}`} />
+        <Chiffre libelle="Dépense / jour" valeur={estimees[89].depense ? `≈ ${euros(estimees[89].depense)}` : '—'} />
+        <Chiffre libelle="Lancées 7 · 14 · 30 j" valeur={`${lancees(7)} · ${lancees(14)} · ${lancees(30)}`} />
+        <Chiffre libelle="Pays touchés" valeur={pays ? String(pays) : '—'} />
+      </div>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Courbe id={`annonceur-actives-${pub.id}`} titre="Pubs actives par jour" donnees={estimees} cle="actives" format={(v) => String(Math.round(v))} />
+        {relevees.jours.length > 0 ? (
+          <Courbe id={`annonceur-releve-${pub.id}`} titre="Dépense relevée par jour" donnees={relevees.jours} cle="depense" format={euros} />
+        ) : (
+          <Courbe id={`annonceur-estime-${pub.id}`} titre="Dépense estimée par jour" aide="estimation" donnees={estimees} cle="depense" format={euros} />
+        )}
+      </div>
+      {dernieres.length > 0 && (
+        <Section titre="Dernières pubs lancées">
+          <div className="grid grid-cols-4 gap-3">
+            {dernieres.map((p) => {
+              const image = p.medias[0]?.type === 'video' ? p.medias[0].apercu : p.medias[0]?.url
+              return (
+                <button key={p.id} type="button" onClick={() => ouvrir?.(p)} disabled={!ouvrir}
+                  className={clsx('text-left rounded-lg border overflow-hidden', p.id === pub.id ? 'border-[#3434ef]' : 'border-[#E5E7EB] hover:border-gray-300')}>
+                  <div className="aspect-[4/5] bg-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {image && <img src={image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                  </div>
+                  <p className="px-2 py-1.5 text-[11px] text-gray-500">il y a {Math.max(0, Math.round((maintenant - Date.parse(p.debut!)) / JOUR_MS))} j</p>
                 </button>
-              )}
-            </Section>
-          )}
-        </>
+              )
+            })}
+          </div>
+        </Section>
+      )}
+      {pages.size > 0 && (
+        <Section titre="Pages de destination">
+          <ul className="rounded-xl border border-[#E5E7EB] divide-y divide-[#F3F4F6]">
+            {[...pages.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([page, n]) => (
+              <li key={page} className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
+                <a href={`https://${page}`} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline truncate">{page}</a>
+                <span className="text-xs text-gray-500 shrink-0">{n} pub{n > 1 ? 's' : ''} active{n > 1 ? 's' : ''}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
       )}
     </div>
   )
@@ -268,7 +386,7 @@ export function voisines<T extends { id: string }>(liste: T[], courante: T, ouvr
   }
 }
 
-const ONGLETS_FICHE = ['Détails', 'Texte', 'Décortiquer', 'Audience'] as const
+const ONGLETS_FICHE = ['Détails', 'Annonceur', 'Texte', 'Décortiquer', 'Transcription', 'Audience'] as const
 
 function Chiffre({ libelle, valeur }: { libelle: string; valeur: string }) {
   return (
@@ -292,7 +410,7 @@ function Ligne({ libelle, children }: { libelle: string; children: React.ReactNo
  * La fiche d'une pub, en deux volets : la pub à gauche (‹ › pour passer à la
  * suivante de la liste), ses chiffres et son analyse à droite, en onglets.
  */
-export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasquage, precedente, suivante }: {
+export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasquage, precedente, suivante, ouvrir }: {
   pub: PubVeille; jours: number | null; actions?: React.ReactNode; fermer: () => void
   /** Page publique d'un dossier partagé : pas d'analyse à lancer. */
   lectureSeule?: boolean
@@ -301,10 +419,13 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
   /** Passer à la pub précédente ou suivante de la liste (flèches du clavier aussi). */
   precedente?: () => void
   suivante?: () => void
+  /** Ouvrir une autre pub (dernières pubs de l'annonceur). */
+  ouvrir?: (p: PubVeille) => void
 }) {
   const [index, setIndex] = useState(0)
   const [onglet, setOnglet] = useState<(typeof ONGLETS_FICHE)[number]>('Détails')
   const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
+  const [analyse, setAnalyse] = useState<Decorticage | null>(pub.analyse)
   const media = pub.medias[index]
   const c = chiffresPub(pub, jours)
   const t = pub.transparence
@@ -313,6 +434,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
   useEffect(() => {
     setIndex(0)
     setMesures([])
+    setAnalyse(pub.analyse)
     if (!lectureSeule) fetch(`/api/veille/mesures?pub=${pub.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
   }, [pub.id, lectureSeule])
 
@@ -334,7 +456,8 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
   const parPays = [...new Set(repartition.map((l) => l.pays))]
     .map((pays) => ({ pays, n: somme((l) => (l.pays === pays ? l.hommes + l.femmes + l.inconnu : 0)) }))
     .sort((a, b) => b.n - a.n)
-  const onglets = ONGLETS_FICHE.filter((o) => !(lectureSeule && o === 'Décortiquer'))
+  // Page publique : ni analyse à lancer, ni données de l'annonceur (réservées aux comptes Apogee).
+  const onglets = ONGLETS_FICHE.filter((o) => !(lectureSeule && ['Annonceur', 'Décortiquer', 'Transcription'].includes(o)))
   const dateLongue = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   const visuel = (
@@ -483,7 +606,11 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
               </>
             )}
 
-            {onglet === 'Décortiquer' && <Decortiquer pub={pub} />}
+            {onglet === 'Annonceur' && <Annonceur pub={pub} ouvrir={ouvrir} />}
+            {onglet === 'Décortiquer' && <Decortiquer pub={pub} analyse={analyse} setAnalyse={setAnalyse} />}
+            {onglet === 'Transcription' && (
+              <Transcription pub={pub} analyse={analyse} setAnalyse={setAnalyse} decortiquer={() => setOnglet('Décortiquer')} />
+            )}
 
             {onglet === 'Audience' && (
               totalRepartition > 0 ? (

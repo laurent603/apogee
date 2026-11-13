@@ -23,6 +23,8 @@ export type Decorticage = {
   appelAction: string
   structure: { type: string; resume: string }[]
   transcription: { debut: number; source: 'voix' | 'ecran'; texte: string }[]
+  /** Transcription traduite en français, ligne à ligne (demandée depuis la fiche). */
+  traductionFr?: string[]
   modele: string
   date: string
 }
@@ -254,3 +256,16 @@ ${textes.map((t) => `- ${t.replace(/\s+/g, ' ').slice(0, 400)}`).join('\n')}`
   const { resultat } = await appeler([{ text: consigne }], schema)
   return (resultat.motsCles ?? []).filter((m: unknown): m is string => typeof m === 'string')
 }
+
+/** La transcription traduite en français, ligne pour ligne (une ligne déjà en français reste telle quelle). */
+export async function traduire(lignes: string[]): Promise<string[]> {
+  const schema = { type: 'OBJECT', properties: { traductions: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['traductions'] }
+  const consigne = `Traduis chaque ligne en français, dans le même ordre, une traduction par ligne : exactement ${lignes.length} traductions. Une ligne déjà en français est recopiée telle quelle. Garde le ton publicitaire, sans rien ajouter.
+
+${lignes.map((l, i) => `${i + 1}. ${l}`).join('\n')}`
+  const { resultat } = await appeler([{ text: consigne }], schema)
+  const traductions = (resultat.traductions ?? []).filter((t: unknown): t is string => typeof t === 'string')
+  if (traductions.length !== lignes.length) throw new Error('Traduction incomplète, réessayez')
+  return traductions
+}
+

@@ -274,7 +274,7 @@ function MesSauvegardes() {
       </div>
 
       {ouverte && (
-        <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} fermer={() => setOuverte(null)} {...voisines(visibles, ouverte, setOuverte)} apresMasquage={() => { chargerPubs(); chargerDossiers() }} actions={
+        <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} fermer={() => setOuverte(null)} {...voisines(visibles, ouverte, setOuverte)} ouvrir={setOuverte} apresMasquage={() => { chargerPubs(); chargerDossiers() }} actions={
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Classer dans un dossier</p>
             <div className="flex flex-wrap gap-1.5">

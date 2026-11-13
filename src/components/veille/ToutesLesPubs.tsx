@@ -166,7 +166,7 @@ export function ToutesLesPubs() {
       )}
       {ouverte && (
         <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />}
-          fermer={() => setOuverte(null)} {...voisines(pubs, ouverte, setOuverte)}
+          fermer={() => setOuverte(null)} {...voisines(pubs, ouverte, setOuverte)} ouvrir={setOuverte}
           apresMasquage={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== ouverte.id), total: d.total - 1 })} />
       )}
     </div>

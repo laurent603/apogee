@@ -38,7 +38,7 @@ export default function VeillePage() {
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
   const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
   const [marque, setMarque] = useState<string | null>(null)
-  const [ouverte, setOuverte] = useState<PubFil | null>(null)
+  const [ouverte, setOuverte] = useState<PubVeille | null>(null)
   const secteurClient = useSecteurClient()
   const [voirTout, setVoirTout] = useState(false)
   const pourClient = (m: { id: string; categorie?: string | null }) => visiblePourClient(secteurClient, voirTout, m)
@@ -237,7 +237,7 @@ export default function VeillePage() {
       )}
       {ouverte && (
         <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />}
-          fermer={() => setOuverte(null)} {...voisines(pubs, ouverte, setOuverte)}
+          fermer={() => setOuverte(null)} {...voisines<PubVeille>(pubs, ouverte, setOuverte)} ouvrir={setOuverte}
           apresMasquage={() => setDonnees((d) => d && { ...d, pubs: d.pubs.filter((x) => x.id !== ouverte.id) })} />
       )}
     </div>

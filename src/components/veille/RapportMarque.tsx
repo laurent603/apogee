@@ -550,7 +550,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
       {ouverte && (
         <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />} fermer={() => setOuverte(null)}
-          apresMasquage={() => setPubs((l) => l && l.filter((x) => x.id !== ouverte.id))} {...voisines(pubs ?? [], ouverte, setOuverte)} />
+          apresMasquage={() => setPubs((l) => l && l.filter((x) => x.id !== ouverte.id))} {...voisines(pubs ?? [], ouverte, setOuverte)} ouvrir={setOuverte} />
       )}
     </div>
   )
