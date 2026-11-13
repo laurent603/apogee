@@ -5,6 +5,8 @@
  * fait en un seul appel.
  */
 
+import type { Jointe, TexteImpose } from './recreer'
+
 // Mesuré le 13/11/2026 : 3.5-flash, 3.6-flash et 3.5-flash-lite répondent en
 // 1 à 3 s quand 3.7 et 3.8 sont saturés ; l'alias gemini-flash-latest ne
 // répondait pas en 40 s. gemini-2.5-flash n'est plus ouvert aux nouveaux comptes.
@@ -65,7 +67,7 @@ const CONSIGNE = `Tu es stratège créatif en publicité Meta à réponse direct
 const TYPES: Record<string, string> = { mp4: 'video/mp4', jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' }
 
 /** Un appel à Gemini en JSON contraint, avec repli sur le second modèle. */
-async function appeler(parts: unknown[], schema: object): Promise<{ resultat: any; modele: string }> {
+export async function appeler(parts: unknown[], schema: object): Promise<{ resultat: any; modele: string }> {
   const cle = process.env.GEMINI_API_KEY?.trim().replace(/^["']|["']$/g, '')
   if (!cle) throw new Error('GEMINI_API_KEY manquant')
   const corps = JSON.stringify({
@@ -269,3 +271,40 @@ ${lignes.map((l, i) => `${i + 1}. ${l}`).join('\n')}`
   return traductions
 }
 
+// ─── Recréer une pub pour un client ───────────────────────────────────────
+
+const SCHEMA_TEXTES = {
+  type: 'OBJECT',
+  properties: {
+    textes: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { role: { type: 'STRING' }, original: { type: 'STRING' }, remplacement: { type: 'STRING' } },
+        required: ['role', 'original', 'remplacement'],
+      },
+    },
+  },
+  required: ['textes'],
+}
+
+/**
+ * Les textes de la reproduction, écrits avant l'image : laissé libre, le
+ * modèle d'image inventait des avis clients et gardait les affirmations du
+ * concurrent, malgré la consigne. Il reçoit ces textes mot pour mot.
+ */
+export async function textesPour(reference: Jointe, nom: string, faits: string, precision?: string): Promise<TexteImpose[]> {
+  const texte = [
+    `Voici une publicité d'un concurrent. Relève chaque texte visible, dans l'ordre de lecture, avec son rôle (titre, sous-titre, encart, avis client, bouton, mention, autre ; ignore le logo). Pour chacun, écris le texte qui le remplacera dans une reproduction de cette publicité pour « ${nom} » (${faits}).`,
+    'Règles :',
+    '- même longueur, même ton, même ponctuation, en français et sans faute ;',
+    `- le nom du concurrent devient « ${nom} » ;`,
+    `- aucune affirmation propre au concurrent (ancienneté, partenariat, chiffre, label, prix, promotion, garantie, « zéro sous-traitance »…) : un fait de ${nom} donné ici, sinon un bénéfice général ; n'ajoute toi-même aucune promesse de ce genre ;`,
+    `- une phrase sur un partenariat, un rachat ou une fusion du concurrent devient une phrase sur ${nom} lui-même (ex. « Votre expert local en solaire, c'est ${nom}. ») ;`,
+    `- avis client : jamais de prénom, de note ni de citation du concurrent, jamais d'avis inventé ; reprends un avis donné dans la précision s'il y en a, sinon écris un bénéfice de ${nom}, sans guillemets.`,
+    precision?.trim() && `Précision : ${precision.trim()}`,
+    'Avant de répondre, relis chaque remplacement : il doit être vrai pour cette marque et avoir un sens tel quel.',
+  ].filter(Boolean).join('\n')
+  const { resultat } = await appeler([{ inlineData: reference }, { text: texte }], SCHEMA_TEXTES)
+  return (resultat.textes ?? []).filter((t: TexteImpose) => t.remplacement?.trim())
+}

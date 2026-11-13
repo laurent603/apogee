@@ -1,9 +1,10 @@
 import sharp from 'sharp'
 
 /**
- * « Recréer pour ce client » : une pub concurrente qui marche sert de modèle
- * à une image neuve, au logo, aux couleurs et à l'offre du client. On reprend
- * la mécanique (composition, hiérarchie, angle), jamais la marque du concurrent.
+ * « Recréer pour ce client » : la pub d'un concurrent est reproduite au plus
+ * près (mise en page, style, visuel, encarts), au logo, aux couleurs et à
+ * l'offre du client. Ce qui appartient au concurrent est remplacé : nom, logo,
+ * mascotte, et ses affirmations, qui seraient fausses pour le client.
  *
  * Le modèle rend un carré ; la Story en est tirée (versStory) : demandée en
  * 9:16, il posait logo et titres dans les 20 % du haut à chaque essai.
@@ -29,7 +30,9 @@ export type MarqueClient = {
   couleurs: string[]
 }
 
-type Jointe = { mimeType: string; data: string }
+export type Jointe = { mimeType: string; data: string }
+/** Un texte de la pub d'origine et celui qui le remplace (écrit par textesPour, dans gemini.ts). */
+export type TexteImpose = { role: string; original: string; remplacement: string }
 
 const TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
 
@@ -46,21 +49,31 @@ export async function jointe(url: string, max = Infinity): Promise<Jointe | null
 
 export const jointePhoto = (url: string) => jointe(url, TAILLE_PHOTO_MAX)
 
+/** Ce que fait la marque, en une phrase, pour les consignes. */
+export const faits = (m: MarqueClient) => [m.secteur, m.description, m.proposition].filter(Boolean).join('. ') || 'voir son site'
+
 /** La consigne, images numérotées dans l'ordre où elles sont jointes. */
-export function consigne(m: MarqueClient, avecLogo: boolean, nbPhotos: number, precision?: string) {
+export function consigne(m: MarqueClient, avecLogo: boolean, nbPhotos: number, precision?: string, textes: TexteImpose[] = []) {
   let n = 1
+  const photos = nbPhotos > 0 ? `les photos de ${m.nom} jointes` : 'une scène nouvelle du même genre, avec d’autres lieux et d’autres personnes'
   const lignes = [
     'Tu es directeur artistique en publicité Meta à réponse directe.',
-    `Image ${n++} : une publicité d'un concurrent, qui marche. Crée une NOUVELLE publicité pour « ${m.nom} » en reprenant ce qui la fait marcher : sa composition, sa hiérarchie visuelle, le type de visuel et l'angle du message.`,
-    'Interdit : le nom, le logo, les couleurs de marque, les personnes et les phrases du concurrent. Écris des textes neufs, en français, courts et sans faute d’orthographe.',
-    `Ce que fait ${m.nom} : ${[m.secteur, m.description, m.proposition].filter(Boolean).join('. ') || 'voir son site'}.${m.site ? ` Site : ${m.site}.` : ''}`,
+    `Image ${n++} : une publicité d'un concurrent. Reproduis-la pour « ${m.nom} » : même mise en page, même style graphique, même type de visuel, même nombre d'encarts aux mêmes places, même hiérarchie et même longueur de textes. Au premier coup d'œil, on doit reconnaître cette publicité.`,
+    'Remplace seulement ce qui appartient au concurrent :',
+    `- son nom et son logo, par ceux de ${m.nom} ;`,
+    `- ses couleurs de marque, par celles de ${m.nom} ; le reste du décor ne change pas ;`,
+    `- ses mascottes, personnages de marque et produits de marque, par un équivalent neutre ou par les photos de ${m.nom} ;`,
+    `- ses photos réelles (bâtiments, enseignes, véhicules, salariés, clients, chantiers), par ${photos} : rien de ces photos ne doit rester, pas même retouché ;`,
+    textes.length
+      ? `- ses textes, par ceux-ci, mot pour mot, chacun à la place de l'original ; n'ajoute aucun autre texte, et dans les encarts d'avis ni prénom ni étoiles :\n${textes.map((t) => `  · ${t.role} : « ${t.remplacement} » (au lieu de « ${t.original} »)`).join('\n')}`
+      : `- ses textes, par les mêmes phrases, de même longueur, adaptées à ${m.nom}, en français et sans faute d’orthographe ; aucune affirmation ni aucun avis du concurrent, aucun avis inventé.`,
+    `Ce que fait ${m.nom} : ${faits(m)}.${m.site ? ` Site : ${m.site}.` : ''}`,
     avecLogo
       ? `Image ${n++} : le logo de ${m.nom}. Pose-le tel quel, sans le redessiner ni changer ses couleurs.`
       : `Pas de logo fourni : écris « ${m.nom} » en texte sobre là où le concurrent met le sien.`,
     m.couleurs.length > 0 && `Couleurs de marque, la principale d'abord : ${m.couleurs.join(', ')}.`,
     nbPhotos > 0 &&
-      `${nbPhotos > 1 ? `Images ${n} à ${n + nbPhotos - 1}` : `Image ${n}`} : des photos réelles de ${m.nom}. Utilise-les comme visuel principal plutôt que d'en inventer un.`,
-    'N’invente ni prix, ni chiffre, ni promotion, ni label, ni avis que la marque n’a pas donnés.',
+      `${nbPhotos > 1 ? `Images ${n} à ${n + nbPhotos - 1}` : `Image ${n}`} : des photos réelles de ${m.nom}, à mettre à la place des photos du concurrent.`,
     precision?.trim() && `Précision : ${precision.trim()}`,
     'Format carré 1:1. Garde une petite marge entre les textes et les bords.',
   ]

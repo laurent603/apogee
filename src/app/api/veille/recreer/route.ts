@@ -4,7 +4,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { deposer, urlPublique } from '@/lib/veille/stockage'
-import { consigne, FORMATS_CREA, genererImage, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
+import { consigne, faits, FORMATS_CREA, genererImage, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
+import { textesPour } from '@/lib/veille/gemini'
 
 /**
  * « Recréer pour ce client » : génère, à partir d'une pub concurrente, des
@@ -64,13 +65,20 @@ export async function POST(req: NextRequest) {
   }
   const logo = reglages?.logoChemin ? await jointe(urlPublique(reglages.logoChemin)) : null
   const photos = (await Promise.all((reglages?.photos ?? []).map((c) => jointePhoto(urlPublique(c))))).filter((x) => x !== null)
+  // Les mêmes textes pour toutes les variantes : elles ne diffèrent que par l'image.
+  let textes
+  try {
+    textes = await textesPour(reference, marque.nom, `${faits(marque)}${marque.site ? `, ${marque.site}` : ''}`, precision)
+  } catch (e) {
+    return NextResponse.json({ erreur: (e as Error).message }, { status: 502 })
+  }
 
   // Une génération par variante : le carré, et la Story tirée du même carré (une pub Meta, deux placements).
   // Chaque variante prend d'autres photos du kit : les images ne se ressemblent pas toutes.
   const resultats = await Promise.allSettled(
     Array.from({ length: variantes }, async (_, i) => {
       const choisies = photos.length ? Array.from({ length: Math.min(PHOTOS_PAR_IMAGE, photos.length) }, (_, k) => photos[(i * PHOTOS_PAR_IMAGE + k) % photos.length]) : []
-      const image = await genererImage([reference, ...(logo ? [logo] : []), ...choisies], consigne(marque, !!logo, choisies.length, precision))
+      const image = await genererImage([reference, ...(logo ? [logo] : []), ...choisies], consigne(marque, !!logo, choisies.length, precision, textes))
       const fichiers: Record<FormatCrea, () => Promise<[string, Buffer]>> = {
         '1:1': async () => [image.mimeType, image.octets],
         '9:16': async () => ['image/jpeg', await versStory(image.octets)],
