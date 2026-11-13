@@ -54,6 +54,13 @@ export async function GET(req: NextRequest) {
   const liste = (cle: string) => p.get(cle)?.split(',').map((v) => v.trim()).filter(Boolean) ?? []
   const et: Prisma.VeillePubWhereInput[] = []
   const JOUR_MS = 86_400_000
+  /** « 7..30 », « 7.. », « ..30 » : bornes incluses, celle qui manque est sans limite. */
+  const plage = (cle: string): [number, number] | null => {
+    const v = p.get(cle)
+    if (!v?.includes('..')) return null
+    const [a, b] = v.split('..').map((x) => (x.trim() ? Number(x) : NaN))
+    return [Number.isFinite(a) ? a : 0, Number.isFinite(b) ? b : 1_000_000_000]
+  }
 
   const formats = liste('format')
   if (formats.length) {
@@ -65,10 +72,29 @@ export async function GET(req: NextRequest) {
   if (p.get('statut') === 'inactive') where.active = false
   if (p.get('marque')) where.marqueId = p.get('marque')!
   if (p.get('categorie')) where.marque = { ...marqueVisible, categorie: p.get('categorie')! }
-  const jours = Number(p.get('duree'))
-  const lancement = Number(p.get('lancement'))
-  if (jours > 0 || lancement > 0) {
-    where.debut = { ...(jours > 0 && { lte: new Date(Date.now() - jours * JOUR_MS) }), ...(lancement > 0 && { gte: new Date(Date.now() - lancement * JOUR_MS) }) }
+  // Lancement : les N derniers jours, ou entre deux dates (« 2026-10-01..2026-11-13 »).
+  const lancement = p.get('lancement') ?? ''
+  if (lancement.includes('..')) {
+    const [du, au] = lancement.split('..')
+    const debut = { ...(du && { gte: new Date(du) }), ...(au && { lte: new Date(`${au}T23:59:59Z`) }) }
+    if (Object.values(debut).every((d) => !Number.isNaN(d.getTime()))) where.debut = debut
+  } else if (Number(lancement) > 0) where.debut = { gte: new Date(Date.now() - Number(lancement) * JOUR_MS) }
+  const duree = plage('duree')
+  if (duree) {
+    // Comme la carte : jusqu'à aujourd'hui si la pub tourne encore, au moins 1 jour.
+    const lignes = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "VeillePub" WHERE debut IS NOT NULL
+        AND greatest(1, round(extract(epoch FROM (CASE WHEN active OR fin IS NULL THEN now() ELSE fin END) - debut) / 86400))
+          BETWEEN ${duree[0]} AND ${duree[1]}`
+    et.push({ id: { in: lignes.map((l) => l.id) } })
+  }
+  const age = plage('age')
+  if (age) {
+    // Le ciblage publié par Meta tient dans les bornes : « 35.. » = pubs qui ne visent que les 35 ans et plus.
+    const lignes = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "VeillePub"
+      WHERE (transparence->'ciblage'->>'ageMin')::int >= ${age[0]} AND (transparence->'ciblage'->>'ageMax')::int <= ${age[1]}`
+    et.push({ id: { in: lignes.map((l) => l.id) } })
   }
   const derniere = Number(p.get('derniere'))
   if (derniere > 0) et.push({ active: false, fin: { gte: new Date(Date.now() - derniere * JOUR_MS) } })
@@ -80,22 +106,20 @@ export async function GET(req: NextRequest) {
         SELECT 1 FROM jsonb_array_elements(coalesce(transparence->'repartition', '[]'::jsonb)) e WHERE e->>'pays' IN (${Prisma.join(liste('pays'))}))`
     et.push({ id: { in: lignes.map((l) => l.id) } })
   }
-  const longueur = p.get('longueur')
-  if (longueur === 'court' || longueur === 'moyen' || longueur === 'long') {
-    // 125 caractères : ce que le fil affiche avant « Voir plus ».
-    const [min, max] = longueur === 'court' ? [0, 124] : longueur === 'moyen' ? [125, 500] : [501, 1_000_000]
+  const longueur = plage('longueur')
+  if (longueur) {
     const lignes = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "VeillePub" WHERE length(coalesce(texte, '')) BETWEEN ${min} AND ${max}`
+      SELECT id FROM "VeillePub" WHERE length(coalesce(texte, '')) BETWEEN ${longueur[0]} AND ${longueur[1]}`
     et.push({ id: { in: lignes.map((l) => l.id) } })
   }
-  const copies = Number(p.get('copies'))
-  if (copies > 1) {
+  const copies = plage('copies')
+  if (copies) {
     // Créa réutilisée : pubs actives de la même marque avec le même texte.
     const lignes = await prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM (
         SELECT id, count(*) OVER (PARTITION BY "marqueId", coalesce(nullif(concat(titre, texte), ''), id)) AS n
         FROM "VeillePub" WHERE masquee = false AND active = true) t
-      WHERE n >= ${copies}`
+      WHERE n BETWEEN ${copies[0]} AND ${copies[1]}`
     et.push({ id: { in: lignes.map((l) => l.id) } })
   }
 
