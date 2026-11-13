@@ -5,7 +5,7 @@
  * fait en un seul appel.
  */
 
-import type { Concept, Jointe, TexteImpose } from './recreer'
+import type { Jointe, TexteImpose } from './recreer'
 
 // Mesuré le 13/11/2026 : 3.5-flash, 3.6-flash et 3.5-flash-lite répondent en
 // 1 à 3 s quand 3.7 et 3.8 sont saturés ; l'alias gemini-flash-latest ne
@@ -315,29 +315,45 @@ export async function textesPour(reference: Jointe, nom: string, faits: string, 
   return (resultat.textes ?? []).filter((t: TexteImpose) => t.remplacement?.trim())
 }
 
+/** Un concept hybride : l'angle, le visuel à poser (vraie photo, image IA sans texte, ou rien) et les textes par emplacement. */
+export type PlanConcept = {
+  angle: string
+  idee: string
+  visuel: { source: 'photo' | 'ia' | 'aucun'; photo: number; description: string }
+  textes: { surtitre: string; titre: string; accent: string; sousTitre: string; points: string[]; offre: string; bouton: string; mention: string; gauche: string; droite: string }
+}
+
 /**
- * Les nouveaux concepts (2 variantes et plus) : la pub du concurrent donne le
- * message ; chaque concept change d'angle visuel ET d'accroche, sinon Meta
- * (Andromeda) les range ensemble comme une seule pub. L'offre est commune.
+ * Les nouveaux concepts (2 variantes et plus), en rendu hybride : Gemini écrit
+ * les textes emplacement par emplacement et choisit le visuel ; Apogee les pose
+ * en HTML. La pub du concurrent donne le message ; chaque concept change
+ * d'angle ET d'accroche, sinon Meta (Andromeda) les range ensemble.
  */
-export async function conceptsPour(
-  reference: Jointe, nom: string, faits: string, n: number,
-  angles: { libelle: string; consigne: string }[], imposes: string[], offre?: string, guidelines: string[] = [],
-): Promise<Concept[]> {
+export async function planHybride(
+  reference: Jointe, photos: Jointe[], modeles: Jointe[], nom: string, faits: string, n: number,
+  angles: { libelle: string; consigne: string; gabarit: string }[], imposes: string[], offre?: string, guidelines: string[] = [],
+): Promise<PlanConcept[]> {
   const libelles = angles.map((a) => a.libelle)
   const texte = [
-    `Voici une publicité d'un concurrent, qui marche : elle donne le message et le produit. Imagine ${n} nouvelles publicités pour « ${nom} » (${faits}), chacune sur un concept vraiment différent : Meta range ensemble les publicités trop proches. Chaque concept change donc à la fois d'angle visuel et d'accroche (bénéfice, émotion ou personne visée différents). Ne recopie pas la mise en page du concurrent.`,
+    `Image 1 : une publicité d'un concurrent, qui marche : elle donne le message et le produit.${photos.length ? ` Images 2 à ${photos.length + 1} : les vraies photos de « ${nom} » (photo n° 0 = image 2, etc.).` : ''}${modeles.length ? ` Les ${modeles.length} dernières images : des publicités de « ${nom} » qui marchent ; inspire-toi de leur ton et de leurs accroches, sans les recopier.` : ''}`,
+    `Imagine ${n} nouvelles publicités pour « ${nom} » (${faits}), chacune sur un concept vraiment différent : Meta range ensemble les publicités trop proches. Chaque concept change donc à la fois d'angle et d'accroche (bénéfice, émotion ou personne visée différents). Ne recopie pas la mise en page du concurrent.`,
     imposes.length
       ? `Angles imposés, un par concept : ${imposes.join(', ')}.${imposes.length < n ? ' Choisis les autres dans la liste.' : ''}`
       : 'Choisis dans la liste les angles qui servent le mieux ce message, tous différents.',
     `Angles possibles :\n${angles.map((a) => `- ${a.libelle} : ${a.consigne}`).join('\n')}`,
-    `Pour chaque concept : l'angle (libellé exact de la liste), l'idée en une phrase (ce que l'on voit), et 2 à 4 textes courts (accroche, sous-titre ou points, mention ou bouton), en français et sans faute ; aucun texte ne reprend les mots d'un autre texte du même concept.`,
+    'Les textes sont posés par un graphiste dans une mise en page fixe : respecte les longueurs.',
+    '- surtitre : 2 à 4 mots en capitales d’usage (vide si inutile) ; titre : l’accroche, 60 caractères au plus ; accent : 1 ou 2 mots du titre, recopiés exactement, à mettre en couleur ;',
+    '- sousTitre : une phrase de 110 caractères au plus ; points : 3 ou 4 arguments de 40 caractères au plus (pour « Comparatif », chaque point s’écrit « notre avantage | la solution habituelle ») ;',
+    '- offre : 30 caractères au plus ; bouton : 22 caractères au plus, à l’impératif ; mention : courte ou vide ; gauche et droite : les légendes des deux moitiés (« Avant », « Après ») ou des deux colonnes d’un comparatif, vides sinon.',
+    `- visuel : source « photo » avec son numéro quand une vraie photo de ${nom} convient à l'angle (toujours préférable) ; sinon « ia » avec la description précise d'une photo réaliste SANS aucun texte (pour Avant / après ou Écran partagé : une seule image coupée en deux moitiés, décris la gauche puis la droite) ; « aucun » pour les angles typographiques.`,
     offre?.trim() && `Offre commune, présente dans chaque concept : ${offre.trim()}`,
     'Règles :',
     ...reglesVerite(nom),
+    '- aucun texte ne reprend les mots d’un autre texte du même concept ;',
     ...guidelines,
-    'Avant de répondre, relis chaque texte : il doit être vrai pour cette marque et avoir un sens tel quel.',
+    'Avant de répondre, relis chaque texte : il doit être vrai pour cette marque, avoir un sens tel quel et tenir dans sa longueur.',
   ].filter(Boolean).join('\n')
+  const chaine = { type: 'STRING' }
   const schema = {
     type: 'OBJECT',
     properties: {
@@ -347,19 +363,35 @@ export async function conceptsPour(
           type: 'OBJECT',
           properties: {
             angle: { type: 'STRING', enum: libelles },
-            idee: { type: 'STRING' },
-            textes: { type: 'ARRAY', items: { type: 'OBJECT', properties: { role: { type: 'STRING' }, texte: { type: 'STRING' } }, required: ['role', 'texte'] } },
+            idee: chaine,
+            visuel: {
+              type: 'OBJECT',
+              properties: { source: { type: 'STRING', enum: ['photo', 'ia', 'aucun'] }, photo: { type: 'INTEGER' }, description: chaine },
+              required: ['source', 'photo', 'description'],
+            },
+            textes: {
+              type: 'OBJECT',
+              properties: {
+                surtitre: chaine, titre: chaine, accent: chaine, sousTitre: chaine, points: { type: 'ARRAY', items: chaine },
+                offre: chaine, bouton: chaine, mention: chaine, gauche: chaine, droite: chaine,
+              },
+              required: ['surtitre', 'titre', 'accent', 'sousTitre', 'points', 'offre', 'bouton', 'mention', 'gauche', 'droite'],
+            },
           },
-          required: ['angle', 'idee', 'textes'],
+          required: ['angle', 'idee', 'visuel', 'textes'],
         },
       },
     },
     required: ['concepts'],
   }
-  const { resultat } = await appeler([{ inlineData: reference }, { text: texte }], schema)
+  const { resultat } = await appeler([{ inlineData: reference }, ...[...photos, ...modeles].map((inlineData) => ({ inlineData })), { text: texte }], schema)
   // Un angle par concept : un doublon serait la même pub pour Andromeda.
   const vus = new Set<string>()
   return (resultat.concepts ?? [])
-    .filter((c: Concept) => c.textes?.length && !vus.has(c.angle) && vus.add(c.angle))
+    .filter((c: PlanConcept) => c.textes?.titre && !vus.has(c.angle) && vus.add(c.angle))
+    .map((c: PlanConcept) => ({
+      ...c,
+      visuel: { ...c.visuel, photo: Number.isInteger(c.visuel.photo) && c.visuel.photo >= 0 && c.visuel.photo < photos.length ? c.visuel.photo : -1 },
+    }))
     .slice(0, n)
 }

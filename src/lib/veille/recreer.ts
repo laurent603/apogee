@@ -78,11 +78,8 @@ export const guidelines = (m: MarqueClient) =>
     m.motsAEviter && `Mots à ne jamais écrire : ${m.motsAEviter}.`,
   ].filter((l): l is string => !!l)
 
-/** Un concept planifié par conceptsPour (gemini.ts) : son angle (et ce qu'il montre, d'après angles.ts), son idée, ses textes. */
-export type Concept = { angle: string; detail?: string; idee: string; textes: { role: string; texte: string }[] }
-
-/** Ce qui est joint, dans cet ordre : logo, logo pour fonds sombres, photos, créas modèles (concepts seulement). */
-type Kit = { logo: boolean; logoClair: boolean; photos: number; modeles?: number }
+/** Ce qui est joint à une copie, dans cet ordre : la pub, le logo, le logo pour fonds sombres, les photos. */
+type Kit = { logo: boolean; logoClair: boolean; photos: number }
 
 /** Les lignes communes : la marque, ses logos, couleurs, photos et guidelines. Les images suivent la référence éventuelle. */
 function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolean) {
@@ -98,8 +95,6 @@ function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolea
       `Typographies de la marque : ${[m.typoTitre && `titres en ${m.typoTitre}`, m.typoTexte && `textes en ${m.typoTexte}`].filter(Boolean).join(', ')} (ou la police la plus proche).`,
     kit.photos > 0 &&
       `${plage(n, kit.photos)} : des photos réelles de ${m.nom}${m.produit ? `, dont ${m.produit.nom}` : ''}, ${copie ? 'à mettre à la place des photos du concurrent' : 'à utiliser comme visuel principal quand l’angle s’y prête'}.`,
-    !!kit.modeles &&
-      `${plage((n += kit.photos), kit.modeles)} : des publicités de ${m.nom} qui marchent. Reprends leur style graphique (typographie, couleurs, traitement des photos, mise en forme des textes), pas leurs textes ni leur mise en page exacte.`,
   ]
 }
 
@@ -131,21 +126,22 @@ export function consigne(m: MarqueClient, kit: Kit, precision?: string, textes: 
   return lignes.filter(Boolean).join('\n')
 }
 
-/** La consigne d'un nouveau concept : pas de pub de référence jointe, seulement son angle et ses textes. */
-export function consigneConcept(m: MarqueClient, kit: Kit, concept: Concept) {
-  const lignes = [
-    'Tu es directeur artistique en publicité Meta à réponse directe.',
-    `Crée une publicité pour « ${m.nom} ». Angle : ${concept.angle}${concept.detail ? ` (${concept.detail})` : ''}. Idée : ${concept.idee}.`,
-    `Textes à écrire, mot pour mot, et aucun autre ; dans un encart d'avis ni prénom ni étoiles :\n${concept.textes.map((t) => `  · ${t.role} : « ${t.texte} »`).join('\n')}`,
-    kit.photos > 0 ? null : 'Personnes et lieux : nouveaux, crédibles, sans marque visible autre que celle-ci.',
-    ...lignesMarque(m, kit, 1, false),
-    FIN,
-  ]
-  return lignes.filter(Boolean).join('\n')
+/**
+ * Le visuel d'un concept hybride : une photo réaliste, sans aucun texte, que
+ * les gabarits habillent. Les photos du kit jointes donnent le lieu et le matériel.
+ */
+export function consigneVisuel(m: MarqueClient, description: string, references: number) {
+  return [
+    `Photographie publicitaire réaliste pour « ${m.nom} »${m.secteur ? ` (${m.secteur})` : ''}. Scène : ${description}.`,
+    'Aucun texte, aucune lettre, aucun chiffre, aucun logo, aucune enseigne ni aucun panneau lisible dans l’image.',
+    'Lumière naturelle, rendu photo professionnel, couleurs franches ; garde une zone calme en bas de l’image pour y poser du texte.',
+    references > 0 && `${plage(1, references)} : de vraies photos de ${m.nom} : même type de lieux, de matériel et de région, sans les recopier.`,
+    m.couleurs.length > 0 && `Quelques touches de ${m.couleurs.slice(0, 2).join(' et ')} dans le décor, sans forcer.`,
+  ].filter(Boolean).join('\n')
 }
 
 /** Une image générée. Les erreurs sont formulées pour l'utilisateur. */
-export async function genererImage(images: Jointe[], texte: string, format: FormatCrea = '1:1', modeles = MODELES_IMAGE): Promise<{ octets: Buffer; mimeType: string; modele: string }> {
+export async function genererImage(images: Jointe[], texte: string, format: FormatCrea | '3:4' = '1:1', modeles = MODELES_IMAGE): Promise<{ octets: Buffer; mimeType: string; modele: string }> {
   const cle = process.env.GEMINI_API_KEY?.trim().replace(/^["']|["']$/g, '')
   if (!cle) throw new Error('GEMINI_API_KEY manquant')
   const corps = (modele: string) => JSON.stringify({
