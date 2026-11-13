@@ -316,3 +316,26 @@ export function courbesRelevees(mesures: { pubId: string; jour: string; reachUe:
     accelerent: accelerent.filter((a) => a.parJour > 0).sort((a, b) => b.parJour - a.parJour).slice(0, 6),
   }
 }
+
+/**
+ * Une ligne de la vue Marché d'Espion : ce qu'une marque a en rayon et son
+ * rythme. Dépense / jour = celle du dernier jour des courbes estimées ;
+ * nouvelles = pubs lancées sur les 30 derniers jours, comparées aux 30 d'avant.
+ */
+export function ligneMarche(
+  pubs: { debut: string | null; fin: string | null; active: boolean; reachUe: number | null }[],
+  eurosPourMille: number,
+  maintenant = Date.now(),
+) {
+  const serie = courbesEstimees(pubs, eurosPourMille, maintenant, 90)
+  const lancees = (de: number, a: number) =>
+    pubs.filter((p) => p.debut && Date.parse(p.debut) >= maintenant - de * JOUR && Date.parse(p.debut) < maintenant - a * JOUR).length
+  return {
+    actives: pubs.filter((p) => p.active).length,
+    total: pubs.length,
+    nouvelles30: lancees(30, 0),
+    nouvellesAvant: lancees(60, 30),
+    depenseJour: serie[serie.length - 1].depense,
+    courbe: serie.map((j) => j.actives),
+  }
+}

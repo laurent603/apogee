@@ -1,7 +1,7 @@
 // Vérifie les calculs du rapport Espion.
 // node scripts/veille-rapport.check.mjs
 import assert from 'node:assert/strict'
-import { budgetMensuel, courbesEstimees, courbesRelevees, rapportMarque } from '../src/lib/veille/rapport.ts'
+import { budgetMensuel, courbesEstimees, courbesRelevees, ligneMarche, rapportMarque } from '../src/lib/veille/rapport.ts'
 
 const MAINTENANT = Date.parse('2026-11-12T12:00:00Z')
 const jours = (n) => new Date(MAINTENANT - n * 86_400_000).toISOString()
@@ -80,3 +80,20 @@ assert.ok(Math.abs(cr.jours[2].depense - 4.55) < 1e-9)
 assert.deepEqual(cr.accelerent.map((a) => a.pubId), ['a']) // b n'a rien gagné
 console.log('courbes : ok')
 
+
+// Vue Marché : a lancée il y a 10 j (10 000 personnes sur 11 jours comptés), b, c et d dans les 30 j d'avant, c arrêtée.
+const lm = ligneMarche([
+  { debut: jours(10), fin: null, active: true, reachUe: 10_000 },
+  { debut: jours(40), fin: null, active: true, reachUe: null },
+  { debut: jours(50), fin: jours(45), active: false, reachUe: 5_000 },
+  { debut: jours(45), fin: null, active: true, reachUe: null },
+], 9.1, MAINTENANT)
+assert.equal(lm.actives, 3)
+assert.equal(lm.total, 4)
+assert.equal(lm.nouvelles30, 1)
+assert.equal(lm.nouvellesAvant, 3) // b, c et d
+assert.ok(Math.abs(lm.depenseJour - 91 / 11) < 1e-9, `dépense ${lm.depenseJour}`)
+assert.equal(lm.courbe.length, 90)
+assert.equal(lm.courbe[89], 3)
+assert.equal(lm.courbe[89 - 47], 1) // c seule (jours 50 à 45), d pas encore lancée
+console.log('marché : ok')

@@ -6,6 +6,7 @@ import { type Dossier, type PubVeille } from '@/components/veille/CartePub'
 import { RapportMarque } from '@/components/veille/RapportMarque'
 import { ChoixSecteur, useSecteurClient, visiblePourClient } from '@/components/veille/SecteurClient'
 import { ComparaisonMarques } from '@/components/veille/ComparaisonMarques'
+import { VueMarche } from '@/components/veille/VueMarche'
 
 /**
  * Espion : une marque, un produit ou un lien Ad Library, et ses pubs actives.
@@ -215,6 +216,14 @@ export default function EspionPage() {
             </div>
           )}
         </div>
+      )}
+
+      {!comparees && !choisie && !enCours && (
+        <VueMarche visible={(m) => visiblePourClient(secteurClient, voirTout, m)} ouvrir={(m) => setChoisie(m)} />
+      )}
+
+      {choisie && !comparees && (
+        <button type="button" onClick={() => setChoisie(null)} className="text-sm text-[#3434ef] hover:underline">← Vue Marché</button>
       )}
 
       {comparees ? (
