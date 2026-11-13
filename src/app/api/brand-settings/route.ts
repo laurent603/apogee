@@ -21,7 +21,10 @@ export async function PUT(req: NextRequest) {
 
   const body = await req.json()
   // Le kit visuel s'écrit par /api/brand-settings/kit : une page ouverte avant un dépôt de logo ne doit pas l'effacer.
-  const { dbAccountId, logoChemin: _l, couleurs: _c, photos: _p, ...data } = body
+  const {
+    dbAccountId, logoChemin: _l, logoClairChemin: _lc, couleurs: _c, photos: _p,
+    typoTitre: _tt, typoTexte: _tx, tonDeVoix: _tv, motsAEmployer: _me, motsAEviter: _mv, ...data
+  } = body
 
   if (!dbAccountId) return NextResponse.json({ error: 'Missing dbAccountId' }, { status: 400 })
 

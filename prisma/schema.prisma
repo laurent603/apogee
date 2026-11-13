@@ -270,6 +270,14 @@ model BrandSettings {
   couleurs           String[] @default([])
   /// Photos réelles (chantiers, produit, équipe), dans le stockage.
   photos             String[] @default([])
+  /// Le logo pour fonds sombres, quand le logo principal ne s'y lit pas.
+  logoClairChemin    String?
+  // Guidelines : ce que les nouveaux concepts respectent
+  typoTitre          String?
+  typoTexte          String?
+  tonDeVoix          String?
+  motsAEmployer      String?
+  motsAEviter        String?
   updatedAt          DateTime @updatedAt
 }
 
@@ -766,6 +774,8 @@ model CreaGeneree {
   modele      String
   /// La précision donnée avant de générer (offre, angle…).
   consigne    String?
+  /// L'angle du concept (« Avant / après »…) ; vide pour une copie de la pub.
+  concept     String?
   createdAt   DateTime  @default(now())
 
   @@index([adAccountId, createdAt])

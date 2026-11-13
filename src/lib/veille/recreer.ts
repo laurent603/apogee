@@ -33,6 +33,11 @@ export type MarqueClient = {
   description: string | null
   proposition: string | null
   couleurs: string[]
+  typoTitre?: string | null
+  typoTexte?: string | null
+  tonDeVoix?: string | null
+  motsAEmployer?: string | null
+  motsAEviter?: string | null
 }
 
 export type Jointe = { mimeType: string; data: string }
@@ -57,55 +62,71 @@ export const jointePhoto = (url: string) => jointe(url, TAILLE_PHOTO_MAX)
 /** Ce que fait la marque, en une phrase, pour les consignes. */
 export const faits = (m: MarqueClient) => [m.secteur, m.description, m.proposition].filter(Boolean).join('. ') || 'voir son site'
 
-/**
- * Les variantes 2 et suivantes : mêmes textes, même marque, autre concept.
- * La première reste la reproduction fidèle de la pub.
- */
-export const CONCEPTS_VARIANTES = [
-  'mise en situation : une scène de vie réelle (maison, toiture, chantier, famille), photo pleine image, textes posés dessus sur un bandeau lisible',
-  'points bénéfices : fond uni aux couleurs de la marque, grand titre, chaque argument sur sa ligne avec un picto, logo bien visible',
-  'format éditorial : comme un article de presse locale ou une publication de réseau social, titre accrocheur, photo, texte court',
-]
+/** Les guidelines de la marque, une ligne chacune, pour les consignes texte et image. */
+export const guidelines = (m: MarqueClient) =>
+  [
+    m.tonDeVoix && `Ton de voix : ${m.tonDeVoix}.`,
+    m.motsAEmployer && `Mots à employer quand ils vont : ${m.motsAEmployer}.`,
+    m.motsAEviter && `Mots à ne jamais écrire : ${m.motsAEviter}.`,
+  ].filter((l): l is string => !!l)
+
+/** Un concept planifié par conceptsPour (gemini.ts) : son angle (et ce qu'il montre, d'après angles.ts), son idée, ses textes. */
+export type Concept = { angle: string; detail?: string; idee: string; textes: { role: string; texte: string }[] }
+
+type Kit = { logo: boolean; logoClair: boolean; photos: number }
+
+/** Les lignes communes : la marque, ses logos, couleurs, photos et guidelines. Les images suivent la référence éventuelle. */
+function lignesMarque(m: MarqueClient, kit: Kit, premiere: number, copie: boolean) {
+  let n = premiere
+  return [
+    `Ce que fait ${m.nom} : ${faits(m)}.${m.site ? ` Site : ${m.site}.` : ''}`,
+    kit.logo
+      ? `Image ${n++} : le logo de ${m.nom}. Pose-le tel quel, sans le redessiner ni changer ses couleurs.`
+      : `Pas de logo fourni : écris « ${m.nom} » en texte sobre${copie ? ' là où le concurrent met le sien' : ', bien visible'}.`,
+    kit.logoClair && `Image ${n++} : le même logo pour fonds sombres. Sur un fond sombre, pose celui-ci à la place.`,
+    m.couleurs.length > 0 && `Couleurs de marque, la principale d'abord : ${m.couleurs.join(', ')}.`,
+    (m.typoTitre || m.typoTexte) &&
+      `Typographies de la marque : ${[m.typoTitre && `titres en ${m.typoTitre}`, m.typoTexte && `textes en ${m.typoTexte}`].filter(Boolean).join(', ')} (ou la police la plus proche).`,
+    kit.photos > 0 &&
+      `${kit.photos > 1 ? `Images ${n} à ${n + kit.photos - 1}` : `Image ${n}`} : des photos réelles de ${m.nom}, ${copie ? 'à mettre à la place des photos du concurrent' : 'à utiliser comme visuel principal quand l’angle s’y prête'}.`,
+  ]
+}
+
+const FIN = 'Format carré 1:1. Garde une petite marge entre les textes et les bords.'
 
 /**
- * La consigne, images numérotées dans l'ordre où elles sont jointes. Avec
- * `concept`, la pub du concurrent n'est pas jointe : seuls ses textes
- * (remplacés) restent, dans une mise en page neuve.
+ * La consigne d'une copie : la pub du concurrent (image 1) reproduite au plus
+ * près, ses textes remplacés mot pour mot par `textes`.
  */
-export function consigne(m: MarqueClient, avecLogo: boolean, nbPhotos: number, precision?: string, textes: TexteImpose[] = [], concept?: string) {
-  let n = 1
-  const photos = nbPhotos > 0 ? `les photos de ${m.nom} jointes` : 'une scène nouvelle du même genre, avec d’autres lieux et d’autres personnes'
-  const imposes = textes.map((t) => `  · ${t.role} : « ${t.remplacement} »${concept ? '' : ` (au lieu de « ${t.original} »)`}`).join('\n')
+export function consigne(m: MarqueClient, kit: Kit, precision?: string, textes: TexteImpose[] = []) {
+  const photos = kit.photos > 0 ? `les photos de ${m.nom} jointes` : 'une scène nouvelle du même genre, avec d’autres lieux et d’autres personnes'
   const lignes = [
     'Tu es directeur artistique en publicité Meta à réponse directe.',
-    ...(concept
-      ? [
-          `Crée une publicité pour « ${m.nom} » sur ce concept : ${concept}.`,
-          textes.length
-            ? `Textes à écrire, mot pour mot, et aucun autre ; dans les encarts d'avis ni prénom ni étoiles :\n${imposes}`
-            : `Textes courts en français, sans faute, sans chiffre, prix, label ni avis que la marque n'a pas donnés.`,
-          `Personnes et lieux : ${photos}.`,
-        ]
-      : [
-          `Image ${n++} : une publicité d'un concurrent. Reproduis-la pour « ${m.nom} » : même mise en page, même style graphique, même type de visuel, même nombre d'encarts aux mêmes places, même hiérarchie et même longueur de textes. Au premier coup d'œil, on doit reconnaître cette publicité.`,
-          'Remplace seulement ce qui appartient au concurrent :',
-          `- son nom et son logo, par ceux de ${m.nom} ;`,
-          `- ses couleurs de marque, par celles de ${m.nom} ; le reste du décor ne change pas ;`,
-          `- ses mascottes, personnages de marque et produits de marque, par un équivalent neutre ou par les photos de ${m.nom} ;`,
-          `- ses photos réelles (bâtiments, enseignes, véhicules, salariés, clients, chantiers), par ${photos} : rien de ces photos ne doit rester, pas même retouché ;`,
-          textes.length
-            ? `- ses textes, par ceux-ci, mot pour mot, chacun à la place de l'original ; n'ajoute aucun autre texte, et dans les encarts d'avis ni prénom ni étoiles :\n${imposes}`
-            : `- ses textes, par les mêmes phrases, de même longueur, adaptées à ${m.nom}, en français et sans faute d’orthographe ; aucune affirmation ni aucun avis du concurrent, aucun avis inventé.`,
-        ]),
-    `Ce que fait ${m.nom} : ${faits(m)}.${m.site ? ` Site : ${m.site}.` : ''}`,
-    avecLogo
-      ? `Image ${n++} : le logo de ${m.nom}. Pose-le tel quel, sans le redessiner ni changer ses couleurs.`
-      : `Pas de logo fourni : écris « ${m.nom} » en texte sobre${concept ? ', bien visible' : ' là où le concurrent met le sien'}.`,
-    m.couleurs.length > 0 && `Couleurs de marque, la principale d'abord : ${m.couleurs.join(', ')}.`,
-    nbPhotos > 0 &&
-      `${nbPhotos > 1 ? `Images ${n} à ${n + nbPhotos - 1}` : `Image ${n}`} : des photos réelles de ${m.nom}, ${concept ? 'à utiliser comme visuel principal' : 'à mettre à la place des photos du concurrent'}.`,
+    `Image 1 : une publicité d'un concurrent. Reproduis-la pour « ${m.nom} » : même mise en page, même style graphique, même type de visuel, même nombre d'encarts aux mêmes places, même hiérarchie et même longueur de textes. Au premier coup d'œil, on doit reconnaître cette publicité.`,
+    'Remplace seulement ce qui appartient au concurrent :',
+    `- son nom et son logo, par ceux de ${m.nom} ;`,
+    `- ses couleurs de marque, par celles de ${m.nom} ; le reste du décor ne change pas ;`,
+    `- ses mascottes, personnages de marque et produits de marque, par un équivalent neutre ou par les photos de ${m.nom} ;`,
+    `- ses photos réelles (bâtiments, enseignes, véhicules, salariés, clients, chantiers), par ${photos} : rien de ces photos ne doit rester, pas même retouché ;`,
+    textes.length
+      ? `- ses textes, par ceux-ci, mot pour mot, chacun à la place de l'original ; n'ajoute aucun autre texte, et dans les encarts d'avis ni prénom ni étoiles :\n${textes.map((t) => `  · ${t.role} : « ${t.remplacement} » (au lieu de « ${t.original} »)`).join('\n')}`
+      : `- ses textes, par les mêmes phrases, de même longueur, adaptées à ${m.nom}, en français et sans faute d’orthographe ; aucune affirmation ni aucun avis du concurrent, aucun avis inventé.`,
+    ...lignesMarque(m, kit, 2, true),
     precision?.trim() && `Précision : ${precision.trim()}`,
-    'Format carré 1:1. Garde une petite marge entre les textes et les bords.',
+    FIN,
+  ]
+  return lignes.filter(Boolean).join('\n')
+}
+
+/** La consigne d'un nouveau concept : pas de pub de référence jointe, seulement son angle et ses textes. */
+export function consigneConcept(m: MarqueClient, kit: Kit, concept: Concept) {
+  const lignes = [
+    'Tu es directeur artistique en publicité Meta à réponse directe.',
+    `Crée une publicité pour « ${m.nom} ». Angle : ${concept.angle}${concept.detail ? ` (${concept.detail})` : ''}. Idée : ${concept.idee}.`,
+    `Textes à écrire, mot pour mot, et aucun autre ; dans un encart d'avis ni prénom ni étoiles :\n${concept.textes.map((t) => `  · ${t.role} : « ${t.texte} »`).join('\n')}`,
+    kit.photos > 0 ? null : 'Personnes et lieux : nouveaux, crédibles, sans marque visible autre que celle-ci.',
+    ...lignesMarque(m, kit, 1, false),
+    FIN,
   ]
   return lignes.filter(Boolean).join('\n')
 }

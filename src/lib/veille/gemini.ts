@@ -5,7 +5,7 @@
  * fait en un seul appel.
  */
 
-import type { Jointe, TexteImpose } from './recreer'
+import type { Concept, Jointe, TexteImpose } from './recreer'
 
 // Mesuré le 13/11/2026 : 3.5-flash, 3.6-flash et 3.5-flash-lite répondent en
 // 1 à 3 s quand 3.7 et 3.8 sont saturés ; l'alias gemini-flash-latest ne
@@ -288,23 +288,78 @@ const SCHEMA_TEXTES = {
   required: ['textes'],
 }
 
+/** Ce qu'aucun texte écrit pour la marque ne doit faire : partagé par la copie et les concepts. */
+const reglesVerite = (nom: string) => [
+  `- aucune affirmation propre au concurrent (ancienneté, partenariat, chiffre, label, prix, promotion, garantie, « zéro sous-traitance »…) : un fait de ${nom} donné ici, sinon un bénéfice général ; n'ajoute toi-même aucune promesse de ce genre ;`,
+  `- avis client : jamais de prénom, de note ni de citation du concurrent, jamais d'avis inventé ; reprends un avis donné dans l'offre ou la précision s'il y en a, sinon écris un bénéfice de ${nom}, sans guillemets ;`,
+]
+
 /**
  * Les textes de la reproduction, écrits avant l'image : laissé libre, le
  * modèle d'image inventait des avis clients et gardait les affirmations du
  * concurrent, malgré la consigne. Il reçoit ces textes mot pour mot.
  */
-export async function textesPour(reference: Jointe, nom: string, faits: string, precision?: string): Promise<TexteImpose[]> {
+export async function textesPour(reference: Jointe, nom: string, faits: string, precision?: string, guidelines: string[] = []): Promise<TexteImpose[]> {
   const texte = [
     `Voici une publicité d'un concurrent. Relève chaque texte visible, dans l'ordre de lecture, avec son rôle (titre, sous-titre, encart, avis client, bouton, mention, autre ; ignore le logo). Pour chacun, écris le texte qui le remplacera dans une reproduction de cette publicité pour « ${nom} » (${faits}).`,
     'Règles :',
     '- même longueur, même ton, même ponctuation, en français et sans faute ;',
     `- le nom du concurrent devient « ${nom} » ;`,
-    `- aucune affirmation propre au concurrent (ancienneté, partenariat, chiffre, label, prix, promotion, garantie, « zéro sous-traitance »…) : un fait de ${nom} donné ici, sinon un bénéfice général ; n'ajoute toi-même aucune promesse de ce genre ;`,
+    ...reglesVerite(nom),
     `- une phrase sur un partenariat, un rachat ou une fusion du concurrent devient une phrase sur ${nom} lui-même (ex. « Votre expert local en solaire, c'est ${nom}. ») ;`,
-    `- avis client : jamais de prénom, de note ni de citation du concurrent, jamais d'avis inventé ; reprends un avis donné dans la précision s'il y en a, sinon écris un bénéfice de ${nom}, sans guillemets.`,
+    ...guidelines,
     precision?.trim() && `Précision : ${precision.trim()}`,
     'Avant de répondre, relis chaque remplacement : il doit être vrai pour cette marque et avoir un sens tel quel.',
   ].filter(Boolean).join('\n')
   const { resultat } = await appeler([{ inlineData: reference }, { text: texte }], SCHEMA_TEXTES)
   return (resultat.textes ?? []).filter((t: TexteImpose) => t.remplacement?.trim())
+}
+
+/**
+ * Les nouveaux concepts (2 variantes et plus) : la pub du concurrent donne le
+ * message ; chaque concept change d'angle visuel ET d'accroche, sinon Meta
+ * (Andromeda) les range ensemble comme une seule pub. L'offre est commune.
+ */
+export async function conceptsPour(
+  reference: Jointe, nom: string, faits: string, n: number,
+  angles: { libelle: string; consigne: string }[], imposes: string[], offre?: string, guidelines: string[] = [],
+): Promise<Concept[]> {
+  const libelles = angles.map((a) => a.libelle)
+  const texte = [
+    `Voici une publicité d'un concurrent, qui marche : elle donne le message et le produit. Imagine ${n} nouvelles publicités pour « ${nom} » (${faits}), chacune sur un concept vraiment différent : Meta range ensemble les publicités trop proches. Chaque concept change donc à la fois d'angle visuel et d'accroche (bénéfice, émotion ou personne visée différents). Ne recopie pas la mise en page du concurrent.`,
+    imposes.length
+      ? `Angles imposés, un par concept : ${imposes.join(', ')}.${imposes.length < n ? ' Choisis les autres dans la liste.' : ''}`
+      : 'Choisis dans la liste les angles qui servent le mieux ce message, tous différents.',
+    `Angles possibles :\n${angles.map((a) => `- ${a.libelle} : ${a.consigne}`).join('\n')}`,
+    `Pour chaque concept : l'angle (libellé exact de la liste), l'idée en une phrase (ce que l'on voit), et 2 à 4 textes courts (accroche, sous-titre ou points, mention ou bouton), en français et sans faute.`,
+    offre?.trim() && `Offre commune, présente dans chaque concept : ${offre.trim()}`,
+    'Règles :',
+    ...reglesVerite(nom),
+    ...guidelines,
+    'Avant de répondre, relis chaque texte : il doit être vrai pour cette marque et avoir un sens tel quel.',
+  ].filter(Boolean).join('\n')
+  const schema = {
+    type: 'OBJECT',
+    properties: {
+      concepts: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            angle: { type: 'STRING', enum: libelles },
+            idee: { type: 'STRING' },
+            textes: { type: 'ARRAY', items: { type: 'OBJECT', properties: { role: { type: 'STRING' }, texte: { type: 'STRING' } }, required: ['role', 'texte'] } },
+          },
+          required: ['angle', 'idee', 'textes'],
+        },
+      },
+    },
+    required: ['concepts'],
+  }
+  const { resultat } = await appeler([{ inlineData: reference }, { text: texte }], schema)
+  // Un angle par concept : un doublon serait la même pub pour Andromeda.
+  const vus = new Set<string>()
+  return (resultat.concepts ?? [])
+    .filter((c: Concept) => c.textes?.length && !vus.has(c.angle) && vus.add(c.angle))
+    .slice(0, n)
 }

@@ -2,7 +2,16 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 
-export type Kit = { logo: string | null; couleurs: string[]; photos: { chemin: string; url: string }[] }
+export type Guidelines = { typoTitre: string; typoTexte: string; tonDeVoix: string; motsAEmployer: string; motsAEviter: string }
+export type Kit = { logo: string | null; logoClair: string | null; couleurs: string[]; photos: { chemin: string; url: string }[]; guidelines: Guidelines }
+
+const CHAMPS_GUIDELINES: [keyof Guidelines, string, string][] = [
+  ['typoTitre', 'Typographie des titres', 'ex. Montserrat, grasse'],
+  ['typoTexte', 'Typographie des textes', 'ex. Open Sans'],
+  ['tonDeVoix', 'Ton de voix', 'ex. professionnel, rassurant, proche'],
+  ['motsAEmployer', 'Mots à employer', 'ex. autoconsommation, étude gratuite'],
+  ['motsAEviter', 'Mots à éviter', 'ex. gratuit, pas cher, arnaque'],
+]
 
 /** Le kit visuel d'un client : lu par Brand Settings et par « Recréer pour ce client ». */
 export function useKit(dbAccountId: string | undefined) {
@@ -15,10 +24,34 @@ export function useKit(dbAccountId: string | undefined) {
   return [kit, setKit] as const
 }
 
+/** Un logo du kit, sur damier clair (principal) ou sombre (pour fonds sombres). */
+function BlocLogo({ titre, url, sombre, envoi, deposer, retirer }: {
+  titre: string; url: string | null; sombre?: boolean; envoi: boolean; deposer: (f: FileList | null) => void; retirer: () => void
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500">{titre}</p>
+      <div className={`h-20 rounded-lg flex items-center justify-center overflow-hidden bg-[length:16px_16px] ${sombre
+        ? 'bg-[conic-gradient(#1f2937_25%,#374151_0_50%,#1f2937_0_75%,#374151_0)]'
+        : 'bg-[conic-gradient(#d1d5db_25%,#9ca3af_0_50%,#d1d5db_0_75%,#9ca3af_0)]'}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {url ? <img src={url} alt={titre} className="max-h-16 max-w-[80%] object-contain" /> : <span className="text-xs text-gray-400">Aucun</span>}
+      </div>
+      <div className="flex items-center gap-3 text-xs">
+        <label className="text-[#3434ef] hover:underline cursor-pointer">
+          {url ? 'Remplacer' : 'Déposer'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={envoi} onChange={(e) => { deposer(e.target.files); e.target.value = '' }} />
+        </label>
+        {url && <button type="button" onClick={retirer} className="text-gray-400 hover:text-red-600">Retirer</button>}
+      </div>
+    </div>
+  )
+}
+
 /**
- * Logo, couleurs et photos réelles du client : ce que la génération d'images
- * reprend pour que la créa soit à sa marque. Chaque changement s'enregistre
- * tout de suite, sans le bouton Sauvegarder de la page.
+ * Logos, couleurs, photos réelles et guidelines du client : ce que la
+ * génération d'images reprend pour que la créa soit à sa marque. Chaque
+ * changement s'enregistre tout de suite, sans le bouton Sauvegarder de la page.
  */
 export function KitVisuel({ dbAccountId }: { dbAccountId: string }) {
   const [kit, setKit] = useKit(dbAccountId)
@@ -47,7 +80,7 @@ export function KitVisuel({ dbAccountId }: { dbAccountId: string }) {
     setKit(await r.json())
   }
 
-  async function deposer(quoi: 'logo' | 'photo', fichiers: FileList | null) {
+  async function deposer(quoi: 'logo' | 'logoClair' | 'photo', fichiers: FileList | null) {
     if (!fichiers?.length) return
     setEnvoi(true)
     for (const fichier of Array.from(fichiers)) {
@@ -71,23 +104,16 @@ export function KitVisuel({ dbAccountId }: { dbAccountId: string }) {
         <p className="text-sm font-semibold text-[#0d0d12] mb-1">Kit visuel</p>
         <p className="text-xs text-gray-500 leading-relaxed">
           Repris quand une pub concurrente est recréée pour ce client (fiche d’une pub › Recréer) : le logo est posé tel quel,
-          les couleurs guident la mise en page, les photos réelles remplacent les visuels inventés.
+          les couleurs et les guidelines guident les nouveaux concepts, les photos réelles remplacent les visuels inventés.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="rounded-xl border border-[#E5E7EB] p-4 space-y-3">
-          <p className="label">Logo</p>
-          <div className="h-24 rounded-lg flex items-center justify-center overflow-hidden bg-[conic-gradient(#d1d5db_25%,#9ca3af_0_50%,#d1d5db_0_75%,#9ca3af_0)] bg-[length:16px_16px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {kit.logo ? <img src={kit.logo} alt="Logo du client" className="max-h-20 max-w-[80%] object-contain" /> : <span className="text-xs text-gray-400">Aucun logo</span>}
-          </div>
-          <div className="flex items-center gap-3 text-xs">
-            <label className="text-[#3434ef] hover:underline cursor-pointer">
-              {kit.logo ? 'Remplacer' : 'Déposer le logo'}
-              <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={envoi} onChange={(e) => { deposer('logo', e.target.files); e.target.value = '' }} />
-            </label>
-            {kit.logo && <button type="button" onClick={() => patcher({ retirerLogo: true })} className="text-gray-400 hover:text-red-600">Retirer</button>}
+          <p className="label">Logos</p>
+          <div className="grid grid-cols-2 gap-3">
+            <BlocLogo titre="Principal" url={kit.logo} envoi={envoi} deposer={(f) => deposer('logo', f)} retirer={() => patcher({ retirerLogo: true })} />
+            <BlocLogo titre="Pour fonds sombres" url={kit.logoClair} sombre envoi={envoi} deposer={(f) => deposer('logoClair', f)} retirer={() => patcher({ retirerLogoClair: true })} />
           </div>
           <p className="text-[11px] text-gray-400">PNG à fond transparent de préférence.</p>
         </div>
@@ -130,6 +156,21 @@ export function KitVisuel({ dbAccountId }: { dbAccountId: string }) {
           )}
           <p className="text-[11px] text-gray-400">Chantiers, produit, équipe : 8 au plus.</p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-[#E5E7EB] p-4 space-y-3">
+        <p className="label">Guidelines</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+          {CHAMPS_GUIDELINES.map(([cle, libelle, exemple]) => (
+            <label key={cle} className="space-y-1">
+              <span className="text-xs text-gray-500">{libelle}</span>
+              <input defaultValue={kit.guidelines[cle]} placeholder={exemple} maxLength={400}
+                onBlur={(e) => { if (e.target.value.trim() !== kit.guidelines[cle]) patcher({ [cle]: e.target.value }) }}
+                className="input text-sm" />
+            </label>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-400">Le modèle d’image imite le style de la police, sans pouvoir la charger : vérifiez le rendu.</p>
       </div>
     </div>
   )

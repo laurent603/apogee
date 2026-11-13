@@ -2,11 +2,11 @@
 // node scripts/veille-recreer.check.mjs
 import assert from 'node:assert/strict'
 import sharp from 'sharp'
-import { consigne, versStory } from '../src/lib/veille/recreer.ts'
+import { consigne, consigneConcept, guidelines, versStory } from '../src/lib/veille/recreer.ts'
 
 const m = { nom: 'MC Energy', site: null, secteur: 'Solaire', description: null, proposition: 'Sans apport', couleurs: ['#000f18'] }
 
-const complet = consigne(m, true, 2, 'Offre de rentrée')
+const complet = consigne(m, { logo: true, logoClair: false, photos: 2 }, 'Offre de rentrée')
 assert.match(complet, /Image 1 : une publicité d'un concurrent. Reproduis-la pour « MC Energy »/)
 assert.match(complet, /aucune affirmation ni aucun avis du concurrent, aucun avis inventé/)
 assert.match(complet, /photos réelles \(bâtiments.*\), par les photos de MC Energy jointes/)
@@ -15,10 +15,10 @@ assert.match(complet, /Images 3 à 4 : des photos réelles/)
 assert.match(complet, /Précision : Offre de rentrée/)
 assert.match(complet, /#000f18/)
 
-const nu = consigne({ ...m, couleurs: [] }, false, 1)
+const nu = consigne({ ...m, couleurs: [] }, { logo: false, logoClair: false, photos: 1 })
 assert.match(nu, /Pas de logo fourni : écris « MC Energy »/)
 assert.match(nu, /Image 2 : des photos réelles/)
-assert.match(consigne(m, false, 0), /par une scène nouvelle du même genre/)
+assert.match(consigne(m, { logo: false, logoClair: false, photos: 0 }), /par une scène nouvelle du même genre/)
 assert.doesNotMatch(nu, /Couleurs de marque|Précision/)
 assert.match(nu, /carré 1:1/)
 
@@ -35,14 +35,20 @@ assert.ok(px(540, 425)[0] > 240, 'haut du carré à 420 px')
 assert.ok(px(540, 200)[0] > 240 && px(540, 1800)[0] > 240, 'les bandes prolongent le bord du carré')
 
 // Textes imposés : chacun mot pour mot, à la place de l'original.
-const imposes = consigne(m, false, 0, '', [{ role: 'titre', original: 'Tout le monde parle de Placier', remplacement: 'Tout le monde parle de MC Energy' }])
+const imposes = consigne(m, { logo: false, logoClair: false, photos: 0 }, '', [{ role: 'titre', original: 'Tout le monde parle de Placier', remplacement: 'Tout le monde parle de MC Energy' }])
 assert.match(imposes, /mot pour mot/)
 assert.match(imposes, /titre : « Tout le monde parle de MC Energy » \(au lieu de « Tout le monde parle de Placier »\)/)
 
-// Variante à concept : la pub du concurrent n'est pas jointe, le logo devient l'image 1.
-const autre = consigne(m, true, 0, '', [{ role: 'titre', original: 'X', remplacement: 'Y' }], 'points bénéfices')
-assert.match(autre, /sur ce concept : points bénéfices/)
+// Concept : pas de pub du concurrent jointe ; logo (image 1), logo pour fonds sombres (image 2), guidelines.
+const g = { ...m, typoTitre: 'Montserrat', tonDeVoix: 'rassurant', motsAEviter: 'gratuit' }
+const autre = consigneConcept(g, { logo: true, logoClair: true, photos: 1 }, { angle: 'Avant / après', detail: 'deux moitiés, avant et après', idee: 'Une toiture avant et après', textes: [{ role: 'accroche', texte: 'Y' }] })
+assert.match(autre, /Angle : Avant \/ après \(deux moitiés/)
+assert.match(autre, /accroche : « Y »/)
 assert.match(autre, /Image 1 : le logo de MC Energy/)
+assert.match(autre, /Image 2 : le même logo pour fonds sombres/)
+assert.match(autre, /Image 3 : des photos réelles/)
+assert.match(autre, /titres en Montserrat/)
 assert.doesNotMatch(autre, /concurrent|au lieu de/)
+assert.deepEqual(guidelines(g), ['Ton de voix : rassurant.', 'Mots à ne jamais écrire : gratuit.'])
 
 console.log('veille-recreer : OK')

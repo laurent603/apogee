@@ -4,17 +4,19 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { deposer, urlPublique } from '@/lib/veille/stockage'
-import { CONCEPTS_VARIANTES, consigne, faits, FORMATS_CREA, genererImage, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
-import { textesPour } from '@/lib/veille/gemini'
+import { consigne, consigneConcept, faits, FORMATS_CREA, genererImage, guidelines, jointe, jointePhoto, versStory, type FormatCrea } from '@/lib/veille/recreer'
+import { ANGLES_VISUELS } from '@/lib/veille/angles'
+import { conceptsPour, textesPour } from '@/lib/veille/gemini'
 
 /**
- * « Recréer pour ce client » : génère, à partir d'une pub concurrente, des
- * images au kit visuel et à l'offre du client sélectionné. Chaque image est
- * gardée (CreaGeneree) pour ne pas la repayer.
+ * « Recréer pour ce client » : à partir d'une pub concurrente, des images au
+ * kit visuel et à l'offre du client sélectionné. 1 variante : la copie de la
+ * pub ; 2 et plus : autant de concepts nouveaux (angle et accroche différents).
+ * Chaque image est gardée (CreaGeneree) pour ne pas la repayer.
  */
 
 export const maxDuration = 120
-const VARIANTES_MAX = 4
+const VARIANTES_MAX = 6
 // Deux photos par image : assez pour un visuel réel, sans alourdir la requête.
 const PHOTOS_PAR_IMAGE = 2
 
@@ -24,8 +26,8 @@ async function compteDe(dbAccountId: unknown) {
   return prisma.adAccount.findFirst({ where: { id: dbAccountId, userId: session.user.id }, select: { id: true, name: true } })
 }
 
-const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; createdAt: Date }) => ({
-  id: c.id, format: c.format, url: urlPublique(c.chemin), consigne: c.consigne, createdAt: c.createdAt,
+const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; concept: string | null; createdAt: Date }) => ({
+  id: c.id, format: c.format, url: urlPublique(c.chemin), consigne: c.consigne, concept: c.concept, createdAt: c.createdAt,
 })
 
 /** Les images déjà générées pour cette pub et ce client. */
@@ -44,6 +46,10 @@ export async function POST(req: NextRequest) {
   const formats = (Array.isArray(corps.formats) ? corps.formats : []).filter((f: unknown): f is FormatCrea => FORMATS_CREA.includes(f as FormatCrea))
   const variantes = Math.min(Math.max(Math.round(Number(corps.variantes)) || 1, 1), VARIANTES_MAX)
   const precision = typeof corps.consigne === 'string' ? corps.consigne.slice(0, 600) : ''
+  const anglesImposes = (Array.isArray(corps.angles) ? corps.angles : [])
+    .map((cle: unknown) => ANGLES_VISUELS.find((a) => a.cle === cle)?.libelle)
+    .filter((l: string | undefined): l is string => !!l)
+    .slice(0, variantes)
   if (!formats.length) return NextResponse.json({ erreur: 'Choisissez au moins un format' }, { status: 400 })
 
   const pub = await prisma.veillePub.findFirst({ where: { id: String(corps.pubId), masquee: false }, select: { id: true, medias: true } })
@@ -62,28 +68,35 @@ export async function POST(req: NextRequest) {
     description: reglages?.productDescription ?? null,
     proposition: reglages?.uniqueValueProp ?? null,
     couleurs: reglages?.couleurs ?? [],
+    typoTitre: reglages?.typoTitre, typoTexte: reglages?.typoTexte, tonDeVoix: reglages?.tonDeVoix,
+    motsAEmployer: reglages?.motsAEmployer, motsAEviter: reglages?.motsAEviter,
   }
-  const logo = reglages?.logoChemin ? await jointe(urlPublique(reglages.logoChemin)) : null
+  const [logo, logoClair] = await Promise.all([reglages?.logoChemin, reglages?.logoClairChemin].map((c) => (c ? jointe(urlPublique(c)) : null)))
   const photos = (await Promise.all((reglages?.photos ?? []).map((c) => jointePhoto(urlPublique(c))))).filter((x) => x !== null)
-  // Les mêmes textes pour toutes les variantes : elles ne diffèrent que par l'image.
-  let textes
+  const lesFaits = `${faits(marque)}${marque.site ? `, ${marque.site}` : ''}`
+
+  // Les textes avant les images : ceux de la copie (mot pour mot), ou le plan des concepts.
+  let textes: Awaited<ReturnType<typeof textesPour>> = []
+  let concepts: Awaited<ReturnType<typeof conceptsPour>> = []
   try {
-    textes = await textesPour(reference, marque.nom, `${faits(marque)}${marque.site ? `, ${marque.site}` : ''}`, precision)
+    if (variantes === 1) textes = await textesPour(reference, marque.nom, lesFaits, precision, guidelines(marque))
+    else concepts = await conceptsPour(reference, marque.nom, lesFaits, variantes, [...ANGLES_VISUELS], anglesImposes, precision, guidelines(marque))
   } catch (e) {
     return NextResponse.json({ erreur: (e as Error).message }, { status: 502 })
   }
+  if (variantes > 1 && !concepts.length) return NextResponse.json({ erreur: 'Gemini n’a proposé aucun concept : réessayez.' }, { status: 502 })
 
-  // Une génération par variante : le carré, et la Story tirée du même carré (une pub Meta, deux placements).
-  // La première reproduit la pub ; les suivantes gardent ses textes dans un autre concept, sans la voir.
-  // Chaque variante prend d'autres photos du kit : les images ne se ressemblent pas toutes.
+  // Une génération par créa : le carré, et la Story tirée du même carré (une pub Meta, deux placements).
+  // Chaque créa prend d'autres photos du kit : les images ne se ressemblent pas toutes.
   const resultats = await Promise.allSettled(
-    Array.from({ length: variantes }, async (_, i) => {
+    Array.from({ length: variantes === 1 ? 1 : concepts.length }, async (_, i) => {
       const choisies = photos.length ? Array.from({ length: Math.min(PHOTOS_PAR_IMAGE, photos.length) }, (_, k) => photos[(i * PHOTOS_PAR_IMAGE + k) % photos.length]) : []
-      const concept = i ? CONCEPTS_VARIANTES[(i - 1) % CONCEPTS_VARIANTES.length] : undefined
-      const image = await genererImage(
-        [...(concept ? [] : [reference]), ...(logo ? [logo] : []), ...choisies],
-        consigne(marque, !!logo, choisies.length, precision, textes, concept),
-      )
+      const kit = { logo: !!logo, logoClair: !!logoClair, photos: choisies.length }
+      const logos = [logo, logoClair].filter((x) => x !== null)
+      const concept = variantes === 1 ? null : { ...concepts[i], detail: ANGLES_VISUELS.find((a) => a.libelle === concepts[i].angle)?.consigne }
+      const image = concept
+        ? await genererImage([...logos, ...choisies], consigneConcept(marque, kit, concept))
+        : await genererImage([reference, ...logos, ...choisies], consigne(marque, kit, precision, textes))
       const fichiers: Record<FormatCrea, () => Promise<[string, Buffer]>> = {
         '1:1': async () => [image.mimeType, image.octets],
         '9:16': async () => ['image/jpeg', await versStory(image.octets)],
@@ -91,7 +104,9 @@ export async function POST(req: NextRequest) {
       return Promise.all(formats.map(async (format: FormatCrea) => {
         const [type, octets] = await fichiers[format]()
         const chemin = await deposer(`creas/${compte.id}/${randomUUID()}`, type, octets)
-        return prisma.creaGeneree.create({ data: { adAccountId: compte.id, pubId: pub.id, format, chemin, modele: image.modele, consigne: precision || null } })
+        return prisma.creaGeneree.create({
+          data: { adAccountId: compte.id, pubId: pub.id, format, chemin, modele: image.modele, consigne: precision || null, concept: concept?.angle ?? null },
+        })
       }))
     }),
   )
