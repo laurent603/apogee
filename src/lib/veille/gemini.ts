@@ -224,3 +224,25 @@ export async function classerMarques(marques: { nom: string; textes: string[] }[
   const parNumero = new Map<number, string>((resultat.marques ?? []).map((m: { numero: number; categorie: string }) => [m.numero, m.categorie]))
   return marques.map((_, i) => parNumero.get(i + 1) ?? 'Autre')
 }
+
+/**
+ * Des expressions de recherche qui ramèneraient, dans la Ad Library, les
+ * concurrents de cette marque : ce qu'elle vend, avec les mots du marché.
+ */
+export async function proposerMotsCles(nom: string, textes: string[], existants: string[]): Promise<string[]> {
+  const schema = {
+    type: 'OBJECT',
+    properties: { motsCles: { type: 'ARRAY', items: { type: 'STRING' }, maxItems: 5 } },
+    required: ['motsCles'],
+  }
+  const consigne = `Une agence surveille dans la Meta Ad Library les pubs des concurrents de ses clients (artisans, installateurs, services aux particuliers). Voici des pubs de l'annonceur « ${nom} ».
+
+Propose 3 à 5 expressions de recherche, en français, de 2 à 4 mots, que d'autres annonceurs du même marché écriraient mot pour mot dans leurs pubs : le produit ou le service précis (par exemple « pompe à chaleur air-eau », « batterie solaire », « isolation des combles »). Jamais le nom d'une marque, jamais un mot générique seul (« offre », « devis gratuit », « maison »).
+
+Déjà surveillées, à ne pas reproposer : ${existants.length ? existants.join(', ') : 'aucune'}.
+
+Pubs :
+${textes.map((t) => `- ${t.replace(/\s+/g, ' ').slice(0, 400)}`).join('\n')}`
+  const { resultat } = await appeler([{ text: consigne }], schema)
+  return (resultat.motsCles ?? []).filter((m: unknown): m is string => typeof m === 'string')
+}

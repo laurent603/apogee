@@ -684,6 +684,11 @@ model VeilleMotCle {
   derniereCollecte DateTime?
   /// « 50 lues, 12 nouvelles » : le résultat de la dernière collecte.
   dernierBilan     String?
+  /// actif = collecté chaque matin ; suggere = proposé par l'IA, à valider ;
+  /// refuse = écarté, gardé pour ne pas être reproposé.
+  statut           String    @default("actif")
+  /// La marque d'après laquelle l'IA l'a proposé.
+  origine          String?
   createdAt        DateTime  @default(now())
 }
 

@@ -11,7 +11,7 @@ const refus = () => NextResponse.json({ erreur: 'Clé de l’extension refusée'
 export async function GET(req: NextRequest) {
   if (!cleExtensionValide(req)) return refus()
   const [motsCles, pubs] = await Promise.all([
-    prisma.veilleMotCle.findMany({ select: { id: true, motCle: true, pays: true }, orderBy: { createdAt: 'asc' } }),
+    prisma.veilleMotCle.findMany({ where: { statut: 'actif' }, select: { id: true, motCle: true, pays: true }, orderBy: { createdAt: 'asc' } }),
     // ponytail: toute la base en une liste ; à paginer si elle dépasse quelques dizaines de milliers de pubs.
     prisma.veillePub.findMany({ select: { adArchiveId: true } }),
   ])

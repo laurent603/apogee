@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { budgetEstime, type Transparence } from '@/lib/veille/adLibrary'
 import type { Decorticage } from '@/lib/veille/gemini'
 import { compact, FichePub, masquerPub } from './FichePub'
+import { suggererSimilaires } from './MotsClesCollecte'
 
 /** Une pub de la veille, telle que /api/veille/pubs la renvoie. */
 export type PubVeille = {
@@ -152,6 +153,7 @@ export function ChoixSauvegarde({ pub, dossiers }: { pub: PubVeille; dossiers: D
     if (!r.ok) return void toast.error(j.erreur || 'Sauvegarde impossible')
     toast.success(j.deja ? 'Déjà dans ce dossier' : 'Ajoutée à la bibliothèque')
     setDedans(true)
+    suggererSimilaires(pub.marque)
   }
 
   return (

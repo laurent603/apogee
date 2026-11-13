@@ -4,6 +4,7 @@ import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import type { AnalyseMarque } from '@/lib/veille/gemini'
 import { CATEGORIES } from '@/lib/veille/categories'
+import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
 import { rapportMarque } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
@@ -156,6 +157,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
     if (!r.ok) return void toast.error('Changement impossible')
     setSuivie(!suivie)
     toast.success(suivie ? 'Marque retirée de la veille' : 'Marque sous veille : vérifiée chaque jour')
+    if (!suivie) suggererSimilaires(marque)
   }
 
   useEffect(() => {
