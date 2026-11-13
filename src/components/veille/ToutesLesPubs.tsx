@@ -6,6 +6,7 @@ import { CartePub, ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeil
 import { FichePub, voisines } from '@/components/veille/FichePub'
 import { ChoixSecteur, useSecteurClient } from '@/components/veille/SecteurClient'
 import { MotsClesCollecte } from '@/components/veille/MotsClesCollecte'
+import { FiltrePastille } from '@/components/veille/FiltrePastille'
 
 /**
  * Toutes les pubs concurrentes collectées : celles sauvegardées avec
@@ -14,18 +15,30 @@ import { MotsClesCollecte } from '@/components/veille/MotsClesCollecte'
 
 const PAR_PAGE = 60
 
-const FILTRES = {
-  format: [['', 'Tous formats'], ['IMAGE', 'Image'], ['VIDEO', 'Vidéo'], ['CAROUSEL', 'Carrousel'], ['DCO', 'Dynamique']],
-  plateforme: [['', 'Toutes plateformes'], ['facebook', 'Facebook'], ['instagram', 'Instagram'], ['messenger', 'Messenger'], ['audience_network', 'Audience Network'], ['threads', 'Threads']],
-  statut: [['', 'Actives et inactives'], ['active', 'Actives'], ['inactive', 'Inactives']],
-  duree: [['', 'Toute durée'], ['7', 'Diffusée +1 semaine'], ['30', 'Diffusée +1 mois'], ['90', 'Diffusée +3 mois'], ['180', 'Diffusée +6 mois']],
-  tri: [['', 'Plus récentes'], ['couverture', 'Plus de personnes touchées (UE)'], ['duree', 'Diffusées le plus longtemps']],
-} as const
+type Option = [valeur: string, libelle: string]
 
-const LIBELLES: Record<keyof typeof FILTRES, string> = { format: 'Format', plateforme: 'Plateforme', statut: 'Statut', duree: 'Durée de diffusion', tri: 'Tri' }
+/** Les filtres à choix fixes ; `multiple` : plusieurs choix à la fois. */
+const FILTRES: Record<string, { libelle: string; multiple?: boolean; options: Option[] }> = {
+  format: { libelle: 'Type de média', multiple: true, options: [['IMAGE', 'Image'], ['VIDEO', 'Vidéo'], ['CAROUSEL', 'Carrousel'], ['DCO', 'Multi-version'], ['DPA', 'Catalogue'], ['AUTRE', 'Autre']] },
+  statut: { libelle: 'Statut', options: [['active', 'Active'], ['inactive', 'Inactive']] },
+  rang: { libelle: 'Rang', options: [['1', 'N°1 de sa marque'], ['3', 'Top 3 de sa marque'], ['10', 'Top 10 de sa marque']] },
+  duree: { libelle: 'Durée de diffusion', options: [['7', 'Plus d’une semaine'], ['30', 'Plus d’un mois'], ['90', 'Plus de 3 mois'], ['180', 'Plus de 6 mois']] },
+  lancement: { libelle: 'Date de lancement', options: [['7', '7 derniers jours'], ['30', '30 derniers jours'], ['90', '90 derniers jours']] },
+  plateforme: { libelle: 'Plateformes', multiple: true, options: [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['messenger', 'Messenger'], ['audience_network', 'Audience Network'], ['threads', 'Threads']] },
+  derniere: { libelle: 'Dernière diffusion', options: [['7', 'Arrêtée depuis moins de 7 j'], ['30', 'Arrêtée depuis moins de 30 j'], ['90', 'Arrêtée depuis moins de 90 j']] },
+  longueur: { libelle: 'Longueur du texte', options: [['court', 'Court (moins de 125 caractères)'], ['moyen', 'Moyen (125 à 500)'], ['long', 'Long (plus de 500)']] },
+  copies: { libelle: 'Copies de la créa', options: [['2', '2 copies et plus'], ['5', '5 copies et plus']] },
+}
+const PRINCIPAUX = ['marque', 'format', 'statut', 'rang', 'duree', 'lancement']
+const SECONDAIRES = ['plateforme', 'page', 'pays', 'cta', 'derniere', 'longueur', 'copies']
+const TRIS: Option[] = [
+  ['', 'Plus récentes'], ['depenseJour', 'Plus forte dépense / jour'], ['couverture', 'Plus forte dépense totale (couverture)'],
+  ['rang', 'Meilleur rang dans sa marque'], ['duree', 'Diffusées le plus longtemps'],
+]
 
-type Filtres = Record<keyof typeof FILTRES | 'marque' | 'categorie', string>
-const AUCUN: Filtres = { format: '', plateforme: '', statut: '', duree: '', tri: '', marque: '', categorie: '' }
+type Filtres = Record<string, string>
+const AUCUN: Filtres = Object.fromEntries([...PRINCIPAUX, ...SECONDAIRES, 'tri', 'categorie'].map((c) => [c, '']))
+type OptionsDonnees = { ctas: { valeur: string; n: number }[]; pages: { valeur: string; n: number }[]; pays: { valeur: string; n: number }[] }
 
 /** L'onglet « Toutes les pubs » de la Bibliothèque : tout ce que les scans, la veille et la collecte ont ramené. */
 export function ToutesLesPubs() {
@@ -35,6 +48,7 @@ export function ToutesLesPubs() {
   const [n, setN] = useState(PAR_PAGE)
   const [donnees, setDonnees] = useState<{
     pubs: PubVeille[]; total: number; marques: { id: string; nom: string; categorie: string | null }[]; categories: { libelle: string; n: number }[]
+    options: OptionsDonnees
   } | null>(null)
   const [rafraichir, setRafraichir] = useState(0)
   const [dossiers, setDossiers] = useState<Dossier[]>([])
@@ -76,12 +90,29 @@ export function ToutesLesPubs() {
       .then((d) => d?.classees && setRafraichir((x) => x + 1))
   }, [])
 
-  function filtrer(cle: keyof Filtres, valeur: string) {
+  const [plus, setPlus] = useState(false)
+
+  function filtrer(cle: string, valeur: string) {
     setFiltres((f) => ({ ...f, [cle]: valeur }))
     setN(PAR_PAGE)
   }
 
   const actifs = Object.values(filtres).some(Boolean) || !!recherche
+  const secondairesActifs = SECONDAIRES.filter((c) => filtres[c]).length
+  const avecN = (l?: { valeur: string; n: number }[]) => (l ?? []).map((o) => ({ valeur: o.valeur, libelle: o.valeur, n: o.n }))
+  const dynamiques: Record<string, { libelle: string; multiple?: boolean; options: { valeur: string; libelle: string; n?: number }[] }> = {
+    marque: {
+      libelle: 'Marque',
+      options: (donnees?.marques ?? []).filter((m) => !filtres.categorie || m.categorie === filtres.categorie).map((m) => ({ valeur: m.id, libelle: m.nom })),
+    },
+    page: { libelle: 'Landing pages', multiple: true, options: avecN(donnees?.options.pages) },
+    pays: { libelle: 'Pays', multiple: true, options: avecN(donnees?.options.pays) },
+    cta: { libelle: 'Bouton (CTA)', multiple: true, options: avecN(donnees?.options.ctas) },
+  }
+  const pastille = (cle: string) => {
+    const def = dynamiques[cle] ?? { ...FILTRES[cle], options: FILTRES[cle].options.map(([valeur, libelle]) => ({ valeur, libelle })) }
+    return <FiltrePastille key={cle} libelle={def.libelle} multiple={def.multiple} options={def.options} valeur={filtres[cle] ?? ''} onChange={(v) => filtrer(cle, v)} />
+  }
   const pubs = donnees?.pubs ?? []
 
   return (
@@ -115,21 +146,26 @@ export function ToutesLesPubs() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select aria-label="Marque" value={filtres.marque} onChange={(e) => filtrer('marque', e.target.value)} className="select select-chevron w-auto">
-          <option value="">Toutes les marques</option>
-          {donnees?.marques.filter((m) => !filtres.categorie || m.categorie === filtres.categorie).map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
-        </select>
-        {(Object.keys(FILTRES) as (keyof typeof FILTRES)[]).map((cle) => (
-          <select key={cle} aria-label={LIBELLES[cle]} value={filtres[cle]} onChange={(e) => filtrer(cle, e.target.value)} className="select select-chevron w-auto">
-            {FILTRES[cle].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        ))}
-        {actifs && (
-          <button type="button" onClick={() => { setFiltres(AUCUN); setQ('') }} className="text-xs text-[#3434ef] hover:underline">
-            Effacer les filtres
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {PRINCIPAUX.map(pastille)}
+          <button type="button" onClick={() => setPlus(!plus)} aria-expanded={plus}
+            className="rounded-full border border-dashed border-[#E5E7EB] px-3.5 py-1.5 text-sm text-gray-500 hover:text-[#0d0d12]">
+            {plus ? 'Moins de filtres' : `Plus de filtres${secondairesActifs ? ` (${secondairesActifs})` : ''}`}
           </button>
-        )}
+          <div className="ml-auto flex items-center gap-2">
+            {actifs && (
+              <button type="button" onClick={() => { setFiltres(AUCUN); setQ('') }} className="text-xs text-[#3434ef] hover:underline">
+                Effacer les filtres
+              </button>
+            )}
+            <label className="text-xs text-gray-500" htmlFor="tri-pubs">Trier par</label>
+            <select id="tri-pubs" aria-label="Tri" value={filtres.tri} onChange={(e) => filtrer('tri', e.target.value)} className="select select-chevron w-auto">
+              {TRIS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+        {plus && <div className="flex flex-wrap items-center gap-2">{SECONDAIRES.map(pastille)}</div>}
       </div>
 
       {chargement && !donnees && <div className="card text-center py-20 text-gray-400 text-sm">Chargement…</div>}

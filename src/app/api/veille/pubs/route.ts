@@ -19,6 +19,9 @@ const MAX = 600
 const AVEC_ACCENTS = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ'
 const SANS_ACCENTS = 'aaaaaaceeeeiiiinooooouuuuyy'
 
+// Les formats de la Ad Library que Discovery nomme ; le reste est « Autre ».
+const FORMATS_CONNUS = ['IMAGE', 'VIDEO', 'CAROUSEL', 'DCO', 'DPA']
+
 const sansAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 /** Recherche sans accents ni casse dans le texte, le titre, la description et la marque. */
@@ -47,37 +50,115 @@ export async function GET(req: NextRequest) {
 
   const q = p.get('q')?.trim()
   if (q) where.id = { in: await idsCorrespondant(q) }
-  if (p.get('format')) where.format = p.get('format')!
-  if (p.get('plateforme')) where.plateformes = { has: p.get('plateforme')! }
+  // Les filtres à plusieurs choix arrivent séparés par des virgules.
+  const liste = (cle: string) => p.get(cle)?.split(',').map((v) => v.trim()).filter(Boolean) ?? []
+  const et: Prisma.VeillePubWhereInput[] = []
+  const JOUR_MS = 86_400_000
+
+  const formats = liste('format')
+  if (formats.length) {
+    const connus = formats.filter((f) => f !== 'AUTRE')
+    et.push({ OR: [...(connus.length ? [{ format: { in: connus } }] : []), ...(formats.includes('AUTRE') ? [{ format: { notIn: FORMATS_CONNUS } }] : [])] })
+  }
+  if (liste('plateforme').length) where.plateformes = { hasSome: liste('plateforme') }
   if (p.get('statut') === 'active') where.active = true
   if (p.get('statut') === 'inactive') where.active = false
   if (p.get('marque')) where.marqueId = p.get('marque')!
   if (p.get('categorie')) where.marque = { ...marqueVisible, categorie: p.get('categorie')! }
   const jours = Number(p.get('duree'))
-  if (jours > 0) where.debut = { lte: new Date(Date.now() - jours * 86_400_000) }
+  const lancement = Number(p.get('lancement'))
+  if (jours > 0 || lancement > 0) {
+    where.debut = { ...(jours > 0 && { lte: new Date(Date.now() - jours * JOUR_MS) }), ...(lancement > 0 && { gte: new Date(Date.now() - lancement * JOUR_MS) }) }
+  }
+  const derniere = Number(p.get('derniere'))
+  if (derniere > 0) et.push({ active: false, fin: { gte: new Date(Date.now() - derniere * JOUR_MS) } })
+  if (liste('cta').length) et.push({ cta: { in: liste('cta') } })
+  if (liste('page').length) et.push({ OR: liste('page').map((d) => ({ lienUrl: { contains: d, mode: 'insensitive' as const } })) })
+  if (liste('pays').length) {
+    const lignes = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "VeillePub" WHERE EXISTS (
+        SELECT 1 FROM jsonb_array_elements(coalesce(transparence->'repartition', '[]'::jsonb)) e WHERE e->>'pays' IN (${Prisma.join(liste('pays'))}))`
+    et.push({ id: { in: lignes.map((l) => l.id) } })
+  }
+  const longueur = p.get('longueur')
+  if (longueur === 'court' || longueur === 'moyen' || longueur === 'long') {
+    // 125 caractères : ce que le fil affiche avant « Voir plus ».
+    const [min, max] = longueur === 'court' ? [0, 124] : longueur === 'moyen' ? [125, 500] : [501, 1_000_000]
+    const lignes = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "VeillePub" WHERE length(coalesce(texte, '')) BETWEEN ${min} AND ${max}`
+    et.push({ id: { in: lignes.map((l) => l.id) } })
+  }
+  const copies = Number(p.get('copies'))
+  if (copies > 1) {
+    // Créa réutilisée : pubs actives de la même marque avec le même texte.
+    const lignes = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM (
+        SELECT id, count(*) OVER (PARTITION BY "marqueId", coalesce(nullif(concat(titre, texte), ''), id)) AS n
+        FROM "VeillePub" WHERE masquee = false AND active = true) t
+      WHERE n >= ${copies}`
+    et.push({ id: { in: lignes.map((l) => l.id) } })
+  }
 
   // Les pubs d'un scan Espion, quelle que soit la recherche texte.
   const ids = p.get('ids')?.split(',').filter(Boolean).slice(0, 200)
-  if (ids?.length) where.AND = [{ id: { in: ids } }]
+  if (ids?.length) et.push({ id: { in: ids } })
+  if (et.length) where.AND = et
 
   const dossier = p.get('dossier')
   if (dossier === 'tous') where.sauvegardes = { some: {} }
   else if (dossier === 'sans') where.sauvegardes = { some: { dossierId: null } }
   else if (dossier) where.sauvegardes = { some: { dossierId: dossier } }
 
-  const [lignes, total, marques] = await Promise.all([
-    prisma.veillePub.findMany({
-      where,
-      orderBy:
-        p.get('tri') === 'duree' ? [{ debut: 'asc' }, { id: 'asc' }]
-        : p.get('tri') === 'couverture' ? [{ reachUe: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }]
-        : [{ premiereVue: 'desc' }, { id: 'asc' }],
-      take: n,
-      include: { marque: { select: { id: true, nom: true } }, sauvegardes: { select: { id: true, dossierId: true, createdAt: true } } },
-    }),
-    prisma.veillePub.count({ where }),
+  // Tri par dépense / jour ou par rang, filtre « top N de sa marque » : calculés
+  // ici, la base ne les connaît pas. Rang = place par couverture parmi les pubs
+  // actives de la marque ; dépense / jour = couverture ÷ jours de diffusion.
+  const tri = p.get('tri')
+  const rangMax = Number(p.get('rang')) || 0
+  const parOrdre = tri === 'depenseJour' || tri === 'rang'
+  let ordre: string[] | null = null
+  if (parOrdre || rangMax) {
+    const rangs = new Map(
+      (await prisma.$queryRaw<{ id: string; rang: bigint }[]>`
+        SELECT id, rank() OVER (PARTITION BY "marqueId" ORDER BY "reachUe" DESC) AS rang
+        FROM "VeillePub" WHERE masquee = false AND active = true AND "reachUe" IS NOT NULL`).map((r) => [r.id, Number(r.rang)]),
+    )
+    const rangDe = (id: string) => rangs.get(id) ?? 1e9
+    let candidats = await prisma.veillePub.findMany({ where, select: { id: true, reachUe: true, debut: true, fin: true, active: true } })
+    if (rangMax) candidats = candidats.filter((c) => rangDe(c.id) <= rangMax)
+    const parJour = (c: (typeof candidats)[number]) => {
+      if (!c.reachUe || !c.debut) return -1
+      const fin = c.active || !c.fin ? Date.now() : c.fin.getTime()
+      return c.reachUe / Math.max(1, Math.round((fin - c.debut.getTime()) / 86_400_000))
+    }
+    if (tri === 'depenseJour') candidats.sort((a, b) => parJour(b) - parJour(a))
+    if (tri === 'rang') candidats.sort((a, b) => rangDe(a.id) - rangDe(b.id) || (b.reachUe ?? 0) - (a.reachUe ?? 0))
+    ordre = candidats.map((c) => c.id)
+    if (!parOrdre) where.AND = [...et, { id: { in: ordre } }]
+  }
+
+  const inclure = {
+    marque: { select: { id: true, nom: true } },
+    sauvegardes: { select: { id: true, dossierId: true, createdAt: true } },
+  } satisfies Prisma.VeillePubInclude
+  const page = parOrdre ? ordre!.slice(0, n) : []
+  const [brutes, total, marques] = await Promise.all([
+    parOrdre
+      ? prisma.veillePub.findMany({ where: { id: { in: page } }, include: inclure })
+      : prisma.veillePub.findMany({
+          where,
+          orderBy:
+            tri === 'duree' ? [{ debut: 'asc' }, { id: 'asc' }]
+            : tri === 'couverture' ? [{ reachUe: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }]
+            : [{ premiereVue: 'desc' }, { id: 'asc' }],
+          take: n,
+          include: inclure,
+        }),
+    parOrdre ? ordre!.length : prisma.veillePub.count({ where }),
     prisma.veilleMarque.findMany({ where: marqueVisible, select: { id: true, nom: true, suivie: true, categorie: true }, orderBy: { nom: 'asc' } }),
   ])
+
+  const parId = new Map(brutes.map((l) => [l.id, l]))
+  const lignes = parOrdre ? page.map((id) => parId.get(id)!).filter(Boolean) : brutes
 
   // Les puces de Discovery : nombre de pubs par catégorie, sur toute la base.
   const parMarque = await prisma.veillePub.groupBy({ by: ['marqueId'], where: { masquee: false, marque: marqueVisible }, _count: true })
@@ -119,7 +200,28 @@ export async function GET(req: NextRequest) {
     })),
   }))
 
-  return NextResponse.json({ pubs, total, marques, categories })
+  // Les choix des filtres qui dépendent des données : boutons, pages de destination, pays.
+  const visibles: Prisma.VeillePubWhereInput = { masquee: false, marque: marqueVisible }
+  const [ctas, liens, pays] = await Promise.all([
+    prisma.veillePub.groupBy({ by: ['cta'], where: { ...visibles, cta: { not: null } }, _count: true }),
+    prisma.veillePub.findMany({ where: { ...visibles, lienUrl: { not: null } }, select: { lienUrl: true } }),
+    prisma.$queryRaw<{ pays: string; n: bigint }[]>`
+      SELECT e->>'pays' AS pays, count(DISTINCT p.id) AS n
+      FROM "VeillePub" p, jsonb_array_elements(coalesce(p.transparence->'repartition', '[]'::jsonb)) e
+      WHERE p.masquee = false GROUP BY 1 ORDER BY 2 DESC LIMIT 30`,
+  ])
+  const parDomaine = new Map<string, number>()
+  for (const { lienUrl } of liens) {
+    const d = lienUrl!.replace(/^https?:\/\/(www\.)?/, '').split(/[/?#]/)[0].toLowerCase()
+    if (d) parDomaine.set(d, (parDomaine.get(d) ?? 0) + 1)
+  }
+  const options = {
+    ctas: ctas.map((c) => ({ valeur: c.cta!, n: c._count })).sort((a, b) => b.n - a.n),
+    pages: [...parDomaine.entries()].map(([valeur, n]) => ({ valeur, n })).sort((a, b) => b.n - a.n).slice(0, 30),
+    pays: pays.filter((x) => x.pays).map((x) => ({ valeur: x.pays, n: Number(x.n) })),
+  }
+
+  return NextResponse.json({ pubs, total, marques, categories, options })
 }
 
 /** Masquer une pub : elle disparaît partout et n'est plus réimportée. */
