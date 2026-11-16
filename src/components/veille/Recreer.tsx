@@ -68,7 +68,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
           <p className="text-sm font-semibold text-[#0d0d12]">Recréer pour {compte.name}</p>
           <p className="text-xs text-gray-500 mt-0.5">
             1 variante : la copie de cette pub au kit de {compte.name}. 2 et plus : autant de variations de cette copie, même message et mêmes textes,
-            chacune dans un traitement visuel différent (smartphone, polaroïd, minimaliste…) pour que Meta les traite comme des pubs distinctes.
+            chacune dans un traitement visuel différent, choisi par l’IA ou par vous, pour que Meta les traite comme des pubs distinctes.
             Jamais la marque, les personnes ni les phrases du concurrent.
             {video && ' Vidéo : son aperçu sert de modèle, le résultat est une image fixe.'}
           </p>
@@ -119,7 +119,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
         {!copie && (
           <div className="space-y-2">
             <p className="text-xs text-gray-600">
-              Traitements <span className="text-gray-400">· {!angles.length ? 'sans choix : smartphone, minimaliste, polaroïd, mise en situation…' : `${angles.length} / ${variantes} choisi${angles.length > 1 ? 's' : ''}${angles.length < variantes ? ', les autres par défaut' : ''}`}</span>
+              Traitements <span className="text-gray-400">· {!angles.length ? 'sans choix, l’IA prend ceux qui vont à cette pub' : `${angles.length} / ${variantes} choisi${angles.length > 1 ? 's' : ''}${angles.length < variantes ? ', l’IA choisit les autres' : ''}`}</span>
             </p>
             <div className="flex flex-wrap gap-1.5">
               {ANGLES_VISUELS.map((a) => {

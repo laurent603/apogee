@@ -19,8 +19,6 @@ export const maxDuration = 120
 const VARIANTES_MAX = 6
 // Deux photos par image : assez pour un visuel réel, sans alourdir la requête.
 const PHOTOS_PAR_IMAGE = 2
-// Les traitements pris quand l'utilisateur n'en choisit pas : ceux qui vont à presque toutes les pubs.
-const TRAITEMENTS_PAR_DEFAUT = ['ugc', 'minimaliste', 'polaroid', 'situation', 'editorial', 'gros-plan']
 
 
 const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; concept: string | null; createdAt: Date }) => ({
@@ -80,22 +78,26 @@ export async function POST(req: NextRequest) {
 
   // Les textes avant les images : ceux de la copie (mot pour mot), condensés pour les variations.
   let textes: Awaited<ReturnType<typeof textesPour>> = []
-  let courts: TextesCourts | null = null
+  let courts: (TextesCourts & { traitements: string[] }) | null = null
   try {
     textes = await textesPour(reference, marque.nom, lesFaits, precision, guidelines(marque))
-    if (variantes > 1) courts = await textesCourts(textes, marque.nom, precision, guidelines(marque))
+    if (variantes > 1) {
+      courts = await textesCourts(reference, textes, marque.nom, precision, guidelines(marque), [...ANGLES_VISUELS], variantes - anglesImposes.length, anglesImposes)
+    }
   } catch (e) {
     return NextResponse.json({ erreur: (e as Error).message }, { status: 502 })
   }
-  // Un traitement par variation : ceux choisis, puis les traitements par défaut.
-  const traitements = [...new Set([...anglesImposes, ...TRAITEMENTS_PAR_DEFAUT.map((c) => ANGLES_VISUELS.find((a) => a.cle === c)!.libelle)])]
+  // Un traitement par variation : ceux choisis par l'utilisateur, puis ceux choisis par Gemini pour cette pub.
+  const traitements = [...new Set([...anglesImposes, ...(courts?.traitements ?? [])])]
     .slice(0, variantes)
     .map((libelle) => ANGLES_VISUELS.find((a) => a.libelle === libelle)!)
+    .filter(Boolean)
+  if (variantes > 1 && traitements.length < 2) return NextResponse.json({ erreur: 'Gemini n’a pas choisi de traitements : réessayez ou choisissez-les.' }, { status: 502 })
 
   // Une génération par créa : le carré, et la Story tirée du même carré (une pub Meta, deux placements).
   // Chaque créa prend d'autres photos du kit : les images ne se ressemblent pas toutes.
   const resultats = await Promise.allSettled(
-    Array.from({ length: variantes }, async (_, i) => {
+    Array.from({ length: variantes === 1 ? 1 : traitements.length }, async (_, i) => {
       const choisies = photos.length ? Array.from({ length: Math.min(PHOTOS_PAR_IMAGE, photos.length) }, (_, k) => photos[(i * PHOTOS_PAR_IMAGE + k) % photos.length]) : []
       const kit = { logo: !!logo, logoClair: !!logoClair, photos: choisies.length }
       const logos = [logo, logoClair].filter((x) => x !== null)

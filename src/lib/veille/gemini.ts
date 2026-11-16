@@ -319,10 +319,17 @@ export async function textesPour(reference: Jointe, nom: string, faits: string, 
  * Les textes des variations (2 variantes et plus) : ceux de la copie,
  * condensés pour rester lisibles quel que soit le traitement visuel, avec
  * l'offre commune. Rien n'est ajouté que ces textes ou l'offre ne disent.
+ * Dans le même appel, Gemini choisit les traitements qui conviennent à cette
+ * pub et à ce secteur, quand l'utilisateur n'en a pas choisi assez : un ordre
+ * fixe aurait mis un polaroïd dans chaque série.
  */
-export async function textesCourts(textes: TexteImpose[], nom: string, offre?: string, guidelines: string[] = []): Promise<TextesCourts> {
+export async function textesCourts(
+  reference: Jointe, textes: TexteImpose[], nom: string, offre: string | undefined, guidelines: string[],
+  traitements: { libelle: string; consigne: string }[], aChoisir: number, imposes: string[],
+): Promise<TextesCourts & { traitements: string[] }> {
   const texte = [
-    `Voici les textes d'une publicité pour « ${nom} » :`,
+    `L'image jointe est une publicité d'un concurrent ; elle va être déclinée pour « ${nom} ».`,
+    `Voici les textes de la version « ${nom} » :`,
     ...textes.map((t) => `- ${t.role} : ${t.remplacement}`),
     'Condense-les pour des variations visuelles de cette publicité, en français et sans faute :',
     '- titre : l’accroche, 60 caractères au plus, la plus proche possible du titre d’origine ;',
@@ -332,12 +339,17 @@ export async function textesCourts(textes: TexteImpose[], nom: string, offre?: s
     '- bouton : 22 caractères au plus, à l’impératif, vide si la publicité n’en a pas besoin.',
     'N’ajoute aucune affirmation, aucun chiffre ni aucun avis que ces textes ou l’offre ne donnent pas.',
     ...guidelines,
-  ].join('\n')
+    aChoisir > 0 &&
+      `traitements : choisis ${aChoisir} traitement${aChoisir > 1 ? 's' : ''} visuel${aChoisir > 1 ? 's' : ''}, tous différents${imposes.length ? ` et autres que ${imposes.join(', ')}` : ''}, ceux qui serviraient le mieux cette publicité, ce produit et ce secteur ; écarte ceux qui ne collent pas au produit. Liste :\n${traitements.map((t) => `- ${t.libelle} : ${t.consigne}`).join('\n')}`,
+  ].filter(Boolean).join('\n')
   const chaine = { type: 'STRING' }
-  const { resultat } = await appeler([{ text: texte }], {
+  const { resultat } = await appeler([{ inlineData: reference }, { text: texte }], {
     type: 'OBJECT',
-    properties: { titre: chaine, sousTitre: chaine, points: { type: 'ARRAY', items: chaine }, offre: chaine, bouton: chaine },
-    required: ['titre', 'sousTitre', 'points', 'offre', 'bouton'],
+    properties: {
+      titre: chaine, sousTitre: chaine, points: { type: 'ARRAY', items: chaine }, offre: chaine, bouton: chaine,
+      traitements: { type: 'ARRAY', items: { type: 'STRING', enum: traitements.map((t) => t.libelle) } },
+    },
+    required: ['titre', 'sousTitre', 'points', 'offre', 'bouton', 'traitements'],
   })
-  return { ...resultat, points: (resultat.points ?? []).slice(0, 3) }
+  return { ...resultat, points: (resultat.points ?? []).slice(0, 3), traitements: resultat.traitements ?? [] }
 }
