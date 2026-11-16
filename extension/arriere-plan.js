@@ -23,11 +23,16 @@ async function envoyer(pub, scan, transparence, dossierId) {
 }
 
 // Bouton « Sauvegarder dans Apogee » sur la Ad Library.
-// Progression de la seconde passe, relayée à la page Espion qui a lancé le scan.
-let progressionScan = null
+// Progression de la seconde passe, par onglet de la Ad Library : un scan et la
+// veille peuvent tourner en même temps sans se voler leur progression.
+const progressions = new Map()
 
-chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
-  if (msg?.type === 'progression') return void progressionScan?.(msg)
+chrome.runtime.onMessage.addListener((msg, expediteur, repondre) => {
+  if (msg?.type === 'progression') return void progressions.get(expediteur.tab?.id)?.(msg)
+  if (msg?.type === 'attendre') {
+    setTimeout(() => repondre(true), Math.min(msg.ms, 5000))
+    return true
+  }
   if (msg?.type !== 'sauvegarder') return
   envoyer(msg.pub, false, msg.transparence).then(repondre, (e) => repondre({ erreur: e.message === 'Failed to fetch' ? 'Apogee injoignable' : e.message }))
   return true
@@ -47,8 +52,9 @@ function attendreChargement(ongletId) {
 
 /**
  * Ouvre une page de la Ad Library, la fait défiler, lit la fiche des pubs
- * inconnues, puis referme. `discret` : dans une fenêtre en arrière-plan, pour
- * la vérification quotidienne ; sinon dans un onglet à côté d'Apogee.
+ * inconnues, puis referme. `discret` : dans une fenêtre à part (veille et scan
+ * Espion), qui reste affichée quand on revient sur Apogee ; sinon dans un
+ * onglet à côté d'Apogee, qui cale dès qu'on le quitte.
  */
 async function lireAdLibrary({ cible, max, connus = [], cibles, ongletApogee, discret, progression }) {
   progression({ etape: 'ouverture' })
@@ -57,11 +63,14 @@ async function lireAdLibrary({ cible, max, connus = [], cibles, ongletApogee, di
   const onglet = fenetre ? fenetre.tabs[0] : await chrome.tabs.create({ url: cible, active: true, openerTabId: ongletApogee?.id })
   try {
     await attendreChargement(onglet.id)
+    // La Ad Library se recharge parfois juste après « complete » : un message envoyé
+    // trop tôt part avec l'ancienne page (« message channel closed »). Même délai que la veille du Mac.
+    await new Promise((ok) => setTimeout(ok, 3000))
     progression({ etape: 'lecture' })
-    progressionScan = ({ etape, fait, total }) => progression({ etape, fait, total })
+    progressions.set(onglet.id, ({ etape, fait, total }) => progression({ etape, fait, total }))
     return await chrome.tabs.sendMessage(onglet.id, { type: 'collecter', max, connus, cibles })
   } finally {
-    progressionScan = null
+    progressions.delete(onglet.id)
     if (fenetre) chrome.windows.remove(fenetre.id).catch(() => {})
     else chrome.tabs.remove(onglet.id).catch(() => {})
     if (ongletApogee?.id) chrome.tabs.update(ongletApogee.id, { active: true }).catch(() => {})
@@ -104,7 +113,7 @@ async function scanner({ recherche, pays }, ongletApogee, progression) {
     ? (() => { const u = new URL(recherche); u.searchParams.set('active_status', 'all'); return u.href })()
     : `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=${encodeURIComponent(pays || 'FR')}` +
       `&q=${encodeURIComponent(recherche)}&search_type=keyword_unordered&media_type=all`
-  const { pubs, details } = await lireAdLibrary({ cible, max: PUBS_PAR_SCAN, ongletApogee, progression })
+  const { pubs, details } = await lireAdLibrary({ cible, max: PUBS_PAR_SCAN, ongletApogee, discret: true, progression })
   if (!pubs?.length) throw new Error('la Ad Library n’a renvoyé aucune pub pour cette recherche')
   const { envoyees, erreurs } = await envoyerTout(pubs, details, progression)
   return { ids: envoyees.map((e) => e.id), erreurs: erreurs.length, premiereErreur: erreurs[0] ?? null }

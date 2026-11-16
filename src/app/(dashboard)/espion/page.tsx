@@ -29,8 +29,8 @@ type Etat =
   | { etape: 'fini'; trouvees: number; erreurs: number; premiereErreur: string | null }
 
 const MESSAGES = {
-  ouverture: 'Ouverture de la Ad Library dans un nouvel onglet…',
-  lecture: 'Lecture des pubs : l’onglet défile tout seul, laissez-le ouvert…',
+  ouverture: 'Ouverture de la Ad Library dans une fenêtre à part…',
+  lecture: 'Lecture des pubs : la fenêtre de la Ad Library défile toute seule, laissez-la ouverte…',
 }
 
 export default function EspionPage() {

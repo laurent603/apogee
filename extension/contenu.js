@@ -68,6 +68,11 @@ const planifier = () => {
 new MutationObserver(planifier).observe(document.documentElement, { childList: true, subtree: true })
 window.addEventListener('load', planifier)
 
+// Les pauses sont chronométrées par l'extension : Chrome ralentit les minuteries
+// d'une page en arrière-plan (jusqu'à une par minute), ce qui figeait les scans
+// dès qu'on revenait sur Apogee. Hors extension (Chrome sans fenêtre du Mac), minuterie normale.
+const attendre = (ms) => (chrome.runtime?.id ? chrome.runtime.sendMessage({ type: 'attendre', ms }) : new Promise((r) => setTimeout(r, ms)))
+
 // Espion : fait défiler la recherche jusqu'à `max` pubs, ou jusqu'à ce que
 // trois défilements de suite n'en apportent plus aucune. `nouvelles` (collecte
 // du matin) : `max` pubs absentes de `connus`, pour descendre plus bas chaque jour.
@@ -85,7 +90,7 @@ chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
     const trouvees = () => msg.cibles?.length && msg.cibles.every((id) => pubs.has(id))
     while (!assez() && immobile < 3 && !trouvees()) {
       window.scrollTo(0, document.documentElement.scrollHeight)
-      await new Promise((r) => setTimeout(r, 2000))
+      await attendre(2000)
       immobile = pubs.size === avant ? immobile + 1 : 0
       avant = pubs.size
     }
@@ -98,7 +103,6 @@ chrome.runtime.onMessage.addListener((msg, _expediteur, repondre) => {
   return true
 })
 
-const attendre = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** Le bouton « Voir les détails » de la carte qui porte cet ID, hors popup. */
 function boutonDetails(id) {
