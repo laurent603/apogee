@@ -8,7 +8,8 @@ import { useKit } from './BrandKit'
 import type { PubVeille } from './CartePub'
 import { ANGLES_VISUELS } from '@/lib/veille/angles'
 
-type Crea = { id: string; format: string; url: string; consigne: string | null; concept: string | null; createdAt: string }
+type Crea = { id: string; format: string; url: string; consigne: string | null; concept: string | null; modele: string; createdAt: string }
+const MOTEURS = [['chatgpt', 'ChatGPT Image'], ['gemini', 'Gemini']] as const
 const FORMATS = [['1:1', 'Carré 1:1 · fil'], ['9:16', 'Vertical 9:16 · Story']] as const
 
 /**
@@ -22,6 +23,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
   const [kit] = useKit(compte?.id || undefined)
   const [formats, setFormats] = useState<string[]>(['1:1', '9:16'])
   const [variantes, setVariantes] = useState(1)
+  const [moteur, setMoteur] = useState<string>('chatgpt')
   const [angles, setAngles] = useState<string[]>([])
   const [produitId, setProduitId] = useState('')
   const [precision, setPrecision] = useState('')
@@ -44,7 +46,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
     const r = await fetch('/api/veille/recreer', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pubId: pub.id, dbAccountId: compte!.id, formats, variantes, angles: variantes > 1 ? angles : [], produitId: produitId || undefined, consigne: precision }),
+      body: JSON.stringify({ pubId: pub.id, dbAccountId: compte!.id, formats, variantes, moteur, angles: variantes > 1 ? angles : [], produitId: produitId || undefined, consigne: precision }),
     })
     const j = await r.json().catch(() => ({}))
     setChargement(false)
@@ -102,6 +104,13 @@ export function Recreer({ pub }: { pub: PubVeille }) {
             Variantes
             <select value={variantes} onChange={(e) => { const n = Number(e.target.value); setVariantes(n); setAngles((a) => a.slice(0, n)) }} className="select select-chevron w-auto py-1 text-xs">
               {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 1 ? '1 · copie de la pub' : `${n} · variations`}</option>)}
+            </select>
+          </label>
+          <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600"
+            title="ChatGPT : mise en page plus « pub », mais il redessine souvent le logo. Gemini : logo et photos plus fidèles.">
+            Moteur
+            <select value={moteur} onChange={(e) => setMoteur(e.target.value)} className="select select-chevron w-auto py-1 text-xs">
+              {MOTEURS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </label>
         </div>
@@ -164,7 +173,7 @@ export function Recreer({ pub }: { pub: PubVeille }) {
               </a>
               <figcaption className="flex items-center justify-between gap-2 text-xs">
                 <span className="text-gray-400 truncate">
-                  <span className="font-medium text-[#0d0d12]">{c.concept ?? 'Copie'}</span> · {c.format} · {new Date(c.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  <span className="font-medium text-[#0d0d12]">{c.concept ?? 'Copie'}</span> · {c.modele.includes('chatgpt') ? 'ChatGPT' : 'Gemini'} · {c.format} · {new Date(c.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
                 <span className="flex gap-3">
                   <a href={`${c.url}?download=${encodeURIComponent(nomFichier(c, i))}`} className="text-[#3434ef] hover:underline">Télécharger</a>

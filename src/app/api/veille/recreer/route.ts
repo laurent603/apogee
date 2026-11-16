@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { compteDe } from '@/lib/veille/compte'
 import { deposer, urlPublique } from '@/lib/veille/stockage'
-import { consigne, consigneVariation, faits, FORMATS_CREA, genererImage, guidelines, jointe, jointePhoto, versStory, type FormatCrea, type TextesCourts } from '@/lib/veille/recreer'
+import { consigne, consigneVariation, faits, FORMATS_CREA, genererImage, guidelines, jointe, jointePhoto, versStory, type FormatCrea, type Jointe, type TextesCourts } from '@/lib/veille/recreer'
 import { ANGLES_VISUELS } from '@/lib/veille/angles'
 import { textesCourts, textesPour } from '@/lib/veille/gemini'
+import { genererOpenAI } from '@/lib/veille/openai'
 
 /**
  * « Recréer pour ce client » : à partir d'une pub concurrente, des images au
@@ -21,8 +22,8 @@ const VARIANTES_MAX = 6
 const PHOTOS_PAR_IMAGE = 2
 
 
-const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; concept: string | null; createdAt: Date }) => ({
-  id: c.id, format: c.format, url: urlPublique(c.chemin), consigne: c.consigne, concept: c.concept, createdAt: c.createdAt,
+const enClair = (c: { id: string; format: string; chemin: string; consigne: string | null; concept: string | null; modele: string; createdAt: Date }) => ({
+  id: c.id, format: c.format, url: urlPublique(c.chemin), consigne: c.consigne, concept: c.concept, modele: c.modele, createdAt: c.createdAt,
 })
 
 /** Les images déjà générées pour cette pub et ce client. */
@@ -41,6 +42,8 @@ export async function POST(req: NextRequest) {
   const formats = (Array.isArray(corps.formats) ? corps.formats : []).filter((f: unknown): f is FormatCrea => FORMATS_CREA.includes(f as FormatCrea))
   const variantes = Math.min(Math.max(Math.round(Number(corps.variantes)) || 1, 1), VARIANTES_MAX)
   const precision = typeof corps.consigne === 'string' ? corps.consigne.slice(0, 600) : ''
+  // Deux moteurs au choix : ChatGPT (mise en page plus « pub ») ou Gemini (logo et photos plus fidèles).
+  const generer = corps.moteur === 'gemini' ? (images: Jointe[], texte: string) => genererImage(images, texte) : genererOpenAI
   const anglesImposes = (Array.isArray(corps.angles) ? corps.angles : [])
     .map((cle: unknown) => ANGLES_VISUELS.find((a) => a.cle === cle)?.libelle)
     .filter((l: string | undefined): l is string => !!l)
@@ -102,7 +105,7 @@ export async function POST(req: NextRequest) {
       const kit = { logo: !!logo, logoClair: !!logoClair, photos: choisies.length }
       const logos = [logo, logoClair].filter((x) => x !== null)
       const traitement = variantes === 1 ? null : traitements[i]
-      const image = await genererImage(
+      const image = await generer(
         [reference, ...logos, ...choisies],
         traitement && courts ? consigneVariation(marque, kit, courts, traitement) : consigne(marque, kit, precision, textes),
       )
