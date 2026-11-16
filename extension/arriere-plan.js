@@ -99,9 +99,10 @@ async function envoyerTout(pubs, details, progression) {
 async function scanner({ recherche, pays }, ongletApogee, progression) {
   await config()
   const lien = /^https:\/\/www\.facebook\.com\/ads\/library\//.test(recherche)
+  // Actives et arrêtées : un lien collé garde ses filtres, sauf le statut.
   const cible = lien
-    ? recherche
-    : `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${encodeURIComponent(pays || 'FR')}` +
+    ? (() => { const u = new URL(recherche); u.searchParams.set('active_status', 'all'); return u.href })()
+    : `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=${encodeURIComponent(pays || 'FR')}` +
       `&q=${encodeURIComponent(recherche)}&search_type=keyword_unordered&media_type=all`
   const { pubs, details } = await lireAdLibrary({ cible, max: PUBS_PAR_SCAN, ongletApogee, progression })
   if (!pubs?.length) throw new Error('la Ad Library n’a renvoyé aucune pub pour cette recherche')

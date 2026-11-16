@@ -111,7 +111,7 @@ export default function EspionPage() {
     <div className="space-y-4">
       <div>
         <h1 className="page-title">Espion</h1>
-        <p className="page-subtitle mt-0.5">Les pubs actives d’une marque ou d’un produit, lues dans la Meta Ad Library</p>
+        <p className="page-subtitle mt-0.5">Les pubs, actives et arrêtées, d’une marque ou d’un produit, lues dans la Meta Ad Library</p>
       </div>
 
       <form onSubmit={scanner} className="card flex flex-col sm:flex-row gap-2">

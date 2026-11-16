@@ -73,7 +73,17 @@ export async function deposer(prefixe: string, type: string, corps: ArrayBuffer 
     await creerBucket(url, cle)
     up = await envoyer()
   }
-  if (!up.ok) throw new Error(`Stockage du média refusé (${up.status}) : ${await up.text()}`)
+  // 5xx : panne passagère du stockage (Cloudflare 520…) ; deux nouvelles tentatives espacées.
+  for (let essai = 1; up.status >= 500 && essai <= 2; essai++) {
+    await new Promise((fin) => setTimeout(fin, 1500 * essai))
+    up = await envoyer()
+  }
+  if (!up.ok) {
+    // Une page d'erreur HTML (Cloudflare) se résume à son titre.
+    const texte = await up.text()
+    const detail = (texte.match(/<title>([^<]*)<\/title>/i)?.[1] ?? texte).trim().slice(0, 200)
+    throw new Error(`Stockage du média refusé (${up.status}) : ${detail}`)
+  }
   return chemin
 }
 
