@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { budgetEstime, EUROS_POUR_MILLE_PERSONNES } from '@/lib/veille/adLibrary'
-import { courbesEstimees, courbesRelevees } from '@/lib/veille/rapport'
+import { courbesEstimees, courbesRelevees, gainsCouverture } from '@/lib/veille/rapport'
 import type { PubVeille } from './CartePub'
 import type { Decorticage } from '@/lib/veille/gemini'
 import { Recreer } from './Recreer'
@@ -431,6 +431,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
   const c = chiffresPub(pub, jours)
   const t = pub.transparence
   const relevees = useMemo(() => courbesRelevees(mesures, EUROS_POUR_MILLE_PERSONNES), [mesures])
+  const gains = useMemo(() => gainsCouverture(mesures), [mesures])
 
   useEffect(() => {
     setIndex(0)
@@ -548,6 +549,18 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
                   <Chiffre libelle="Couverture UE" valeur={pub.reachUe !== null ? compact(pub.reachUe) : '—'} />
                   <Chiffre libelle="Rang" valeur={pub.rang ? `#${pub.rang}/${pub.surMarque}` : '—'} />
                 </div>
+                {gains && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Couverture gagnée <span className="normal-case tracking-normal text-gray-400">· au dernier relevé, le {dateLongue(gains.dernier)}</span>
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Chiffre libelle="Dernier jour" valeur={gains.jour === null ? '—' : `+${compact(gains.jour)}`} />
+                      <Chiffre libelle="7 derniers jours" valeur={gains.semaine === null ? '—' : `+${compact(gains.semaine)}`} />
+                      <Chiffre libelle="30 derniers jours" valeur={gains.mois === null ? '—' : `+${compact(gains.mois)}`} />
+                    </div>
+                  </div>
+                )}
                 {relevees.jours.length > 0 ? (
                   <Courbe id={`fiche-${pub.id}`} titre="Dépense relevée par jour" aide="écart de couverture d’un matin à l’autre"
                     donnees={relevees.jours} cle="depense" format={(v) => `${compact(v)} €`} />

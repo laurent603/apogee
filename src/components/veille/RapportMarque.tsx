@@ -6,7 +6,7 @@ import type { AnalyseMarque } from '@/lib/veille/gemini'
 import { CATEGORIES } from '@/lib/veille/categories'
 import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
-import { courbesEstimees, courbesRelevees, rapportMarque } from '@/lib/veille/rapport'
+import { courbesEstimees, courbesRelevees, rapportMarque, rythmeParSemaine } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
 import { Barre, Courbe, FichePub, compact, voisines } from './FichePub'
 
@@ -24,12 +24,19 @@ const pourcent = (x: number) => `${Math.round(100 * x)} %`
 const mois = (aaaamm: string) => new Date(`${aaaamm}-01T00:00:00`).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
 const date = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 
-function Bloc({ titre, sousTitre, children, className }: { titre: string; sousTitre?: string; children: React.ReactNode; className?: string }) {
+function Bloc({ titre, sousTitre, aDroite, children, className }: {
+  titre: string; sousTitre?: string; children: React.ReactNode; className?: string
+  /** Au bout de la ligne du titre : une légende, un sélecteur. */
+  aDroite?: React.ReactNode
+}) {
   return (
     <section className={clsx('card p-6 space-y-5', className)}>
-      <div>
-        <h3 className="text-base font-semibold text-[#0d0d12]">{titre}</h3>
-        {sousTitre && <p className="text-sm text-gray-500 mt-1">{sousTitre}</p>}
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h3 className="text-base font-semibold text-[#0d0d12]">{titre}</h3>
+          {sousTitre && <p className="text-sm text-gray-500 mt-1">{sousTitre}</p>}
+        </div>
+        {aDroite}
       </div>
       {children}
     </section>
@@ -83,6 +90,76 @@ function Mini({ libelle, valeur, note }: { libelle: string; valeur: string; note
   )
 }
 
+const HAUT = 150
+const BAS = 110
+const semaineCourte = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+
+/**
+ * Lancements et arrêts, semaine par semaine : un parc stable peut cacher dix
+ * créas lancées et dix arrêtées chaque semaine.
+ *
+ * Même nombre de pixels par créa de part et d'autre de la ligne. Si chaque
+ * moitié se normalisait sur son propre maximum, une semaine qui arrête plus
+ * qu'elle ne lance se lirait à l'équilibre.
+ */
+function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) {
+  const { semaines, recent } = useMemo(() => rythmeParSemaine(serie), [serie])
+  if (!semaines.some((s) => s.lancees || s.arretees)) return null
+
+  const parUnite = Math.min(
+    (HAUT - 22) / Math.max(1, ...semaines.map((s) => s.lancees)),
+    (BAS - 22) / Math.max(1, ...semaines.map((s) => s.arretees)),
+  )
+
+  return (
+    <Bloc titre="Rythme de test" sousTitre="Créas lancées chaque semaine ; celles qui s’arrêtent sont comptées sous la ligne."
+      aDroite={
+        <div className="flex shrink-0 gap-4 pt-0.5 text-xs text-gray-500 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-[#3434ef]" />Lancées</span>
+          <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-[#CBD5E1]" />Arrêtées</span>
+        </div>
+      }>
+      <div className="relative">
+        <div className="flex gap-3">
+          {semaines.map((s) => (
+            <div key={s.jour} className="flex-1 flex flex-col">
+              <div className="flex flex-col justify-end items-center gap-1.5" style={{ height: HAUT }}>
+                <span className="text-[11px] font-medium text-[#3434ef] tabular-nums leading-none">{s.lancees}</span>
+                <div className="w-[62%] mb-1 rounded-t-[3px] bg-[#3434ef]" style={{ height: Math.round(s.lancees * parUnite) }} />
+              </div>
+              <div className="flex flex-col justify-start items-center gap-1.5" style={{ height: BAS }}>
+                <div className="w-[62%] mt-1 rounded-b-[3px] bg-[#CBD5E1]" style={{ height: Math.round(s.arretees * parUnite) }} />
+                <span className="text-[11px] text-gray-400 tabular-nums leading-none">{s.arretees}</span>
+              </div>
+              <p className="pt-2.5 text-center text-[11px] text-gray-400 whitespace-nowrap">{semaineCourte(s.jour)}</p>
+            </div>
+          ))}
+        </div>
+        {/* Un seul trait continu : un trait par colonne se lirait comme un empilement. */}
+        <div className="absolute inset-x-0 h-px bg-gray-400" style={{ top: HAUT }} />
+      </div>
+      {recent && (
+        <p className="pt-4 border-t border-[#F3F4F6] text-sm text-gray-700 leading-relaxed">
+          Sur les 4 dernières semaines : <strong className="font-semibold text-[#0d0d12]">{recent.lancees} créas lancées</strong>,{' '}
+          <strong className="font-semibold text-[#0d0d12]">{recent.arretees} arrêtées</strong> —{' '}
+          {recent.solde === 0 ? (
+            <>le parc actif ne bouge pas.</>
+          ) : (
+            <>le parc actif {recent.solde < 0 ? 'perd' : 'gagne'} <strong className="font-semibold text-[#0d0d12]">{Math.abs(recent.solde)} créa{Math.abs(recent.solde) > 1 ? 's' : ''}</strong>.</>
+          )}
+          {recent.variation !== null && (
+            recent.variation === 0
+              ? <> Le rythme de lancement est stable par rapport aux 4 semaines précédentes.</>
+              : <> Le rythme de lancement {recent.variation < 0 ? 'baisse' : 'monte'} de{' '}
+                  <span className={clsx('font-semibold', recent.variation < 0 ? 'text-red-700' : 'text-[#0d0d12]')}>{Math.abs(recent.variation)} %</span>
+                  {' '}par rapport aux 4 semaines précédentes.</>
+          )}
+        </p>
+      )}
+    </Bloc>
+  )
+}
+
 /**
  * Évolution sur 90 jours : courbes estimées à partir des pubs connues (actives
  * et arrêtées), puis courbes relevées chaque matin pour les marques suivies.
@@ -108,6 +185,7 @@ function Evolution({ marque, suivie, ouvrir }: { marque: { id: string }; suivie:
   const euros = (v: number) => `${compact(v)} €`
 
   return (
+    <>
     <Bloc titre="Évolution sur 90 jours"
       sousTitre="Estimation : chaque pub est supposée dépenser au même rythme de son lancement à aujourd’hui (ou à son arrêt).">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -144,17 +222,30 @@ function Evolution({ marque, suivie, ouvrir }: { marque: { id: string }; suivie:
         </Vide>
       )}
     </Bloc>
+    <RythmeDeTest serie={estimees} />
+    </>
   )
 }
 
-function Classement({ libelles, total }: { libelles: { libelle: string; n: number }[]; total: number }) {
+/**
+ * Les jours moyens disent si le libellé tient ou s'il est encore à l'essai :
+ * sans eux, un classement dit seulement ce que la marque fait le plus.
+ */
+function JoursMoyens({ jours }: { jours?: number | null }) {
+  if (jours === null || jours === undefined) return null
+  return <span className="text-gray-400" title="jours de diffusion moyens des pubs concernées"> · {jours} j moy.</span>
+}
+
+type Ligne = { libelle: string; n: number; joursMoyens?: number | null }
+
+function Classement({ libelles, total }: { libelles: Ligne[]; total: number }) {
   return (
     <div className="space-y-3">
       {libelles.map((l) => (
         <div key={l.libelle} className="space-y-1.5">
-          <div className="flex justify-between text-sm">
-            <span className="text-[#0d0d12]">{l.libelle}</span>
-            <span className="text-gray-500 tabular-nums">{pourcent(l.n / total)} · {l.n}</span>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="min-w-0 text-[#0d0d12]">{l.libelle}</span>
+            <span className="shrink-0 whitespace-nowrap text-gray-500 tabular-nums">{pourcent(l.n / total)} · {l.n}<JoursMoyens jours={l.joursMoyens} /></span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
             <div className="h-full bg-[#3434ef]" style={{ width: `${(100 * l.n) / total}%` }} />
@@ -166,14 +257,14 @@ function Classement({ libelles, total }: { libelles: { libelle: string; n: numbe
 }
 
 /** Une barre par libellé, en part du total. */
-function BarresPourcent({ libelles, total }: { libelles: { libelle: string; n: number }[]; total: number }) {
+function BarresPourcent({ libelles, total }: { libelles: Ligne[]; total: number }) {
   return (
     <div className="space-y-2.5">
       {libelles.map((l) => (
         <div key={l.libelle} className="rounded-lg border border-[#E5E7EB] px-4 py-3 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-[#0d0d12]">{l.libelle}</span>
-            <span className="text-gray-600 tabular-nums" title={`${l.n} pub${l.n > 1 ? 's' : ''}`}>{pourcent(l.n / total)}</span>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="min-w-0 text-[#0d0d12]">{l.libelle}</span>
+            <span className="shrink-0 whitespace-nowrap text-gray-600 tabular-nums" title={`${l.n} pub${l.n > 1 ? 's' : ''}`}>{pourcent(l.n / total)}<JoursMoyens jours={l.joursMoyens} /></span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
             <div className="h-full bg-[#3434ef]" style={{ width: `${(100 * l.n) / total}%` }} />
@@ -269,10 +360,19 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
   const sansCouverture = r.avecCouverture === 0
   const tout = onglet === 'Vue d’ensemble'
   // L'analyse de la marque, quand elle existe, remplace les comptes pub par pub.
-  const parClasse = (cle: 'angle' | 'concept') => {
-    const n = new Map<string, number>()
-    for (const c of analyse!.classement) n.set(c[cle], (n.get(c[cle]) ?? 0) + 1)
-    return [...n.entries()].map(([libelle, k]) => ({ libelle, n: k })).sort((a, b) => b.n - a.n)
+  const parClasse = (cle: 'angle' | 'concept'): Ligne[] => {
+    const groupes = new Map<string, { n: number; jours: number[] }>()
+    for (const c of analyse!.classement) {
+      const g = groupes.get(c[cle]) ?? { n: 0, jours: [] }
+      g.n++
+      const p = parId.get(c.pubId)
+      const j = p ? joursDeDiffusion(p) : null
+      if (j !== null) g.jours.push(j)
+      groupes.set(c[cle], g)
+    }
+    return [...groupes.entries()]
+      .map(([libelle, g]) => ({ libelle, n: g.n, joursMoyens: g.jours.length ? Math.round(g.jours.reduce((s, x) => s + x, 0) / g.jours.length) : null }))
+      .sort((a, b) => b.n - a.n)
   }
   const concepts = analyse ? parClasse('concept') : r.concepts
   const angles = analyse ? parClasse('angle') : r.angles

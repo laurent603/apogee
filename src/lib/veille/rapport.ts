@@ -19,12 +19,31 @@ export type PubRapport = {
 }
 
 const JOUR = 86_400_000
-type Compte = { libelle: string; n: number }
+type Compte = { libelle: string; n: number; joursMoyens: number | null }
 
-const compter = (valeurs: (string | null | undefined)[]): Compte[] => {
-  const n = new Map<string, number>()
-  for (const v of valeurs) if (v) n.set(v, (n.get(v) ?? 0) + 1)
-  return [...n.entries()].map(([libelle, k]) => ({ libelle, n: k })).sort((a, b) => b.n - a.n)
+/**
+ * Compte par libellé, avec les jours de diffusion moyens des pubs qui le
+ * portent. C'est cette moyenne qui départage : un angle sur 4 % des créas mais
+ * qui tient 37 jours a été retenu, celui sur 68 % qui tient 23 jours est
+ * encore à l'essai. `j` vaut null quand la durée n'a pas de sens pour la
+ * ligne — un mois de lancement, un pays.
+ */
+const compter = (entrees: { v: string | null | undefined; j: number | null }[]): Compte[] => {
+  const groupes = new Map<string, { n: number; jours: number[] }>()
+  for (const { v, j } of entrees) {
+    if (!v) continue
+    const g = groupes.get(v) ?? { n: 0, jours: [] }
+    g.n++
+    if (j !== null) g.jours.push(j)
+    groupes.set(v, g)
+  }
+  return [...groupes.entries()]
+    .map(([libelle, g]) => ({
+      libelle,
+      n: g.n,
+      joursMoyens: g.jours.length ? Math.round(g.jours.reduce((s, x) => s + x, 0) / g.jours.length) : null,
+    }))
+    .sort((a, b) => b.n - a.n)
 }
 
 export const ageEnJours = (p: PubRapport, maintenant: number) =>
@@ -116,6 +135,8 @@ export function rapportMarque(pubs: PubRapport[], eurosPourMille: number, mainte
   const somme = (f: (l: (typeof repartition)[number]) => number) => repartition.reduce((s, l) => s + f(l), 0)
   const touches = somme((l) => l.hommes + l.femmes + l.inconnu)
   const dest = pubs.map((p) => destination(p.lienUrl))
+  const age = (p: PubRapport) => ageEnJours(p, maintenant)
+  const par = (f: (p: PubRapport) => string | null | undefined) => compter(pubs.map((p) => ({ v: f(p), j: age(p) })))
 
   return {
     total: pubs.length,
@@ -128,7 +149,7 @@ export function rapportMarque(pubs: PubRapport[], eurosPourMille: number, mainte
     plusDiffusees: parCouverture.filter((p) => p.reachUe).slice(0, 6),
     plusLongues: [...pubs].filter((p) => p.debut).sort((a, b) => Date.parse(a.debut!) - Date.parse(b.debut!)).slice(0, 6),
 
-    parMois: compter(pubs.map((p) => p.debut?.slice(0, 7))).sort((a, b) => a.libelle.localeCompare(b.libelle)),
+    parMois: compter(pubs.map((p) => ({ v: p.debut?.slice(0, 7), j: null }))).sort((a, b) => a.libelle.localeCompare(b.libelle)),
     anciennete: {
       tranches: [
         { libelle: 'Moins de 7 j', n: ages.filter((a) => a < 7).length },
@@ -138,17 +159,17 @@ export function rapportMarque(pubs: PubRapport[], eurosPourMille: number, mainte
       ],
       mediane: ages.length ? Math.round(ages[Math.floor((ages.length - 1) / 2)]) : null,
     },
-    formats: compter(pubs.map((p) => p.format)),
-    boutons: compter(pubs.map((p) => p.cta)),
-    plateformes: compter(pubs.map((p) => combinaison(p.plateformes))),
+    formats: par((p) => p.format),
+    boutons: par((p) => p.cta),
+    plateformes: par((p) => combinaison(p.plateformes)),
 
     offres: {
       part: pubs.length ? pubs.filter((p) => offres(`${p.titre ?? ''} ${p.texte ?? ''}`).length).length / pubs.length : 0,
-      liste: compter(pubs.flatMap((p) => offres(`${p.titre ?? ''} ${p.texte ?? ''}`))),
+      liste: compter(pubs.flatMap((p) => offres(`${p.titre ?? ''} ${p.texte ?? ''}`).map((o) => ({ v: o, j: age(p) })))),
     },
     messages: [...messages.values()].sort((a, b) => b.length - a.length).slice(0, 4).map((groupe) => ({ n: groupe.length, pub: groupe[0] })),
-    produits: compter(dest.map((d) => d?.produit)),
-    domaines: compter(dest.map((d) => d?.domaine)),
+    produits: compter(dest.map((d, i) => ({ v: d?.produit, j: age(pubs[i]) }))),
+    domaines: compter(dest.map((d, i) => ({ v: d?.domaine, j: age(pubs[i]) }))),
 
     audience: touches
       ? {
@@ -158,7 +179,7 @@ export function rapportMarque(pubs: PubRapport[], eurosPourMille: number, mainte
             { libelle: 'Non déterminé', n: somme((l) => l.inconnu) },
           ],
           ages: AGES.map((age) => ({ libelle: age, n: somme((l) => (l.age === age ? l.hommes + l.femmes + l.inconnu : 0)) })).filter((a) => a.n > 0),
-          pays: compter(repartition.map((l) => l.pays)).map((c) => ({
+          pays: compter(repartition.map((l) => ({ v: l.pays, j: null }))).map((c) => ({
             libelle: c.libelle,
             n: somme((l) => (l.pays === c.libelle ? l.hommes + l.femmes + l.inconnu : 0)),
           })).sort((a, b) => b.n - a.n),
@@ -166,8 +187,8 @@ export function rapportMarque(pubs: PubRapport[], eurosPourMille: number, mainte
         }
       : null,
 
-    angles: compter(pubs.map((p) => p.analyse?.angle)),
-    concepts: compter(pubs.map((p) => p.analyse?.concept)),
+    angles: par((p) => p.analyse?.angle),
+    concepts: par((p) => p.analyse?.concept),
     decortiquees: pubs.filter((p) => p.analyse).length,
   }
 }
@@ -268,12 +289,16 @@ export function courbesEstimees(
 ) {
   const aujourdhui = Math.floor(maintenant / JOUR)
   const premier = aujourdhui - jours + 1
-  const serie = Array.from({ length: jours }, (_, i) => ({ jour: jourIso(premier + i), depense: 0, actives: 0 }))
+  const serie = Array.from({ length: jours }, (_, i) => ({ jour: jourIso(premier + i), depense: 0, actives: 0, lancees: 0, arretees: 0 }))
+  const dansLaFenetre = (j: number) => j >= premier && j <= aujourdhui
   for (const p of pubs) {
     if (!p.debut) continue
     const debut = Math.floor(Date.parse(p.debut) / JOUR)
-    const fin = p.active === false && p.fin ? Math.floor(Date.parse(p.fin) / JOUR) : aujourdhui
+    const arretee = p.active === false && !!p.fin
+    const fin = arretee ? Math.floor(Date.parse(p.fin!) / JOUR) : aujourdhui
     if (fin < debut) continue
+    if (dansLaFenetre(debut)) serie[debut - premier].lancees++
+    if (arretee && dansLaFenetre(fin)) serie[fin - premier].arretees++
     const parJour = p.reachUe ? (eurosPourMille * p.reachUe) / 1000 / (fin - debut + 1) : 0
     for (let j = Math.max(debut, premier); j <= Math.min(fin, aujourdhui); j++) {
       serie[j - premier].actives++
@@ -281,6 +306,40 @@ export function courbesEstimees(
     }
   }
   return serie
+}
+
+/**
+ * Lancements et arrêts par semaine : la cadence de test, que le nombre de
+ * pubs actives ne montre pas — un parc stable peut cacher dix créas lancées
+ * et dix arrêtées chaque semaine.
+ *
+ * Les semaines sont découpées depuis la fin pour que la dernière soit
+ * entière : une semaine tronquée se lirait comme un ralentissement. Les jours
+ * qui dépassent au début sont laissés de côté.
+ *
+ * `recent` compare les 4 dernières semaines aux 4 précédentes ; sous huit
+ * semaines relevées, il n'y a rien à comparer.
+ */
+export function rythmeParSemaine(serie: { jour: string; lancees: number; arretees: number }[]) {
+  const semaines: { jour: string; lancees: number; arretees: number }[] = []
+  for (let fin = serie.length; fin - 7 >= 0; fin -= 7) {
+    const bloc = serie.slice(fin - 7, fin)
+    semaines.unshift({
+      jour: bloc[0].jour,
+      lancees: bloc.reduce((s, j) => s + j.lancees, 0),
+      arretees: bloc.reduce((s, j) => s + j.arretees, 0),
+    })
+  }
+  const n = semaines.length
+  const somme = (de: number, a: number, cle: 'lancees' | 'arretees') => semaines.slice(de, a).reduce((s, x) => s + x[cle], 0)
+  let recent: { lancees: number; arretees: number; solde: number; variation: number | null } | null = null
+  if (n >= 8) {
+    const lancees = somme(n - 4, n, 'lancees')
+    const arretees = somme(n - 4, n, 'arretees')
+    const avant = somme(n - 8, n - 4, 'lancees')
+    recent = { lancees, arretees, solde: lancees - arretees, variation: avant > 0 ? Math.round((100 * (lancees - avant)) / avant) : null }
+  }
+  return { semaines, recent }
 }
 
 /**
@@ -315,6 +374,26 @@ export function courbesRelevees(mesures: { pubId: string; jour: string; reachUe:
     jours: jours.map((j) => ({ jour: jourIso(j), personnes: personnes.get(j)!, depense: (eurosPourMille * personnes.get(j)!) / 1000 })),
     accelerent: accelerent.filter((a) => a.parJour > 0).sort((a, b) => b.parJour - a.parJour).slice(0, 6),
   }
+}
+
+/**
+ * Ce qu'une pub a gagné en couverture sur ses derniers relevés : la vitesse du
+ * moment, que les jours de diffusion ne disent pas. Une pub de cent jours qui
+ * ne gagne plus personne est à l'arrêt sans être arrêtée ; une pub de dix
+ * jours qui gagne vite monte en charge.
+ *
+ * Une fenêtre sans relevé assez ancien rend null plutôt qu'un chiffre tiré
+ * d'un écart plus court : mieux vaut un tiret qu'une vitesse fausse.
+ */
+export function gainsCouverture(mesures: { jour: string; reachUe: number }[]) {
+  if (mesures.length < 2) return null
+  const l = mesures.map((m) => ({ j: Math.floor(Date.parse(m.jour) / JOUR), r: m.reachUe })).sort((a, b) => a.j - b.j)
+  const dernier = l[l.length - 1]
+  const sur = (n: number) => {
+    const depart = l.find((x) => x.j >= dernier.j - n)
+    return depart && depart.j < dernier.j ? Math.max(0, dernier.r - depart.r) : null
+  }
+  return { jour: sur(1), semaine: sur(7), mois: sur(30), dernier: jourIso(dernier.j) }
 }
 
 /**
