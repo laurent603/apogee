@@ -31,7 +31,10 @@ export function estTransitoire(e: unknown): boolean {
   const statut = err?.status
   if (statut === 408 || statut === 409 || statut === 429 || (statut && statut >= 500)) return true
   const texte = `${err?.error?.type || ''} ${err?.message || ''}`.toLowerCase()
-  return /overloaded|rate_limit|timeout|econnreset|socket hang up|fetch failed/.test(texte)
+  // `terminated` est le message d'undici quand la socket d'un flux est coupée
+  // en cours de route — le cas d'un rapport de sept minutes. Sans lui, une
+  // coupure réseau passagère était traitée comme une erreur définitive.
+  return /overloaded|rate_limit|timeout|econnreset|socket hang up|fetch failed|terminated|other side closed|premature close/.test(texte)
 }
 
 /**
