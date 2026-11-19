@@ -8,7 +8,7 @@ import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
 import { courbesEstimees, courbesRelevees, rapportMarque, rythmeParSemaine } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
-import { Barre, Courbe, FichePub, compact, voisines } from './FichePub'
+import { Barre, Courbe, FichePub, chiffresPub, compact, voisines } from './FichePub'
 
 /**
  * Le rapport Espion d'une marque : ses pubs actives en chiffres, comme le
@@ -17,24 +17,29 @@ import { Barre, Courbe, FichePub, compact, voisines } from './FichePub'
  * 0.3.0 et suivantes).
  */
 
-// « Vue d’ensemble » montre tout le rapport ; les autres onglets, leur partie.
-const ONGLETS = ['Vue d’ensemble', 'Stratégie créa', 'Offre & landing', 'Diffusion', 'Analyse IA'] as const
+// Le rapport n'a plus d'onglets : il en avait cinq, dont le premier empilait
+// les quatre autres — dix-sept blocs pleine largeur à la suite. Les créas
+// d'abord, puis une section d'analyse en cartes de grille.
+const PERIODES = [[30, '30 jours'], [90, '90 jours'], [365, '12 mois']] as const
 const FORMATS: Record<string, string> = { IMAGE: 'Image', VIDEO: 'Vidéo', CAROUSEL: 'Carrousel', DCO: 'Dynamique' }
 const pourcent = (x: number) => `${Math.round(100 * x)} %`
 const mois = (aaaamm: string) => new Date(`${aaaamm}-01T00:00:00`).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
 const date = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+const dateCourte = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
-function Bloc({ titre, sousTitre, aDroite, children, className }: {
+function Bloc({ titre, sousTitre, aDroite, dense, children, className }: {
   titre: string; sousTitre?: string; children: React.ReactNode; className?: string
   /** Au bout de la ligne du titre : une légende, un sélecteur. */
   aDroite?: React.ReactNode
+  /** Carte d'analyse en grille : titre plus petit, moins d'air. */
+  dense?: boolean
 }) {
   return (
-    <section className={clsx('card p-6 space-y-5', className)}>
+    <section className={clsx('card', dense ? 'p-[18px] space-y-3.5' : 'p-6 space-y-5', className)}>
       <div className="flex items-start justify-between gap-6">
         <div>
-          <h3 className="text-base font-semibold text-[#0d0d12]">{titre}</h3>
-          {sousTitre && <p className="text-sm text-gray-500 mt-1">{sousTitre}</p>}
+          <h3 className={dense ? 'text-[13px] font-semibold text-[#0d0d12]' : 'text-base font-semibold text-[#0d0d12]'}>{titre}</h3>
+          {sousTitre && <p className={dense ? 'mt-1 text-[11px] leading-snug text-gray-400' : 'text-sm text-gray-500 mt-1'}>{sousTitre}</p>}
         </div>
         {aDroite}
       </div>
@@ -43,15 +48,33 @@ function Bloc({ titre, sousTitre, aDroite, children, className }: {
   )
 }
 
-function Indicateur({ libelle, valeur, note }: { libelle: string; valeur: string; note?: string }) {
+/**
+ * Un chiffre du bandeau de tête. La note porte toujours la portée — sur quoi
+ * et sur quelle période : un nombre nu se relit mal deux semaines plus tard.
+ */
+function Chiffre({ libelle, valeur, note, badge, ton }: {
+  libelle: string; valeur: string; note?: React.ReactNode; badge?: string
+  /** 'vert' et 'rouge' pour une variation ; rien pour un compte. */
+  ton?: 'vert' | 'rouge'
+}) {
   return (
-    <div className="card p-5">
-      <span className="block h-1 w-8 rounded-full bg-[#3434ef] mb-3" />
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{libelle}</p>
-      <p className="text-3xl font-bold text-[#0d0d12] mt-2 tabular-nums">{valeur}</p>
-      {note && <p className="text-xs text-gray-400 mt-1">{note}</p>}
+    <div className="card p-4">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+        {libelle}
+        {badge && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium normal-case tracking-normal text-amber-800">{badge}</span>}
+      </p>
+      <p className={clsx('mt-1.5 text-[27px] font-bold leading-tight tabular-nums tracking-tight',
+        ton === 'vert' ? 'text-green-700' : ton === 'rouge' ? 'text-red-700' : 'text-[#0d0d12]')}>{valeur}</p>
+      {note && <p className="mt-1.5 text-[11px] leading-snug text-gray-400">{note}</p>}
     </div>
   )
+}
+
+/** « Les Astuces Eco » → « LA », « Lumélio » → « LU ». Jamais d'emoji. */
+const initiales = (nom: string) => {
+  const mots = nom.split(/[\s-]+/).filter(Boolean)
+  if (!mots.length) return '?'
+  return (mots.length > 1 ? mots[0][0] + mots[1][0] : mots[0].slice(0, 2)).toUpperCase()
 }
 
 function Vide({ children }: { children: React.ReactNode }) {
@@ -65,9 +88,11 @@ function Vignette({ pub, etiquette, ouvrir }: { pub: PubVeille; etiquette: strin
   const image = media?.type === 'video' ? media.apercu : media?.url
   return (
     <button type="button" onClick={ouvrir} className="flex flex-col text-left rounded-xl border border-[#E5E7EB] overflow-hidden hover:border-gray-300 bg-white">
-      <div className="relative w-full aspect-[4/5] bg-gray-100">
+      <div className="relative w-full aspect-[4/5] overflow-hidden bg-gray-100">
+        {/* Posée en absolu, comme dans CarteCrea : `h-full` dans un parent à
+            hauteur automatique laisse passer la hauteur naturelle du média. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {image && <img src={image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+        {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
         {budget !== null && <span className="badge-green absolute top-2 left-2">≈ {compact(budget)} €</span>}
         {media?.type === 'video' && <span className="badge-gray absolute top-2 right-2">Vidéo</span>}
       </div>
@@ -77,16 +102,6 @@ function Vignette({ pub, etiquette, ouvrir }: { pub: PubVeille; etiquette: strin
         {pub.texte && <p className="text-xs text-gray-500 line-clamp-2">{pub.texte}</p>}
       </div>
     </button>
-  )
-}
-
-function Mini({ libelle, valeur, note }: { libelle: string; valeur: string; note: string }) {
-  return (
-    <div className="rounded-xl border border-[#E5E7EB] p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{libelle}</p>
-      <p className="text-2xl font-bold text-[#0d0d12] mt-1.5 tabular-nums">{valeur}</p>
-      <p className="text-xs text-gray-400 mt-1">{note}</p>
-    </div>
   )
 }
 
@@ -104,24 +119,45 @@ const semaineCourte = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateS
  */
 function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) {
   const { semaines, recent } = useMemo(() => rythmeParSemaine(serie), [serie])
+  /**
+   * Au plus treize colonnes : sur douze mois, cinquante-deux barres dans une
+   * carte de grille ne se lisent plus et leurs dates débordent. Au-delà, les
+   * semaines sont regroupées par paquets égaux et la colonne porte la date de
+   * son premier jour.
+   */
+  const colonnes = useMemo(() => {
+    const par = Math.ceil(semaines.length / 13)
+    if (par <= 1) return { groupes: semaines, par }
+    const groupes: typeof semaines = []
+    for (let i = 0; i < semaines.length; i += par) {
+      const bloc = semaines.slice(i, i + par)
+      groupes.push({
+        jour: bloc[0].jour,
+        lancees: bloc.reduce((t, x) => t + x.lancees, 0),
+        arretees: bloc.reduce((t, x) => t + x.arretees, 0),
+      })
+    }
+    return { groupes, par }
+  }, [semaines])
   if (!semaines.some((s) => s.lancees || s.arretees)) return null
 
   const parUnite = Math.min(
-    (HAUT - 22) / Math.max(1, ...semaines.map((s) => s.lancees)),
-    (BAS - 22) / Math.max(1, ...semaines.map((s) => s.arretees)),
+    (HAUT - 22) / Math.max(1, ...colonnes.groupes.map((s) => s.lancees)),
+    (BAS - 22) / Math.max(1, ...colonnes.groupes.map((s) => s.arretees)),
   )
 
   return (
-    <Bloc titre="Rythme de test" sousTitre="Créas lancées chaque semaine ; celles qui s’arrêtent sont comptées sous la ligne."
+    <Bloc dense titre="Rythme de test"
+      sousTitre={colonnes.par > 1 ? `Lancées au-dessus, arrêtées sous la ligne. Une colonne = ${colonnes.par} semaines.` : 'Lancées au-dessus, arrêtées sous la ligne, une colonne par semaine.'}
       aDroite={
-        <div className="flex shrink-0 gap-4 pt-0.5 text-xs text-gray-500 whitespace-nowrap">
+        <div className="flex shrink-0 gap-3 pt-0.5 text-[11px] text-gray-500 whitespace-nowrap">
           <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-[#3434ef]" />Lancées</span>
           <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-[#CBD5E1]" />Arrêtées</span>
         </div>
       }>
       <div className="relative">
-        <div className="flex gap-3">
-          {semaines.map((s) => (
+        <div className="flex gap-1.5">
+          {colonnes.groupes.map((s) => (
             <div key={s.jour} className="flex-1 flex flex-col">
               <div className="flex flex-col justify-end items-center gap-1.5" style={{ height: HAUT }}>
                 <span className="text-[11px] font-medium text-[#3434ef] tabular-nums leading-none">{s.lancees}</span>
@@ -131,7 +167,7 @@ function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) 
                 <div className="w-[62%] mt-1 rounded-b-[3px] bg-[#CBD5E1]" style={{ height: Math.round(s.arretees * parUnite) }} />
                 <span className="text-[11px] text-gray-400 tabular-nums leading-none">{s.arretees}</span>
               </div>
-              <p className="pt-2.5 text-center text-[11px] text-gray-400 whitespace-nowrap">{semaineCourte(s.jour)}</p>
+              <p className="pt-2.5 text-center text-[10px] text-gray-400 whitespace-nowrap">{semaineCourte(s.jour)}</p>
             </div>
           ))}
         </div>
@@ -139,7 +175,7 @@ function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) 
         <div className="absolute inset-x-0 h-px bg-gray-400" style={{ top: HAUT }} />
       </div>
       {recent && (
-        <p className="pt-4 border-t border-[#F3F4F6] text-sm text-gray-700 leading-relaxed">
+        <p className="border-t border-[#F3F4F6] pt-3 text-[12px] leading-relaxed text-gray-700">
           Sur les 4 dernières semaines : <strong className="font-semibold text-[#0d0d12]">{recent.lancees} créas lancées</strong>,{' '}
           <strong className="font-semibold text-[#0d0d12]">{recent.arretees} arrêtées</strong> —{' '}
           {recent.solde === 0 ? (
@@ -160,70 +196,100 @@ function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) 
   )
 }
 
+const STATUTS = ['Actives', 'Arrêtées', 'Toutes'] as const
+const TRIS = ['Couverture UE', 'Dépense / jour', 'Jours en ligne', 'Plus récentes'] as const
+
+/** Une créa dans la grille : le visuel en grand, trois chiffres en pied. */
+function CarteCrea({ pub, ouvrir }: { pub: PubVeille; ouvrir: () => void }) {
+  const jours = joursDeDiffusion(pub)
+  const c = chiffresPub(pub, jours)
+  const media = pub.medias[0]
+  const image = media?.type === 'video' ? media.apercu : media?.url
+  return (
+    <button type="button" onClick={ouvrir}
+      className="flex flex-col overflow-hidden rounded-xl border border-[#E5E7EB] bg-white text-left hover:border-gray-300">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-gray-100">
+        {/* Posée en absolu : dans un parent à hauteur automatique, `h-full` ne
+            contraint rien et c'est la hauteur naturelle du média qui gagne. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
+        <span className={clsx('absolute left-2 top-2', pub.active ? 'badge-green' : 'badge-gray')}>{pub.active ? 'Active' : 'Arrêtée'}</span>
+        <span className="badge-gray absolute right-2 top-2">{FORMATS[pub.format] ?? pub.format}</span>
+      </div>
+      <div className="flex items-center justify-between gap-1.5 px-2.5 py-2 text-[11px] tabular-nums">
+        <span className="font-semibold text-[#0d0d12]">{jours !== null ? `${jours} j` : '—'}</span>
+        <span className="truncate text-gray-500">{c.budget !== null ? `≈ ${compact(c.budget)} €` : '—'}</span>
+        {(pub.variantes ?? 1) > 1 && (
+          <span className="shrink-0 text-gray-400" title={`${pub.variantes} créas avec ce texte`}>×{pub.variantes}</span>
+        )}
+      </div>
+    </button>
+  )
+}
+
 /**
- * Évolution sur 90 jours : courbes estimées à partir des pubs connues (actives
- * et arrêtées), puis courbes relevées chaque matin pour les marques suivies.
+ * Toutes les créas de la marque dans une grille unique, filtrable et triable.
+ * Elle remplace « les plus diffusées » et « celles qui tournent le plus
+ * longtemps » : c'étaient deux tris figés du même ensemble, chacun coupé à six.
  */
-function Evolution({ marque, suivie, ouvrir }: { marque: { id: string }; suivie: boolean; ouvrir: (p: PubVeille) => void }) {
-  const [toutes, setToutes] = useState<PubVeille[] | null>(null)
-  const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
+function GrilleCreas({ toutes, ouvrir }: { toutes: PubVeille[]; ouvrir: (p: PubVeille) => void }) {
+  const [statut, setStatut] = useState<(typeof STATUTS)[number]>('Actives')
+  const [tri, setTri] = useState<(typeof TRIS)[number]>('Couverture UE')
+  const [complet, setComplet] = useState(false)
 
-  useEffect(() => {
-    fetch(`/api/veille/pubs?marque=${marque.id}&n=600`).then((r) => (r.ok ? r.json() : null)).then((d) => setToutes(d?.pubs ?? []))
-    fetch(`/api/veille/mesures?marque=${marque.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
-  }, [marque.id])
+  const liste = useMemo(() => {
+    const gardees = toutes.filter((p) => (statut === 'Toutes' ? true : statut === 'Actives' ? p.active : !p.active))
+    // Un tri décroissant sur une clé ; les valeurs inconnues finissent en bas.
+    const cle = (p: PubVeille) => {
+      const jours = joursDeDiffusion(p)
+      if (tri === 'Couverture UE') return p.reachUe ?? -1
+      if (tri === 'Jours en ligne') return jours ?? -1
+      if (tri === 'Plus récentes') return p.debut ? Date.parse(p.debut) : -1
+      return chiffresPub(p, jours).parJour ?? -1
+    }
+    return [...gardees].sort((a, b) => cle(b) - cle(a))
+  }, [toutes, statut, tri])
 
-  const estimees = useMemo(() => (toutes ? courbesEstimees(toutes, EUROS_POUR_MILLE_PERSONNES) : null), [toutes])
-  const relevees = useMemo(() => courbesRelevees(mesures, EUROS_POUR_MILLE_PERSONNES), [mesures])
-  if (!toutes || !estimees) return null
-
-  const somme = (de: number, a: number) => estimees.slice(de, a).reduce((s, j) => s + j.depense, 0)
-  const [semaine, precedente] = [somme(83, 90), somme(76, 83)]
-  const tendance = precedente > 0 ? Math.round((100 * (semaine - precedente)) / precedente) : null
-  const sansCouverture = toutes.filter((p) => !p.reachUe).length
-  const pubDe = new Map(toutes.map((p) => [p.id, p]))
-  const euros = (v: number) => `${compact(v)} €`
+  const actives = toutes.filter((p) => p.active).length
+  const visibles = complet ? liste : liste.slice(0, 12)
 
   return (
-    <>
-    <Bloc titre="Évolution sur 90 jours"
-      sousTitre="Estimation : chaque pub est supposée dépenser au même rythme de son lancement à aujourd’hui (ou à son arrêt).">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Mini libelle="Rythme de dépense" valeur={tendance === null ? '—' : `${tendance > 0 ? '+' : ''}${tendance} %`} note="7 derniers jours vs les 7 précédents" />
-        <Mini libelle="Pubs actives" valeur={String(estimees[89].actives)} note={`${estimees[59].actives} il y a 30 jours`} />
-        <Mini libelle="Pubs connues" valeur={String(toutes.length)} note={sansCouverture ? `${sansCouverture} sans couverture connue` : 'toutes à couverture connue'} />
-        <Mini libelle="Relevés quotidiens" valeur={String(relevees.releves)} note={suivie ? 'chaque matin à 8 h' : 'activez la veille pour relever'} />
-      </div>
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Courbe id="courbe-depense" titre="Dépense estimée par jour" donnees={estimees} cle="depense" format={euros} />
-        <Courbe id="courbe-actives" titre="Pubs actives par jour" donnees={estimees} cle="actives" format={(v) => String(Math.round(v))} />
-      </div>
-      {relevees.jours.length > 0 ? (
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Courbe id="courbe-relevee" titre="Dépense relevée par jour" aide="écart de couverture d’un matin à l’autre"
-            donnees={relevees.jours} cle="depense" format={euros} />
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-[#0d0d12]">Pubs qui accélèrent</p>
-            {relevees.accelerent.length ? (
-              <div className="grid grid-cols-3 gap-3">
-                {relevees.accelerent.map((a) => pubDe.get(a.pubId)).filter((p): p is PubVeille => !!p).map((p) => (
-                  <Vignette key={p.id} pub={p} ouvrir={() => ouvrir(p)}
-                    etiquette={`+${compact(relevees.accelerent.find((a) => a.pubId === p.id)!.parJour)} pers./jour`} />
-                ))}
-              </div>
-            ) : <Vide>Aucune pub n’a gagné de couverture sur les derniers relevés.</Vide>}
-          </div>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="text-base font-semibold text-[#0d0d12]">
+          Créatives <span className="ml-1 text-sm font-normal text-gray-400">{actives} actives · {toutes.length} connues</span>
+        </h3>
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          {STATUTS.map((s) => (
+            <button key={s} type="button" onClick={() => { setStatut(s); setComplet(false) }}
+              className={clsx('rounded-md px-2.5 py-1 text-xs', statut === s ? 'bg-white font-medium text-[#0d0d12] shadow-sm' : 'text-gray-500 hover:text-[#0d0d12]')}>
+              {s}
+            </button>
+          ))}
         </div>
+        <select aria-label="Trier les créatives" value={tri} onChange={(e) => setTri(e.target.value as (typeof TRIS)[number])}
+          className="select select-chevron ml-auto w-auto py-1.5 text-xs">
+          {TRIS.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+
+      {liste.length ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
+            {visibles.map((p) => <CarteCrea key={p.id} pub={p} ouvrir={() => ouvrir(p)} />)}
+          </div>
+          {liste.length > 12 && (
+            <p className="text-center">
+              <button type="button" onClick={() => setComplet(!complet)} className="btn-secondary text-sm">
+                {complet ? 'Réduire' : `Voir les ${liste.length} créatives`}
+              </button>
+            </p>
+          )}
+        </>
       ) : (
-        <Vide>
-          {suivie
-            ? 'Relevé quotidien en place : la couverture de chaque pub est notée chaque matin à 8 h. Les courbes réelles et les pubs qui accélèrent apparaissent après deux relevés.'
-            : 'Activez la veille de cette marque : sa couverture sera relevée chaque matin, pour des courbes réelles et les pubs qui accélèrent.'}
-        </Vide>
+        <Vide>{statut === 'Arrêtées' ? 'Aucune créa arrêtée connue : les arrêts ne sont relevés que sur les marques sous veille.' : 'Aucune créa.'}</Vide>
       )}
-    </Bloc>
-    <RythmeDeTest serie={estimees} />
-    </>
+    </section>
   )
 }
 
@@ -256,34 +322,57 @@ function Classement({ libelles, total }: { libelles: Ligne[]; total: number }) {
   )
 }
 
-/** Une barre par libellé, en part du total. */
-function BarresPourcent({ libelles, total }: { libelles: Ligne[]; total: number }) {
+/**
+ * Un tableau de tags : part, effectif, durée moyenne. C'est la seule forme
+ * qui met les trois en regard — une liste de barres montre la part et cache
+ * la durée, alors que c'est elle qui dit si le tag a été retenu.
+ *
+ * Remplace le second composant à barres : les mêmes angles sortaient en
+ * barres fines d'un côté et en cartes bordées de l'autre.
+ */
+function TableauTags({ libelles, total }: { libelles: Ligne[]; total: number }) {
   return (
-    <div className="space-y-2.5">
-      {libelles.map((l) => (
-        <div key={l.libelle} className="rounded-lg border border-[#E5E7EB] px-4 py-3 space-y-2">
-          <div className="flex justify-between gap-3 text-sm">
-            <span className="min-w-0 text-[#0d0d12]">{l.libelle}</span>
-            <span className="shrink-0 whitespace-nowrap text-gray-600 tabular-nums" title={`${l.n} pub${l.n > 1 ? 's' : ''}`}>{pourcent(l.n / total)}<JoursMoyens jours={l.joursMoyens} /></span>
-          </div>
-          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-            <div className="h-full bg-[#3434ef]" style={{ width: `${(100 * l.n) / total}%` }} />
-          </div>
-        </div>
-      ))}
-    </div>
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-[#F3F4F6] text-[10px] font-medium uppercase tracking-wide text-gray-400">
+          <th className="pb-2 text-left">Tag</th>
+          <th className="pb-2 text-right">Part</th>
+          <th className="pb-2 pl-3 text-right">Créas</th>
+          <th className="pb-2 pl-3 text-right">Jours moy.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {libelles.map((l) => (
+          <tr key={l.libelle} className="border-b border-[#F3F4F6] last:border-0">
+            <td className="py-2.5 pr-3 text-[#0d0d12]">{l.libelle}</td>
+            <td className="py-2.5 text-right tabular-nums text-gray-600">
+              <span className="flex items-center justify-end gap-2">
+                <span className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100">
+                  <span className="block h-full bg-[#3434ef]" style={{ width: `${(100 * l.n) / total}%` }} />
+                </span>
+                {pourcent(l.n / total)}
+              </span>
+            </td>
+            <td className="py-2.5 pl-3 text-right tabular-nums text-gray-600">{l.n}</td>
+            <td className="py-2.5 pl-3 text-right tabular-nums text-gray-400">{l.joursMoyens !== null && l.joursMoyens !== undefined ? `${l.joursMoyens} j` : '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
 export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
-  marque: { id: string; nom: string; suivie?: boolean; categorie?: string | null }; dossiers: Dossier[]
+  marque: { id: string; nom: string; suivie?: boolean; categorie?: string | null; pageId?: string }; dossiers: Dossier[]
   /** Appelé une fois la marque masquée : la page la retire de ses listes. */
   retiree: () => void
   /** Le client sélectionné : la marque peut être cachée pour lui seul. */
   pourClient?: { nom: string; cachee: boolean; basculer: () => void }
 }) {
   const [pubs, setPubs] = useState<PubVeille[] | null>(null)
-  const [onglet, setOnglet] = useState<(typeof ONGLETS)[number]>(ONGLETS[0])
+  const [toutes, setToutes] = useState<PubVeille[] | null>(null)
+  const [periode, setPeriode] = useState<number>(90)
+  const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
   const [ouverte, setOuverte] = useState<PubVeille | null>(null)
   const [analyse, setAnalyse] = useState<AnalyseMarque | null>(null)
   const [analyseEnCours, setAnalyseEnCours] = useState(false)
@@ -345,20 +434,45 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
   useEffect(() => {
     setPubs(null)
+    setToutes(null)
     fetch(`/api/veille/pubs?marque=${marque.id}&statut=active&tri=couverture&n=600`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setPubs(d?.pubs ?? []))
+    fetch(`/api/veille/mesures?marque=${marque.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
+    // Les pubs arrêtées aussi : le bandeau et les courbes en ont besoin.
+    fetch(`/api/veille/pubs?marque=${marque.id}&n=600`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setToutes(d?.pubs ?? []))
   }, [marque.id])
 
   const r = useMemo(() => (pubs ? rapportMarque(pubs, EUROS_POUR_MILLE_PERSONNES) : null), [pubs])
-  if (!pubs || !r) return <div className="card text-center py-16 text-gray-400 text-sm">Calcul du rapport…</div>
+  const estimees = useMemo(
+    () => (toutes ? courbesEstimees(toutes, EUROS_POUR_MILLE_PERSONNES, Date.now(), periode) : null),
+    [toutes, periode],
+  )
+  const relevees = useMemo(() => courbesRelevees(mesures, EUROS_POUR_MILLE_PERSONNES), [mesures])
+  /**
+   * Les créas en ligne sur la période : lancées avant la fin de la fenêtre et
+   * pas encore arrêtées à son début. C'est la définition de la Ad Library —
+   * « part des annonces en ligne sur la période » — et non « lancées pendant ».
+   */
+  const rp = useMemo(() => {
+    const source = toutes ?? pubs
+    if (!source) return null
+    const depuis = Date.now() - periode * 86_400_000
+    const enLigne = source.filter((p) => p.debut && (p.active || !p.fin || Date.parse(p.fin) >= depuis))
+    return rapportMarque(enLigne.length ? enLigne : source, EUROS_POUR_MILLE_PERSONNES)
+  }, [toutes, pubs, periode])
+  const rythme = useMemo(() => (estimees ? rythmeParSemaine(estimees) : null), [estimees])
+  if (!pubs || !r || !rp) return <div className="card text-center py-16 text-gray-400 text-sm">Calcul du rapport…</div>
   if (!r.total) return <div className="card text-center py-16 text-gray-400 text-sm">Aucune pub active connue pour {marque.nom}.</div>
 
   const parId = new Map(pubs.map((p) => [p.id, p]))
+  // Les créas qui accélèrent peuvent être arrêtées : on les cherche dans tout.
+  const pubDe = new Map((toutes ?? pubs).map((p) => [p.id, p]))
   const pub = (p: { id: string }) => parId.get(p.id)!
   const maxMois = Math.max(...r.parMois.map((m) => m.n))
   const sansCouverture = r.avecCouverture === 0
-  const tout = onglet === 'Vue d’ensemble'
   // L'analyse de la marque, quand elle existe, remplace les comptes pub par pub.
   const parClasse = (cle: 'angle' | 'concept'): Ligne[] => {
     const groupes = new Map<string, { n: number; jours: number[] }>()
@@ -377,280 +491,204 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
   const concepts = analyse ? parClasse('concept') : r.concepts
   const angles = analyse ? parClasse('angle') : r.angles
   const classees = analyse?.classement.length ?? 0
+  const plusDe90 = r.anciennete.tranches.find((t) => t.libelle === 'Plus de 90 j')?.n ?? 0
+  // La plus ancienne encore en ligne : le signal le plus fort du rapport.
+  const premiere = r.plusLongues[0]
+  const laPlusLongue = premiere?.debut ? { pub: pub(premiere), jours: joursDeDiffusion(pub(premiere)) } : null
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-[#0d0d12]">{marque.nom}</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            {r.total} pub{r.total > 1 ? 's' : ''} active{r.total > 1 ? 's' : ''} analysée{r.total > 1 ? 's' : ''}
-            {r.periode && <> · diffusion de {date(r.periode.de)} à {date(r.periode.a)}</>}
-          </p>
-        </div>
-        <select aria-label="Catégorie de la marque" value={categorie} onChange={(e) => changerCategorie(e.target.value)} className="select select-chevron w-auto text-xs py-1.5 ml-auto">
-          <option value="" disabled>Catégorie…</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <button type="button" onClick={basculerSuivi} title={suivie ? 'Ne plus surveiller cette marque' : undefined}
-          className={suivie ? 'btn-secondary' : 'btn-primary'}>
-          {suivie ? 'Veille active ✓' : 'Activer la veille'}
-        </button>
-        {pourClient && (
-          <button type="button" onClick={pourClient.basculer} className="text-sm text-gray-500 hover:text-[#0d0d12]">
-            {pourClient.cachee ? `Réafficher pour ${pourClient.nom}` : `Masquer pour ${pourClient.nom}`}
-          </button>
-        )}
-        <button type="button" onClick={masquerMarque} className="text-sm text-gray-400 hover:text-red-600">Masquer pour tous</button>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Indicateur libelle="Créatives actives" valeur={String(r.total)} />
-        <Indicateur libelle="Diffusées depuis plus de 30 j" valeur={pourcent(r.depuisPlusDe30j)} note="des créatives actives" />
-        <Indicateur libelle="Rythme de lancement" valeur={String(r.lanceesCes30j)} note="lancées ces 30 jours" />
-        <Indicateur
-          libelle="Budget mensuel indicatif"
-          valeur={r.budget ? `≈ ${compact(r.budget.mensuel)} €` : '—'}
-          note={r.budget ? `entre ${compact(r.budget.bas)} et ${compact(r.budget.haut)} € · UE` : sansCouverture ? 'couverture inconnue : relancez un scan' : 'pas assez de pubs à couverture connue'}
-        />
-      </div>
-
-      <section className="rounded-xl border border-[#3434ef]/15 bg-[#f0f0ff] p-6 space-y-4">
-        <h3 className="text-lg font-bold text-[#0d0d12]">Ce qui marche chez {marque.nom}</h3>
-        <div className="grid md:grid-cols-3 gap-4">
-          {([['Concepts', 'Comment il présente', concepts], ['Angles', 'Ce qu’il met en avant', angles], ['Produits poussés', 'Où il renvoie le trafic', r.produits]] as const).map(([titre, sous, liste]) => (
-            <div key={titre} className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm p-5 space-y-4">
-              <div>
-                <p className="text-base font-semibold text-[#0d0d12]">{titre}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{sous}</p>
-              </div>
-              {liste.length ? (
-                <ol className="space-y-2.5">
-                  {liste.slice(0, 4).map((l, i) => (
-                    <li key={l.libelle} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="flex items-center gap-2.5 min-w-0">
-                        <span className="h-6 w-6 shrink-0 rounded-full bg-[#f0f0ff] text-[#3434ef] text-xs font-semibold flex items-center justify-center">{i + 1}</span>
-                        <span className="text-[#0d0d12]">{l.libelle}</span>
-                      </span>
-                      <span className="badge-gray whitespace-nowrap">{l.n} créa{l.n > 1 ? 's' : ''}</span>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <Vide>{titre === 'Produits poussés' ? 'Aucun lien de destination lisible.' : 'Lancez l’analyse IA en bas du rapport.'}</Vide>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3434ef] to-[#6d6dff] text-[15px] font-bold tracking-wide text-white">
+            {initiales(marque.nom)}
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[25px] font-bold tracking-tight text-[#0d0d12]">{marque.nom}</h2>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-gray-500">
+              {marque.pageId && (
+                <>
+                  <a href={`https://www.facebook.com/ads/library/?view_all_page_id=${marque.pageId}`} target="_blank" rel="noreferrer" className="text-[#3434ef] hover:underline">Meta Ad Library ↗</a>
+                  <span className="text-gray-300">·</span>
+                </>
               )}
-            </div>
+              {r.domaines[0] && <>{r.domaines[0].libelle}<span className="text-gray-300">·</span></>}
+              {r.periode && <>diffusion de {date(r.periode.de)} à {date(r.periode.a)}</>}
+              {suivie && <><span className="text-gray-300">·</span>relevée chaque matin</>}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <select aria-label="Catégorie de la marque" value={categorie} onChange={(e) => changerCategorie(e.target.value)} className="select select-chevron w-auto text-xs py-1.5">
+            <option value="" disabled>Catégorie…</option>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button type="button" onClick={basculerSuivi} title={suivie ? 'Ne plus surveiller cette marque' : undefined}
+            className={suivie ? 'btn-secondary' : 'btn-primary'}>
+            {suivie ? 'Veille active ✓' : 'Activer la veille'}
+          </button>
+          {pourClient && (
+            <button type="button" onClick={pourClient.basculer} className="text-sm text-gray-500 hover:text-[#0d0d12]">
+              {pourClient.cachee ? `Réafficher pour ${pourClient.nom}` : `Masquer pour ${pourClient.nom}`}
+            </button>
+          )}
+          <button type="button" onClick={masquerMarque} className="text-sm text-gray-400 hover:text-red-600">Masquer pour tous</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Chiffre libelle="Créatives actives" valeur={String(r.total)}
+          note={toutes ? `sur ${toutes.length} connues, actives et arrêtées` : 'chargement des arrêtées…'} />
+        <Chiffre libelle="Budget mensuel" badge="estimation"
+          valeur={r.budget ? `≈ ${compact(r.budget.mensuel)} €` : '—'}
+          note={r.budget ? `entre ${compact(r.budget.bas)} et ${compact(r.budget.haut)} € · diffusion UE` : sansCouverture ? 'couverture inconnue : relancez un scan' : 'pas assez de pubs à couverture connue'} />
+        <Chiffre libelle="Jours en ligne, médiane" valeur={r.anciennete.mediane !== null ? `${r.anciennete.mediane} j` : '—'}
+          note={`${plusDe90} créative${plusDe90 > 1 ? 's' : ''} sur ${r.total} ont plus de 90 jours`} />
+        <Chiffre libelle="La plus longue" valeur={laPlusLongue ? `${laPlusLongue.jours} j` : '—'}
+          note={laPlusLongue && (
+            <>depuis le {dateCourte(laPlusLongue.pub.debut!)} · <button type="button" onClick={() => setOuverte(laPlusLongue.pub)} className="text-[#3434ef] hover:underline">voir la créa</button></>
+          )} />
+        <Chiffre libelle="Lancées / semaine"
+          valeur={rythme?.recent ? (rythme.recent.lancees / 4).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—'}
+          ton={rythme?.recent?.variation ? (rythme.recent.variation < 0 ? 'rouge' : 'vert') : undefined}
+          note={rythme?.recent
+            ? rythme.recent.variation === null
+              ? '4 dernières semaines ; aucune les 4 d’avant'
+              : `${rythme.recent.variation > 0 ? '+' : ''}${rythme.recent.variation} % contre les 4 semaines d’avant`
+            : 'moins de huit semaines relevées'} />
+      </div>
+
+      {/* Les créas avant l'analyse : c'est ce qu'on vient voir. */}
+      {toutes && <GrilleCreas toutes={toutes} ouvrir={setOuverte} />}
+
+      {/* ── Analyse de la marque ─────────────────────────────────────
+          Une seule section, en cartes de grille : les dix-sept blocs pleine
+          largeur ne disaient pas par quoi commencer. Le sélecteur de période
+          gouverne tout ce qui suit. ─────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 pt-2">
+        <h3 className="text-[17px] font-semibold text-[#0d0d12]">Analyse de la marque</h3>
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          {PERIODES.map(([jours, libelle]) => (
+            <button key={jours} type="button" onClick={() => setPeriode(jours)}
+              className={clsx('rounded-md px-2.5 py-1 text-xs', periode === jours ? 'bg-white font-medium text-[#0d0d12] shadow-sm' : 'text-gray-500 hover:text-[#0d0d12]')}>
+              {libelle}
+            </button>
           ))}
         </div>
-      </section>
+      </div>
 
-      <nav className="flex gap-2 border-b border-[#E5E7EB] pt-2" aria-label="Sections du rapport">
-        {ONGLETS.map((o) => (
-          <button key={o} type="button" onClick={() => setOnglet(o)}
-            className={clsx('px-4 py-3 text-sm -mb-px border-b-2', onglet === o ? 'border-[#3434ef] text-[#3434ef] font-medium' : 'border-transparent text-gray-500 hover:text-[#0d0d12]')}>
-            {o}
+      <div className="grid gap-4 xl:grid-cols-3">
+        {estimees && (
+          <Bloc dense titre="Dépense estimée par jour" sousTitre="Couverture UE × coût pour mille, étalée sur les jours de diffusion.">
+            <Courbe id="courbe-depense" titre="" donnees={estimees} cle="depense" format={(v) => `${compact(v)} €`} />
+          </Bloc>
+        )}
+        {estimees && <RythmeDeTest serie={estimees} />}
+        <Bloc dense titre="Ancienneté" sousTitre={`Créatives actives, par tranche de jours en ligne. Âge médian ${r.anciennete.mediane ?? '—'} j.`}>
+          <Classement libelles={r.anciennete.tranches} total={r.total} />
+        </Bloc>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Bloc dense titre="Formats" sousTitre="Part des créatives en ligne sur la période.">
+          <Classement libelles={rp.formats.map((f) => ({ ...f, libelle: FORMATS[f.libelle] ?? f.libelle }))} total={rp.total} />
+        </Bloc>
+        <Bloc dense titre="Plateformes" sousTitre="Combinaisons de placements.">
+          <Classement libelles={rp.plateformes.slice(0, 5)} total={rp.total} />
+        </Bloc>
+        <Bloc dense titre="Bouton d’action" sousTitre="Part des créatives en ligne sur la période.">
+          {rp.boutons.length ? <Classement libelles={rp.boutons.slice(0, 5)} total={rp.total} /> : <Vide>Aucun bouton relevé.</Vide>}
+        </Bloc>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Bloc dense titre="Destinations" sousTitre="Où la marque envoie le trafic.">
+          {rp.produits.length ? <Classement libelles={rp.produits.slice(0, 5)} total={rp.total} /> : <Vide>Aucun lien de destination lisible.</Vide>}
+        </Bloc>
+        <Bloc dense titre="Offres" sousTitre={`${pourcent(rp.offres.part)} des créatives portent une réduction, une remise ou un code.`}>
+          {rp.offres.liste.length ? <Classement libelles={rp.offres.liste.slice(0, 5)} total={rp.total} /> : <Vide>Aucune offre chiffrée dans les textes.</Vide>}
+        </Bloc>
+        <Bloc dense titre="Audience touchée"
+          sousTitre={rp.audience ? `${compact(rp.audience.total)} personnes dans l’UE · ${rp.audience.pays.slice(0, 3).map((p) => p.libelle).join(', ')}` : undefined}>
+          {rp.audience ? (
+            <div className="space-y-2">
+              {rp.audience.sexe.map((s) => <Barre key={s.libelle} libelle={s.libelle} valeur={s.n} total={rp.audience!.total} />)}
+              {rp.audience.ages.map((a) => <Barre key={a.libelle} libelle={a.libelle === 'Unknown' ? 'Inconnu' : a.libelle} valeur={a.n} total={rp.audience!.total} />)}
+            </div>
+          ) : <Vide>Audience inconnue : relancez un scan avec l’extension à jour.</Vide>}
+        </Bloc>
+      </div>
+
+      {/* ── Relevés quotidiens : la seule donnée mesurée, pas estimée. ── */}
+      {relevees.jours.length > 0 && (
+        <div className="grid gap-4 xl:grid-cols-3">
+          <Bloc dense className="xl:col-span-2" titre="Couverture relevée par jour" sousTitre="Écart de couverture d’un matin à l’autre : du mesuré, pas de l’estimé.">
+            <Courbe id="courbe-relevee" titre="" donnees={relevees.jours} cle="depense" format={(v) => `${compact(v)} €`} />
+          </Bloc>
+          <Bloc dense titre="Créas qui accélèrent" sousTitre="Couverture gagnée par jour sur les 7 derniers relevés.">
+            {relevees.accelerent.length ? (
+              <div className="grid grid-cols-3 gap-2.5">
+                {relevees.accelerent.slice(0, 3).map((a) => pubDe.get(a.pubId)).filter((p): p is PubVeille => !!p).map((p) => (
+                  <Vignette key={p.id} pub={p} ouvrir={() => setOuverte(p)}
+                    etiquette={`+${compact(relevees.accelerent.find((a) => a.pubId === p.id)!.parJour)} pers./j`} />
+                ))}
+              </div>
+            ) : <Vide>Aucune créa n’a gagné de couverture sur les derniers relevés.</Vide>}
+          </Bloc>
+        </div>
+      )}
+
+      {/* ── Analyse IA ──────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 pt-2">
+        <h3 className="text-[17px] font-semibold text-[#0d0d12]">
+          Analyse IA <span className="badge-gray ml-1">Gemini</span>
+        </h3>
+        {analyse && (
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            <span>D’après {analyse.nbPubs} créa{analyse.nbPubs > 1 ? 's' : ''}, le {new Date(analyse.date).toLocaleDateString('fr-FR')}</span>
+            <button type="button" onClick={() => analyser(true)} disabled={analyseEnCours} className="hover:text-[#0d0d12] disabled:opacity-50">
+              {analyseEnCours ? 'Analyse…' : 'Régénérer'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!analyse ? (
+        <section className="card p-6 text-center space-y-3">
+          <p className="mx-auto max-w-lg text-sm text-gray-600">
+            L’IA déduit les <strong>angles</strong>, les <strong>concepts</strong> et les <strong>personas ciblés</strong> à partir des créas actives de {marque.nom}.
+          </p>
+          <button type="button" onClick={() => analyser()} disabled={analyseEnCours} className="btn-primary disabled:opacity-50">
+            {analyseEnCours ? 'Analyse en cours… une trentaine de secondes' : 'Générer l’analyse IA'}
           </button>
-        ))}
-      </nav>
-
-      {onglet === 'Vue d’ensemble' && (
-        <div className="space-y-6">
-          <Evolution marque={marque} suivie={suivie} ouvrir={setOuverte} />
-          <Bloc titre="Pubs les plus diffusées" sousTitre="Classées par nombre de personnes touchées dans l’UE.">
-            {r.plusDiffusees.length ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
-                {r.plusDiffusees.map((p, i) => (
-                  <Vignette key={p.id} pub={pub(p)} etiquette={`N°${i + 1} · ${compact(p.reachUe!)} personnes`} ouvrir={() => setOuverte(pub(p))} />
-                ))}
-              </div>
-            ) : (
-              <Vide>Couverture inconnue pour ces pubs : relancez un scan Espion avec l’extension à jour.</Vide>
-            )}
-          </Bloc>
-          <Bloc titre="Pubs qui tournent le plus longtemps" sousTitre="Une marque qui laisse tourner une créa des mois a rarement tort.">
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
-              {r.plusLongues.map((p) => (
-                <Vignette key={p.id} pub={pub(p)} etiquette={`${joursDeDiffusion(pub(p))} j de diffusion`} ouvrir={() => setOuverte(pub(p))} />
-              ))}
-            </div>
-          </Bloc>
-          <Bloc titre="Pubs actives par mois de lancement" sousTitre="Pubs encore en diffusion, selon leur mois de lancement.">
-            <div className="flex items-end gap-3 h-56">
-              {r.parMois.map((m) => (
-                <div key={m.libelle} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
-                  <span className="text-xs text-gray-600 tabular-nums">{m.n}</span>
-                  <div className="w-full rounded-t-md bg-[#3434ef]" style={{ height: `${Math.max(4, (100 * m.n) / maxMois)}%` }} />
-                  <span className="text-xs text-gray-400 whitespace-nowrap">{mois(m.libelle)}</span>
-                </div>
-              ))}
-            </div>
-          </Bloc>
-          <div className="grid lg:grid-cols-3 gap-6">
-            <Bloc titre="Ancienneté des pubs actives">
-              <Classement libelles={r.anciennete.tranches} total={r.total} />
-              {r.anciennete.mediane !== null && <p className="text-xs text-gray-500">Âge médian : <strong>{r.anciennete.mediane} j</strong></p>}
-            </Bloc>
-            <Bloc titre="Répartition des formats">
-              <Classement libelles={r.formats.map((f) => ({ ...f, libelle: FORMATS[f.libelle] ?? f.libelle }))} total={r.total} />
-            </Bloc>
-            <Bloc titre="Boutons d’action les plus utilisés">
-              {r.boutons.length ? <Classement libelles={r.boutons.slice(0, 5)} total={r.total} /> : <Vide>Aucun bouton relevé.</Vide>}
-            </Bloc>
-          </div>
-        </div>
-      )}
-
-      {(tout || onglet === 'Stratégie créa') && (
-        <div className="space-y-6">
-          <Bloc titre="Messages les plus utilisés" sousTitre="Un même titre et un même texte déclinés sur plusieurs créas.">
-            <div className="grid md:grid-cols-2 gap-4">
-              {r.messages.map((m, i) => {
-                const p = pub(m.pub)
-                const image = p.medias[0]?.type === 'video' ? p.medias[0].apercu : p.medias[0]?.url
-                return (
-                  <button key={p.id} type="button" onClick={() => setOuverte(p)} className="flex gap-4 text-left rounded-xl border border-[#E5E7EB] overflow-hidden hover:border-gray-300">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {image && <img src={image} alt="" loading="lazy" className="w-28 h-32 object-cover shrink-0" />}
-                    <div className="py-3 pr-4 space-y-1.5 min-w-0">
-                      <p className="text-xs"><span className="badge-blue">#{i + 1}</span> <span className="text-gray-500">{m.n} pub{m.n > 1 ? 's' : ''}</span></p>
-                      {p.titre && <p className="text-sm font-semibold text-[#0d0d12] line-clamp-1">{p.titre}</p>}
-                      {p.texte && <p className="text-xs text-gray-500 line-clamp-2">{p.texte}</p>}
-                      {p.cta && <p className="text-xs text-[#3434ef]">{p.cta}</p>}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </Bloc>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Bloc titre="Angles" sousTitre={analyse ? `D’après l’analyse IA de ${classees} pubs.` : `D’après les ${r.decortiquees} pub${r.decortiquees > 1 ? 's' : ''} décortiquée${r.decortiquees > 1 ? 's' : ''}.`}>
-              {angles.length ? <Classement libelles={angles} total={analyse ? classees : r.decortiquees} /> : <Vide>Lancez l’analyse IA en bas du rapport.</Vide>}
-            </Bloc>
-            <Bloc titre="Concepts" sousTitre="La forme créative des pubs.">
-              {concepts.length ? <Classement libelles={concepts} total={analyse ? classees : r.decortiquees} /> : <Vide>Lancez l’analyse IA en bas du rapport.</Vide>}
-            </Bloc>
-          </div>
-        </div>
-      )}
-
-      {(tout || onglet === 'Offre & landing') && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <Bloc titre="Présence d’offres" sousTitre="Réductions, remises, codes promo, promotions.">
-            <div>
-              <p className="text-3xl font-bold text-[#0d0d12]">{pourcent(r.offres.part)}</p>
-              <p className="text-xs text-gray-500 mt-1">des pubs contiennent une offre</p>
-            </div>
-            {r.offres.liste.length > 0 && (
-              <div className="space-y-2">
-                {r.offres.liste.map((o) => (
-                  <div key={o.libelle} className="flex justify-between text-sm"><span>{o.libelle}</span><span className="text-gray-500">{o.n} créa{o.n > 1 ? 's' : ''}</span></div>
-                ))}
-              </div>
-            )}
-          </Bloc>
-          <Bloc titre="Destinations les plus utilisées">
-            {r.produits.length ? <Classement libelles={r.produits} total={r.total} /> : <Vide>Aucun lien de destination lisible.</Vide>}
-            {r.domaines.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-400">Domaines de destination</p>
-                {r.domaines.map((d) => (
-                  <div key={d.libelle} className="flex justify-between text-sm"><span>{d.libelle}</span><span className="text-gray-500">{d.n} pub{d.n > 1 ? 's' : ''}</span></div>
-                ))}
-              </div>
-            )}
-          </Bloc>
-        </div>
-      )}
-
-      {(tout || onglet === 'Diffusion') && (
-        <div className="space-y-6">
-          <Bloc titre="Profil d’audience touchée" sousTitre={r.audience ? `Sur ${compact(r.audience.total)} personnes touchées dans l’UE (transparence DSA).` : undefined}>
-            {r.audience ? (
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2.5">
-                  <p className="text-xs text-gray-400 uppercase">Genre</p>
-                  {r.audience.sexe.map((s) => <Barre key={s.libelle} libelle={s.libelle} valeur={s.n} total={r.audience!.total} />)}
-                </div>
-                <div className="space-y-2.5">
-                  <p className="text-xs text-gray-400 uppercase">Tranches d’âge</p>
-                  {r.audience.ages.map((a) => <Barre key={a.libelle} libelle={a.libelle === 'Unknown' ? 'Inconnu' : a.libelle} valeur={a.n} total={r.audience!.total} />)}
-                </div>
-              </div>
-            ) : (
-              <Vide>Audience inconnue pour ces pubs : relancez un scan Espion avec l’extension à jour.</Vide>
-            )}
-          </Bloc>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Bloc titre="Pays les plus touchés">
-              {r.audience ? (
-                <div className="space-y-2.5">{r.audience.pays.map((p) => <Barre key={p.libelle} libelle={p.libelle} valeur={p.n} total={r.audience!.total} />)}</div>
-              ) : <Vide>Inconnu.</Vide>}
-            </Bloc>
-            <Bloc titre="Plateformes de diffusion">
-              <Classement libelles={r.plateformes.slice(0, 5)} total={r.total} />
-            </Bloc>
-          </div>
-        </div>
-      )}
-
-      {(tout || onglet === 'Analyse IA') && (
-        <section className="card p-6 space-y-5">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold text-[#0d0d12]">Analyse IA <span className="badge-gray ml-1">Gemini</span></h3>
-            {analyse && (
-              <div className="flex items-center gap-3 text-xs text-gray-400">
-                <span>
-                  D’après {analyse.nbPubs} pub{analyse.nbPubs > 1 ? 's' : ''}, le {new Date(analyse.date).toLocaleDateString('fr-FR')}
-                </span>
-                <button type="button" onClick={() => analyser(true)} disabled={analyseEnCours} className="hover:text-[#0d0d12] disabled:opacity-50">
-                  {analyseEnCours ? 'Analyse…' : 'Régénérer'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {!analyse ? (
-            <div className="text-center py-6 space-y-3">
-              <p className="text-sm text-gray-600 max-w-lg mx-auto">
-                L’IA déduit les <strong>angles</strong>, les <strong>concepts publicitaires</strong> et les <strong>personas ciblés</strong> à
-                partir des pubs actives de {marque.nom}.
-              </p>
-              <button type="button" onClick={() => analyser()} disabled={analyseEnCours} className="btn-primary disabled:opacity-50">
-                {analyseEnCours ? 'Analyse en cours… une trentaine de secondes' : 'Générer l’analyse IA'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-[#0d0d12]">Angles les plus utilisés</p>
-                <p className="text-xs text-gray-500">Comment la marque tourne son message (l’argument).</p>
-                <BarresPourcent libelles={angles} total={classees} />
-              </div>
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-[#0d0d12]">Concepts les plus utilisés</p>
-                <p className="text-xs text-gray-500">Comment la marque présente son message (le format d’exécution).</p>
-                <BarresPourcent libelles={concepts} total={classees} />
-              </div>
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-[#0d0d12]">Personas déduits des messages</p>
-                <p className="text-xs text-gray-500">Interprétation des textes publicitaires par l’IA, pas une donnée de ciblage fournie par Meta.</p>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {analyse.personas.map((p) => (
-                    <div key={p.nom} className="rounded-xl border border-[#E5E7EB] p-4 space-y-1.5">
-                      <p className="text-sm font-semibold text-[#0d0d12]">{p.nom}</p>
-                      <p className="text-sm text-gray-600">{p.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </section>
+      ) : (
+        <>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Bloc dense titre="Angle du message" sousTitre="Ce que la marque met en avant (l’argument).">
+              <TableauTags libelles={angles} total={classees} />
+            </Bloc>
+            <Bloc dense titre="Concept créatif" sousTitre="Comment elle le présente (le format d’exécution).">
+              <TableauTags libelles={concepts} total={classees} />
+            </Bloc>
+          </div>
+          <Bloc dense titre="Personas déduits des messages" sousTitre="Interprétation des textes publicitaires par l’IA, pas une donnée de ciblage fournie par Meta.">
+            <div className="grid gap-4 md:grid-cols-2">
+              {analyse.personas.map((p) => (
+                <div key={p.nom} className="rounded-xl border border-[#E5E7EB] p-4 space-y-1.5">
+                  <p className="text-sm font-semibold text-[#0d0d12]">{p.nom}</p>
+                  <p className="text-sm text-gray-600">{p.description}</p>
+                </div>
+              ))}
+            </div>
+          </Bloc>
+        </>
       )}
 
       {ouverte && (
         <FichePub pub={ouverte} jours={joursDeDiffusion(ouverte)} actions={<ChoixSauvegarde pub={ouverte} dossiers={dossiers} />} fermer={() => setOuverte(null)}
-          apresMasquage={() => setPubs((l) => l && l.filter((x) => x.id !== ouverte.id))} {...voisines(pubs ?? [], ouverte, setOuverte)} ouvrir={setOuverte} />
+          apresMasquage={() => setPubs((l) => l && l.filter((x) => x.id !== ouverte.id))}
+          {...voisines(toutes ?? pubs, ouverte, setOuverte)} ouvrir={setOuverte} />
       )}
     </div>
   )

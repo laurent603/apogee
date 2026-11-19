@@ -40,7 +40,7 @@ export default function EspionPage() {
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
   const [pubs, setPubs] = useState<PubVeille[]>([])
   // La marque dont le rapport s'affiche : choisie après un scan ou dans la liste.
-  const [choisie, setChoisie] = useState<{ id: string; nom: string; suivie?: boolean } | null>(null)
+  const [choisie, setChoisie] = useState<{ id: string; nom: string; suivie?: boolean; pageId?: string } | null>(null)
   const [toutesMarques, setToutesMarques] = useState<{ id: string; nom: string; suivie: boolean; categorie: string | null }[]>([])
   // Comparaison : null = fermée ; sinon les marques cochées, puis `comparer` les met en regard.
   const [cochees, setCochees] = useState<string[] | null>(null)

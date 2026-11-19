@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
           include: inclure,
         }),
     parOrdre ? ordre!.length : prisma.veillePub.count({ where }),
-    prisma.veilleMarque.findMany({ where: marqueVisible, select: { id: true, nom: true, suivie: true, categorie: true }, orderBy: { nom: 'asc' } }),
+    prisma.veilleMarque.findMany({ where: marqueVisible, select: { id: true, nom: true, suivie: true, categorie: true, pageId: true }, orderBy: { nom: 'asc' } }),
   ])
 
   const parId = new Map(brutes.map((l) => [l.id, l]))
