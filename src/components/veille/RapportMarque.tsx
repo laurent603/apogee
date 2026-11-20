@@ -22,6 +22,21 @@ import { Barre, Courbe, FichePub, chiffresPub, compact, voisines } from './Fiche
 // d'abord, puis une section d'analyse en cartes de grille.
 const PERIODES = [[30, '30 jours'], [90, '90 jours'], [365, '12 mois']] as const
 const FORMATS: Record<string, string> = { IMAGE: 'Image', VIDEO: 'Vidéo', CAROUSEL: 'Carrousel', DCO: 'Dynamique' }
+
+/**
+ * Le format vu par le lecteur, pas celui déclaré par Meta. « DCO » est un
+ * mode de diffusion — la créa reste une image ou une vidéo, et c'est ça
+ * qu'on compare. On retombe sur le champ Meta quand aucun média n'est copié.
+ */
+const formatReel = (pub: { format: string; medias: { type: string }[] }) => {
+  // Un DCO porte plusieurs médias sans être un carrousel : seul Meta sait le
+  // dire, on garde donc son champ pour ce cas-là.
+  if (pub.format === 'CAROUSEL') return 'CAROUSEL'
+  const type = pub.medias[0]?.type
+  if (type === 'video') return 'VIDEO'
+  if (type === 'image') return 'IMAGE'
+  return pub.format
+}
 const pourcent = (x: number) => `${Math.round(100 * x)} %`
 const mois = (aaaamm: string) => new Date(`${aaaamm}-01T00:00:00`).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
 const date = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
@@ -52,20 +67,29 @@ function Bloc({ titre, sousTitre, aDroite, dense, children, className }: {
  * Un chiffre du bandeau de tête. La note porte toujours la portée — sur quoi
  * et sur quelle période : un nombre nu se relit mal deux semaines plus tard.
  */
-function Chiffre({ libelle, valeur, note, badge, ton }: {
+function Chiffre({ libelle, valeur, apres, note, badge, variation }: {
   libelle: string; valeur: string; note?: React.ReactNode; badge?: string
-  /** 'vert' et 'rouge' pour une variation ; rien pour un compte. */
-  ton?: 'vert' | 'rouge'
+  /** Le dénominateur, en gris à côté de la valeur : « 229 / 307 au total ». */
+  apres?: string
+  /** Une variation en pourcentage, posée à droite de la valeur. */
+  variation?: number | null
 }) {
   return (
-    <div className="card p-4">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+    <div className="rounded-xl border border-[#E5E7EB] bg-white px-[18px] py-4">
+      <p className="truncate text-[13px] text-gray-500">
         {libelle}
-        {badge && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium normal-case tracking-normal text-amber-800">{badge}</span>}
+        {badge && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800">{badge}</span>}
       </p>
-      <p className={clsx('mt-1.5 text-[27px] font-bold leading-tight tabular-nums tracking-tight',
-        ton === 'vert' ? 'text-green-700' : ton === 'rouge' ? 'text-red-700' : 'text-[#0d0d12]')}>{valeur}</p>
-      {note && <p className="mt-1.5 text-[11px] leading-snug text-gray-400">{note}</p>}
+      <p className="mt-1.5 flex items-baseline gap-2 text-[26px] font-bold leading-none tracking-tight text-[#0d0d12]">
+        <span className="whitespace-nowrap tabular-nums">{valeur}</span>
+        {apres && <span className="text-[13px] font-normal text-gray-400">{apres}</span>}
+        {variation !== null && variation !== undefined && (
+          <span className={clsx('text-[13px] font-semibold tabular-nums', variation < 0 ? 'text-red-600' : 'text-green-700')}>
+            {variation < 0 ? '↓' : '↑'} {Math.abs(variation)} %
+          </span>
+        )}
+      </p>
+      {note && <p className="mt-2 text-[12px] leading-snug text-gray-400">{note}</p>}
     </div>
   )
 }
@@ -214,7 +238,7 @@ function CarteCrea({ pub, ouvrir }: { pub: PubVeille; ouvrir: () => void }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
         <span className={clsx('absolute left-2 top-2', pub.active ? 'badge-green' : 'badge-gray')}>{pub.active ? 'Active' : 'Arrêtée'}</span>
-        <span className="badge-gray absolute right-2 top-2">{FORMATS[pub.format] ?? pub.format}</span>
+        <span className="badge-gray absolute right-2 top-2">{FORMATS[formatReel(pub)] ?? pub.format}</span>
       </div>
       <div className="flex items-center justify-between gap-1.5 px-2.5 py-2 text-[11px] tabular-nums">
         <span className="font-semibold text-[#0d0d12]">{jours !== null ? `${jours} j` : '—'}</span>
@@ -251,7 +275,7 @@ function GrilleCreas({ toutes, ouvrir }: { toutes: PubVeille[]; ouvrir: (p: PubV
   }, [toutes, statut, tri])
 
   const actives = toutes.filter((p) => p.active).length
-  const visibles = complet ? liste : liste.slice(0, 12)
+  const visibles = complet ? liste : liste.slice(0, 20)
 
   return (
     <section className="space-y-4">
@@ -275,10 +299,10 @@ function GrilleCreas({ toutes, ouvrir }: { toutes: PubVeille[]; ouvrir: (p: PubV
 
       {liste.length ? (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
             {visibles.map((p) => <CarteCrea key={p.id} pub={p} ouvrir={() => ouvrir(p)} />)}
           </div>
-          {liste.length > 12 && (
+          {liste.length > 20 && (
             <p className="text-center">
               <button type="button" onClick={() => setComplet(!complet)} className="btn-secondary text-sm">
                 {complet ? 'Réduire' : `Voir les ${liste.length} créatives`}
@@ -461,7 +485,8 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
     if (!source) return null
     const depuis = Date.now() - periode * 86_400_000
     const enLigne = source.filter((p) => p.debut && (p.active || !p.fin || Date.parse(p.fin) >= depuis))
-    return rapportMarque(enLigne.length ? enLigne : source, EUROS_POUR_MILLE_PERSONNES)
+    const retenues = (enLigne.length ? enLigne : source).map((p) => ({ ...p, format: formatReel(p) }))
+    return rapportMarque(retenues, EUROS_POUR_MILLE_PERSONNES)
   }, [toutes, pubs, periode])
   const rythme = useMemo(() => (estimees ? rythmeParSemaine(estimees) : null), [estimees])
   if (!pubs || !r || !rp) return <div className="card text-center py-16 text-gray-400 text-sm">Calcul du rapport…</div>
@@ -538,23 +563,22 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Chiffre libelle="Créatives actives" valeur={String(r.total)}
-          note={toutes ? `sur ${toutes.length} connues, actives et arrêtées` : 'chargement des arrêtées…'} />
-        <Chiffre libelle="Budget mensuel" badge="estimation"
-          valeur={r.budget ? `≈ ${compact(r.budget.mensuel)} €` : '—'}
-          note={r.budget ? `entre ${compact(r.budget.bas)} et ${compact(r.budget.haut)} € · diffusion UE` : sansCouverture ? 'couverture inconnue : relancez un scan' : 'pas assez de pubs à couverture connue'} />
-        <Chiffre libelle="Jours en ligne, médiane" valeur={r.anciennete.mediane !== null ? `${r.anciennete.mediane} j` : '—'}
-          note={`${plusDe90} créative${plusDe90 > 1 ? 's' : ''} sur ${r.total} ont plus de 90 jours`} />
-        <Chiffre libelle="La plus longue" valeur={laPlusLongue ? `${laPlusLongue.jours} j` : '—'}
+          apres={toutes ? `/ ${toutes.length} au total` : undefined}
+          note="actives et arrêtées confondues" />
+        <Chiffre libelle={`Dépense est. ${periode === 365 ? '12 mois' : `${periode} j`}`} badge="estimation"
+          valeur={r.budget ? `${compact(r.budget.bas)}–${compact(r.budget.haut)} €` : '—'}
+          note={r.budget ? 'Diffusion UE uniquement' : sansCouverture ? 'couverture inconnue : relancez un scan' : 'pas assez de créas à couverture connue'} />
+        <Chiffre libelle="Jours en ligne, médiane" valeur={r.anciennete.mediane !== null ? String(r.anciennete.mediane) : '—'}
+          note={`${rp.total} créatives en ligne sur la période`} />
+        <Chiffre libelle="La plus longue" valeur={laPlusLongue ? `${laPlusLongue.jours} jours` : '—'}
           note={laPlusLongue && (
-            <>depuis le {dateCourte(laPlusLongue.pub.debut!)} · <button type="button" onClick={() => setOuverte(laPlusLongue.pub)} className="text-[#3434ef] hover:underline">voir la créa</button></>
+            <button type="button" onClick={() => setOuverte(laPlusLongue.pub)} className="text-[#3434ef] hover:underline">voir la créa</button>
           )} />
-        <Chiffre libelle="Lancées / semaine"
+        <Chiffre libelle="Nouvelles créas / semaine"
           valeur={rythme?.recent ? (rythme.recent.lancees / 4).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—'}
-          ton={rythme?.recent?.variation ? (rythme.recent.variation < 0 ? 'rouge' : 'vert') : undefined}
+          variation={rythme?.recent?.variation}
           note={rythme?.recent
-            ? rythme.recent.variation === null
-              ? '4 dernières semaines ; aucune les 4 d’avant'
-              : `${rythme.recent.variation > 0 ? '+' : ''}${rythme.recent.variation} % contre les 4 semaines d’avant`
+            ? rythme.recent.variation === null ? '4 dernières semaines ; aucune les 4 précédentes' : '4 dernières semaines vs les 4 précédentes'
             : 'moins de huit semaines relevées'} />
       </div>
 
@@ -577,27 +601,27 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         {estimees && (
           <Bloc dense titre="Dépense estimée par jour" sousTitre="Couverture UE × coût pour mille, étalée sur les jours de diffusion.">
             <Courbe id="courbe-depense" titre="" donnees={estimees} cle="depense" format={(v) => `${compact(v)} €`} />
           </Bloc>
         )}
         {estimees && <RythmeDeTest serie={estimees} />}
-        <Bloc dense titre="Ancienneté" sousTitre={`Créatives actives, par tranche de jours en ligne. Âge médian ${r.anciennete.mediane ?? '—'} j.`}>
-          <Classement libelles={r.anciennete.tranches} total={r.total} />
-        </Bloc>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Bloc dense titre="Ancienneté" sousTitre={`Par tranche de jours en ligne. Médiane ${r.anciennete.mediane ?? '—'} j.`}>
+          <Classement libelles={r.anciennete.tranches} total={r.total} />
+        </Bloc>
         <Bloc dense titre="Formats" sousTitre="Part des créatives en ligne sur la période.">
           <Classement libelles={rp.formats.map((f) => ({ ...f, libelle: FORMATS[f.libelle] ?? f.libelle }))} total={rp.total} />
         </Bloc>
         <Bloc dense titre="Plateformes" sousTitre="Combinaisons de placements.">
-          <Classement libelles={rp.plateformes.slice(0, 5)} total={rp.total} />
+          <Classement libelles={rp.plateformes.slice(0, 4)} total={rp.total} />
         </Bloc>
         <Bloc dense titre="Bouton d’action" sousTitre="Part des créatives en ligne sur la période.">
-          {rp.boutons.length ? <Classement libelles={rp.boutons.slice(0, 5)} total={rp.total} /> : <Vide>Aucun bouton relevé.</Vide>}
+          {rp.boutons.length ? <Classement libelles={rp.boutons.slice(0, 4)} total={rp.total} /> : <Vide>Aucun bouton relevé.</Vide>}
         </Bloc>
       </div>
 
@@ -621,8 +645,8 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
       {/* ── Relevés quotidiens : la seule donnée mesurée, pas estimée. ── */}
       {relevees.jours.length > 0 && (
-        <div className="grid gap-4 xl:grid-cols-3">
-          <Bloc dense className="xl:col-span-2" titre="Couverture relevée par jour" sousTitre="Écart de couverture d’un matin à l’autre : du mesuré, pas de l’estimé.">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Bloc dense titre="Couverture relevée par jour" sousTitre="Écart de couverture d’un matin à l’autre : du mesuré, pas de l’estimé.">
             <Courbe id="courbe-relevee" titre="" donnees={relevees.jours} cle="depense" format={(v) => `${compact(v)} €`} />
           </Bloc>
           <Bloc dense titre="Créas qui accélèrent" sousTitre="Couverture gagnée par jour sur les 7 derniers relevés.">
