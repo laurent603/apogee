@@ -155,6 +155,19 @@ export const TITRES = [
   'Chiffre clé', 'Nom de marque', 'Mise en avant saisonnière', 'Caractéristique produit', 'Autre',
 ] as const
 
+/** Comment la créa a été fabriquée, par opposition à ce qu'elle raconte. */
+export const STYLES = [
+  'UGC / tourné au téléphone', 'UGC hybride', 'Tournage studio', 'Face caméra',
+  'Interview / micro-trottoir', 'Illustration', 'Infographie', 'Motion design',
+  'Photo produit', 'Photo lifestyle', 'Capture d’écran', 'Autre',
+] as const
+
+/** Le moment de l'année auquel la créa s'accroche, s'il y en a un. */
+export const SAISONS = [
+  'Intemporel', 'Rentrée', 'Automne', 'Hiver', 'Printemps', 'Été',
+  'Black Friday', 'Noël', 'Soldes', 'Changement de saison', 'Autre',
+] as const
+
 /** Ce que la créa propose concrètement. */
 export const OFFRES = [
   'Sans offre', 'Offre permanente', 'Promotion datée', 'Essai ou échantillon gratuit',
@@ -167,8 +180,10 @@ export const AXES_IA = [
   ['titre', 'Tactique de titre', 'Ce que fait le titre sous la créa.'],
   ['angle', 'Angle de message', 'L’argument mis en avant.'],
   ['concept', 'Concept créatif', 'Le format d’exécution.'],
+  ['style', 'Style de production', 'Comment la créa a été fabriquée.'],
   ['persona', 'Persona', 'Qui la créa vise, d’après son texte.'],
   ['offre', 'Type d’offre', 'Ce qu’elle propose concrètement.'],
+  ['saison', 'Saisonnalité', 'Le moment de l’année auquel elle s’accroche.'],
 ] as const
 export type AxeIA = (typeof AXES_IA)[number][0]
 
@@ -180,6 +195,7 @@ export type AnalyseMarque = {
   classement: {
     pubId: string; angle: string; concept: string
     accroche?: string; titre?: string; persona?: string; offre?: string
+    style?: string; saison?: string
   }[]
   personas: { nom: string; description: string }[]
   nbPubs: number
@@ -200,10 +216,12 @@ const SCHEMA_MARQUE = {
           titre: { type: 'STRING', enum: [...TITRES] },
           angle: { type: 'STRING', enum: [...ANGLES] },
           concept: { type: 'STRING', enum: [...CONCEPTS] },
+          style: { type: 'STRING', enum: [...STYLES] },
           offre: { type: 'STRING', enum: [...OFFRES] },
+          saison: { type: 'STRING', enum: [...SAISONS] },
           persona: { type: 'STRING' },
         },
-        required: ['numero', 'angle', 'offre', 'persona'],
+        required: ['numero', 'angle', 'offre', 'saison', 'persona'],
       },
     },
     personas: {
@@ -235,9 +253,11 @@ Réponds en français :
   · titre — ce que fait le titre sous la créa ;
   · angle — l'argument principal, comment la marque tourne son message ;
   · concept — le format d'exécution, comment elle présente ce message ;
+  · style — comment la créa a été FABRIQUÉE (tournage, illustration, UGC…), pas ce qu'elle raconte ;
   · offre — ce qu'elle propose concrètement ;
+  · saison — le moment de l'année auquel elle s'accroche ; « Intemporel » si elle ne s'accroche à rien ;
   · persona — le nom EXACT de l'un des personas que tu viens de décrire, celui que cette pub vise.
-  Les cinq premiers sont pris dans les listes imposées. « Autre » seulement quand le texte existe et qu'aucune valeur ne convient — si la pub n'a ni texte ni transcription, LAISSE accroche, titre et concept de côté plutôt que de deviner — on ne voit pas le visuel.`
+  Tous sauf le persona sont pris dans les listes imposées. « Autre » seulement quand le texte existe et qu'aucune valeur ne convient — si la pub n'a ni texte ni transcription, LAISSE accroche, titre, concept et style de côté plutôt que de deviner — on ne voit pas le visuel.`
 
 /** Classe chaque pub active (angle, concept) et déduit les personas visés — sur le texte seul. */
 export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promise<AnalyseMarque> {
@@ -259,13 +279,15 @@ export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promi
   const personas = resultat.personas ?? []
   const nomsPersonas = new Set(personas.map((p: { nom: string }) => p.nom))
   const classement = (resultat.pubs ?? [])
-    .map((c: { numero: number; angle: string; concept: string; accroche: string; titre: string; offre: string; persona: string }) => ({
+    .map((c: { numero: number; angle: string; concept: string; accroche: string; titre: string; offre: string; persona: string; style: string; saison: string }) => ({
       pubId: pubs[c.numero - 1]?.id,
       angle: c.angle,
       concept: c.concept,
       accroche: c.accroche,
       titre: c.titre,
+      style: c.style,
       offre: c.offre,
+      saison: c.saison,
       // Un persona inventé en cours de route ne compte pas : on ne garde que
       // les noms que le modèle a lui-même déclarés juste avant.
       persona: nomsPersonas.has(c.persona) ? c.persona : undefined,
