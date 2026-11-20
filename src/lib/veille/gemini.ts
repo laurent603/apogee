@@ -142,9 +142,34 @@ export const CONCEPTS = [
   'Packshot produit', 'Mème / tendance', 'Autre',
 ] as const
 
+/** Comment la créa ouvre : la première seconde, la première ligne. */
+export const ACCROCHES = [
+  'Adresse directe', 'Question', 'Affirmation audacieuse', 'Énoncé du bénéfice', 'À contre-courant',
+  'Problème / douleur', 'Statistique', 'Preuve sociale', 'Annonce d’offre', 'Nouveauté',
+  'Mise en contexte d’occasion', 'Autre',
+] as const
+
+/** Ce que fait le titre sous la créa. */
+export const TITRES = [
+  'Promesse de bénéfice', 'Annonce d’offre', 'Preuve sociale', 'Question', 'Injonction',
+  'Chiffre clé', 'Nom de marque', 'Mise en avant saisonnière', 'Caractéristique produit', 'Autre',
+] as const
+
+/** Ce que la créa propose concrètement. */
+export const OFFRES = [
+  'Sans offre', 'Offre permanente', 'Promotion datée', 'Essai ou échantillon gratuit',
+  'Devis ou simulation gratuite', 'Financement ou aide d’État', 'Autre',
+] as const
+
 export type AnalyseMarque = {
-  /** Une ligne par pub analysée : son angle et son concept, pris dans les listes ci-dessus. */
-  classement: { pubId: string; angle: string; concept: string }[]
+  /**
+   * Une ligne par pub analysée, taguée sur six axes. Les quatre derniers
+   * manquent aux analyses d'avant novembre 2026 : l'affichage les saute.
+   */
+  classement: {
+    pubId: string; angle: string; concept: string
+    accroche?: string; titre?: string; persona?: string; offre?: string
+  }[]
   personas: { nom: string; description: string }[]
   nbPubs: number
   modele: string
@@ -158,8 +183,16 @@ const SCHEMA_MARQUE = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { numero: { type: 'INTEGER' }, angle: { type: 'STRING', enum: [...ANGLES] }, concept: { type: 'STRING', enum: [...CONCEPTS] } },
-        required: ['numero', 'angle', 'concept'],
+        properties: {
+          numero: { type: 'INTEGER' },
+          accroche: { type: 'STRING', enum: [...ACCROCHES] },
+          titre: { type: 'STRING', enum: [...TITRES] },
+          angle: { type: 'STRING', enum: [...ANGLES] },
+          concept: { type: 'STRING', enum: [...CONCEPTS] },
+          offre: { type: 'STRING', enum: [...OFFRES] },
+          persona: { type: 'STRING' },
+        },
+        required: ['numero', 'angle', 'offre', 'persona'],
       },
     },
     personas: {
@@ -184,8 +217,15 @@ export type PubPourAnalyse = {
 
 const CONSIGNE_MARQUE = (nom: string) => `Tu es stratège créatif en publicité Meta à réponse directe. Voici les pubs actives de la marque « ${nom} », numérotées. Pour chacune : format, jours de diffusion, personnes touchées dans l'UE quand on le sait, titre, texte, bouton, lien, et pour certaines l'accroche et la transcription déjà relevées.
 Réponds en français :
-- pubs : pour CHAQUE pub, son numéro, son angle (l'argument principal : comment la marque tourne son message) et son concept (le format d'exécution : comment elle présente ce message), chacun pris dans la liste imposée. « Autre » seulement si rien ne convient.
-- personas : 2 à 4 personas que ces messages visent ; nom court et parlant (ex. « Propriétaire résidentiel préoccupé par les coûts »), description de deux phrases : qui il est, ce qui le déclenche.`
+- personas : 2 à 4 personas que ces messages visent ; nom court et parlant (ex. « Propriétaire résidentiel préoccupé par les coûts »), description de deux phrases : qui il est, ce qui le déclenche.
+- pubs : pour CHAQUE pub, son numéro puis six tags :
+  · accroche — comment elle ouvre (la première seconde, la première ligne) ;
+  · titre — ce que fait le titre sous la créa ;
+  · angle — l'argument principal, comment la marque tourne son message ;
+  · concept — le format d'exécution, comment elle présente ce message ;
+  · offre — ce qu'elle propose concrètement ;
+  · persona — le nom EXACT de l'un des personas que tu viens de décrire, celui que cette pub vise.
+  Les cinq premiers sont pris dans les listes imposées. « Autre » seulement quand le texte existe et qu'aucune valeur ne convient — si la pub n'a ni texte ni transcription, LAISSE accroche, titre et concept de côté plutôt que de deviner — on ne voit pas le visuel.`
 
 /** Classe chaque pub active (angle, concept) et déduit les personas visés — sur le texte seul. */
 export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promise<AnalyseMarque> {
@@ -204,10 +244,22 @@ export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promi
   const { resultat, modele } = await appeler([{ text: `${CONSIGNE_MARQUE(nom)}\n\n${lignes.join('\n\n')}` }], SCHEMA_MARQUE)
   // Les numéros (#1…) redeviennent des identifiants ; un numéro inventé ou répété tombe.
   const vus = new Set<string>()
+  const personas = resultat.personas ?? []
+  const nomsPersonas = new Set(personas.map((p: { nom: string }) => p.nom))
   const classement = (resultat.pubs ?? [])
-    .map((c: { numero: number; angle: string; concept: string }) => ({ pubId: pubs[c.numero - 1]?.id, angle: c.angle, concept: c.concept }))
+    .map((c: { numero: number; angle: string; concept: string; accroche: string; titre: string; offre: string; persona: string }) => ({
+      pubId: pubs[c.numero - 1]?.id,
+      angle: c.angle,
+      concept: c.concept,
+      accroche: c.accroche,
+      titre: c.titre,
+      offre: c.offre,
+      // Un persona inventé en cours de route ne compte pas : on ne garde que
+      // les noms que le modèle a lui-même déclarés juste avant.
+      persona: nomsPersonas.has(c.persona) ? c.persona : undefined,
+    }))
     .filter((c: { pubId?: string }) => c.pubId && !vus.has(c.pubId) && vus.add(c.pubId))
-  return { classement, personas: resultat.personas ?? [], nbPubs: pubs.length, modele, date: new Date().toISOString() }
+  return { classement, personas, nbPubs: pubs.length, modele, date: new Date().toISOString() }
 }
 
 // ─── Catégorie d'une marque ───────────────────────────────────────────────

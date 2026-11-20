@@ -141,3 +141,30 @@ assert.equal(lm.courbe.length, 90)
 assert.equal(lm.courbe[89], 3)
 assert.equal(lm.courbe[89 - 47], 1) // c seule (jours 50 à 45), d pas encore lancée
 console.log('marché : ok')
+
+// ─── Stratégie : ce qu'on essaie, ce qu'on garde, ce qu'on arrête ─────────
+const { strategieMarque, resumeStrategie } = await import('../src/lib/veille/rapport.ts')
+const jr = (n) => new Date(MAINTENANT - n * 86_400_000).toISOString()
+const statut = [
+  { id: 'a', debut: jr(10), fin: null, active: true },   // lancée ce mois
+  { id: 'b', debut: jr(5), fin: null, active: true },    // lancée ce mois
+  { id: 'c', debut: jr(200), fin: null, active: true },  // installée
+  { id: 'd', debut: jr(120), fin: jr(3), active: false },// arrêtée ce mois
+  { id: 'e', debut: jr(40), fin: null, active: true },   // ni l'un ni l'autre
+]
+const tags = (pubId, angle) => ({ pubId, tags: [{ axe: 'Angle', tag: angle }] })
+const st = strategieMarque(
+  [tags('a', 'Économies'), tags('b', 'Économies'), tags('c', 'Preuves'), tags('d', 'Économies'), tags('e', 'Preuves')],
+  statut, MAINTENANT,
+)
+assert.deepEqual(st.enTest, [{ axe: 'Angle', tag: 'Économies', n: 2 }])
+assert.deepEqual(st.installees, [{ axe: 'Angle', tag: 'Preuves', n: 1, joursMoyens: 200 }], 'e a 40 jours : pas encore installée')
+assert.deepEqual(st.arretees, [{ axe: 'Angle', tag: 'Économies', n: 1 }])
+
+const phrases = resumeStrategie(st, 'Lumélio')
+assert.equal(phrases[0], 'Lumélio garde « Preuves » : 1 créa en ligne depuis 200 jours en moyenne.')
+assert.equal(phrases[1], 'Elle essaie « Économies » : 2 lancements sur les 30 derniers jours.')
+assert.ok(phrases[2].startsWith('« Économies » est à la fois le plus lancé et le plus arrêté'), 'le même tag dans deux colonnes est signalé')
+// Aucun tag, aucune phrase inventée.
+assert.deepEqual(resumeStrategie(strategieMarque([], [], MAINTENANT), 'X'), [])
+console.log('strategieMarque : ok')

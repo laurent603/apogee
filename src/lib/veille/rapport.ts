@@ -308,6 +308,77 @@ export function courbesEstimees(
   return serie
 }
 
+type PubStatut = { id: string; debut: string | null; fin: string | null; active: boolean }
+
+/**
+ * Ce que la marque essaie, ce qu'elle garde, ce qu'elle a arrêté.
+ *
+ * Un classement par part dit ce qu'elle fait le plus ; il ne dit pas si un
+ * tag est une tentative du mois ou un pilier de six mois. Le même tag peut
+ * tomber dans deux colonnes — le plus lancé est souvent le plus arrêté, et
+ * c'est précisément ce qu'on veut voir.
+ */
+export function strategieMarque(
+  lignes: { pubId: string; tags: { axe: string; tag: string }[] }[],
+  pubs: PubStatut[],
+  maintenant = Date.now(),
+) {
+  const parId = new Map(pubs.map((p) => [p.id, p]))
+  const age = (p: PubStatut) =>
+    p.debut ? Math.max(1, Math.round(((p.active || !p.fin ? maintenant : Date.parse(p.fin)) - Date.parse(p.debut)) / JOUR)) : null
+  const depuis30 = maintenant - 30 * JOUR
+
+  const groupes = new Map<string, { axe: string; tag: string; lancees: number; arrets: number; jours: number[] }>()
+  for (const l of lignes) {
+    const p = parId.get(l.pubId)
+    if (!p) continue
+    const jours = age(p)
+    for (const { axe, tag } of l.tags) {
+      if (!tag) continue
+      const cle = `${axe}|${tag}`
+      const g = groupes.get(cle) ?? { axe, tag, lancees: 0, arrets: 0, jours: [] }
+      if (p.debut && Date.parse(p.debut) >= depuis30) g.lancees++
+      if (!p.active && p.fin && Date.parse(p.fin) >= depuis30) g.arrets++
+      // Installée : encore en ligne et depuis assez longtemps pour que ce ne
+      // soit plus un essai.
+      if (p.active && jours !== null && jours >= 60) g.jours.push(jours)
+      groupes.set(cle, g)
+    }
+  }
+
+  const tout = [...groupes.values()]
+  const moyenne = (l: number[]) => Math.round(l.reduce((s, x) => s + x, 0) / l.length)
+  return {
+    enTest: tout.filter((g) => g.lancees > 0).sort((a, b) => b.lancees - a.lancees).slice(0, 3)
+      .map((g) => ({ axe: g.axe, tag: g.tag, n: g.lancees })),
+    installees: tout.filter((g) => g.jours.length > 0).sort((a, b) => moyenne(b.jours) - moyenne(a.jours)).slice(0, 3)
+      .map((g) => ({ axe: g.axe, tag: g.tag, n: g.jours.length, joursMoyens: moyenne(g.jours) })),
+    arretees: tout.filter((g) => g.arrets > 0).sort((a, b) => b.arrets - a.arrets).slice(0, 3)
+      .map((g) => ({ axe: g.axe, tag: g.tag, n: g.arrets })),
+  }
+}
+
+/**
+ * Le résumé de stratégie, écrit à partir des seuls tags — comme
+ * `constatsComparaison` : aucune phrase si le chiffre qui la porte manque.
+ */
+export function resumeStrategie(s: ReturnType<typeof strategieMarque>, nom: string): string[] {
+  const phrases: string[] = []
+  const [garde] = s.installees
+  if (garde) phrases.push(`${nom} garde « ${garde.tag} » : ${garde.n} créa${garde.n > 1 ? 's' : ''} en ligne depuis ${garde.joursMoyens} jours en moyenne.`)
+
+  const [essai] = s.enTest
+  if (essai) phrases.push(`Elle essaie « ${essai.tag} » : ${essai.n} lancement${essai.n > 1 ? 's' : ''} sur les 30 derniers jours.`)
+
+  const [arret] = s.arretees
+  if (arret) {
+    phrases.push(s.enTest.some((x) => x.tag === arret.tag)
+      ? `« ${arret.tag} » est à la fois le plus lancé et le plus arrêté — ${arret.n} arrêt${arret.n > 1 ? 's' : ''} ce mois-ci : elle cherche encore sa formule dessus.`
+      : `Elle abandonne « ${arret.tag} » : ${arret.n} arrêt${arret.n > 1 ? 's' : ''} ce mois-ci.`)
+  }
+  return phrases
+}
+
 /**
  * Lancements et arrêts par semaine : la cadence de test, que le nombre de
  * pubs actives ne montre pas — un parc stable peut cacher dix créas lancées

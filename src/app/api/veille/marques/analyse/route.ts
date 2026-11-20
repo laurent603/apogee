@@ -6,7 +6,11 @@ import { analyserMarque, type PubPourAnalyse } from '@/lib/veille/gemini'
 
 /**
  * L'analyse IA d'une marque : GET la renvoie si elle existe, POST la lance
- * (ou la relance avec `refaire: true`) sur ses pubs actives et la garde.
+ * (ou la relance avec `refaire: true`) et la garde.
+ *
+ * Elle porte sur les pubs actives et sur celles arrêtées depuis moins de
+ * trente jours : sans ces dernières, « ce que la marque a arrêté » ne peut
+ * rien contenir, et c'est la moitié de l'intérêt du tri.
  */
 
 export const maxDuration = 120
@@ -33,11 +37,15 @@ export async function POST(req: NextRequest) {
   if (marque.analyse && corps.refaire !== true) return NextResponse.json(marque.analyse)
 
   const pubs = await prisma.veillePub.findMany({
-    where: { marqueId: marque.id, active: true, masquee: false },
+    where: {
+      marqueId: marque.id,
+      masquee: false,
+      OR: [{ active: true }, { fin: { gte: new Date(Date.now() - 30 * 86_400_000) } }],
+    },
     orderBy: [{ reachUe: { sort: 'desc', nulls: 'last' } }, { debut: 'asc' }],
     take: PUBS_MAX,
   })
-  if (!pubs.length) return NextResponse.json({ erreur: 'Aucune pub active à analyser' }, { status: 422 })
+  if (!pubs.length) return NextResponse.json({ erreur: 'Aucune pub à analyser' }, { status: 422 })
 
   try {
     const analyse = await analyserMarque(
@@ -45,7 +53,7 @@ export async function POST(req: NextRequest) {
       pubs.map((p) => ({
         id: p.id,
         format: p.format,
-        jours: p.debut ? Math.round((Date.now() - p.debut.getTime()) / 86_400_000) : null,
+        jours: p.debut ? Math.round(((p.active || !p.fin ? Date.now() : p.fin.getTime()) - p.debut.getTime()) / 86_400_000) : null,
         reachUe: p.reachUe,
         titre: p.titre,
         texte: p.texte,

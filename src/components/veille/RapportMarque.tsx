@@ -6,7 +6,7 @@ import type { AnalyseMarque } from '@/lib/veille/gemini'
 import { CATEGORIES } from '@/lib/veille/categories'
 import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
-import { courbesEstimees, courbesRelevees, rapportMarque, rythmeParSemaine } from '@/lib/veille/rapport'
+import { courbesEstimees, courbesRelevees, rapportMarque, resumeStrategie, rythmeParSemaine, strategieMarque } from '@/lib/veille/rapport'
 import { ChoixSauvegarde, joursDeDiffusion, type Dossier, type PubVeille } from './CartePub'
 import { Barre, Courbe, FichePub, chiffresPub, compact, voisines } from './FichePub'
 
@@ -21,6 +21,17 @@ import { Barre, Courbe, FichePub, chiffresPub, compact, voisines } from './Fiche
 // les quatre autres — dix-sept blocs pleine largeur à la suite. Les créas
 // d'abord, puis une section d'analyse en cartes de grille.
 const PERIODES = [[30, '30 jours'], [90, '90 jours'], [365, '12 mois']] as const
+
+/** Les six axes de tags, dans l'ordre où on les lit : ouverture → offre. */
+const AXES_IA = [
+  ['accroche', 'Tactique d’accroche', 'Comment la créa ouvre.'],
+  ['titre', 'Tactique de titre', 'Ce que fait le titre sous la créa.'],
+  ['angle', 'Angle de message', 'L’argument mis en avant.'],
+  ['concept', 'Concept créatif', 'Le format d’exécution.'],
+  ['persona', 'Persona', 'Qui la créa vise, d’après son texte.'],
+  ['offre', 'Type d’offre', 'Ce qu’elle propose concrètement.'],
+] as const
+type AxeIA = (typeof AXES_IA)[number][0]
 const FORMATS: Record<string, string> = { IMAGE: 'Image', VIDEO: 'Vidéo', CAROUSEL: 'Carrousel', DCO: 'Dynamique' }
 
 /**
@@ -499,23 +510,37 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
   const maxMois = Math.max(...r.parMois.map((m) => m.n))
   const sansCouverture = r.avecCouverture === 0
   // L'analyse de la marque, quand elle existe, remplace les comptes pub par pub.
-  const parClasse = (cle: 'angle' | 'concept'): Ligne[] => {
+  // Les six axes de l'analyse IA. Les quatre derniers manquent aux analyses
+  // d'avant novembre 2026 : un axe vide ne s'affiche pas.
+  const parClasse = (cle: AxeIA): Ligne[] => {
     const groupes = new Map<string, { n: number; jours: number[] }>()
     for (const c of analyse!.classement) {
-      const g = groupes.get(c[cle]) ?? { n: 0, jours: [] }
+      const tag = c[cle]
+      if (!tag) continue
+      const g = groupes.get(tag) ?? { n: 0, jours: [] }
       g.n++
-      const p = parId.get(c.pubId)
-      const j = p ? joursDeDiffusion(p) : null
+      const pb = parId.get(c.pubId)
+      const j = pb ? joursDeDiffusion(pb) : null
       if (j !== null) g.jours.push(j)
-      groupes.set(c[cle], g)
+      groupes.set(tag, g)
     }
     return [...groupes.entries()]
       .map(([libelle, g]) => ({ libelle, n: g.n, joursMoyens: g.jours.length ? Math.round(g.jours.reduce((s, x) => s + x, 0) / g.jours.length) : null }))
       .sort((a, b) => b.n - a.n)
   }
-  const concepts = analyse ? parClasse('concept') : r.concepts
-  const angles = analyse ? parClasse('angle') : r.angles
+  const axes = analyse ? AXES_IA.map(([cle, titre, sous]) => ({ cle, titre, sous, lignes: parClasse(cle) })).filter((a) => a.lignes.length) : []
   const classees = analyse?.classement.length ?? 0
+  // Le tri test / en ligne / arrêté, calculé sur tous les axes à la fois.
+  const strategie = analyse && toutes
+    ? strategieMarque(
+        analyse.classement.map((c) => ({
+          pubId: c.pubId,
+          tags: AXES_IA.map(([cle, titre]) => ({ axe: titre, tag: c[cle] ?? '' })),
+        })),
+        toutes.map((pb) => ({ id: pb.id, debut: pb.debut, fin: pb.fin, active: pb.active })),
+      )
+    : null
+  const resume = strategie ? resumeStrategie(strategie, marque.nom) : []
   const plusDe90 = r.anciennete.tranches.find((t) => t.libelle === 'Plus de 90 j')?.n ?? 0
   // La plus ancienne encore en ligne : le signal le plus fort du rapport.
   const premiere = r.plusLongues[0]
@@ -688,13 +713,43 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
         </section>
       ) : (
         <>
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Bloc dense titre="Angle du message" sousTitre="Ce que la marque met en avant (l’argument).">
-              <TableauTags libelles={angles} total={classees} />
+          {resume.length > 0 && strategie && (
+            <Bloc dense titre="Résumé de la stratégie" sousTitre="Écrit à partir des tags ci-dessous : ce qu’elle garde, ce qu’elle essaie, ce qu’elle arrête.">
+              <p className="text-sm leading-relaxed text-gray-700">{resume.join(' ')}</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                {([
+                  ['En test', 'lancées ces 30 jours', strategie.enTest, 'bg-[#f0f0ff] text-[#3434ef]'],
+                  ['Toujours en ligne', 'en ligne depuis 60 jours et plus', strategie.installees, 'bg-green-50 text-green-700'],
+                  ['Arrêtées', 'arrêtées ces 30 jours', strategie.arretees, 'bg-gray-100 text-gray-600'],
+                ] as const).map(([titre, sous, liste, ton]) => (
+                  <div key={titre} className="rounded-xl border border-[#E5E7EB] p-4 space-y-2.5">
+                    <p className="flex flex-wrap items-baseline gap-2">
+                      <span className={clsx('rounded px-2 py-0.5 text-[11px] font-medium', ton)}>{titre}</span>
+                      <span className="text-[11px] text-gray-400">{sous}</span>
+                    </p>
+                    {liste.length ? (
+                      <ul className="space-y-1.5 text-[13px]">
+                        {liste.map((t) => (
+                          <li key={`${t.axe}|${t.tag}`} className="flex justify-between gap-3">
+                            <span className="min-w-0 truncate text-[#0d0d12]" title={t.axe}>{t.tag}</span>
+                            <span className="shrink-0 tabular-nums text-gray-500">
+                              {'joursMoyens' in t ? `${t.joursMoyens} j moy.` : `${t.n} créa${t.n > 1 ? 's' : ''}`}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <Vide>Rien sur cette période.</Vide>}
+                  </div>
+                ))}
+              </div>
             </Bloc>
-            <Bloc dense titre="Concept créatif" sousTitre="Comment elle le présente (le format d’exécution).">
-              <TableauTags libelles={concepts} total={classees} />
-            </Bloc>
+          )}
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            {axes.map((a) => (
+              <Bloc key={a.cle} dense titre={a.titre} sousTitre={a.sous}>
+                <TableauTags libelles={a.lignes} total={classees} />
+              </Bloc>
+            ))}
           </div>
           <Bloc dense titre="Personas déduits des messages" sousTitre="Interprétation des textes publicitaires par l’IA, pas une donnée de ciblage fournie par Meta.">
             <div className="grid gap-4 md:grid-cols-2">
