@@ -411,6 +411,8 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
   const [ouverte, setOuverte] = useState<PubVeille | null>(null)
   const [analyse, setAnalyse] = useState<AnalyseMarque | null>(null)
   const [analyseEnCours, setAnalyseEnCours] = useState(false)
+  const [aDecortiquer, setADecortiquer] = useState<number | null>(null)
+  const [decorticageEnCours, setDecorticageEnCours] = useState(false)
   const [suivie, setSuivie] = useState(!!marque.suivie)
   const [categorie, setCategorie] = useState(marque.categorie ?? '')
 
@@ -451,8 +453,36 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
 
   useEffect(() => {
     setAnalyse(null)
+    setADecortiquer(null)
     fetch(`/api/veille/marques/analyse?marqueId=${marque.id}`).then((r) => (r.ok ? r.json() : null)).then(setAnalyse)
+    fetch(`/api/veille/decortiquer/lot?marque=${marque.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setADecortiquer(d?.restantes ?? 0))
   }, [marque.id])
+
+  /**
+   * Rattrape les transcriptions manquantes, lot par lot. Une requête ne peut
+   * en faire que quelques-unes — un appel multimodal par créa —, donc on
+   * boucle côté navigateur tant qu'il en reste et que ça avance.
+   */
+  async function decortiquerTout() {
+    setDecorticageEnCours(true)
+    try {
+      for (;;) {
+        const r = await fetch('/api/veille/decortiquer/lot', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ marqueId: marque.id }),
+        })
+        const j = await r.json().catch(() => null)
+        if (!r.ok || !j) { toast.error(j?.erreur || 'Décorticage interrompu'); break }
+        setADecortiquer(j.restantes)
+        // Un lot qui n'avance plus ne sert qu'à brûler des appels.
+        if (!j.restantes || (!j.faites && !j.echecs)) break
+      }
+      toast.success('Transcriptions à jour')
+    } finally {
+      setDecorticageEnCours(false)
+    }
+  }
 
   async function analyser(refaire = false) {
     setAnalyseEnCours(true)
@@ -701,6 +731,27 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
           </div>
         )}
       </div>
+
+      {/* Sans transcription, l'analyse ne lit que le texte publicitaire — et
+          la plupart des créas sont des vidéos muettes de ce côté-là. */}
+      {suivie && aDecortiquer !== null && aDecortiquer > 0 && (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <p className="text-sm text-amber-900">
+            <strong>{aDecortiquer} créa{aDecortiquer > 1 ? 's' : ''} sans transcription.</strong>{' '}
+            L’analyse ne lira que leur texte publicitaire — or le message d’une vidéo est dans sa bande son.
+            Le rattrapage tourne aussi chaque nuit.
+          </p>
+          <button type="button" onClick={decortiquerTout} disabled={decorticageEnCours}
+            className="btn-secondary shrink-0 text-sm disabled:opacity-50">
+            {decorticageEnCours ? `Décorticage… ${aDecortiquer} restantes` : 'Décortiquer maintenant'}
+          </button>
+        </section>
+      )}
+      {!suivie && (
+        <p className="text-xs text-gray-400">
+          Les transcriptions ne sont relevées que sur les marques en veille : activez-la pour que l’analyse lise aussi les vidéos.
+        </p>
+      )}
 
       {!analyse ? (
         <section className="card p-6 text-center space-y-3">

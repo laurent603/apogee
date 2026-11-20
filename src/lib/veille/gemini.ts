@@ -212,7 +212,8 @@ export type PubPourAnalyse = {
   texte: string | null
   cta: string | null
   lienUrl: string | null
-  analyse: { accroche: string; angle: string; concept: string; transcription: { texte: string }[] } | null
+  /** Le décorticage du média, quand il a eu lieu. Vide si Gemini l'a refusé. */
+  analyse: { accroche?: string; angle?: string; concept?: string; transcription?: { texte: string }[] } | null
 }
 
 const CONSIGNE_MARQUE = (nom: string) => `Tu es stratège créatif en publicité Meta à réponse directe. Voici les pubs actives de la marque « ${nom} », numérotées. Pour chacune : format, jours de diffusion, personnes touchées dans l'UE quand on le sait, titre, texte, bouton, lien, et pour certaines l'accroche et la transcription déjà relevées.
@@ -236,8 +237,8 @@ export async function analyserMarque(nom: string, pubs: PubPourAnalyse[]): Promi
       p.texte && `Texte : ${p.texte.slice(0, 600)}`,
       p.cta && `Bouton : ${p.cta}`,
       p.lienUrl && `Lien : ${p.lienUrl}`,
-      p.analyse && `Accroche relevée : ${p.analyse.accroche}`,
-      p.analyse?.transcription.length && `Transcription : ${p.analyse.transcription.map((t) => t.texte).join(' / ').slice(0, 600)}`,
+      p.analyse?.accroche && `Accroche relevée : ${p.analyse.accroche}`,
+      p.analyse?.transcription?.length && `Transcription : ${p.analyse.transcription.map((t) => t.texte).join(' / ').slice(0, 600)}`,
     ]
     return champs.filter(Boolean).join('\n')
   })
