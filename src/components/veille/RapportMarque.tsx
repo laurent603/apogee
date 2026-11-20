@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
-import type { AnalyseMarque } from '@/lib/veille/gemini'
+import { AXES_IA, type AnalyseMarque, type AxeIA } from '@/lib/veille/gemini'
 import { CATEGORIES } from '@/lib/veille/categories'
 import { suggererSimilaires } from './MotsClesCollecte'
 import { EUROS_POUR_MILLE_PERSONNES, budgetEstime } from '@/lib/veille/adLibrary'
@@ -22,16 +22,6 @@ import { Barre, Courbe, FichePub, chiffresPub, compact, voisines } from './Fiche
 // d'abord, puis une section d'analyse en cartes de grille.
 const PERIODES = [[30, '30 jours'], [90, '90 jours'], [365, '12 mois']] as const
 
-/** Les six axes de tags, dans l'ordre où on les lit : ouverture → offre. */
-const AXES_IA = [
-  ['accroche', 'Tactique d’accroche', 'Comment la créa ouvre.'],
-  ['titre', 'Tactique de titre', 'Ce que fait le titre sous la créa.'],
-  ['angle', 'Angle de message', 'L’argument mis en avant.'],
-  ['concept', 'Concept créatif', 'Le format d’exécution.'],
-  ['persona', 'Persona', 'Qui la créa vise, d’après son texte.'],
-  ['offre', 'Type d’offre', 'Ce qu’elle propose concrètement.'],
-] as const
-type AxeIA = (typeof AXES_IA)[number][0]
 const FORMATS: Record<string, string> = { IMAGE: 'Image', VIDEO: 'Vidéo', CAROUSEL: 'Carrousel', DCO: 'Dynamique' }
 
 /**

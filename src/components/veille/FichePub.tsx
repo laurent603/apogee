@@ -5,6 +5,25 @@ import { clsx } from 'clsx'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { budgetEstime, EUROS_POUR_MILLE_PERSONNES } from '@/lib/veille/adLibrary'
 import { courbesEstimees, courbesRelevees, gainsCouverture } from '@/lib/veille/rapport'
+import { AXES_IA } from '@/lib/veille/gemini'
+
+/**
+ * Le format vu par le lecteur. « DCO » est un mode de diffusion Meta, pas un
+ * format : la créa reste une image ou une vidéo. On ne retombe sur le champ
+ * Meta que faute de média copié.
+ */
+const formatLisible = (pub: { format: string; medias: { type: string }[] }) => {
+  if (pub.format === 'CAROUSEL') return 'Carrousel'
+  const type = pub.medias[0]?.type
+  if (type === 'video') return 'Vidéo'
+  if (type === 'image') return 'Image'
+  return pub.format
+}
+
+const NOM_PLATEFORME: Record<string, string> = {
+  facebook: 'Facebook', instagram: 'Instagram', messenger: 'Messenger',
+  audience_network: 'Audience Network', threads: 'Threads', whatsapp: 'WhatsApp',
+}
 import type { PubVeille } from './CartePub'
 import type { Decorticage } from '@/lib/veille/gemini'
 import { Recreer } from './Recreer'
@@ -429,6 +448,12 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
   const [onglet, setOnglet] = useState<(typeof ONGLETS_FICHE)[number]>('Détails')
   const [mesures, setMesures] = useState<{ pubId: string; jour: string; reachUe: number }[]>([])
   const [analyse, setAnalyse] = useState<Decorticage | null>(pub.analyse)
+  /**
+   * Les tags de cette créa viennent de l'analyse de sa marque : une ligne par
+   * pub. La fiche va les chercher elle-même plutôt que de les faire descendre
+   * par props depuis les cinq endroits qui l'ouvrent.
+   */
+  const [tags, setTags] = useState<Record<string, string | undefined> | null>(null)
   const media = pub.medias[index]
   const c = chiffresPub(pub, jours)
   const t = pub.transparence
@@ -439,8 +464,15 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
     setIndex(0)
     setMesures([])
     setAnalyse(pub.analyse)
-    if (!lectureSeule) fetch(`/api/veille/mesures?pub=${pub.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
-  }, [pub.id, lectureSeule])
+    setTags(null)
+    if (!lectureSeule) {
+      fetch(`/api/veille/mesures?pub=${pub.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => setMesures(d?.mesures ?? []))
+      fetch(`/api/veille/marques/analyse?marqueId=${pub.marque.id}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((a: { classement?: Record<string, string | undefined>[] } | null) =>
+          setTags(a?.classement?.find((c) => c.pubId === pub.id) ?? null))
+    }
+  }, [pub.id, pub.marque.id, lectureSeule])
 
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
@@ -582,9 +614,9 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
                   {(pub.memeLien ?? 0) > 1 && <Ligne libelle="Pubs vers cette page">{pub.memeLien} sur {pub.surMarque} actives</Ligne>}
                   {(pub.variantes ?? 0) > 1 && <Ligne libelle="Créa réutilisée">{pub.variantes} pubs avec ce texte</Ligne>}
                   {c.pays > 0 && <Ligne libelle="Pays touchés">{c.pays} · {parPays.slice(0, 4).map((p) => p.pays).join(', ')}</Ligne>}
-                  <Ligne libelle="Format">{pub.format === 'VIDEO' ? 'Vidéo' : pub.format === 'IMAGE' ? 'Image' : pub.format === 'CAROUSEL' ? 'Carrousel' : pub.format}</Ligne>
+                  <Ligne libelle="Format">{formatLisible(pub)}</Ligne>
                   {pub.cta && <Ligne libelle="Bouton">{pub.cta}</Ligne>}
-                  {pub.plateformes.length > 0 && <Ligne libelle="Plateformes">{pub.plateformes.join(', ')}</Ligne>}
+                  {pub.plateformes.length > 0 && <Ligne libelle="Plateformes">{pub.plateformes.map((x) => NOM_PLATEFORME[x] ?? x).join(', ')}</Ligne>}
                   {pub.debut && (
                     <Ligne libelle="Diffusion">
                       depuis le {dateLongue(pub.debut)}{!pub.active && pub.fin && <>, arrêtée le {dateLongue(pub.fin)}</>}
@@ -599,6 +631,18 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
                   )}
                   {t?.payeur && <Ligne libelle="Payé par">{t.payeur}{t.beneficiaire && t.beneficiaire !== t.payeur && <>, pour {t.beneficiaire}</>}</Ligne>}
                 </dl>
+                {tags && AXES_IA.some(([cle]) => tags[cle]) && (
+                  <Section titre="Tags IA">
+                    <dl className="space-y-2">
+                      {AXES_IA.filter(([cle]) => tags[cle]).map(([cle, libelle]) => (
+                        <div key={cle} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                          <dt className="w-40 shrink-0 text-xs text-gray-500">{libelle}</dt>
+                          <dd><span className="rounded-md bg-[#f0f0ff] px-2 py-1 text-xs font-medium text-[#3434ef]">{tags[cle]}</span></dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </Section>
+                )}
                 <p className="text-xs text-gray-400">
                   Meta ne publie pas la dépense : estimation à {EUROS_POUR_MILLE_PERSONNES.toLocaleString('fr-FR')} € pour 1 000 personnes touchées
                   dans l’UE, répartie sur les jours de diffusion. L’écart avec le budget réel peut être fort.

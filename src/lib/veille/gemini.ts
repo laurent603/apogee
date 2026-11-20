@@ -161,6 +161,17 @@ export const OFFRES = [
   'Devis ou simulation gratuite', 'Financement ou aide d’État', 'Autre',
 ] as const
 
+/** Les six axes de tags, dans l'ordre où on les lit : ouverture → offre. */
+export const AXES_IA = [
+  ['accroche', 'Tactique d’accroche', 'Comment la créa ouvre.'],
+  ['titre', 'Tactique de titre', 'Ce que fait le titre sous la créa.'],
+  ['angle', 'Angle de message', 'L’argument mis en avant.'],
+  ['concept', 'Concept créatif', 'Le format d’exécution.'],
+  ['persona', 'Persona', 'Qui la créa vise, d’après son texte.'],
+  ['offre', 'Type d’offre', 'Ce qu’elle propose concrètement.'],
+] as const
+export type AxeIA = (typeof AXES_IA)[number][0]
+
 export type AnalyseMarque = {
   /**
    * Une ligne par pub analysée, taguée sur six axes. Les quatre derniers
