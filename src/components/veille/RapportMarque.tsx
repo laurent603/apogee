@@ -61,7 +61,7 @@ function Bloc({ titre, sousTitre, aDroite, dense, children, className }: {
   dense?: boolean
 }) {
   return (
-    <section className={clsx('card', dense ? 'p-[18px] space-y-3.5' : 'p-6 space-y-5', className)}>
+    <section className={clsx('card min-w-0', dense ? 'p-[18px] space-y-3.5' : 'p-6 space-y-5', className)}>
       <div className="flex items-start justify-between gap-6">
         <div>
           <h3 className={dense ? 'text-[13px] font-semibold text-[#0d0d12]' : 'text-base font-semibold text-[#0d0d12]'}>{titre}</h3>
@@ -86,21 +86,30 @@ function Chiffre({ libelle, valeur, apres, note, badge, variation }: {
   variation?: number | null
 }) {
   return (
-    <div className="rounded-xl border border-[#E5E7EB] bg-white px-[18px] py-4">
-      <p className="truncate text-[13px] text-gray-500">
-        {libelle}
-        {badge && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800">{badge}</span>}
-      </p>
-      <p className="mt-1.5 flex items-baseline gap-2 text-[26px] font-bold leading-none tracking-tight text-[#0d0d12]">
-        <span className="whitespace-nowrap tabular-nums">{valeur}</span>
-        {apres && <span className="text-[13px] font-normal text-gray-400">{apres}</span>}
-        {variation !== null && variation !== undefined && (
-          <span className={clsx('text-[13px] font-semibold tabular-nums', variation < 0 ? 'text-red-600' : 'text-green-700')}>
-            {variation < 0 ? '↓' : '↑'} {Math.abs(variation)} %
-          </span>
-        )}
-      </p>
-      {note && <p className="mt-2 text-[12px] leading-snug text-gray-400">{note}</p>}
+    // Sur téléphone, le chiffre se met à droite du libellé : cinq cartes à
+    // gros chiffres y donnaient trois rangées bancales et des libellés coupés.
+    <div className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 sm:px-[18px] sm:py-4">
+      <div className="flex items-baseline justify-between gap-3 sm:block">
+        <p className="flex min-w-0 items-center gap-1.5 text-[13px] text-gray-500">
+          <span className="min-w-0 truncate">{libelle}</span>
+          {badge && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800">{badge}</span>}
+        </p>
+        <p className="flex shrink-0 items-baseline gap-2 text-[22px] font-bold leading-none tracking-tight text-[#0d0d12] sm:mt-1.5 sm:text-[26px]">
+          <span className="whitespace-nowrap tabular-nums">{valeur}</span>
+          {apres && <span className="hidden text-[13px] font-normal text-gray-400 sm:inline">{apres}</span>}
+          {variation !== null && variation !== undefined && (
+            <span className={clsx('text-[13px] font-semibold tabular-nums', variation < 0 ? 'text-red-600' : 'text-green-700')}>
+              {variation < 0 ? '↓' : '↑'} {Math.abs(variation)} %
+            </span>
+          )}
+        </p>
+      </div>
+      {(note || apres) && (
+        <p className="mt-1.5 text-[11px] leading-snug text-gray-400 sm:mt-2 sm:text-[12px]">
+          {apres && <span className="sm:hidden">{apres} · </span>}
+          {note}
+        </p>
+      )}
     </div>
   )
 }
@@ -190,7 +199,8 @@ function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) 
           <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-[#CBD5E1]" />Arrêtées</span>
         </div>
       }>
-      <div className="relative">
+      <div className="-mx-1 overflow-x-auto px-1">
+      <div className="relative min-w-[480px]">
         <div className="flex gap-1.5">
           {colonnes.groupes.map((s) => (
             <div key={s.jour} className="flex-1 flex flex-col">
@@ -208,6 +218,7 @@ function RythmeDeTest({ serie }: { serie: ReturnType<typeof courbesEstimees> }) 
         </div>
         {/* Un seul trait continu : un trait par colonne se lirait comme un empilement. */}
         <div className="absolute inset-x-0 h-px bg-gray-400" style={{ top: HAUT }} />
+      </div>
       </div>
       {recent && (
         <p className="border-t border-[#F3F4F6] pt-3 text-[12px] leading-relaxed text-gray-700">
@@ -303,7 +314,7 @@ function GrilleCreas({ toutes, ouvrir }: { toutes: PubVeille[]; ouvrir: (p: PubV
           ))}
         </div>
         <select aria-label="Trier les créatives" value={tri} onChange={(e) => setTri(e.target.value as (typeof TRIS)[number])}
-          className="select select-chevron ml-auto w-auto py-1.5 text-xs">
+          className="select select-chevron w-auto py-1.5 text-xs sm:ml-auto">
           {TRIS.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
@@ -373,7 +384,7 @@ function TableauTags({ libelles, total }: { libelles: Ligne[]; total: number }) 
           <th className="pb-2 text-left">Tag</th>
           <th className="pb-2 text-right">Part</th>
           <th className="pb-2 pl-3 text-right">Créas</th>
-          <th className="pb-2 pl-3 text-right">Jours moy.</th>
+          <th className="pb-2 pl-3 text-right"><span className="sm:hidden">Jours</span><span className="hidden sm:inline">Jours moy.</span></th>
         </tr>
       </thead>
       <tbody>
@@ -381,8 +392,10 @@ function TableauTags({ libelles, total }: { libelles: Ligne[]; total: number }) 
           <tr key={l.libelle} className="border-b border-[#F3F4F6] last:border-0">
             <td className="py-2.5 pr-3 text-[#0d0d12]">{l.libelle}</td>
             <td className="py-2.5 text-right tabular-nums text-gray-600">
-              <span className="flex items-center justify-end gap-2">
-                <span className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100">
+              <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+                {/* La barre est un confort : sur un téléphone elle vole la
+                    place du pourcentage, qui lui se lit toujours. */}
+                <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-gray-100 sm:block">
                   <span className="block h-full bg-[#3434ef]" style={{ width: `${(100 * l.n) / total}%` }} />
                 </span>
                 {pourcent(l.n / total)}
@@ -577,7 +590,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
   const laPlusLongue = premiere?.debut ? { pub: pub(premiere), jours: joursDeDiffusion(pub(premiere)) } : null
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3.5">
           <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3434ef] to-[#6d6dff] text-[15px] font-bold tracking-wide text-white">
@@ -598,7 +611,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <select aria-label="Catégorie de la marque" value={categorie} onChange={(e) => changerCategorie(e.target.value)} className="select select-chevron w-auto text-xs py-1.5">
             <option value="" disabled>Catégorie…</option>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -616,11 +629,11 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-5">
         <Chiffre libelle="Créatives actives" valeur={String(r.total)}
           apres={toutes ? `/ ${toutes.length} au total` : undefined}
           note="actives et arrêtées confondues" />
-        <Chiffre libelle={`Dépense est. ${periode === 365 ? '12 mois' : `${periode} j`}`} badge="estimation"
+        <Chiffre libelle={`Dépense ${periode === 365 ? '12 mois' : `${periode} jours`}`} badge="estimation"
           valeur={r.budget ? `${compact(r.budget.bas)}–${compact(r.budget.haut)} €` : '—'}
           note={r.budget ? 'Diffusion UE uniquement' : sansCouverture ? 'couverture inconnue : relancez un scan' : 'pas assez de créas à couverture connue'} />
         <Chiffre libelle="Jours en ligne, médiane" valeur={r.anciennete.mediane !== null ? String(r.anciennete.mediane) : '—'}
@@ -644,7 +657,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
           Une seule section, en cartes de grille : les dix-sept blocs pleine
           largeur ne disaient pas par quoi commencer. Le sélecteur de période
           gouverne tout ce qui suit. ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <h3 className="text-[17px] font-semibold text-[#0d0d12]">Analyse de la marque</h3>
         <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
           {PERIODES.map(([jours, libelle]) => (
@@ -718,7 +731,7 @@ export function RapportMarque({ marque, dossiers, retiree, pourClient }: {
       )}
 
       {/* ── Analyse IA ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <h3 className="text-[17px] font-semibold text-[#0d0d12]">
           Analyse IA <span className="badge-gray ml-1">Gemini</span>
         </h3>

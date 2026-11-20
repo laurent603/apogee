@@ -51,12 +51,14 @@ export function Courbe({ id, titre, aide, donnees, cle, format }: {
   id: string; titre: string; aide?: string; donnees: object[]; cle: string; format: (v: number) => string
 }) {
   return (
-    <div className="space-y-2">
+    // `min-w-0` partout : sans lui, la largeur minimale de recharts remonte
+    // la chaîne et pousse la colonne de grille, qui déborde de l'écran.
+    <div className="min-w-0 space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold text-[#0d0d12]">{titre}</p>
         {aide && <p className="text-xs text-gray-400">{aide}</p>}
       </div>
-      <div className="h-52">
+      <div className="h-52 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={donnees} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
             <defs>
