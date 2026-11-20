@@ -35,6 +35,9 @@ const MESSAGES = {
 
 export default function EspionPage() {
   const [extension, setExtension] = useState<boolean | null>(null)
+  // Le formulaire de scan se replie dès qu'une marque est ouverte : sinon il
+  // garde cinq cents pixels de contrôles au-dessus de ce qu'on est venu lire.
+  const [scanOuvert, setScanOuvert] = useState(false)
   const [recherche, setRecherche] = useState('')
   const [pays, setPays] = useState('FR')
   const [etat, setEtat] = useState<Etat>({ etape: 'attente' })
@@ -107,20 +110,43 @@ export default function EspionPage() {
     return [...n.values()].sort((a, b) => b.n - a.n)
   }, [pubs])
 
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="page-title">Espion</h1>
-        <p className="page-subtitle mt-0.5">Les pubs, actives et arrêtées, d’une marque ou d’un produit, lues dans la Meta Ad Library</p>
-      </div>
+  const ouvert = !!choisie || !!comparees
 
+  return (
+    <div className="min-w-0 space-y-4">
+      {ouvert ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => { setChoisie(null); setComparees(null) }}
+            className="text-sm text-[#3434ef] hover:underline">← Vue Marché</button>
+          {toutesMarques.length > 0 && (
+            <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''}
+              className="select select-chevron w-auto max-w-full py-1.5 text-xs"
+              onChange={(e) => { setComparees(null); setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null) }}>
+              <option value="" disabled>Changer de marque…</option>
+              {visibles.map((m) => <option key={m.id} value={m.id}>{m.nom}</option>)}
+            </select>
+          )}
+          <button type="button" onClick={() => setScanOuvert(!scanOuvert)}
+            className="ml-auto text-sm text-gray-500 hover:text-[#0d0d12]">
+            {scanOuvert ? 'Masquer le scan' : 'Scanner une marque'}
+          </button>
+        </div>
+      ) : (
+        <div>
+          <h1 className="page-title">Espion</h1>
+          <p className="page-subtitle mt-0.5">Les pubs, actives et arrêtées, d’une marque ou d’un produit, lues dans la Meta Ad Library</p>
+        </div>
+      )}
+
+      {(!ouvert || scanOuvert) && (
+        <>
       <form onSubmit={scanner} className="card flex flex-col sm:flex-row gap-2">
         <input
           value={recherche}
           onChange={(e) => setRecherche(e.target.value)}
           placeholder="Nom d’une marque, d’un produit, ou lien Ad Library"
           aria-label="Marque, produit ou lien Ad Library"
-          className="input flex-1"
+          className="input flex-1 min-w-0"
         />
         <select aria-label="Pays" value={pays} onChange={(e) => setPays(e.target.value)} className="select select-chevron sm:w-44">
           {PAYS.map(([code, nom]) => <option key={code} value={code}>{nom}</option>)}
@@ -130,9 +156,9 @@ export default function EspionPage() {
         </button>
       </form>
 
-      {toutesMarques.length > 0 && (
+      {toutesMarques.length > 0 && !ouvert && (
         <div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Revoir une marque espionnée" value={choisie?.id ?? ''} className="select select-chevron w-auto"
+          <select aria-label="Revoir une marque espionnée" value="" className="select select-chevron w-auto max-w-full"
             onChange={(e) => { setComparees(null); setChoisie(toutesMarques.find((m) => m.id === e.target.value) ?? null) }}>
             <option value="" disabled>Revoir une marque espionnée…</option>
             {visibles.map((m) => (
@@ -144,8 +170,10 @@ export default function EspionPage() {
               {cochees ? 'Annuler la comparaison' : 'Comparer plusieurs marques'}
             </button>
           )}
-          <div className="ml-auto"><ChoixSecteur s={secteurClient} voirTout={voirTout} setVoirTout={setVoirTout} /></div>
+          <div className="w-full sm:ml-auto sm:w-auto"><ChoixSecteur s={secteurClient} voirTout={voirTout} setVoirTout={setVoirTout} /></div>
         </div>
+      )}
+        </>
       )}
 
       {cochees && (
@@ -170,7 +198,7 @@ export default function EspionPage() {
         </div>
       )}
 
-      {extension === false && (
+      {extension === false && (!ouvert || scanOuvert) && (
         <div className="card text-sm text-gray-600 space-y-1">
           <p className="font-medium text-[#0d0d12]">L’extension Apogee Veille n’est pas détectée sur cette page.</p>
           <p>
@@ -220,10 +248,6 @@ export default function EspionPage() {
 
       {!comparees && !choisie && !enCours && (
         <VueMarche visible={(m) => visiblePourClient(secteurClient, voirTout, m)} ouvrir={(m) => setChoisie(m)} />
-      )}
-
-      {choisie && !comparees && (
-        <button type="button" onClick={() => setChoisie(null)} className="text-sm text-[#3434ef] hover:underline">← Vue Marché</button>
       )}
 
       {comparees ? (
