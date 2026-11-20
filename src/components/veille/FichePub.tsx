@@ -453,7 +453,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
    * pub. La fiche va les chercher elle-même plutôt que de les faire descendre
    * par props depuis les cinq endroits qui l'ouvrent.
    */
-  const [tags, setTags] = useState<Record<string, string | undefined> | null>(null)
+  const [tags, setTags] = useState<{ analysee: boolean; ligne: Record<string, string | undefined> | null } | null>(null)
   const media = pub.medias[index]
   const c = chiffresPub(pub, jours)
   const t = pub.transparence
@@ -470,7 +470,7 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
       fetch(`/api/veille/marques/analyse?marqueId=${pub.marque.id}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((a: { classement?: Record<string, string | undefined>[] } | null) =>
-          setTags(a?.classement?.find((c) => c.pubId === pub.id) ?? null))
+          setTags({ analysee: !!a?.classement?.length, ligne: a?.classement?.find((c) => c.pubId === pub.id) ?? null }))
     }
   }, [pub.id, pub.marque.id, lectureSeule])
 
@@ -605,6 +605,26 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
                       : 'Courbe jour par jour : la couverture des marques suivies est relevée chaque matin ; elle apparaît après deux relevés.'}
                   </p>
                 )}
+                {tags?.analysee && (
+                  <Section titre="Tags IA">
+                    {tags.ligne && AXES_IA.some(([cle]) => tags.ligne![cle]) ? (
+                      <dl className="space-y-2">
+                        {AXES_IA.filter(([cle]) => tags.ligne![cle]).map(([cle, libelle]) => (
+                          <div key={cle} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <dt className="w-44 shrink-0 text-xs text-gray-500">{libelle}</dt>
+                            <dd><span className="rounded-md bg-[#f0f0ff] px-2 py-1 text-xs font-medium text-[#3434ef]">{tags.ligne![cle]}</span></dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : (
+                      // Sans ce mot, l'absence de tags passe pour une panne.
+                      <p className="text-xs text-gray-400">
+                        Cette créa n’était pas dans la dernière analyse de la marque : celle-ci ne prend que les créas
+                        actives et celles arrêtées depuis moins de trente jours. Régénérez-la pour l’y inclure.
+                      </p>
+                    )}
+                  </Section>
+                )}
                 <dl className="rounded-xl border border-[#E5E7EB] divide-y divide-[#F3F4F6]">
                   {pub.lienUrl && (
                     <Ligne libelle="Page de destination">
@@ -631,18 +651,6 @@ export function FichePub({ pub, jours, actions, fermer, lectureSeule, apresMasqu
                   )}
                   {t?.payeur && <Ligne libelle="Payé par">{t.payeur}{t.beneficiaire && t.beneficiaire !== t.payeur && <>, pour {t.beneficiaire}</>}</Ligne>}
                 </dl>
-                {tags && AXES_IA.some(([cle]) => tags[cle]) && (
-                  <Section titre="Tags IA">
-                    <dl className="space-y-2">
-                      {AXES_IA.filter(([cle]) => tags[cle]).map(([cle, libelle]) => (
-                        <div key={cle} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <dt className="w-40 shrink-0 text-xs text-gray-500">{libelle}</dt>
-                          <dd><span className="rounded-md bg-[#f0f0ff] px-2 py-1 text-xs font-medium text-[#3434ef]">{tags[cle]}</span></dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </Section>
-                )}
                 <p className="text-xs text-gray-400">
                   Meta ne publie pas la dépense : estimation à {EUROS_POUR_MILLE_PERSONNES.toLocaleString('fr-FR')} € pour 1 000 personnes touchées
                   dans l’UE, répartie sur les jours de diffusion. L’écart avec le budget réel peut être fort.
